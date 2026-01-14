@@ -125,7 +125,13 @@ pytest experiments/tests/test_runner_integration.py
 
 ## 📈 评估
 
-使用 SWE-bench 官方评估框架：
+可以先简单地分析交互轮数，token等
+```bash
+python experiments/analyze_results.py
+```
+
+
+使用 SWE-bench 官方评估框架,但是最建议还是提交到sb-cli上评估比较快：
 
 ```bash
 python -m swebench.harness.run_evaluation \

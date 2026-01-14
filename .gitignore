@@ -14,8 +14,6 @@ build/
 env/
 venv/
 
-# Experiment outputs
-output/
 
 # Docker build artifacts
 docker/build_logs/*.log
