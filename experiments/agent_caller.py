@@ -3,6 +3,7 @@
 Agent 调用器：统一封装 Claude Code 和 Codex 的调用接口
 """
 import json
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -26,14 +27,16 @@ class AgentTrace:
 class AgentCaller:
     """统一的 Agent 调用接口"""
 
-    def __init__(self, agent_type: str = "claude_code"):
+    def __init__(self, agent_type: str = "claude_code", instance_id: Optional[str] = None):
         """
         初始化 Agent 调用器
 
         Args:
             agent_type: "claude_code" 或 "codex"
+            instance_id: SWE-bench 实例 ID（用于确定 Docker 镜像）
         """
         self.agent_type = agent_type
+        self.instance_id = instance_id
 
     def call(self, prompt: str, timeout: int = 600, trace_output_path: Optional[str] = None) -> AgentTrace:
         """
@@ -52,6 +55,31 @@ class AgentCaller:
             return self._call_codex(prompt, timeout, trace_output_path)
         else:
             raise ValueError(f"Unknown agent type: {self.agent_type}")
+
+    def _get_docker_image(self, instance_id: str) -> Optional[str]:
+        """
+        根据 instance_id 获取对应的 Docker 镜像名称
+        """
+        if not instance_id:
+            return None
+
+        # 镜像命名格式：swebench/sweb.eval.x86_64.{repo}_{version}_{instance_id}-agent:latest
+        # 需要将 instance_id 中的 __ 替换为 _
+        image_suffix = instance_id.replace("__", "_")
+
+        # 查找所有 swebench agent 镜像
+        result = subprocess.run(
+            ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode == 0:
+            for line in result.stdout.strip().split('\n'):
+                if image_suffix in line and line.endswith("-agent:latest"):
+                    return line
+
+        return None
 
     def _call_claude_code(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
         """调用 Claude Code"""
@@ -134,17 +162,57 @@ class AgentCaller:
 
     def _build_claude_command(self, prompt: str, trace_path: str) -> List[str]:
         """构建 Claude Code 命令"""
-        return [
-            "bash", "-c",
-            f"claude -p --verbose --output-format stream-json {json.dumps(prompt)} > {trace_path}"
-        ]
+        # 如果有 instance_id，尝试使用 Docker 容器
+        docker_image = self._get_docker_image(self.instance_id) if self.instance_id else None
+
+        if docker_image:
+            # 在 Docker 容器内执行
+            # 需要将宿主机的 trace_path 映射到容器内
+            container_trace_path = "/workspace/output/trace.jsonl"
+            host_trace_dir = str(Path(trace_path).parent.absolute())
+
+            return [
+                "docker", "run", "--rm",
+                "-v", f"{host_trace_dir}:/workspace/output",
+                "-e", f"ANTHROPIC_API_KEY={os.environ.get('ANTHROPIC_API_KEY', '')}",
+                "-e", f"ANTHROPIC_BASE_URL={os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')}",
+                "--network", "host",
+                docker_image,
+                "bash", "-c",
+                f"cd /testbed && claude -p --verbose --output-format stream-json {json.dumps(prompt)} > {container_trace_path}"
+            ]
+        else:
+            # 直接在宿主机执行
+            return [
+                "bash", "-c",
+                f"claude -p --verbose --output-format stream-json {json.dumps(prompt)} > {trace_path}"
+            ]
 
     def _build_codex_command(self, prompt: str, trace_path: str) -> List[str]:
         """构建 Codex 命令"""
-        return [
-            "bash", "-c",
-            f"codex exec {json.dumps(prompt)} --json --skip-git-repo-check > {trace_path}"
-        ]
+        # 如果有 instance_id，尝试使用 Docker 容器
+        docker_image = self._get_docker_image(self.instance_id) if self.instance_id else None
+
+        if docker_image:
+            # 在 Docker 容器内执行
+            container_trace_path = "/workspace/output/trace.jsonl"
+            host_trace_dir = str(Path(trace_path).parent.absolute())
+
+            return [
+                "docker", "run", "--rm",
+                "-v", f"{host_trace_dir}:/workspace/output",
+                "-e", f"OPENAI_API_KEY={os.environ.get('OPENAI_API_KEY', '')}",
+                "--network", "host",
+                docker_image,
+                "bash", "-c",
+                f"cd /testbed && codex exec {json.dumps(prompt)} --json --skip-git-repo-check > {container_trace_path}"
+            ]
+        else:
+            # 直接在宿主机执行
+            return [
+                "bash", "-c",
+                f"codex exec {json.dumps(prompt)} --json --skip-git-repo-check > {trace_path}"
+            ]
 
     def _call_codex(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
         """调用 Codex"""

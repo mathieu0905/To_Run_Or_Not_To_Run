@@ -109,7 +109,7 @@ def run_experiment(
     # 3. 调用 agent（trace 实时写入到输出目录）
     print(f"Calling {agent_type} agent (timeout={timeout}s)...")
     trace_file = instance_output_dir / "trace.jsonl"
-    caller = AgentCaller(agent_type=agent_type)
+    caller = AgentCaller(agent_type=agent_type, instance_id=instance_id)
     trace: AgentTrace = caller.call(prompt, timeout=timeout, trace_output_path=str(trace_file))
     print(f"Trace saved to: {trace_file}")
 
