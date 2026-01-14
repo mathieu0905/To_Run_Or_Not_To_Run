@@ -83,7 +83,7 @@ Remember: You can use bash commands to view code, but cannot run tests or script
 
 **EXECUTION CONSTRAINT: You can run Python code at most {k} times.**
 
-Each execution is precious. Make every run count by planning carefully before executing.
+Each execution is precious. Use your execution budget wisely.
 
 ## Repository Information
 - Repository: {repo}
@@ -100,41 +100,20 @@ Each execution is precious. Make every run count by planning carefully before ex
 ## What You CANNOT Do
 - Use git commands (git may interfere with the experimental environment)
 
-## Why Running Tests Helps
-Running tests is valuable for:
-1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
-2. **Verifying the fix**: A passing test confirms your fix actually works
-3. **Catching regressions**: Tests ensure you haven't broken other functionality
+## How Execution Can Help
+Running code is valuable for:
+1. **Reproducing the bug**: A failing test helps you understand exactly what's broken
+2. **Verifying your fix**: A passing test confirms your solution actually works
 
-## Recommended Workflow
-
-### Step 1: Write a Test Script
-Based on the problem description, write a simple test script to reproduce the issue:
-```python
-# test_bug.py
-def test_issue():
-    result = some_function(test_input)
-    print(f"Result: {{result}}")
-    assert result == expected_output, f"Expected X, got {{result}}"
-
-if __name__ == "__main__":
-    test_issue()
-```
-
-### Step 2: Run Test to Confirm the Bug
-Run your test script to verify the bug exists and understand the failure.
-
-### Step 3: Analyze and Fix
-1. Read the relevant source code
-2. Identify the root cause
-3. Implement the fix
-
-### Step 4: Run Test to Verify the Fix
-Run the test again to confirm your fix works.
+You decide how to use your {k} execution opportunities. Consider:
+- If the problem description is clear, you might analyze the code and implement a fix directly
+- If the bug is unclear, you might use an execution to reproduce and understand it first
+- If you're confident in your fix, you might use an execution to verify it works
+- If you have very high confidence, you might not need to execute at all
 
 ## Execution Budget
 - Total allowed: {k} runs
-- After each run, track: "Remaining runs: X"
+- After each run, output: "Remaining runs: X"
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**
