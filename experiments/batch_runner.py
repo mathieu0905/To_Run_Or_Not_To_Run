@@ -203,8 +203,14 @@ def main():
         results = runner.run_batch(instances, mode, k, agent_type, timeout)
 
         # 返回状态码
+        # 如果没有新运行的实例（都被跳过），返回成功
+        if len(results) == 0:
+            print("所有实例都已完成，无需重新运行")
+            sys.exit(0)
+
+        # 否则，检查新运行的实例是否都成功
         success_count = sum(1 for r in results.values() if r and r.success)
-        sys.exit(0 if success_count == len(instances) else 1)
+        sys.exit(0 if success_count == len(results) else 1)
 
     except KeyboardInterrupt:
         print("\n\nInterrupted by user. Progress has been saved to checkpoint.")
