@@ -11,16 +11,3 @@ index f32ce64629..71005490f3 100644
      }
      description = _("Duration")
  
-diff --git a/tests/model_fields/test_durationfield.py b/tests/model_fields/test_durationfield.py
-index b73994f86a..f1c82ab8bd 100644
---- a/tests/model_fields/test_durationfield.py
-+++ b/tests/model_fields/test_durationfield.py
-@@ -75,7 +75,7 @@ class TestValidation(SimpleTestCase):
-         self.assertEqual(
-             cm.exception.message % cm.exception.params,
-             "'not a datetime' value has an invalid format. "
--            "It must be in [DD] [HH:[MM:]]ss[.uuuuuu] format."
-+            "It must be in [DD] [[HH:]MM:]ss[.uuuuuu] format."
-         )
- 
- 

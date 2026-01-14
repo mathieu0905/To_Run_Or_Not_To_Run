@@ -1,35 +1,22 @@
-diff --git a/django/core/files/storage.py b/django/core/files/storage.py
-index 4c27fce605..53b49be434 100644
---- a/django/core/files/storage.py
-+++ b/django/core/files/storage.py
-@@ -332,7 +332,11 @@ class FileSystemStorage(Storage):
-         url = filepath_to_uri(name)
-         if url is not None:
-             url = url.lstrip('/')
--        return urljoin(self.base_url, url)
-+        final_url = urljoin(self.base_url, url)
-+        if self.base_url.startswith('/'):
-+            from django.urls import get_script_prefix
-+            final_url = get_script_prefix().rstrip('/') + final_url
-+        return final_url
- 
-     def _datetime_from_timestamp(self, ts):
-         """
 diff --git a/django/templatetags/static.py b/django/templatetags/static.py
-index 39712aaba0..adcb37833c 100644
+index 39712aaba0..cb46f6e312 100644
 --- a/django/templatetags/static.py
 +++ b/django/templatetags/static.py
-@@ -40,10 +40,13 @@ class PrefixNode(template.Node):
-     def handle_simple(cls, name):
-         try:
-             from django.conf import settings
-+            from django.urls import get_script_prefix
-         except ImportError:
-             prefix = ''
-         else:
-             prefix = iri_to_uri(getattr(settings, name, ''))
-+            if prefix.startswith('/'):
-+                prefix = get_script_prefix().rstrip('/') + prefix
-         return prefix
+@@ -2,6 +2,7 @@ from urllib.parse import quote, urljoin
+ 
+ from django import template
+ from django.apps import apps
++from django.urls import get_script_prefix
+ from django.utils.encoding import iri_to_uri
+ from django.utils.html import conditional_escape
+ 
+@@ -48,6 +49,9 @@ class PrefixNode(template.Node):
  
      def render(self, context):
+         prefix = self.handle_simple(self.name)
++        script_prefix = get_script_prefix()
++        if script_prefix != '/':
++            prefix = urljoin(script_prefix, prefix.lstrip('/'))
+         if self.varname is None:
+             return prefix
+         context[self.varname] = prefix

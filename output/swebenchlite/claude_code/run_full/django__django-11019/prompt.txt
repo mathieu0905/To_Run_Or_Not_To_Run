@@ -1,9 +1,5 @@
 You are a code repair expert. Your task is to fix the following bug.
 
-**EXECUTION CONSTRAINT: You have UNLIMITED Python executions.**
-
-Feel free to run tests and scripts as many times as needed to debug and verify your fix.
-
 ## Repository Information
 - Repository: django/django
 - Base Commit: 93e892bb645b16ebaf287beb5fe7f3ffe8d10408
@@ -37,45 +33,18 @@ The MediaOrderConflictWarning is a result of the order that the additions happen
 The final result is particularly unintuitive here, as it's worse than the "naïve" result produced by Django 1.11 before order-checking was added (color-picker.js, text-editor.js, text-editor-extras.js), and the pair of files reported in the warning message seems wrong too (aren't color-picker.js and text-editor.js the wrong-ordered ones?)
 
 
+## Execution Constraint
+**You have UNLIMITED Python executions.**
+
+Feel free to run tests and scripts as many times as needed.
+
 ## What You CAN Do
-- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
-- Read and analyze code - UNLIMITED
-- Run Python code (tests, scripts) - **UNLIMITED**
+- Use bash commands to view files (ls, cat, grep, find, etc.)
+- Read and analyze code
+- Run Python code (tests, scripts)
 
 ## What You CANNOT Do
 - Use git commands (git may interfere with the experimental environment)
-
-## Why Running Tests Helps
-Running tests is valuable for:
-1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
-2. **Verifying the fix**: A passing test confirms your fix actually works
-3. **Catching regressions**: Tests ensure you haven't broken other functionality
-
-## Recommended Workflow
-
-### Step 1: Write a Test Script
-Based on the problem description, write a simple test script to reproduce the issue:
-```python
-# test_bug.py
-def test_issue():
-    result = some_function(test_input)
-    print(f"Result: {result}")
-    assert result == expected_output, f"Expected X, got {result}"
-
-if __name__ == "__main__":
-    test_issue()
-```
-
-### Step 2: Run Test to Confirm the Bug
-Run your test script to verify the bug exists and understand the failure.
-
-### Step 3: Analyze and Fix
-1. Read the relevant source code
-2. Identify the root cause
-3. Implement the fix
-
-### Step 4: Run Test to Verify the Fix
-Run the test again to confirm your fix works. If it fails, iterate on steps 3-4.
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**

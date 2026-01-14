@@ -1,0 +1,63 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**CRITICAL CONSTRAINT: You CANNOT run tests or execute Python scripts.**
+
+You must generate a fix by reading code, understanding logic, and reasoning about the root cause.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 93e892bb645b16ebaf287beb5fe7f3ffe8d10408
+
+## Problem Description
+Merging 3 or more media objects can throw unnecessary MediaOrderConflictWarnings
+Description
+	
+Consider the following form definition, where text-editor-extras.js depends on text-editor.js but all other JS files are independent:
+from django import forms
+class ColorPicker(forms.Widget):
+	class Media:
+		js = ['color-picker.js']
+class SimpleTextWidget(forms.Widget):
+	class Media:
+		js = ['text-editor.js']
+class FancyTextWidget(forms.Widget):
+	class Media:
+		js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+class MyForm(forms.Form):
+	background_color = forms.CharField(widget=ColorPicker())
+	intro = forms.CharField(widget=SimpleTextWidget())
+	body = forms.CharField(widget=FancyTextWidget())
+Django should be able to resolve the JS files for the final form into the order text-editor.js, text-editor-extras.js, color-picker.js. However, accessing MyForm().media results in:
+/projects/django/django/forms/widgets.py:145: MediaOrderConflictWarning: Detected duplicate Media files in an opposite order:
+text-editor-extras.js
+text-editor.js
+ MediaOrderConflictWarning,
+Media(css={}, js=['text-editor-extras.js', 'color-picker.js', 'text-editor.js'])
+The MediaOrderConflictWarning is a result of the order that the additions happen in: ColorPicker().media + SimpleTextWidget().media produces Media(css={}, js=['color-picker.js', 'text-editor.js']), which (wrongly) imposes the constraint that color-picker.js must appear before text-editor.js.
+The final result is particularly unintuitive here, as it's worse than the "naïve" result produced by Django 1.11 before order-checking was added (color-picker.js, text-editor.js, text-editor-extras.js), and the pair of files reported in the warning message seems wrong too (aren't color-picker.js and text-editor.js the wrong-ordered ones?)
+
+
+## What You CAN Do
+✅ Use bash commands to view files (ls, cat, grep, find, etc.)
+✅ Read and analyze code
+✅ Reason and think
+
+## What You CANNOT Do
+❌ Run pytest or any tests
+❌ Execute Python scripts (python xxx.py)
+❌ Run any commands that execute code
+❌ Use git commands (git may interfere with the experimental environment)
+
+## Task Requirements
+1. Carefully read relevant code files (you can read multiple times)
+2. Analyze the root cause of the problem
+3. Reason out the correct fix
+4. Double-check your fix logic
+5. **Use the Edit tool to actually modify the source files**
+
+## CRITICAL: You MUST Actually Modify Files
+- Do NOT just output a diff as text
+- You MUST use the Edit tool to make actual changes to the source files
+- After editing, the changes will be captured by git diff automatically
+
+Remember: You can use bash commands to view code, but cannot run tests or scripts to verify. Ensure correctness through careful logical reasoning.

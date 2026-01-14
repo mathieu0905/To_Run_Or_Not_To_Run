@@ -1,0 +1,42 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: fee75d2aed4e58ada6567c464cfd22e89dc65f4a
+
+## Problem Description
+Add check to ensure max_length fits longest choice.
+Description
+	
+There is currently no check to ensure that Field.max_length is large enough to fit the longest value in Field.choices.
+This would be very helpful as often this mistake is not noticed until an attempt is made to save a record with those values that are too long.
+
+
+## Execution Constraint
+**You have a limited execution budget of 3.0 cost points.**
+
+Different executions have different costs. Estimate the cost before each execution:
+- Running full test suites (pytest, unittest, Django tests, etc.): ~1.0 point
+- Running simple scripts (python script.py): ~0.3 point
+
+Before each execution, output:
+```
+[EXECUTION] Estimated cost: X.X points | Remaining budget: Y.Y points | Purpose: ...
+```
+
+After each execution, output:
+```
+Remaining budget: X.X points
+```
+
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.)
+- Read and analyze code
+- Run Python code (costs budget points)
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

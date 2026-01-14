@@ -1,5 +1,5 @@
 diff --git a/django/http/response.py b/django/http/response.py
-index 6a84e193ba..507322473e 100644
+index 6a84e193ba..e0a42aeb14 100644
 --- a/django/http/response.py
 +++ b/django/http/response.py
 @@ -233,6 +233,8 @@ class HttpResponseBase:
@@ -7,15 +7,15 @@ index 6a84e193ba..507322473e 100644
          if isinstance(value, str):
              return bytes(value.encode(self.charset))
 +        if isinstance(value, memoryview):
-+            return bytes(value)
++            return value.tobytes()
          # Handle non-string types.
          return str(value).encode(self.charset)
  
 diff --git a/tests/responses/tests.py b/tests/responses/tests.py
-index 934e4dfe60..d78b2e22f3 100644
+index 934e4dfe60..e59d5d95c9 100644
 --- a/tests/responses/tests.py
 +++ b/tests/responses/tests.py
-@@ -154,3 +154,15 @@ class HttpResponseTests(SimpleTestCase):
+@@ -154,3 +154,9 @@ class HttpResponseTests(SimpleTestCase):
          cache.set('my-response-key', response)
          response = cache.get('my-response-key')
          self.assertEqual(response.content, b'0123456789')
@@ -24,10 +24,4 @@ index 934e4dfe60..d78b2e22f3 100644
 +        """HttpResponse should handle memoryview objects correctly."""
 +        content = b"My Content"
 +        response = HttpResponse(memoryview(content))
-+        self.assertEqual(response.content, content)
-+
-+    def test_memoryview_from_bytearray(self):
-+        """HttpResponse should handle memoryview from bytearray."""
-+        content = b"My Content"
-+        response = HttpResponse(memoryview(bytearray(content)))
 +        self.assertEqual(response.content, content)

@@ -1,9 +1,5 @@
 You are a code repair expert. Your task is to fix the following bug.
 
-**EXECUTION CONSTRAINT: You can run Python code at most 1 times.**
-
-Each execution is precious. Use your execution budget wisely.
-
 ## Repository Information
 - Repository: astropy/astropy
 - Base Commit: 7269fa3e33e8d02485a647da91a5a2a60a06af61
@@ -59,28 +55,30 @@ Matplotlib 3.6.3
 
 
 
+## Execution Constraint
+**You have a limited execution budget of 1.0 cost points.**
+
+Different executions have different costs. Estimate the cost before each execution:
+- Running full test suites (pytest, unittest, Django tests, etc.): ~1.0 point
+- Running simple scripts (python script.py): ~0.3 point
+
+Before each execution, output:
+```
+[EXECUTION] Estimated cost: X.X points | Remaining budget: Y.Y points | Purpose: ...
+```
+
+After each execution, output:
+```
+Remaining budget: X.X points
+```
+
 ## What You CAN Do
-- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
-- Read and analyze code - UNLIMITED
-- Run Python code (tests, scripts) - **at most 1 times**
+- Use bash commands to view files (ls, cat, grep, find, etc.)
+- Read and analyze code
+- Run Python code (costs budget points)
 
 ## What You CANNOT Do
 - Use git commands (git may interfere with the experimental environment)
-
-## How Execution Can Help
-Running code is valuable for:
-1. **Reproducing the bug**: A failing test helps you understand exactly what's broken
-2. **Verifying your fix**: A passing test confirms your solution actually works
-
-You decide how to use your 1 execution opportunities. Consider:
-- If the problem description is clear, you might analyze the code and implement a fix directly
-- If the bug is unclear, you might use an execution to reproduce and understand it first
-- If you're confident in your fix, you might use an execution to verify it works
-- If you have very high confidence, you might not need to execute at all
-
-## Execution Budget
-- Total allowed: 1 runs
-- After each run, output: "Remaining runs: X"
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**

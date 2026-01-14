@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
-"""分析实验结果的脚本"""
+"""分析实验结果的脚本
+
+默认统计：
+- tokens (input/output)
+- 执行次数（高成本/低成本）
+- 交互轮数
+- 用时
+- 是否生成 patch
+
+可选：若提供 SWE-bench harness 的 `run_id`，则额外统计：
+- patch 是否成功应用（patch_successfully_applied）
+- 是否通过官方评测（resolved）
+"""
 
 import json
 import os
+import argparse
 from pathlib import Path
 from collections import defaultdict
 
@@ -99,9 +112,67 @@ def check_patch(patch_path):
         content = f.read().strip()
     return len(content) > 0
 
-def analyze(output_dir):
+def _read_json(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _find_eval_report(
+    eval_root: Path,
+    run_id: str,
+    agent: str,
+    mode: str,
+    instance: str,
+) -> Path | None:
+    """
+    SWE-bench harness report location:
+      logs/run_evaluation/{run_id}/{model_name_or_path}/{instance_id}/report.json
+
+    Note: harness will replace "/" with "__" when creating the model directory.
+    """
+    model_dir_candidates = [
+        f"{agent}__{mode}",     # if model_name_or_path = "{agent}/{mode}"
+        f"{agent}_{mode}",      # fallback (if someone uses underscores)
+        f"{agent}-{mode}",      # fallback
+        mode,                   # fallback
+    ]
+    for model_dir in model_dir_candidates:
+        candidate = eval_root / run_id / model_dir / instance / "report.json"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _get_eval_status(
+    eval_root: Path,
+    run_id: str | None,
+    agent: str,
+    mode: str,
+    instance: str,
+) -> dict | None:
+    if not run_id:
+        return None
+    report_path = _find_eval_report(eval_root, run_id, agent, mode, instance)
+    if not report_path:
+        return None
+    report = _read_json(report_path)
+    if not isinstance(report, dict):
+        return None
+    per_instance = report.get(instance)
+    if not isinstance(per_instance, dict):
+        return None
+    return {
+        "patch_successfully_applied": bool(per_instance.get("patch_successfully_applied", False)),
+        "resolved": bool(per_instance.get("resolved", False)),
+    }
+
+
+def analyze(output_dir: str, eval_root: str | None = None, eval_run_id: str | None = None):
     """分析输出目录"""
     output_dir = Path(output_dir)
+    eval_root_path = Path(eval_root) if eval_root else (Path(__file__).parent.parent / "logs" / "run_evaluation")
     results = defaultdict(lambda: defaultdict(dict))
 
     for agent_dir in output_dir.iterdir():
@@ -125,6 +196,7 @@ def analyze(output_dir):
                 if trace_path.exists():
                     tokens, exec_count, high_cost_exec, low_cost_exec, turns, duration_ms = count_tokens_and_execs(trace_path)
                     has_patch = check_patch(patch_path)
+                    eval_status = _get_eval_status(eval_root_path, eval_run_id, agent, mode, instance)
 
                     results[agent][mode][instance] = {
                         "tokens": tokens,
@@ -133,12 +205,13 @@ def analyze(output_dir):
                         "low_cost_exec": low_cost_exec,
                         "turns": turns,
                         "duration_ms": duration_ms,
-                        "has_patch": has_patch
+                        "has_patch": has_patch,
+                        "eval": eval_status,
                     }
 
     return results
 
-def print_summary(results):
+def print_summary(results, show_eval: bool = False):
     """打印汇总"""
     print("=" * 110)
     print("实验结果分析")
@@ -147,7 +220,10 @@ def print_summary(results):
     for agent, modes in sorted(results.items()):
         print(f"\n### Agent: {agent}")
         print("-" * 130)
-        print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'High-Cost':<11} {'Low-Cost':<10} {'Avg Time':<12} {'Patch'}")
+        if show_eval:
+            print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'High-Cost':<11} {'Low-Cost':<10} {'Avg Time':<12} {'Patch':<9} {'Applied':<9} {'Resolved'}")
+        else:
+            print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'High-Cost':<11} {'Low-Cost':<10} {'Avg Time':<12} {'Patch'}")
         print("-" * 130)
 
         for mode, instances in sorted(modes.items()):
@@ -169,7 +245,24 @@ def print_summary(results):
             avg_low_cost = total_low_cost / n if n > 0 else 0
             avg_duration_sec = (total_duration / n / 1000) if n > 0 else 0
 
-            print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_high_cost:<11.1f} {avg_low_cost:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n}")
+            if show_eval:
+                applied = 0
+                resolved = 0
+                evaluated = 0
+                for v in instances.values():
+                    ev = v.get("eval")
+                    if not ev:
+                        continue
+                    evaluated += 1
+                    if ev.get("patch_successfully_applied"):
+                        applied += 1
+                    if ev.get("resolved"):
+                        resolved += 1
+                applied_str = f"{applied}/{evaluated}" if evaluated else "NA"
+                resolved_str = f"{resolved}/{evaluated}" if evaluated else "NA"
+                print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_high_cost:<11.1f} {avg_low_cost:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n:<9} {applied_str:<9} {resolved_str}")
+            else:
+                print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_high_cost:<11.1f} {avg_low_cost:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n}")
 
     # 详细信息
     # print("\n" + "=" * 110)
@@ -186,11 +279,15 @@ def print_summary(results):
     #             print(f"  {inst}: input={t['input']}, output={t['output']}, total={t['input']+t['output']}, turns={data['turns']}, execs={data['exec_count']}, time={duration_sec:.1f}s, patch={patch_mark}")
 
 if __name__ == "__main__":
-    import sys
+    parser = argparse.ArgumentParser(description="Analyze experiment outputs.")
+    parser.add_argument("output_dir", nargs="?", default=None, help="Output directory to analyze (default: both datasets under ./output)")
+    parser.add_argument("--eval-run-id", default=None, help="SWE-bench harness run_id (enables Applied/Resolved columns)")
+    parser.add_argument("--eval-root", default=None, help="Path to logs/run_evaluation (default: ./logs/run_evaluation)")
+    args = parser.parse_args()
 
     # 默认分析两个数据集
-    if len(sys.argv) > 1:
-        output_dirs = [sys.argv[1]]
+    if args.output_dir:
+        output_dirs = [args.output_dir]
     else:
         base_dir = "/home/zhihao/hdd/run_free_run_less_run_full/output"
         output_dirs = [
@@ -208,5 +305,5 @@ if __name__ == "__main__":
         print(f"数据集: {os.path.basename(output_dir)}")
         print(f"{'='*120}")
 
-        results = analyze(output_dir)
-        print_summary(results)
+        results = analyze(output_dir, eval_root=args.eval_root, eval_run_id=args.eval_run_id)
+        print_summary(results, show_eval=bool(args.eval_run_id))

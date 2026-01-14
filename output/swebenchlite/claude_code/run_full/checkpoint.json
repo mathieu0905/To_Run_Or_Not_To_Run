@@ -1,14 +1,16 @@
 {
   "completed": [
-    "astropy__astropy-12907",
-    "astropy__astropy-14995",
-    "astropy__astropy-7746",
-    "django__django-11001",
-    "django__django-10914",
+    "django__django-11905",
+    "django__django-11999",
     "astropy__astropy-14182",
     "django__django-11019",
-    "astropy__astropy-6938",
+    "astropy__astropy-14995",
+    "django__django-11049",
+    "django__django-11910",
+    "django__django-12113",
+    "django__django-11964",
+    "astropy__astropy-12907",
     "astropy__astropy-14365",
-    "django__django-10924"
+    "django__django-11848"
   ]
 }

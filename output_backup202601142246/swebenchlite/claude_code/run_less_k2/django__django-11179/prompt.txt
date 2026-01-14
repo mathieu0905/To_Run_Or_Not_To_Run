@@ -1,0 +1,44 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**EXECUTION CONSTRAINT: You can run Python code at most 2 times.**
+
+Each execution is precious. Use your execution budget wisely.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 19fc6376ce67d01ca37a91ef2f55ef769f50513a
+
+## Problem Description
+delete() on instances of models without any dependencies doesn't clear PKs.
+Description
+	
+Deleting any model with no dependencies not updates the PK on the model. It should be set to None after .delete() call.
+See Django.db.models.deletion:276-281. Should update the model line 280.
+
+
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
+- Read and analyze code - UNLIMITED
+- Run Python code (tests, scripts) - **at most 2 times**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## How Execution Can Help
+Running code is valuable for:
+1. **Reproducing the bug**: A failing test helps you understand exactly what's broken
+2. **Verifying your fix**: A passing test confirms your solution actually works
+
+You decide how to use your 2 execution opportunities. Consider:
+- If the problem description is clear, you might analyze the code and implement a fix directly
+- If the bug is unclear, you might use an execution to reproduce and understand it first
+- If you're confident in your fix, you might use an execution to verify it works
+- If you have very high confidence, you might not need to execute at all
+
+## Execution Budget
+- Total allowed: 2 runs
+- After each run, output: "Remaining runs: X"
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

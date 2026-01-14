@@ -1,9 +1,5 @@
 You are a code repair expert. Your task is to fix the following bug.
 
-**EXECUTION CONSTRAINT: You can run Python code at most 3 times.**
-
-Each execution is precious. Make every run count by planning carefully before executing.
-
 ## Repository Information
 - Repository: django/django
 - Base Commit: ef082ebb84f00e38af4e8880d04e8365c2766d34
@@ -45,49 +41,30 @@ The bug filed here is about wrong identification of duplicates (because it compa
 Hope my notes will help you fixing the issue. Sorry for my english.
 
 
+## Execution Constraint
+**You have a limited execution budget of 3.0 cost points.**
+
+Different executions have different costs. Estimate the cost before each execution:
+- Running full test suites (pytest, unittest, Django tests, etc.): ~1.0 point
+- Running simple scripts (python script.py): ~0.3 point
+
+Before each execution, output:
+```
+[EXECUTION] Estimated cost: X.X points | Remaining budget: Y.Y points | Purpose: ...
+```
+
+After each execution, output:
+```
+Remaining budget: X.X points
+```
+
 ## What You CAN Do
-- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
-- Read and analyze code - UNLIMITED
-- Run Python code (tests, scripts) - **at most 3 times**
+- Use bash commands to view files (ls, cat, grep, find, etc.)
+- Read and analyze code
+- Run Python code (costs budget points)
 
 ## What You CANNOT Do
 - Use git commands (git may interfere with the experimental environment)
-
-## Why Running Tests Helps
-Running tests is valuable for:
-1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
-2. **Verifying the fix**: A passing test confirms your fix actually works
-3. **Catching regressions**: Tests ensure you haven't broken other functionality
-
-## Recommended Workflow
-
-### Step 1: Write a Test Script
-Based on the problem description, write a simple test script to reproduce the issue:
-```python
-# test_bug.py
-def test_issue():
-    result = some_function(test_input)
-    print(f"Result: {result}")
-    assert result == expected_output, f"Expected X, got {result}"
-
-if __name__ == "__main__":
-    test_issue()
-```
-
-### Step 2: Run Test to Confirm the Bug
-Run your test script to verify the bug exists and understand the failure.
-
-### Step 3: Analyze and Fix
-1. Read the relevant source code
-2. Identify the root cause
-3. Implement the fix
-
-### Step 4: Run Test to Verify the Fix
-Run the test again to confirm your fix works.
-
-## Execution Budget
-- Total allowed: 3 runs
-- After each run, track: "Remaining runs: X"
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**

@@ -1,17 +1,8 @@
 diff --git a/django/forms/widgets.py b/django/forms/widgets.py
-index 02aa32b207..44592817f6 100644
+index 02aa32b207..d81221e3c0 100644
 --- a/django/forms/widgets.py
 +++ b/django/forms/widgets.py
-@@ -127,6 +127,8 @@ class Media:
-         """
-         # Start with a copy of list_1.
-         combined_list = list(list_1)
-+        # Track which items were in the original list_1 to detect real conflicts
-+        list_1_items = set(list_1)
-         last_insert_index = len(list_1)
-         # Walk list_2 in reverse, inserting each element into combined_list if
-         # it doesn't already exist.
-@@ -139,11 +141,16 @@ class Media:
+@@ -139,11 +139,22 @@ class Media:
                  combined_list.insert(last_insert_index, path)
              else:
                  if index > last_insert_index:
@@ -20,16 +11,22 @@ index 02aa32b207..44592817f6 100644
 -                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
 -                        MediaOrderConflictWarning,
 -                    )
-+                    # Check if this is a real conflict: both items must have been
-+                    # in list_1 originally to establish a meaningful order.
-+                    if (path in list_1_items and
-+                        last_insert_index < len(combined_list) and
-+                        combined_list[last_insert_index] in list_1_items):
-+                        warnings.warn(
-+                            'Detected duplicate Media files in an opposite order:\n'
-+                            '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
-+                            MediaOrderConflictWarning,
-+                        )
++                    # Only warn if the conflicting order appears in list_2,
++                    # which means it's a real dependency violation.
++                    conflicting_path = combined_list[last_insert_index]
++                    try:
++                        list_2_index = list_2.index(path)
++                        conflicting_index = list_2.index(conflicting_path)
++                        if conflicting_index < list_2_index:
++                            # The order in list_2 conflicts with the order in combined_list
++                            warnings.warn(
++                                'Detected duplicate Media files in an opposite order:\n'
++                                '%s\n%s' % (path, conflicting_path),
++                                MediaOrderConflictWarning,
++                            )
++                    except ValueError:
++                        # conflicting_path is not in list_2, so this is not a real conflict
++                        pass
                  # path already exists in the list. Update last_insert_index so
                  # that the following elements are inserted in front of this one.
                  last_insert_index = index
