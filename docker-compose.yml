@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  swebench-runner:
+    image: swebench/sweb.eval.x86_64.base:latest
+    container_name: swebench-runner
+    working_dir: /workspace
+    volumes:
+      # 挂载项目目录到容器
+      - ./:/workspace
+      # 挂载输出目录（实时同步）
+      - ./output:/workspace/output
+      # 挂载数据目录
+      - ./data:/workspace/data
+    environment:
+      # Claude Code 认证
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      # Codex 认证
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # 代理设置（如果需要）
+      - http_proxy=${http_proxy:-}
+      - https_proxy=${https_proxy:-}
+    network_mode: host
+    stdin_open: true
+    tty: true
+    command: >
+      bash -c "
+      if [ -f ~/.claude/settings.json ]; then
+        sed -i '/"language":/d' ~/.claude/settings.json;
+      fi;
+      exec /bin/bash"
+
+  # 用于批量运行的服务（可选）
+  swebench-batch:
+    image: swebench/sweb.eval.x86_64.base:latest
+    container_name: swebench-batch
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - ./output:/workspace/output
+      - ./data:/workspace/data
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - http_proxy=${http_proxy:-}
+      - https_proxy=${https_proxy:-}
+    network_mode: host
+    stdin_open: true
+    tty: true
+    command: >
+      bash -c "
+      if [ -f ~/.claude/settings.json ]; then
+        sed -i '/"language":/d' ~/.claude/settings.json;
+      fi;
+      exec /bin/bash"

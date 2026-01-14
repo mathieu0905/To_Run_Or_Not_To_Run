@@ -5,7 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 DOCKERFILE = Path(__file__).parent / "Dockerfile.agent-overlay"
-IMAGE_LIST = Path(__file__).parent / "image_list.txt"
+IMAGE_LIST_LITE = Path(__file__).parent / "image_list.txt"
+IMAGE_LIST_VERIFIED = Path(__file__).parent / "image_list_verified.txt"
 LOG_DIR = Path(__file__).parent / "build_logs"
 MAX_WORKERS = 16
 
@@ -73,9 +74,26 @@ def build_one(base_image: str) -> tuple[str, bool, str]:
     return base_image, True, "ok"
 
 def main():
-    images = [l.strip() for l in IMAGE_LIST.read_text().splitlines() if l.strip()]
+    dataset = "lite"
+    if len(sys.argv) > 1:
+        dataset = sys.argv[1].lower()
+
+    if dataset == "verified":
+        image_list = IMAGE_LIST_VERIFIED
+    elif dataset == "lite":
+        image_list = IMAGE_LIST_LITE
+    else:
+        print(f"Usage: {sys.argv[0]} [lite|verified]")
+        print(f"Unknown dataset: {dataset}")
+        sys.exit(1)
+
+    if not image_list.exists():
+        print(f"Error: Image list not found: {image_list}")
+        sys.exit(1)
+
+    images = [l.strip() for l in image_list.read_text().splitlines() if l.strip()]
     total = len(images)
-    print(f"Building {total} images with {MAX_WORKERS} workers...")
+    print(f"Building {total} images from {dataset} dataset with {MAX_WORKERS} workers...")
 
     success, failed = 0, []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:

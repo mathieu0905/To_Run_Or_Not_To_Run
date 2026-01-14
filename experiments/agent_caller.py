@@ -240,24 +240,39 @@ class AgentCaller:
         判断命令是否为测试执行或脚本运行
 
         计入执行次数的命令：
-        - pytest
-        - python xxx.py (运行脚本)
-        - python -m xxx (运行模块)
+        - pytest / py.test
+        - unittest
+        - Django tests (python manage.py test)
+        - tox
+        - nose / nosetests
+        - python xxx.py (运行测试脚本)
 
         不计入的命令：
         - ls, cat, grep, find 等查看命令
         - git 命令
         - cd, pwd 等导航命令
+        - python -c 简单命令
+        - python --version 等信息查询
         """
         command = command.strip().lower()
 
-        # 测试运行命令
+        # 测试框架命令
         test_patterns = [
             'pytest',
             'python -m pytest',
+            'python3 -m pytest',
             'py.test',
             'unittest',
             'python -m unittest',
+            'python3 -m unittest',
+            'manage.py test',  # Django tests
+            'python manage.py test',
+            'python3 manage.py test',
+            'tox',
+            'nose',
+            'nosetests',
+            'python -m nose',
+            'python3 -m nose',
         ]
 
         for pattern in test_patterns:

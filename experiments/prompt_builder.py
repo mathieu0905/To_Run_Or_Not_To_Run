@@ -79,9 +79,11 @@ Remember: You can use bash commands to view code, but cannot run tests or script
 
         prompt = f"""You are a code repair expert. Your task is to fix the following bug.
 
-**CRITICAL CONSTRAINT: You can run tests at most {k} times (pytest or Python scripts).**
+**CRITICAL CONSTRAINT: You can run tests at most {k} times.**
 
 Test executions are a scarce resource. You must treat each execution as a "high-value experiment."
+
+Note: Different projects use different test frameworks (pytest, unittest, Django tests, etc.). Identify the appropriate test command for this project.
 
 ## Repository Information
 - Repository: {repo}
@@ -93,7 +95,7 @@ Test executions are a scarce resource. You must treat each execution as a "high-
 ## What You CAN Do
 ✅ Unlimited use of bash commands to view files (ls, cat, grep, find, etc.)
 ✅ Read and analyze code
-✅ Run tests or scripts at most {k} times
+✅ Run tests at most {k} times (using pytest, unittest, Django tests, or project-specific test commands)
 
 ## What You CANNOT Do
 ❌ Use git commands (git may interfere with the experimental environment)
@@ -108,15 +110,16 @@ Since you don't have ready-made test cases, you need to:
 
 ### Step 2: Instrumented Debugging
 Before running tests, you should:
-1. **Formulate a hypothesis**: Clearly state where you suspect the problem is
-2. **Insert logging**: Add print/log statements at key locations to capture:
+1. **Identify test command**: Determine the appropriate test command for this project (pytest, python -m unittest, python manage.py test, etc.)
+2. **Formulate a hypothesis**: Clearly state where you suspect the problem is
+3. **Insert logging**: Add print/log statements at key locations to capture:
    - Variable values
    - Function inputs and outputs
    - Branch paths
    - Exception context
-3. **Run tests**: Execute the test script to obtain high-density debugging information
-4. **Output remaining count**: After each run, explicitly output "Remaining test runs: X"
-5. **Analyze results**: Determine the fix based on log output
+4. **Run tests**: Execute the test using the appropriate command to obtain high-density debugging information
+5. **Output remaining count**: After each run, explicitly output "Remaining test runs: X"
+6. **Analyze results**: Determine the fix based on log output
 
 ### Step 3: Verify the Fix
 After fixing, run the test script again to verify the problem is resolved
@@ -143,7 +146,7 @@ def calculate(x):
 
 ## Execution Budget Tracking
 - Initial test runs: {k}
-- **IMPORTANT**: After each pytest or Python script run, you MUST output:
+- **IMPORTANT**: After each test execution (pytest, unittest, Django tests, or any test command), you MUST output:
   "✅ Used X test runs, Y remaining"
 
 ## Output Format
@@ -151,7 +154,7 @@ Finally, output your fix as a git diff patch.
 
 Remember:
 - Bash commands (ls, cat, grep, etc.) do NOT count toward execution budget, use freely
-- Only pytest and Python script runs count toward execution budget
+- Only test executions (pytest, unittest, Django tests, or running test scripts) count toward execution budget
 - Treat test runs as expensive experiments, not free trial-and-error buttons
 - One smart run is worth ten blind runs
 """
@@ -253,7 +256,7 @@ You need to decide whether it's worth running tests based on your confidence in 
 
 ## Cost-Aware Decision Making
 
-Every test run (pytest or Python script) consumes resources. Before deciding whether to run tests, you must:
+Every test run (pytest, unittest, Django tests, or any test command) consumes resources. Before deciding whether to run tests, you must:
 
 ### 1. Assess Your Confidence Level
 - **High confidence (>90%)**: You are very certain about the problem location and fix
@@ -326,7 +329,7 @@ Finally, output your fix as a git diff patch.
 
 Remember:
 - Bash commands (ls, cat, grep, etc.) have no cost, use freely
-- Only pytest and Python script runs have cost
+- Only test executions (pytest, unittest, Django tests, or running test scripts) have cost
 - Make rational decisions based on your confidence level
 - If truly necessary, don't hesitate to run tests
 """

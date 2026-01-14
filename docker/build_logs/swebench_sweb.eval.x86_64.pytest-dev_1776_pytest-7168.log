@@ -5,6 +5,82 @@ Agent tag: swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168-agent:latest
 ============================================================
 PULLING BASE IMAGE
 ============================================================
-Error response from daemon: Head "https://registry-1.docker.io/v2/swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168/manifests/latest": Get "https://auth.docker.io/token?scope=repository%3Aswebench%2Fsweb.eval.x86_64.pytest-dev_1776_pytest-7168%3Apull&service=registry.docker.io": EOF
+latest: Pulling from swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168
+Digest: sha256:c51c8829edb82ccbfd2badd34004d10e203953fa3994d6cbf7aca14a7b4971d7
+Status: Image is up to date for swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168:latest
+docker.io/swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168:latest
 
-Pull failed with exit code 1
+============================================================
+BUILDING AGENT IMAGE
+============================================================
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.agent-overlay
+#1 transferring dockerfile: 1.48kB done
+#1 WARN: InvalidDefaultArgInFrom: Default value for ARG ${BASE_IMAGE} results in empty or invalid base image name (line 5)
+#1 WARN: SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ANTHROPIC_AUTH_TOKEN") (line 28)
+#1 WARN: SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ANTHROPIC_API_KEY") (line 30)
+#1 WARN: SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "OPENAI_API_KEY") (line 31)
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168:latest
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/8] FROM docker.io/swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168:latest
+#4 DONE 0.0s
+
+#5 [2/8] RUN apt-get update && apt-get install -y curl gnupg ca-certificates     && mkdir -p /etc/apt/keyrings     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list     && apt-get update     && apt-get install -y nodejs     && rm -rf /var/lib/apt/lists/*
+#5 CACHED
+
+#6 [internal] load build context
+#6 transferring context: 94B done
+#6 DONE 0.0s
+
+#7 [3/8] RUN npm install -g @anthropic-ai/claude-code @openai/codex
+#7 7.715 
+#7 7.715 added 4 packages in 7s
+#7 7.715 
+#7 7.715 2 packages are looking for funding
+#7 7.715   run `npm fund` for details
+#7 7.718 npm notice
+#7 7.718 npm notice New major version of npm available! 10.8.2 -> 11.7.0
+#7 7.718 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.7.0
+#7 7.718 npm notice To update run: npm install -g npm@11.7.0
+#7 7.718 npm notice
+#7 DONE 11.1s
+
+#8 [4/8] RUN mkdir -p /root/.claude /root/.codex
+#8 DONE 0.2s
+
+#9 [5/8] COPY settings.json /root/.claude/settings.json
+#9 DONE 0.0s
+
+#10 [6/8] COPY auth.json /root/.codex/auth.json
+#10 DONE 0.0s
+
+#11 [7/8] COPY config.toml /root/.codex/config.toml
+#11 DONE 0.0s
+
+#12 [8/8] WORKDIR /testbed
+#12 DONE 0.0s
+
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 2.8s done
+#13 writing image sha256:1ea8b6f1f3285ff4eb5921b180957b77fe97928e49a8726c372e1397d5a32d95 done
+#13 naming to docker.io/swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168-agent:latest done
+#13 DONE 2.8s
+
+ [33m4 warnings found (use docker --debug to expand):
+[0m - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "OPENAI_API_KEY") (line 31)
+ - InvalidDefaultArgInFrom: Default value for ARG ${BASE_IMAGE} results in empty or invalid base image name (line 5)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ANTHROPIC_AUTH_TOKEN") (line 28)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "ANTHROPIC_API_KEY") (line 30)
+
+============================================================
+BUILD SUCCESSFUL
+============================================================

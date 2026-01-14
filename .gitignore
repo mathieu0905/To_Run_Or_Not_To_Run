@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.venv
+env/
+venv/
+
+# Experiment outputs
+output/
+
+# Docker build artifacts
+docker/build_logs/*.log
+docker/build.log
+docker/build_output.log
+docker/build.pid
+docker/image_list_verified.txt
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
