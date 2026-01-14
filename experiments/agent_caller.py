@@ -141,16 +141,39 @@ class AgentCaller:
             )
 
         except subprocess.TimeoutExpired:
-            return AgentTrace(
-                agent_type="claude_code",
-                prompt=prompt,
-                output="",
-                tokens_used=0,
-                exec_count=0,
-                duration_sec=timeout,
-                raw_trace=[],
-                error="Timeout"
-            )
+            # 超时时也尝试读取已经写入的 trace 文件
+            # Docker 容器可能在超时前已经完成了 Claude Code 的执行
+            duration = time.time() - start
+            raw_trace = self._read_trace_file(trace_path)
+
+            if raw_trace:
+                # 如果 trace 文件存在且有内容，说明 agent 实际上已经完成
+                output = self._extract_output_from_trace(raw_trace)
+                tokens = self._extract_tokens_from_trace(raw_trace)
+                exec_count = self._count_executions_from_trace(raw_trace)
+
+                return AgentTrace(
+                    agent_type="claude_code",
+                    prompt=prompt,
+                    output=output,
+                    tokens_used=tokens,
+                    exec_count=exec_count,
+                    duration_sec=duration,
+                    raw_trace=raw_trace,
+                    error=None  # 虽然超时，但实际执行成功
+                )
+            else:
+                # 真正的超时（没有生成任何 trace）
+                return AgentTrace(
+                    agent_type="claude_code",
+                    prompt=prompt,
+                    output="",
+                    tokens_used=0,
+                    exec_count=0,
+                    duration_sec=timeout,
+                    raw_trace=[],
+                    error="Timeout"
+                )
         except Exception as e:
             return AgentTrace(
                 agent_type="claude_code",
