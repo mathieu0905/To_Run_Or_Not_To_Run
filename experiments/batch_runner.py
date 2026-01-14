@@ -22,20 +22,20 @@ class BatchRunner:
     def __init__(
         self,
         max_workers: int = 4,
-        checkpoint_file: Optional[Path] = None,
         dataset_name: str = "princeton-nlp/SWE-bench_Lite"
     ):
         self.max_workers = max_workers
         self.dataset_name = dataset_name
 
         # 确定数据集目录名称
-        dataset_dir = "swebenchlite" if "Lite" in dataset_name else "swebenchverified"
+        self.dataset_dir = "swebenchlite" if "Lite" in dataset_name else "swebenchverified"
 
-        # Checkpoint 文件路径
-        if checkpoint_file is None:
-            checkpoint_file = OUTPUT_DIR / dataset_dir / "checkpoint.json"
-        self.checkpoint_file = checkpoint_file
-        self.checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
+    def _get_checkpoint_file(self, agent_type: str, mode: str, k: int) -> Path:
+        """获取特定配置的 checkpoint 文件路径"""
+        mode_dir = f"{mode}_k{k}" if mode == "run_less" else mode
+        checkpoint_dir = OUTPUT_DIR / self.dataset_dir / agent_type / mode_dir
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        return checkpoint_dir / "checkpoint.json"
 
     def run_batch(
         self,
@@ -58,6 +58,9 @@ class BatchRunner:
         Returns:
             字典，映射 instance_id 到 ExperimentResult（失败则为 None）
         """
+        # 获取当前配置的 checkpoint 文件
+        self.checkpoint_file = self._get_checkpoint_file(agent_type, mode, k)
+
         # 加载 checkpoint 以跳过已完成的实例
         completed = self._load_checkpoint()
         remaining = [i for i in instances if i not in completed]

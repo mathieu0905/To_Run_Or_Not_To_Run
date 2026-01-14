@@ -1,0 +1,131 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**IMPORTANT: Every test execution has a cost (time, resources, money).**
+
+You need to decide whether it's worth running tests based on your confidence in the task.
+
+## Repository Information
+- Repository: astropy/astropy
+- Base Commit: d16bfe05a744909de4b27f5875fe0d4ed41ce607
+
+## Problem Description
+Modeling's `separability_matrix` does not compute separability correctly for nested CompoundModels
+Consider the following model:
+
+```python
+from astropy.modeling import models as m
+from astropy.modeling.separable import separability_matrix
+
+cm = m.Linear1D(10) & m.Linear1D(5)
+```
+
+It's separability matrix as you might expect is a diagonal:
+
+```python
+>>> separability_matrix(cm)
+array([[ True, False],
+       [False,  True]])
+```
+
+If I make the model more complex:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & m.Linear1D(10) & m.Linear1D(5))
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True, False],
+       [False, False, False,  True]])
+```
+
+The output matrix is again, as expected, the outputs and inputs to the linear models are separable and independent of each other.
+
+If however, I nest these compound models:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & cm)
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True,  True],
+       [False, False,  True,  True]])
+```
+Suddenly the inputs and outputs are no longer separable?
+
+This feels like a bug to me, but I might be missing something?
+
+
+## Cost-Aware Decision Making
+
+Every test run (pytest, unittest, Django tests, or any test command) consumes resources. Before deciding whether to run tests, you must:
+
+### 1. Assess Your Confidence Level
+- **High confidence (>90%)**: You are very certain about the problem location and fix
+- **Medium confidence (50-90%)**: You have a reasonable hypothesis, but not completely certain
+- **Low confidence (<50%)**: You are uncertain about the problem location and need more information
+
+### 2. Decision Framework
+
+**If confidence is high (>90%)**:
+- Consider fixing directly without running tests
+- But if the fix involves complex logic, testing may still be worthwhile
+
+**If confidence is medium (50-90%)**:
+- Evaluate the expected value of testing
+- If testing can significantly increase confidence, it's worth running
+- Consider writing a simple test script to verify the hypothesis
+
+**If confidence is low (<50%)**:
+- Testing is usually necessary
+- Write test script first to reproduce the issue
+- Use logging instrumentation to obtain more information
+
+### 3. Decision Output Format
+
+Each time you decide whether to run tests, you MUST output:
+
+```
+[DECISION]
+- Current confidence level: X%
+- Decision: [Run tests / Don't run tests]
+- Reasoning: [Explain why this decision is reasonable]
+```
+
+## Recommended Workflow
+
+### Step 1: Understand the Problem
+1. Read the problem description and relevant code
+2. Form initial hypothesis
+3. Assess confidence level
+
+### Step 2: Decide Whether to Test
+1. If confidence is low, write test script to reproduce the issue
+2. If more information is needed, use logging instrumentation
+3. Run tests to obtain feedback
+
+### Step 3: Fix and Verify
+1. Implement the fix
+2. Assess whether running tests for verification is needed
+3. If confidence is high enough, can directly submit the fix
+
+## Test Script Example
+```python
+# test_bug.py - Test script to reproduce and verify the issue
+def test_issue():
+    # Construct test case based on problem description
+    result = some_function(test_input)
+    assert result == expected_output
+```
+
+## What You CAN Do
+✅ Unlimited use of bash commands to view files (ls, cat, grep, find, etc.)
+✅ Read and analyze code
+✅ Decide whether to run tests based on confidence level
+
+## What You CANNOT Do
+❌ Use git commands (git may interfere with the experimental environment)
+
+## Output Format
+Finally, output your fix as a git diff patch.
+
+Remember:
+- Bash commands (ls, cat, grep, etc.) have no cost, use freely
+- Only test executions (pytest, unittest, Django tests, or running test scripts) have cost
+- Make rational decisions based on your confidence level
+- If truly necessary, don't hesitate to run tests

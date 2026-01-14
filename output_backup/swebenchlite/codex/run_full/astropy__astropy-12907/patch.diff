@@ -1,0 +1,33 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index 6e8fa2a2a5..fd15bc8b6e 100644
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -242,7 +242,7 @@ def _cstack(left, right):
+         cright = _coord_matrix(right, 'right', noutp)
+     else:
+         cright = np.zeros((noutp, right.shape[1]))
+-        cright[-right.shape[0]:, -right.shape[1]:] = 1
++        cright[-right.shape[0]:, -right.shape[1]:] = right
+ 
+     return np.hstack([cleft, cright])
+diff --git a/astropy/modeling/tests/test_separable.py b/astropy/modeling/tests/test_separable.py
+index 5ea8469046..6f1b251077 100644
+--- a/astropy/modeling/tests/test_separable.py
++++ b/astropy/modeling/tests/test_separable.py
+@@ -113,6 +113,15 @@ def test_cstack():
+                               [0, 0, 1]])
+                     )
+ 
++def test_separability_matrix_nested_compound_model():
++    m = (models.Shift(1) & models.Shift(2)) & (models.Scale(3) & models.Scale(4))
++    assert_allclose(
++        separability_matrix(m),
++        np.eye(4, dtype=bool),
++    )
++
+ 
+ def test_arith_oper():
+     # Models as inputs
+     result = _arith_oper(sh1, scl1)
+     assert_allclose(result, np.array([[1]]))
+```

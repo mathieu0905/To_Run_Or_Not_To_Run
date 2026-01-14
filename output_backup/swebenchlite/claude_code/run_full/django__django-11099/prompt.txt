@@ -1,0 +1,57 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+You can freely execute code to debug and verify your fix.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: d26b2424437dabeeca94d7900b37d2df4410da0c
+
+## Problem Description
+UsernameValidator allows trailing newline in usernames
+Description
+	
+ASCIIUsernameValidator and UnicodeUsernameValidator use the regex 
+r'^[\w.@+-]+$'
+The intent is to only allow alphanumeric characters as well as ., @, +, and -. However, a little known quirk of Python regexes is that $ will also match a trailing newline. Therefore, the user name validators will accept usernames which end with a newline. You can avoid this behavior by instead using \A and \Z to terminate regexes. For example, the validator regex could be changed to
+r'\A[\w.@+-]+\Z'
+in order to reject usernames that end with a newline.
+I am not sure how to officially post a patch, but the required change is trivial - using the regex above in the two validators in contrib.auth.validators.
+
+
+## Recommended Workflow
+
+### Step 1: Write Test Script to Reproduce the Issue
+Since you don't have ready-made test cases, it's recommended to:
+1. **Write a test script based on the problem description** to reproduce the issue
+2. Run the test script to confirm the problem exists
+3. This will help you accurately locate the bug
+
+### Step 2: Locate and Fix
+1. Read relevant code
+2. Analyze error messages
+3. Attempt the fix
+4. You can add logging to assist debugging
+
+### Step 3: Verify the Fix
+1. Run the test script to verify the problem is resolved
+2. If tests fail, repeat steps 2-3
+3. Ensure the fix doesn't introduce new issues
+
+## Test Script Example
+```python
+# test_bug.py - Test script to reproduce and verify the issue
+def test_issue():
+    # Construct test case based on problem description
+    result = some_function(test_input)
+    assert result == expected_output
+```
+
+## Output Format
+Finally, output your fix as a git diff patch.
+
+## Important Reminders
+- ❌ Do NOT use git commands (git may interfere with the experimental environment)
+- Bash commands (ls, cat, grep, etc.) can be used freely
+- Recommended to write test script first to reproduce and verify the issue
+
+You can run code and tests multiple times until all tests pass.

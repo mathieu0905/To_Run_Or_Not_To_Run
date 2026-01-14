@@ -92,8 +92,11 @@ def run_experiment(
     # 确定数据集目录名称
     dataset_dir = "swebenchlite" if "Lite" in dataset_name else "swebenchverified"
 
-    # 创建输出目录：output/{dataset}/{agent}/{mode}/{instance_id}/
-    instance_output_dir = OUTPUT_DIR / dataset_dir / agent_type / mode / instance_id
+    # 构建模式目录名（run_less 需要包含 k 值）
+    mode_dir = f"{mode}_k{k}" if mode == "run_less" else mode
+
+    # 创建输出目录：output/{dataset}/{agent}/{mode_dir}/{instance_id}/
+    instance_output_dir = OUTPUT_DIR / dataset_dir / agent_type / mode_dir / instance_id
     instance_output_dir.mkdir(parents=True, exist_ok=True)
 
     # 2. 构建 prompt
@@ -101,8 +104,7 @@ def run_experiment(
     prompt = PromptBuilder.build_prompt(instance, mode, k)
 
     # 保存 prompt 到实例目录
-    mode_suffix = f"{mode}_k{k}" if mode == "run_less" else mode
-    prompt_file = instance_output_dir / f"prompt_{mode_suffix}.txt"
+    prompt_file = instance_output_dir / "prompt.txt"
     prompt_file.write_text(prompt, encoding="utf-8")
     print(f"Prompt saved to: {prompt_file}")
 
@@ -113,13 +115,10 @@ def run_experiment(
     trace: AgentTrace = caller.call(prompt, timeout=timeout, trace_output_path=str(trace_file))
     print(f"Trace saved to: {trace_file}")
 
-    # 4. 提取补丁
-    patch = extract_patch(trace.output)
-
-    # 保存 patch 到实例目录
+    # 4. 读取 git diff 生成的补丁（由 agent_caller 在容器内执行 git diff 生成）
     patch_file = instance_output_dir / "patch.diff"
-    patch_file.write_text(patch, encoding='utf-8')
-    print(f"Patch saved to: {patch_file}")
+    patch = patch_file.read_text(encoding='utf-8')
+    print(f"Patch loaded from git diff: {patch_file}")
 
     # 5. 构建结果
     result = ExperimentResult(

@@ -1,0 +1,114 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**CRITICAL CONSTRAINT: You can run tests at most 2 times.**
+
+Test executions are a scarce resource. You must treat each execution as a "high-value experiment."
+
+Note: Different projects use different test frameworks (pytest, unittest, Django tests, etc.). Identify the appropriate test command for this project.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: ef082ebb84f00e38af4e8880d04e8365c2766d34
+
+## Problem Description
+Incorrect removal of order_by clause created as multiline RawSQL
+Description
+	
+Hi.
+The SQLCompiler is ripping off one of my "order by" clause, because he "thinks" the clause was already "seen" (in SQLCompiler.get_order_by()). I'm using expressions written as multiline RawSQLs, which are similar but not the same. 
+The bug is located in SQLCompiler.get_order_by(), somewhere around line computing part of SQL query without ordering:
+without_ordering = self.ordering_parts.search(sql).group(1)
+The sql variable contains multiline sql. As a result, the self.ordering_parts regular expression is returning just a line containing ASC or DESC words. This line is added to seen set, and because my raw queries have identical last lines, only the first clasue is returing from SQLCompiler.get_order_by().
+As a quick/temporal fix I can suggest making sql variable clean of newline characters, like this:
+sql_oneline = ' '.join(sql.split('\n'))
+without_ordering = self.ordering_parts.search(sql_oneline).group(1)
+Note: beware of unicode (Py2.x u'') and EOL dragons (\r).
+Example of my query:
+	return MyModel.objects.all().order_by(
+		RawSQL('''
+			case when status in ('accepted', 'verification')
+				 then 2 else 1 end''', []).desc(),
+		RawSQL('''
+			case when status in ('accepted', 'verification')
+				 then (accepted_datetime, preferred_datetime)
+				 else null end''', []).asc(),
+		RawSQL('''
+			case when status not in ('accepted', 'verification')
+				 then (accepted_datetime, preferred_datetime, created_at)
+				 else null end''', []).desc())
+The ordering_parts.search is returing accordingly:
+'				 then 2 else 1 end)'
+'				 else null end'
+'				 else null end'
+Second RawSQL with a				 else null end part is removed from query.
+The fun thing is that the issue can be solved by workaround by adding a space or any other char to the last line. 
+So in case of RawSQL I can just say, that current implementation of avoiding duplicates in order by clause works only for special/rare cases (or does not work in all cases). 
+The bug filed here is about wrong identification of duplicates (because it compares only last line of SQL passed to order by clause).
+Hope my notes will help you fixing the issue. Sorry for my english.
+
+
+## What You CAN Do
+✅ Unlimited use of bash commands to view files (ls, cat, grep, find, etc.)
+✅ Read and analyze code
+✅ Run tests at most 2 times (using pytest, unittest, Django tests, or project-specific test commands)
+
+## What You CANNOT Do
+❌ Use git commands (git may interfere with the experimental environment)
+
+## Execution Strategy (CRITICAL!)
+
+### Step 1: Write Test Script to Reproduce the Issue
+Since you don't have ready-made test cases, you need to:
+1. **Write a simple test script based on the problem description** to reproduce the issue
+2. Run this test script to confirm the problem exists
+3. This will help you accurately locate the bug
+
+### Step 2: Instrumented Debugging
+Before running tests, you should:
+1. **Identify test command**: Determine the appropriate test command for this project (pytest, python -m unittest, python manage.py test, etc.)
+2. **Formulate a hypothesis**: Clearly state where you suspect the problem is
+3. **Insert logging**: Add print/log statements at key locations to capture:
+   - Variable values
+   - Function inputs and outputs
+   - Branch paths
+   - Exception context
+4. **Run tests**: Execute the test using the appropriate command to obtain high-density debugging information
+5. **Output remaining count**: After each run, explicitly output "Remaining test runs: X"
+6. **Analyze results**: Determine the fix based on log output
+
+### Step 3: Verify the Fix
+After fixing, run the test script again to verify the problem is resolved
+
+## Test Script Example
+```python
+# test_bug.py - Test script to reproduce and verify the issue
+def test_issue():
+    # Construct test case based on problem description
+    result = calculate(-5)
+    print(f"Result: {result}")
+    assert result == -10, f"Expected -10, got {result}"
+```
+
+## Logging Instrumentation Example
+```python
+# Insert debug logs in source code
+def calculate(x):
+    print(f"DEBUG: calculate() input x={{x}}, type={{type(x)}}")  # Instrumentation
+    result = x * 2
+    print(f"DEBUG: calculate() output result={{result}}")  # Instrumentation
+    return result
+```
+
+## Execution Budget Tracking
+- Initial test runs: 2
+- **IMPORTANT**: After each test execution (pytest, unittest, Django tests, or any test command), you MUST output:
+  "✅ Used X test runs, Y remaining"
+
+## Output Format
+Finally, output your fix as a git diff patch.
+
+Remember:
+- Bash commands (ls, cat, grep, etc.) do NOT count toward execution budget, use freely
+- Only test executions (pytest, unittest, Django tests, or running test scripts) count toward execution budget
+- Treat test runs as expensive experiments, not free trial-and-error buttons
+- One smart run is worth ten blind runs

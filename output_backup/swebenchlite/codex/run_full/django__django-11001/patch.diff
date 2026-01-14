@@ -1,0 +1,36 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 816ee7e6d6..10cd306a1b 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -32,7 +32,7 @@ class SQLCompiler:
+         self.annotation_col_map = None
+         self.klass_info = None
+-        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)')
++        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)', re.S)
+         self._meta_ordering = None
+ 
+     def setup_query(self):
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index d8e5947fa8..6f2770d1a1 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -77,6 +77,18 @@ class BasicExpressionsTests(TestCase):
+         companies = Company.objects.annotate(foo=RawSQL('%s', ['value']))
+         self.assertEqual(companies.count(), 3)
+ 
++    def test_multiline_rawsql_order_by_not_deduplicated(self):
++        qs = Company.objects.order_by(
++            RawSQL('\nCASE WHEN num_employees > 0 THEN 1\nELSE 0 END', []).desc(),
++            RawSQL('\nCASE WHEN num_employees > 10 THEN 2\nELSE 0 END', []).asc(),
++            RawSQL('\nCASE WHEN num_employees > 100 THEN 3\nELSE 0 END', []).desc(),
++        )
++        compiler = qs.query.get_compiler(qs.db)
++        _, order_by, _ = compiler.pre_sql_setup()
++        self.assertEqual(len(order_by), 3)
++
+     @unittest.skipIf(connection.vendor == 'oracle', "Oracle doesn't support using boolean type in SELECT")
+     def test_filtering_on_annotate_that_uses_q(self):
+         self.assertEqual(
+             Company.objects.annotate(
+                 num_employees_check=ExpressionWrapper(Q(num_employees__gt=3), output_field=models.BooleanField())
+```

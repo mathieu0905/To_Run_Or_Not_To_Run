@@ -4,8 +4,15 @@
 
 set -e
 
+# 切换到脚本所在目录
+cd "$(dirname "$0")"
+SCRIPT_DIR="$(pwd)"
+
+# 切换到 experiments 目录运行
+cd experiments
+
 # 配置
-INSTANCES_FILE="test_3_instances.txt"
+INSTANCES_FILE="../test_3_instances.txt"
 WORKERS=3  # 每个配置内部的并发数（因为只有3个实例）
 TIMEOUT=600
 DATASET="princeton-nlp/SWE-bench_Lite"
@@ -26,16 +33,8 @@ echo "数据集: $DATASET"
 echo "=========================================="
 echo ""
 
-# 启动 Docker 容器（如果还没启动）
-echo "检查 Docker 容器状态..."
-if ! docker-compose ps swebench-batch | grep -q "Up"; then
-    echo "启动 Docker 容器..."
-    docker-compose up -d swebench-batch
-    sleep 5
-fi
-
 # 创建日志目录（按 agent 分层）
-LOG_DIR="../logs"
+LOG_DIR="logs"
 mkdir -p "$LOG_DIR"
 
 # Agent 列表
@@ -86,11 +85,11 @@ for agent in "${AGENTS[@]}"; do
 
         echo -e "${BLUE}启动任务:${NC} ${GREEN}${TASK_NAME}${NC} (日志: ${LOG_FILE})"
 
-        # 在 Docker 容器内运行批量实验
+        # 直接在宿主机运行，agent_caller.py 会为每个实例启动对应的 Docker 容器
         if [ "$mode" = "run_less" ]; then
-            (docker-compose exec -T swebench-batch bash -c "cd /workspace/experiments && python -u batch_runner.py /workspace/${INSTANCES_FILE} $mode $k $WORKERS $agent $TIMEOUT $DATASET" > "$LOG_FILE" 2>&1) &
+            (python -u batch_runner.py "${INSTANCES_FILE}" $mode $k $WORKERS $agent $TIMEOUT $DATASET > "$LOG_FILE" 2>&1) &
         else
-            (docker-compose exec -T swebench-batch bash -c "cd /workspace/experiments && python -u batch_runner.py /workspace/${INSTANCES_FILE} $mode 2 $WORKERS $agent $TIMEOUT $DATASET" > "$LOG_FILE" 2>&1) &
+            (python -u batch_runner.py "${INSTANCES_FILE}" $mode 2 $WORKERS $agent $TIMEOUT $DATASET > "$LOG_FILE" 2>&1) &
         fi
 
         # 记录 PID 和任务名

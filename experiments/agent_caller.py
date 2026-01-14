@@ -59,13 +59,19 @@ class AgentCaller:
     def _get_docker_image(self, instance_id: str) -> Optional[str]:
         """
         根据 instance_id 获取对应的 Docker 镜像名称
+
+        instance_id 格式: django__django-11099
+        镜像名格式: swebench/sweb.eval.x86_64.django_1776_django-11099-agent:latest
         """
         if not instance_id:
             return None
 
-        # 镜像命名格式：swebench/sweb.eval.x86_64.{repo}_{version}_{instance_id}-agent:latest
-        # 需要将 instance_id 中的 __ 替换为 _
-        image_suffix = instance_id.replace("__", "_")
+        # 从 instance_id 提取 issue 编号部分（如 django-11099）
+        # instance_id 格式: {repo}__{repo}-{issue_number}
+        parts = instance_id.split("__")
+        if len(parts) != 2:
+            return None
+        issue_part = parts[1]  # 如 django-11099
 
         # 查找所有 swebench agent 镜像
         result = subprocess.run(
@@ -76,7 +82,8 @@ class AgentCaller:
 
         if result.returncode == 0:
             for line in result.stdout.strip().split('\n'):
-                if image_suffix in line and line.endswith("-agent:latest"):
+                # 匹配包含 issue 编号且以 -agent:latest 结尾的镜像
+                if issue_part in line and line.endswith("-agent:latest"):
                     return line
 
         return None
@@ -169,17 +176,24 @@ class AgentCaller:
             # 在 Docker 容器内执行
             # 需要将宿主机的 trace_path 映射到容器内
             container_trace_path = "/workspace/output/trace.jsonl"
+            container_patch_path = "/workspace/output/patch.diff"
             host_trace_dir = str(Path(trace_path).parent.absolute())
+
+            # 先修改语言设置为 English，然后执行 claude 命令，最后运行 git diff 获取补丁
+            claude_cmd = (
+                f"sed -i 's/\"language\": \"Chinese\"/\"language\": \"English\"/' /root/.claude/settings.json && "
+                f"cd /testbed && "
+                f"claude -p --verbose --output-format stream-json {json.dumps(prompt)} > {container_trace_path}; "
+                f"git diff > {container_patch_path}"
+            )
 
             return [
                 "docker", "run", "--rm",
                 "-v", f"{host_trace_dir}:/workspace/output",
-                "-e", f"ANTHROPIC_API_KEY={os.environ.get('ANTHROPIC_API_KEY', '')}",
-                "-e", f"ANTHROPIC_BASE_URL={os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')}",
                 "--network", "host",
                 docker_image,
                 "bash", "-c",
-                f"cd /testbed && claude -p --verbose --output-format stream-json {json.dumps(prompt)} > {container_trace_path}"
+                claude_cmd
             ]
         else:
             # 直接在宿主机执行
@@ -201,7 +215,6 @@ class AgentCaller:
             return [
                 "docker", "run", "--rm",
                 "-v", f"{host_trace_dir}:/workspace/output",
-                "-e", f"OPENAI_API_KEY={os.environ.get('OPENAI_API_KEY', '')}",
                 "--network", "host",
                 docker_image,
                 "bash", "-c",

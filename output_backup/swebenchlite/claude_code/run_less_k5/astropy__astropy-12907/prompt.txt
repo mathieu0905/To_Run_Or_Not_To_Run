@@ -1,0 +1,120 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**CRITICAL CONSTRAINT: You can run tests at most 5 times.**
+
+Test executions are a scarce resource. You must treat each execution as a "high-value experiment."
+
+Note: Different projects use different test frameworks (pytest, unittest, Django tests, etc.). Identify the appropriate test command for this project.
+
+## Repository Information
+- Repository: astropy/astropy
+- Base Commit: d16bfe05a744909de4b27f5875fe0d4ed41ce607
+
+## Problem Description
+Modeling's `separability_matrix` does not compute separability correctly for nested CompoundModels
+Consider the following model:
+
+```python
+from astropy.modeling import models as m
+from astropy.modeling.separable import separability_matrix
+
+cm = m.Linear1D(10) & m.Linear1D(5)
+```
+
+It's separability matrix as you might expect is a diagonal:
+
+```python
+>>> separability_matrix(cm)
+array([[ True, False],
+       [False,  True]])
+```
+
+If I make the model more complex:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & m.Linear1D(10) & m.Linear1D(5))
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True, False],
+       [False, False, False,  True]])
+```
+
+The output matrix is again, as expected, the outputs and inputs to the linear models are separable and independent of each other.
+
+If however, I nest these compound models:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & cm)
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True,  True],
+       [False, False,  True,  True]])
+```
+Suddenly the inputs and outputs are no longer separable?
+
+This feels like a bug to me, but I might be missing something?
+
+
+## What You CAN Do
+✅ Unlimited use of bash commands to view files (ls, cat, grep, find, etc.)
+✅ Read and analyze code
+✅ Run tests at most 5 times (using pytest, unittest, Django tests, or project-specific test commands)
+
+## What You CANNOT Do
+❌ Use git commands (git may interfere with the experimental environment)
+
+## Execution Strategy (CRITICAL!)
+
+### Step 1: Write Test Script to Reproduce the Issue
+Since you don't have ready-made test cases, you need to:
+1. **Write a simple test script based on the problem description** to reproduce the issue
+2. Run this test script to confirm the problem exists
+3. This will help you accurately locate the bug
+
+### Step 2: Instrumented Debugging
+Before running tests, you should:
+1. **Identify test command**: Determine the appropriate test command for this project (pytest, python -m unittest, python manage.py test, etc.)
+2. **Formulate a hypothesis**: Clearly state where you suspect the problem is
+3. **Insert logging**: Add print/log statements at key locations to capture:
+   - Variable values
+   - Function inputs and outputs
+   - Branch paths
+   - Exception context
+4. **Run tests**: Execute the test using the appropriate command to obtain high-density debugging information
+5. **Output remaining count**: After each run, explicitly output "Remaining test runs: X"
+6. **Analyze results**: Determine the fix based on log output
+
+### Step 3: Verify the Fix
+After fixing, run the test script again to verify the problem is resolved
+
+## Test Script Example
+```python
+# test_bug.py - Test script to reproduce and verify the issue
+def test_issue():
+    # Construct test case based on problem description
+    result = calculate(-5)
+    print(f"Result: {result}")
+    assert result == -10, f"Expected -10, got {result}"
+```
+
+## Logging Instrumentation Example
+```python
+# Insert debug logs in source code
+def calculate(x):
+    print(f"DEBUG: calculate() input x={{x}}, type={{type(x)}}")  # Instrumentation
+    result = x * 2
+    print(f"DEBUG: calculate() output result={{result}}")  # Instrumentation
+    return result
+```
+
+## Execution Budget Tracking
+- Initial test runs: 5
+- **IMPORTANT**: After each test execution (pytest, unittest, Django tests, or any test command), you MUST output:
+  "✅ Used X test runs, Y remaining"
+
+## Output Format
+Finally, output your fix as a git diff patch.
+
+Remember:
+- Bash commands (ls, cat, grep, etc.) do NOT count toward execution budget, use freely
+- Only test executions (pytest, unittest, Django tests, or running test scripts) count toward execution budget
+- Treat test runs as expensive experiments, not free trial-and-error buttons
+- One smart run is worth ten blind runs

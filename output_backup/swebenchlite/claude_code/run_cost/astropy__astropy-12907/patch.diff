@@ -1,0 +1,13 @@
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -242,7 +242,7 @@ def _cstack(left, right):
+         cright = _coord_matrix(right, 'right', noutp)
+     else:
+         cright = np.zeros((noutp, right.shape[1]))
+-        cright[-right.shape[0]:, -right.shape[1]:] = 1
++        cright[-right.shape[0]:, -right.shape[1]:] = right
+ 
+     return np.hstack([cleft, cright])
+```
+
+This minimal fix ensures that when the `&` operator combines two models where the right operand is already a compound model (represented as a matrix), the actual separability information from that matrix is preserved instead of being replaced with all 1s.

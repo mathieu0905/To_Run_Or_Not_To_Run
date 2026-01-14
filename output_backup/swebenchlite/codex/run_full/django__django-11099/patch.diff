@@ -1,0 +1,43 @@
+diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py
+index b4bc0b55e5..6f79349b1f 100644
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -16,7 +16,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+diff --git a/tests/auth_tests/test_validators.py b/tests/auth_tests/test_validators.py
+index d3385a9a7f..9c4e5b7e25 100644
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -242,6 +242,7 @@ class UsernameValidatorsTests(SimpleTestCase):
+             "o'connell", "عبد ال",
+             "zerowidth\u200Bspace", "nonbreaking\u00A0space",
+             "en\u2013dash",
++            "joe\n",
+         ]
+         v = validators.UnicodeUsernameValidator()
+         for valid in valid_usernames:
+@@ -253,7 +254,7 @@ class UsernameValidatorsTests(SimpleTestCase):
+ 
+     def test_ascii_validator(self):
+         valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
+-        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد"]
++        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد", "glenn\n"]
+         v = validators.ASCIIUsernameValidator()
+         for valid in valid_usernames:
+             with self.subTest(valid=valid):
