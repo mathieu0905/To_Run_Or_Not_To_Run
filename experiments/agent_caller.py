@@ -56,6 +56,7 @@ class AgentCaller:
     def _call_claude_code(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
         """调用 Claude Code"""
         import time
+        import os
         start = time.time()
 
         # 使用指定的输出路径或创建临时文件保存 trace
@@ -71,13 +72,16 @@ class AgentCaller:
             # 构建命令
             cmd = self._build_claude_command(prompt, trace_path)
 
-            # 执行命令（在 testbed 目录下）
+            # 确定工作目录：如果 /testbed 存在则使用，否则使用当前目录
+            work_dir = "/testbed" if os.path.exists("/testbed") else None
+
+            # 执行命令
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd="/testbed"
+                cwd=work_dir
             )
 
             duration = time.time() - start
@@ -145,6 +149,7 @@ class AgentCaller:
     def _call_codex(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
         """调用 Codex"""
         import time
+        import os
         start = time.time()
 
         # 使用指定的输出路径或创建临时文件保存 trace
@@ -159,12 +164,15 @@ class AgentCaller:
         try:
             cmd = self._build_codex_command(prompt, trace_path)
 
+            # 确定工作目录：如果 /testbed 存在则使用，否则使用当前目录
+            work_dir = "/testbed" if os.path.exists("/testbed") else None
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd="/testbed"
+                cwd=work_dir
             )
 
             duration = time.time() - start
