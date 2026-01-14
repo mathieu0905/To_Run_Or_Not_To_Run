@@ -35,25 +35,28 @@ if [ ! -f "$CLAUDE_SETTINGS" ]; then
 }
 EOF
 else
-    # 更新现有配置中的 model 和 language 字段
+    # 更新现有配置中的 model、language 和 ANTHROPIC_BASE_URL 字段
     if command -v jq &> /dev/null; then
         # 使用 jq 更新
         tmp=$(mktemp)
-        jq ".model = \"$CLAUDE_MODEL\" | .language = \"English\"" "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+        jq ".model = \"$CLAUDE_MODEL\" | .language = \"English\" | .env.ANTHROPIC_BASE_URL = \"${ANTHROPIC_BASE_URL:-https://api.anthropic.com}\" | .env.ANTHROPIC_API_KEY = \"${ANTHROPIC_API_KEY}\" | .env.ANTHROPIC_AUTH_TOKEN = \"${ANTHROPIC_API_KEY}\"" "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
     else
         # 使用 sed 更新（如果没有 jq）
         if grep -q '"model"' "$CLAUDE_SETTINGS"; then
             sed -i "s/\"model\": *\"[^\"]*\"/\"model\": \"$CLAUDE_MODEL\"/" "$CLAUDE_SETTINGS"
         else
-            # 如果没有 model 字段，添加它
             sed -i 's/^{/{\n  "model": "'"$CLAUDE_MODEL"'",/' "$CLAUDE_SETTINGS"
         fi
-        # 更新或添加 language 字段
         if grep -q '"language"' "$CLAUDE_SETTINGS"; then
             sed -i "s/\"language\": *\"[^\"]*\"/\"language\": \"English\"/" "$CLAUDE_SETTINGS"
         else
             sed -i 's/^{/{\n  "language": "English",/' "$CLAUDE_SETTINGS"
         fi
+        # 更新 env.ANTHROPIC_BASE_URL
+        sed -i "s|\"ANTHROPIC_BASE_URL\": *\"[^\"]*\"|\"ANTHROPIC_BASE_URL\": \"${ANTHROPIC_BASE_URL:-https://api.anthropic.com}\"|" "$CLAUDE_SETTINGS"
+        # 更新 env.ANTHROPIC_API_KEY 和 ANTHROPIC_AUTH_TOKEN
+        sed -i "s/\"ANTHROPIC_API_KEY\": *\"[^\"]*\"/\"ANTHROPIC_API_KEY\": \"${ANTHROPIC_API_KEY}\"/" "$CLAUDE_SETTINGS"
+        sed -i "s/\"ANTHROPIC_AUTH_TOKEN\": *\"[^\"]*\"/\"ANTHROPIC_AUTH_TOKEN\": \"${ANTHROPIC_API_KEY}\"/" "$CLAUDE_SETTINGS"
     fi
 fi
 

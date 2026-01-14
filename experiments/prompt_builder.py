@@ -66,7 +66,7 @@ Remember: You can use bash commands to view code, but cannot run tests or script
     @staticmethod
     def build_run_less_prompt(instance: Dict[str, Any], k: int = 2) -> str:
         """
-        构造 Run-Less 模式的 prompt（有限次执行，强调日志插桩）
+        构造 Run-Less 模式的 prompt（有限次执行）
 
         Args:
             instance: SWE-bench 实例数据
@@ -81,11 +81,9 @@ Remember: You can use bash commands to view code, but cannot run tests or script
 
         prompt = f"""You are a code repair expert. Your task is to fix the following bug.
 
-**CRITICAL CONSTRAINT: You can run tests at most {k} times.**
+**EXECUTION CONSTRAINT: You can run Python code at most {k} times.**
 
-Test executions are a scarce resource. You must treat each execution as a "high-value experiment."
-
-Note: Different projects use different test frameworks (pytest, unittest, Django tests, etc.). Identify the appropriate test command for this project.
+Each execution is precious. Make every run count by planning carefully before executing.
 
 ## Repository Information
 - Repository: {repo}
@@ -95,72 +93,52 @@ Note: Different projects use different test frameworks (pytest, unittest, Django
 {problem}
 
 ## What You CAN Do
-✅ Unlimited use of bash commands to view files (ls, cat, grep, find, etc.)
-✅ Read and analyze code
-✅ Run tests at most {k} times (using pytest, unittest, Django tests, or project-specific test commands)
+- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
+- Read and analyze code - UNLIMITED
+- Run Python code (tests, scripts) - **at most {k} times**
 
 ## What You CANNOT Do
-❌ Use git commands (git may interfere with the experimental environment)
+- Use git commands (git may interfere with the experimental environment)
 
-## Execution Strategy (CRITICAL!)
+## Why Running Tests Helps
+Running tests is valuable for:
+1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
+2. **Verifying the fix**: A passing test confirms your fix actually works
+3. **Catching regressions**: Tests ensure you haven't broken other functionality
 
-### Step 1: Write Test Script to Reproduce the Issue
-Since you don't have ready-made test cases, you need to:
-1. **Write a simple test script based on the problem description** to reproduce the issue
-2. Run this test script to confirm the problem exists
-3. This will help you accurately locate the bug
+## Recommended Workflow
 
-### Step 2: Instrumented Debugging
-Before running tests, you should:
-1. **Identify test command**: Determine the appropriate test command for this project (pytest, python -m unittest, python manage.py test, etc.)
-2. **Formulate a hypothesis**: Clearly state where you suspect the problem is
-3. **Insert logging**: Add print/log statements at key locations to capture:
-   - Variable values
-   - Function inputs and outputs
-   - Branch paths
-   - Exception context
-4. **Run tests**: Execute the test using the appropriate command to obtain high-density debugging information
-5. **Output remaining count**: After each run, explicitly output "Remaining test runs: X"
-6. **Analyze results**: Determine the fix based on log output
-
-### Step 3: Verify the Fix
-After fixing, run the test script again to verify the problem is resolved
-
-## Test Script Example
+### Step 1: Write a Test Script
+Based on the problem description, write a simple test script to reproduce the issue:
 ```python
-# test_bug.py - Test script to reproduce and verify the issue
+# test_bug.py
 def test_issue():
-    # Construct test case based on problem description
-    result = calculate(-5)
+    result = some_function(test_input)
     print(f"Result: {{result}}")
-    assert result == -10, f"Expected -10, got {{result}}"
+    assert result == expected_output, f"Expected X, got {{result}}"
+
+if __name__ == "__main__":
+    test_issue()
 ```
 
-## Logging Instrumentation Example
-```python
-# Insert debug logs in source code
-def calculate(x):
-    print(f"DEBUG: calculate() input x={{{{x}}}}, type={{{{type(x)}}}}")  # Instrumentation
-    result = x * 2
-    print(f"DEBUG: calculate() output result={{{{result}}}}")  # Instrumentation
-    return result
-```
+### Step 2: Run Test to Confirm the Bug
+Run your test script to verify the bug exists and understand the failure.
 
-## Execution Budget Tracking
-- Initial test runs: {k}
-- **IMPORTANT**: After each test execution (pytest, unittest, Django tests, or any test command), you MUST output:
-  "✅ Used X test runs, Y remaining"
+### Step 3: Analyze and Fix
+1. Read the relevant source code
+2. Identify the root cause
+3. Implement the fix
+
+### Step 4: Run Test to Verify the Fix
+Run the test again to confirm your fix works.
+
+## Execution Budget
+- Total allowed: {k} runs
+- After each run, track: "Remaining runs: X"
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**
 Do NOT just output a diff as text - make real changes to the files.
-After editing, the changes will be captured by git diff automatically.
-
-Remember:
-- Bash commands (ls, cat, grep, etc.) do NOT count toward execution budget, use freely
-- Only test executions (pytest, unittest, Django tests, or running test scripts) count toward execution budget
-- Treat test runs as expensive experiments, not free trial-and-error buttons
-- One smart run is worth ten blind runs
 """
         return prompt
 
@@ -181,7 +159,9 @@ Remember:
 
         prompt = f"""You are a code repair expert. Your task is to fix the following bug.
 
-You can freely execute code to debug and verify your fix.
+**EXECUTION CONSTRAINT: You have UNLIMITED Python executions.**
+
+Feel free to run tests and scripts as many times as needed to debug and verify your fix.
 
 ## Repository Information
 - Repository: {repo}
@@ -190,50 +170,56 @@ You can freely execute code to debug and verify your fix.
 ## Problem Description
 {problem}
 
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
+- Read and analyze code - UNLIMITED
+- Run Python code (tests, scripts) - **UNLIMITED**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## Why Running Tests Helps
+Running tests is valuable for:
+1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
+2. **Verifying the fix**: A passing test confirms your fix actually works
+3. **Catching regressions**: Tests ensure you haven't broken other functionality
+
 ## Recommended Workflow
 
-### Step 1: Write Test Script to Reproduce the Issue
-Since you don't have ready-made test cases, it's recommended to:
-1. **Write a test script based on the problem description** to reproduce the issue
-2. Run the test script to confirm the problem exists
-3. This will help you accurately locate the bug
-
-### Step 2: Locate and Fix
-1. Read relevant code
-2. Analyze error messages
-3. Attempt the fix
-4. You can add logging to assist debugging
-
-### Step 3: Verify the Fix
-1. Run the test script to verify the problem is resolved
-2. If tests fail, repeat steps 2-3
-3. Ensure the fix doesn't introduce new issues
-
-## Test Script Example
+### Step 1: Write a Test Script
+Based on the problem description, write a simple test script to reproduce the issue:
 ```python
-# test_bug.py - Test script to reproduce and verify the issue
+# test_bug.py
 def test_issue():
-    # Construct test case based on problem description
     result = some_function(test_input)
-    assert result == expected_output
+    print(f"Result: {{result}}")
+    assert result == expected_output, f"Expected X, got {{result}}"
+
+if __name__ == "__main__":
+    test_issue()
 ```
 
+### Step 2: Run Test to Confirm the Bug
+Run your test script to verify the bug exists and understand the failure.
+
+### Step 3: Analyze and Fix
+1. Read the relevant source code
+2. Identify the root cause
+3. Implement the fix
+
+### Step 4: Run Test to Verify the Fix
+Run the test again to confirm your fix works. If it fails, iterate on steps 3-4.
+
 ## Output Format
-Finally, output your fix as a git diff patch.
-
-## Important Reminders
-- ❌ Do NOT use git commands (git may interfere with the experimental environment)
-- Bash commands (ls, cat, grep, etc.) can be used freely
-- Recommended to write test script first to reproduce and verify the issue
-
-You can run code and tests multiple times until all tests pass.
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
 """
         return prompt
 
     @staticmethod
     def build_run_cost_prompt(instance: Dict[str, Any]) -> str:
         """
-        构造 Run-Cost 模式的 prompt（有成本约束，但模型自己决定）
+        构造 Run-Cost 模式的 prompt（每次执行有成本）
 
         Args:
             instance: SWE-bench 实例数据
@@ -247,9 +233,9 @@ You can run code and tests multiple times until all tests pass.
 
         prompt = f"""You are a code repair expert. Your task is to fix the following bug.
 
-**IMPORTANT: Every test execution has a cost (time, resources, money).**
+**EXECUTION CONSTRAINT: Every Python execution has a cost (time, compute, money).**
 
-You need to decide whether it's worth running tests based on your confidence in the task.
+You can run code, but each execution costs resources. Decide wisely whether to run based on expected value.
 
 ## Repository Information
 - Repository: {repo}
@@ -258,86 +244,61 @@ You need to decide whether it's worth running tests based on your confidence in 
 ## Problem Description
 {problem}
 
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - FREE, no cost
+- Read and analyze code - FREE, no cost
+- Run Python code (tests, scripts) - **each run has a cost**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## Why Running Tests Helps
+Running tests is valuable for:
+1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
+2. **Verifying the fix**: A passing test confirms your fix actually works
+3. **Catching regressions**: Tests ensure you haven't broken other functionality
+
 ## Cost-Aware Decision Making
 
-Every test run (pytest, unittest, Django tests, or any test command) consumes resources. Before deciding whether to run tests, you must:
+Before each execution, evaluate:
+- **High confidence (>90%)**: You may skip testing if very certain
+- **Medium confidence (50-90%)**: Testing is likely worth the cost
+- **Low confidence (<50%)**: Testing is strongly recommended
 
-### 1. Assess Your Confidence Level
-- **High confidence (>90%)**: You are very certain about the problem location and fix
-- **Medium confidence (50-90%)**: You have a reasonable hypothesis, but not completely certain
-- **Low confidence (<50%)**: You are uncertain about the problem location and need more information
-
-### 2. Decision Framework
-
-**If confidence is high (>90%)**:
-- Consider fixing directly without running tests
-- But if the fix involves complex logic, testing may still be worthwhile
-
-**If confidence is medium (50-90%)**:
-- Evaluate the expected value of testing
-- If testing can significantly increase confidence, it's worth running
-- Consider writing a simple test script to verify the hypothesis
-
-**If confidence is low (<50%)**:
-- Testing is usually necessary
-- Write test script first to reproduce the issue
-- Use logging instrumentation to obtain more information
-
-### 3. Decision Output Format
-
-Each time you decide whether to run tests, you MUST output:
-
+Output your decision:
 ```
-[DECISION]
-- Current confidence level: X%
-- Decision: [Run tests / Don't run tests]
-- Reasoning: [Explain why this decision is reasonable]
+[DECISION] Confidence: X% | Action: Run/Skip | Reason: ...
 ```
 
 ## Recommended Workflow
 
-### Step 1: Understand the Problem
-1. Read the problem description and relevant code
-2. Form initial hypothesis
-3. Assess confidence level
-
-### Step 2: Decide Whether to Test
-1. If confidence is low, write test script to reproduce the issue
-2. If more information is needed, use logging instrumentation
-3. Run tests to obtain feedback
-
-### Step 3: Fix and Verify
-1. Implement the fix
-2. Assess whether running tests for verification is needed
-3. If confidence is high enough, can directly submit the fix
-
-## Test Script Example
+### Step 1: Write a Test Script
+Based on the problem description, write a simple test script to reproduce the issue:
 ```python
-# test_bug.py - Test script to reproduce and verify the issue
+# test_bug.py
 def test_issue():
-    # Construct test case based on problem description
     result = some_function(test_input)
-    assert result == expected_output
+    print(f"Result: {{result}}")
+    assert result == expected_output, f"Expected X, got {{result}}"
+
+if __name__ == "__main__":
+    test_issue()
 ```
 
-## What You CAN Do
-✅ Unlimited use of bash commands to view files (ls, cat, grep, find, etc.)
-✅ Read and analyze code
-✅ Decide whether to run tests based on confidence level
+### Step 2: Decide Whether to Run
+Assess your confidence and decide if running the test is worth the cost.
 
-## What You CANNOT Do
-❌ Use git commands (git may interfere with the experimental environment)
+### Step 3: Analyze and Fix
+1. Read the relevant source code
+2. Identify the root cause
+3. Implement the fix
+
+### Step 4: Decide Whether to Verify
+If confident in your fix, you may skip verification. Otherwise, run the test.
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**
 Do NOT just output a diff as text - make real changes to the files.
-After editing, the changes will be captured by git diff automatically.
-
-Remember:
-- Bash commands (ls, cat, grep, etc.) have no cost, use freely
-- Only test executions (pytest, unittest, Django tests, or running test scripts) have cost
-- Make rational decisions based on your confidence level
-- If truly necessary, don't hesitate to run tests
 """
         return prompt
 

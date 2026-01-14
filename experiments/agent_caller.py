@@ -179,17 +179,22 @@ class AgentCaller:
             container_patch_path = "/workspace/output/patch.diff"
             host_trace_dir = str(Path(trace_path).parent.absolute())
 
+            # 获取项目根目录（docker 目录的父目录）
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            docker_dir = os.path.join(project_root, "docker")
+
             # 使用 nonroot 用户运行，这样可以使用 --dangerously-skip-permissions
-            # 需要先将 root 的 Claude 配置复制到 nonroot 用户目录
+            # 1. 先运行 configure_models.sh 配置 Claude Code（使用环境变量）
+            # 2. 将配置复制到 nonroot 用户目录
+            # 3. 激活 testbed conda 环境并运行 Claude Code
             # 注意：nonroot 用户无法写入挂载目录，所以用管道让 root 写入文件
-            # 激活 testbed conda 环境，确保 agent 运行测试时使用正确的 Python 环境
-            # 将 prompt 写入文件避免 shell 转义问题
             container_prompt_path = "/workspace/output/prompt.txt"
             claude_cmd = (
+                f"bash /workspace/docker/configure_models.sh && "
                 f"cp -r /root/.claude /home/nonroot/.claude && "
                 f"chown -R nonroot:nonroot /home/nonroot/.claude && "
                 f"su nonroot -c \""
-                f"sed -i 's/\\\"language\\\": \\\"Chinese\\\"/\\\"language\\\": \\\"English\\\"/' /home/nonroot/.claude/settings.json && "
                 f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
                 f"cd /testbed && "
                 f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json < {container_prompt_path}"
@@ -201,9 +206,23 @@ class AgentCaller:
             prompt_file = Path(host_trace_dir) / "prompt.txt"
             prompt_file.write_text(prompt, encoding='utf-8')
 
+            # 从环境变量获取配置并传递到容器
+            base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
+            api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+            claude_model = os.environ.get('CLAUDE_MODEL', 'sonnet')
+
+            # 提取域名（去掉 http:// 或 https:// 和端口）
+            from urllib.parse import urlparse
+            parsed = urlparse(base_url)
+            api_host = parsed.hostname or 'api.anthropic.com'
+
             return [
                 "docker", "run", "--rm",
+                "-e", f"ANTHROPIC_API_KEY={api_key}",
+                "-e", f"ANTHROPIC_BASE_URL={base_url}",
+                "-e", f"CLAUDE_MODEL={claude_model}",
                 "-v", f"{host_trace_dir}:/workspace/output",
+                "-v", f"{docker_dir}:/workspace/docker:ro",
                 "--network", "host",
                 docker_image,
                 "bash", "-c",
