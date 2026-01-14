@@ -10,28 +10,53 @@ def count_tokens_and_execs(trace_path):
     """从 trace.jsonl 统计 token、执行次数、交互轮数和时间"""
     tokens = {"input": 0, "output": 0}
     exec_count = 0
+    high_cost_exec = 0  # 高成本执行（测试框架）
+    low_cost_exec = 0   # 低成本执行（脚本）
     turns = 0
     duration_ms = 0
+    max_item_id = -1
 
-    test_patterns = ["pytest", "python -m pytest", "python -m unittest",
-                     "manage.py test", "tox", "nose", "nosetests"]
+    # 高成本执行：测试框架（运行整个测试套件）
+    high_cost_patterns = [
+        "pytest", "python -m pytest", "python -m unittest",
+        "manage.py test", "python manage.py test",
+        "tox", "nose", "nosetests",
+        "python -m django test",
+        "python tests/runtests.py"
+    ]
+    # 低成本执行：直接运行 Python 脚本
+    import re
+    python_script_pattern = re.compile(r'\bpython\s+[a-zA-Z_][\w/\-]*\.py\b')
 
     with open(trace_path) as f:
         for line in f:
             try:
                 item = json.loads(line)
-                # Codex 格式: turn.completed
+                # Codex 格式: turn.completed (统计 tokens)
                 if item.get("type") == "turn.completed":
                     usage = item.get("usage", {})
                     tokens["input"] += usage.get("input_tokens", 0)
                     tokens["output"] += usage.get("output_tokens", 0)
-                    turns += 1
-                # 统计执行次数 (Codex)
-                if item.get("type") == "item.completed":
+                # Codex 格式: 统计 item id 的最大值作为轮数
+                if item.get("type") in ["item.started", "item.completed"]:
                     inner = item.get("item", {})
+                    item_id = inner.get("id", "")
+                    if item_id.startswith("item_"):
+                        try:
+                            id_num = int(item_id.split("_")[1])
+                            max_item_id = max(max_item_id, id_num)
+                        except:
+                            pass
+                    # 统计执行次数
                     if inner.get("type") == "command_execution":
                         cmd = inner.get("command", "")
-                        if any(p in cmd for p in test_patterns):
+                        # 先检查是否是高成本执行
+                        if any(p in cmd for p in high_cost_patterns):
+                            high_cost_exec += 1
+                            exec_count += 1
+                        # 否则检查是否是低成本执行（python script.py）
+                        elif python_script_pattern.search(cmd):
+                            low_cost_exec += 1
                             exec_count += 1
                 # Claude Code 格式: assistant 消息里的 usage
                 if item.get("type") == "assistant":
@@ -46,13 +71,24 @@ def count_tokens_and_execs(trace_path):
                     for c in content:
                         if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Bash":
                             cmd = c.get("input", {}).get("command", "")
-                            if any(p in cmd for p in test_patterns):
+                            # 先检查是否是高成本执行
+                            if any(p in cmd for p in high_cost_patterns):
+                                high_cost_exec += 1
+                                exec_count += 1
+                            # 否则检查是否是低成本执行（python script.py）
+                            elif python_script_pattern.search(cmd):
+                                low_cost_exec += 1
                                 exec_count += 1
                 # 提取时间信息 (最后一行的 result)
                 if item.get("type") == "result":
                     duration_ms = item.get("duration_ms", 0)
             except:
                 continue
+
+    # 如果是 Codex (有 max_item_id)，使用 max_item_id + 1 作为轮数
+    if max_item_id >= 0:
+        turns = max_item_id + 1
+
     return tokens, exec_count, turns, duration_ms
 
 def check_patch(patch_path):
@@ -146,6 +182,26 @@ def print_summary(results):
 
 if __name__ == "__main__":
     import sys
-    output_dir = sys.argv[1] if len(sys.argv) > 1 else "/home/zhihao/hdd/run_free_run_less_run_full/output/swebenchlite"
-    results = analyze(output_dir)
-    print_summary(results)
+
+    # 默认分析两个数据集
+    if len(sys.argv) > 1:
+        output_dirs = [sys.argv[1]]
+    else:
+        base_dir = "/home/zhihao/hdd/run_free_run_less_run_full/output"
+        output_dirs = [
+            f"{base_dir}/swebenchlite",
+            f"{base_dir}/swebenchverified"
+        ]
+
+    # 分析每个数据集
+    for output_dir in output_dirs:
+        if not os.path.exists(output_dir):
+            print(f"\n跳过不存在的目录: {output_dir}")
+            continue
+
+        print(f"\n{'='*120}")
+        print(f"数据集: {os.path.basename(output_dir)}")
+        print(f"{'='*120}")
+
+        results = analyze(output_dir)
+        print_summary(results)

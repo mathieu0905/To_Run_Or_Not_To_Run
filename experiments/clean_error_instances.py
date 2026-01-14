@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-清理 trace.jsonl 最后一行包含 "is_error":true 的实例
+清理 trace.jsonl 最后一行包含 "is_error":true 的实例，以及没有生成 patch.diff 的实例
 """
 import json
 import shutil
@@ -67,13 +67,22 @@ def clean_error_instances(base_dir: str):
 
             instance_id = instance_dir.name
             trace_file = instance_dir / "trace.jsonl"
+            patch_file = instance_dir / "patch.diff"
 
             if not trace_file.exists():
                 continue
 
-            # 检查是否有错误
-            if check_trace_has_error(trace_file):
-                print(f"  删除实例: {instance_id}")
+            # 检查是否有错误或缺少 patch
+            has_error = check_trace_has_error(trace_file)
+            missing_patch = not patch_file.exists()
+
+            if has_error or missing_patch:
+                reason = []
+                if has_error:
+                    reason.append("trace 错误")
+                if missing_patch:
+                    reason.append("缺少 patch")
+                print(f"  删除实例: {instance_id} ({', '.join(reason)})")
 
                 # 删除实例目录
                 try:

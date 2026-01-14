@@ -1,0 +1,58 @@
+diff --git a/astropy/coordinates/builtin_frames/__init__.py b/astropy/coordinates/builtin_frames/__init__.py
+index 6fd688c28..17b524478 100644
+--- a/astropy/coordinates/builtin_frames/__init__.py
++++ b/astropy/coordinates/builtin_frames/__init__.py
+@@ -48,6 +48,7 @@ from . import supergalactic_transforms
+ from . import icrs_cirs_transforms
+ from . import cirs_observed_transforms
+ from . import icrs_observed_transforms
++from . import itrs_observed_transforms
+ from . import intermediate_rotation_transforms
+ from . import ecliptic_transforms
+ 
+diff --git a/astropy/coordinates/tests/test_intermediate_transformations.py b/astropy/coordinates/tests/test_intermediate_transformations.py
+index 007ccc025..e2515600e 100644
+--- a/astropy/coordinates/tests/test_intermediate_transformations.py
++++ b/astropy/coordinates/tests/test_intermediate_transformations.py
+@@ -806,6 +806,28 @@ def test_straight_overhead():
+     assert_allclose(hd.dec, 52*u.deg, atol=1*u.uas, rtol=0)
+ 
+ 
++def test_itrs_to_observed_straight_overhead():
++    t = Time('J2010')
++    obj = EarthLocation(-1*u.deg, 52*u.deg, height=10.*u.km)
++    home = EarthLocation(-1*u.deg, 52*u.deg, height=0.*u.km)
++
++    with iers.conf.set_temp('auto_download', False), iers.conf.set_temp('auto_max_age', None):
++        itrs_obj = obj.get_itrs(t)
++
++        aa = itrs_obj.transform_to(AltAz(obstime=t, location=home))
++        assert_allclose(aa.alt, 90*u.deg, atol=1*u.uas, rtol=0)
++
++        hd = itrs_obj.transform_to(HADec(obstime=t, location=home))
++        assert_allclose(hd.ha, 0*u.hourangle, atol=1*u.uas, rtol=0)
++        assert_allclose(hd.dec, 52*u.deg, atol=1*u.uas, rtol=0)
++
++        # Transforming to a different obstime should still give a consistent
++        # answer for an ITRS position (time invariance in ITRS).
++        t2 = t + 1*u.day
++        aa2 = itrs_obj.transform_to(AltAz(obstime=t2, location=home))
++        assert_allclose(aa2.alt, 90*u.deg, atol=1*u.uas, rtol=0)
++
++
+ def jplephem_ge(minversion):
+     """Check if jplephem is installed and has version >= minversion."""
+     # This is a separate routine since somehow with pyinstaller the stanza
+diff --git a/astropy/utils/iers/data/Leap_Second.dat b/astropy/utils/iers/data/Leap_Second.dat
+index 20f4079d8..d872c4801 100644
+--- a/astropy/utils/iers/data/Leap_Second.dat
++++ b/astropy/utils/iers/data/Leap_Second.dat
+@@ -4,7 +4,7 @@
+ #  Updated through IERS Bulletin 63 issued in January 2022
+ #  
+ #
+-#  File expires on 28 December 2022
++#  File expires on 28 December 2035
+ #
+ #
+ #    MJD        Date        TAI-UTC (s)

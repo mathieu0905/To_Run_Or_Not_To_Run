@@ -1,0 +1,78 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..202e2c724 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1347,6 +1347,32 @@ class TableDataDiff(_BaseDiff):
+         colsa = self.a.columns
+         colsb = self.b.columns
+ 
++        def is_variable_length_array(format_):
++            if not format_:
++                return False
++            format_ = str(format_).strip().upper()
++            while format_ and format_[0].isdigit():
++                format_ = format_[1:]
++            return format_.startswith(("P", "Q"))
++
++        def vla_equal(a, b):
++            if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
++                if (
++                    np.issubdtype(a.dtype, np.floating)
++                    or np.issubdtype(b.dtype, np.floating)
++                    or np.issubdtype(a.dtype, np.complexfloating)
++                    or np.issubdtype(b.dtype, np.complexfloating)
++                ):
++                    try:
++                        return np.allclose(
++                            a, b, rtol=self.rtol, atol=self.atol, equal_nan=True
++                        )
++                    except TypeError:
++                        return np.allclose(a, b, rtol=self.rtol, atol=self.atol)
++                return np.array_equal(a, b)
++
++            return not diff_values(a, b)
++
+         if len(colsa) != len(colsb):
+             self.diff_column_count = (len(colsa), len(colsb))
+ 
+@@ -1449,14 +1475,12 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif is_variable_length_array(col.format):
+                 diffs = (
+                     [
+                         idx
+                         for idx in range(len(arra))
+-                        if not np.allclose(
+-                            arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+-                        )
++                        if not vla_equal(arra[idx], arrb[idx])
+                     ],
+                 )
+             else:
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..e1eadd0cc 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -436,6 +436,19 @@ class TestDiff(FitsTestCase):
+         diff = FITSDiff(hdula, hdulb)
+         assert diff.identical
+ 
++    def test_fitsdiff_identical_file_with_q_vla(self):
++        """
++        Regression test for FITSDiff/TableDataDiff comparing variable-length
++        array columns (TFORM starting with 'Q').
++        """
++        col = fits.Column("a", format="QD", array=[[0], [0, 0]])
++        hdu = fits.BinTableHDU.from_columns([col])
++        path = self.temp("diffbug_q_vla.fits")
++        hdu.writeto(path, overwrite=True)
++
++        diff = FITSDiff(path, path)
++        assert diff.identical
++
+     def test_ignore_table_fields(self):
+         c1 = Column("A", format="L", array=[True, False])
+         c2 = Column("B", format="X", array=[[0], [1]])

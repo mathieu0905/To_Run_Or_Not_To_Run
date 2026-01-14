@@ -1,0 +1,43 @@
+diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py
+index c279f35f8..4ba6bb57b 100644
+--- a/astropy/timeseries/core.py
++++ b/astropy/timeseries/core.py
+@@ -74,6 +74,16 @@ class BaseTimeSeries(QTable):
+                                  "as the first column{} but time series has no columns"
+                                  .format(self.__class__.__name__, required_columns[0], plural))
+ 
++            elif (len(self.colnames) < len(required_columns)
++                    and self.colnames == required_columns[:len(self.colnames)]):
++
++                missing_columns = required_columns[len(self.colnames):]
++                missing_plural = 's' if len(missing_columns) > 1 else ''
++                missing = ", ".join(f"'{col}'" for col in missing_columns)
++
++                raise ValueError("{} object is invalid - missing required column{} {}"
++                                 .format(self.__class__.__name__, missing_plural, missing))
++
+             elif self.colnames[:len(required_columns)] != required_columns:
+ 
+                 raise ValueError("{} object is invalid - expected '{}' "
+diff --git a/astropy/timeseries/tests/test_sampled.py b/astropy/timeseries/tests/test_sampled.py
+index bcc06d929..4fed248c9 100644
+--- a/astropy/timeseries/tests/test_sampled.py
++++ b/astropy/timeseries/tests/test_sampled.py
+@@ -396,6 +396,17 @@ def test_required_columns():
+                                  "'time' as the first column but found 'banana'")
+ 
+ 
++def test_required_columns_missing_message():
++
++    class FluxTimeSeries(TimeSeries):
++        _required_columns = ['time', 'flux']
++
++    ts = FluxTimeSeries(time=INPUT_TIME, data={'flux': [99.9, 99.8, 99.7]})
++
++    with pytest.raises(ValueError, match=r"missing required column.*'flux'"):
++        ts.remove_column('flux')
++
++
+ @pytest.mark.parametrize('cls', [BoxLeastSquares, LombScargle])
+ def test_periodogram(cls):
+ 

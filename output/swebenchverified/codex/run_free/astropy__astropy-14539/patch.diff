@@ -1,0 +1,91 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..c03b201a3 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -55,6 +55,51 @@ _COL_ATTRS = [
+ ]
+ 
+ 
++def _is_variable_length_format(tform):
++    """
++    Returns `True` if the FITS column format indicates a variable-length array.
++
++    For binary tables this is indicated by a 'P' or 'Q' descriptor; any leading
++    repeat count is ignored (e.g. '1PJ', 'QD').
++    """
++    if not tform:
++        return False
++    for ch in tform:
++        if ch.isdigit():
++            continue
++        return ch in "PQ"
++    return False
++
++
++def _vla_values_differ(a, b, *, rtol=0.0, atol=0.0):
++    """
++    Compare two variable-length array (VLA) elements.
++
++    VLA elements are typically returned as numpy arrays stored in object
++    columns. Comparing object arrays directly (e.g. ``arra != arrb``) can yield
++    ambiguous truth values and spurious differences, so we compare each element
++    explicitly.
++    """
++    if a is b:
++        return False
++
++    if a is None or b is None:
++        return a is not b
++
++    arra = np.asarray(a)
++    arrb = np.asarray(b)
++
++    if arra.shape != arrb.shape:
++        return True
++
++    if np.issubdtype(arra.dtype, np.floating) and np.issubdtype(
++        arrb.dtype, np.floating
++    ):
++        return len(where_not_allclose(arra, arrb, rtol=rtol, atol=atol)[0]) > 0
++
++    return not np.array_equal(arra, arrb)
++
++
+ class _BaseDiff:
+     """
+     Base class for all FITS diff objects.
+@@ -1449,12 +1494,12 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif _is_variable_length_format(col.format):
+                 diffs = (
+                     [
+                         idx
+                         for idx in range(len(arra))
+-                        if not np.allclose(
++                        if _vla_values_differ(
+                             arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+                         )
+                     ],
+diff --git a/astropy/io/fits/tests/test_fitsdiff.py b/astropy/io/fits/tests/test_fitsdiff.py
+index 0753c9c35..9ebe42b7b 100644
+--- a/astropy/io/fits/tests/test_fitsdiff.py
++++ b/astropy/io/fits/tests/test_fitsdiff.py
+@@ -331,6 +331,15 @@ def test_fitsdiff_openfile(tmp_path):
+     assert diff.identical, diff.report()
+ 
+ 
++def test_fitsdiff_vla_q_same_file_identical(tmp_path):
++    col = fits.Column("a", format="QD", array=[[0], [0, 0]])
++    hdu = fits.BinTableHDU.from_columns([col])
++    path = tmp_path / "diffbug.fits"
++    hdu.writeto(path)
++
++    assert FITSDiff(path, path).identical
++
++
+ class Test_FITSDiff(FitsTestCase):
+     def test_FITSDiff_report(self, home_is_temp):
+         self.copy_file("test0.fits")

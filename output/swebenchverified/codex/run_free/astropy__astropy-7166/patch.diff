@@ -1,0 +1,62 @@
+diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
+index de3fb01d1..b0bd3a6e1 100644
+--- a/astropy/utils/misc.py
++++ b/astropy/utils/misc.py
+@@ -527,14 +527,54 @@ class InheritDocstrings(type):
+                  and len(key) > 4) or
+                 not key.startswith('_'))
+ 
++        def is_overridable_member_with_doc(obj):
++            # NOTE: In addition to plain functions this includes common
++            # descriptors used for methods/properties whose docstrings are
++            # stored on the underlying function or on the descriptor itself.
++            return (
++                inspect.isfunction(obj) or
++                isinstance(obj, (classmethod, staticmethod, property))
++            )
++
++        def member_needs_doc(obj):
++            if inspect.isfunction(obj):
++                return obj.__doc__ is None
++            if isinstance(obj, (classmethod, staticmethod)):
++                return obj.__func__.__doc__ is None
++            if isinstance(obj, property):
++                return obj.__doc__ is None
++            return False
++
++        def inherit_doc(cls, key, obj, doc):
++            if inspect.isfunction(obj):
++                obj.__doc__ = doc
++                return
++
++            if isinstance(obj, (classmethod, staticmethod)):
++                obj.__func__.__doc__ = doc
++                return
++
++            if isinstance(obj, property):
++                # The docstring for a property is stored on the property object
++                # and cannot reliably be updated in-place, so replace it with a
++                # new instance preserving accessors.
++                try:
++                    new_prop = type(obj)(obj.fget, obj.fset, obj.fdel, doc)
++                except Exception:
++                    new_prop = property(obj.fget, obj.fset, obj.fdel, doc)
++                setattr(cls, key, new_prop)
++                return
++
+         for key, val in dct.items():
+-            if (inspect.isfunction(val) and
++            if (is_overridable_member_with_doc(val) and
+                 is_public_member(key) and
+-                val.__doc__ is None):
++                member_needs_doc(val)):
+                 for base in cls.__mro__[1:]:
+                     super_method = getattr(base, key, None)
+                     if super_method is not None:
+-                        val.__doc__ = super_method.__doc__
++                        inherit_doc(
++                            cls, key, val, getattr(super_method, "__doc__", None)
++                        )
+                         break
+ 
+         super().__init__(name, bases, dct)

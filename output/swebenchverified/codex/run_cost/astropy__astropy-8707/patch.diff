@@ -1,0 +1,79 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 8c1ac5d73..1ce974a87 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -5,7 +5,7 @@ import warnings
+ 
+ import numpy as np
+ 
+-from .util import _str_to_num, _is_int, translate, _words_group
++from .util import _str_to_num, _is_int, translate, _words_group, decode_ascii
+ from .verify import _Verify, _ErrList, VerifyError, VerifyWarning
+ 
+ from . import conf
+@@ -554,7 +554,7 @@ class Card(_Verify):
+         """
+ 
+         card = cls()
+-        card._image = _pad(image)
++        card._image = _pad(decode_ascii(image))
+         card._verified = False
+         return card
+ 
+diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
+index ad07e6d52..55226087a 100644
+--- a/astropy/io/fits/header.py
++++ b/astropy/io/fits/header.py
+@@ -334,10 +334,10 @@ class Header:
+ 
+         Parameters
+         ----------
+-        data : str
++        data : str or bytes
+            String containing the entire header.
+ 
+-        sep : str, optional
++        sep : str or bytes, optional
+             The string separating cards from each other, such as a newline.  By
+             default there is no card separator (as is the case in a raw FITS
+             file).
+@@ -348,6 +348,9 @@ class Header:
+             A new `Header` instance.
+         """
+ 
++        data = decode_ascii(data)
++        sep = decode_ascii(sep)
++
+         cards = []
+ 
+         # If the card separator contains characters that may validly appear in
+diff --git a/astropy/io/fits/tests/test_header.py b/astropy/io/fits/tests/test_header.py
+index 7c1725aed..3b0242214 100644
+--- a/astropy/io/fits/tests/test_header.py
++++ b/astropy/io/fits/tests/test_header.py
+@@ -259,6 +259,11 @@ class TestHeaderFunctions(FitsTestCase):
+                            '/ text after slash is still part of the value.')
+         assert c.comment == ''
+ 
++    def test_card_fromstring_accepts_bytes(self):
++        c = fits.Card.fromstring(b'ABC     = 1')
++        assert c.keyword == 'ABC'
++        assert c.value == 1
++
+     def test_commentary_card_will_not_parse_numerical_value(self):
+         # commentary card will not parse the numerical value
+         c = fits.Card.fromstring("HISTORY  (1, 2)")
+@@ -841,6 +846,13 @@ class TestHeaderFunctions(FitsTestCase):
+         for c in header.cards:
+             assert c.value == fits.card.UNDEFINED
+ 
++    def test_header_fromstring_accepts_bytes(self):
++        hstr = "SIMPLE  = T\nBITPIX  = 8\nNAXIS   = 0\nEND\n"
++        header = fits.Header.fromstring(hstr.encode('ascii'), sep=b'\n')
++        assert header['SIMPLE'] is True
++        assert header['BITPIX'] == 8
++        assert header['NAXIS'] == 0
++
+     def test_set_comment_only(self):
+         header = fits.Header([('A', 'B', 'C')])
+         header.set('A', comment='D')

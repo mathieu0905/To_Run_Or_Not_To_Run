@@ -1,0 +1,149 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 3a462f1c4c..09dc19b95d 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -76,6 +76,42 @@ class Collector:
+         # database tables; proxy models are represented here by their concrete
+         # parent.
+         self.dependencies = {}  # {model: {models}}
++        self._required_fields_cache = {}
++
++    def get_required_fields(self, model):
++        """
++        Fields required to collect related objects for deletion.
++
++        Only these fields are fetched from the database when collecting
++        instances for deletion to avoid loading large/unrelated fields.
++        """
++        try:
++            return self._required_fields_cache[model]
++        except KeyError:
++            opts = model._meta
++            required_fields = {opts.pk.name}
++            # Ensure forward relation IDs are available to signals without
++            # triggering a refresh_from_db() after the row is deleted.
++            for field in opts.concrete_fields:
++                if field.is_relation:
++                    required_fields.add(field.name)
++            for ptr in opts.concrete_model._meta.parents.values():
++                if ptr:
++                    required_fields.add(ptr.name)
++            for related in get_candidate_relations_to_delete(opts):
++                for field in related.field.foreign_related_fields:
++                    required_fields.add(field.name)
++            required_fields = tuple(required_fields)
++            self._required_fields_cache[model] = required_fields
++            return required_fields
++
++    def _prepare_queryset_for_delete(self, qs):
++        """
++        Ensure only required fields are selected for deletion collection.
++        """
++        if hasattr(qs, 'select_related'):
++            qs = qs.select_related(None)
++        return qs.only(*self.get_required_fields(qs.model))
+ 
+     def add(self, objs, source=None, nullable=False, reverse_dependency=False):
+         """
+@@ -188,6 +224,8 @@ class Collector:
+         if self.can_fast_delete(objs):
+             self.fast_deletes.append(objs)
+             return
++        if hasattr(objs, 'model') and hasattr(objs, 'only'):
++            objs = self._prepare_queryset_for_delete(objs)
+         new_objs = self.add(objs, source, nullable,
+                             reverse_dependency=reverse_dependency)
+         if not new_objs:
+@@ -201,7 +239,13 @@ class Collector:
+             concrete_model = model._meta.concrete_model
+             for ptr in concrete_model._meta.parents.values():
+                 if ptr:
+-                    parent_objs = [getattr(obj, ptr.name) for obj in new_objs]
++                    parent_model = ptr.remote_field.model
++                    parent_objs = []
++                    for obj in new_objs:
++                        parent_obj = parent_model(pk=getattr(obj, ptr.attname))
++                        parent_obj._state.adding = False
++                        parent_obj._state.db = self.using
++                        parent_objs.append(parent_obj)
+                     self.collect(parent_objs, source=model,
+                                  source_attr=ptr.remote_field.related_name,
+                                  collect_related=False,
+@@ -220,8 +264,10 @@ class Collector:
+                     sub_objs = self.related_objects(related, batch)
+                     if self.can_fast_delete(sub_objs, from_field=field):
+                         self.fast_deletes.append(sub_objs)
+-                    elif sub_objs:
+-                        field.remote_field.on_delete(self, field, sub_objs, self.using)
++                    else:
++                        sub_objs = list(sub_objs)
++                        if sub_objs:
++                            field.remote_field.on_delete(self, field, sub_objs, self.using)
+             for field in model._meta.private_fields:
+                 if hasattr(field, 'bulk_related_objects'):
+                     # It's something like generic foreign key.
+@@ -232,9 +278,10 @@ class Collector:
+         """
+         Get a QuerySet of objects related to `objs` via the relation `related`.
+         """
+-        return related.related_model._base_manager.using(self.using).filter(
++        qs = related.related_model._base_manager.using(self.using).filter(
+             **{"%s__in" % related.field.name: objs}
+         )
++        return self._prepare_queryset_for_delete(qs)
+ 
+     def instances_with_model(self):
+         for model, instances in self.data.items():
+diff --git a/tests/delete/models.py b/tests/delete/models.py
+index 2fc5ebe217..8b0adbc6b0 100644
+--- a/tests/delete/models.py
++++ b/tests/delete/models.py
+@@ -126,3 +126,21 @@ class Base(models.Model):
+ 
+ class RelToBase(models.Model):
+     base = models.ForeignKey(Base, models.DO_NOTHING)
++
++
++class UnreadableTextField(models.TextField):
++    def from_db_value(self, value, expression, connection):
++        raise AssertionError('UnreadableTextField should not be loaded.')
++
++
++class DeleteModel(models.Model):
++    pass
++
++
++class DeleteModelChild(models.Model):
++    parent = models.ForeignKey(DeleteModel, models.CASCADE)
++    unreadable = UnreadableTextField()
++
++
++class DeleteModelGrandChild(models.Model):
++    child = models.ForeignKey(DeleteModelChild, models.CASCADE)
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index ed47d0667d..4267782727 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -6,8 +6,9 @@ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+ 
+ from .models import (
+-    MR, A, Avatar, Base, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
+-    M2MTo, MRNull, Parent, R, RChild, S, T, User, create_a, get_default_r,
++    MR, A, Avatar, Base, Child, DeleteModel, DeleteModelChild,
++    HiddenUser, HiddenUserProfile, M, M2MFrom, M2MTo, MRNull, Parent, R, RChild,
++    S, T, User, create_a, get_default_r,
+ )
+ 
+ 
+@@ -140,6 +141,10 @@ class OnDeleteTests(TestCase):
+ 
+ 
+ class DeletionTests(TestCase):
++    def test_delete_only_fetches_referenced_fields(self):
++        parent = DeleteModel.objects.create()
++        DeleteModelChild.objects.create(parent=parent, unreadable='x')
++        parent.delete()
+ 
+     def test_m2m(self):
+         m = M.objects.create()

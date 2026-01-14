@@ -1,0 +1,58 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 08d7faf194..d516148002 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -328,6 +328,8 @@ class Query(BaseExpression):
+             obj.subq_aliases = self.subq_aliases.copy()
+         obj.used_aliases = self.used_aliases.copy()
+         obj._filtered_relations = self._filtered_relations.copy()
++        if self.combined_queries:
++            obj.combined_queries = tuple(query.clone() for query in self.combined_queries)
+         # Clear the cached_property
+         try:
+             del obj.base_table
+diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
+index 227972e8c4..267ab55e44 100644
+--- a/tests/queries/test_qs_combinators.py
++++ b/tests/queries/test_qs_combinators.py
+@@ -2,7 +2,7 @@ from django.db.models import Exists, F, IntegerField, OuterRef, Value
+ from django.db.utils import DatabaseError, NotSupportedError
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+ 
+-from .models import Number, ReservedName
++from .models import Number, ReservedName, SingleObject
+ 
+ 
+ @skipUnlessDBFeature('supports_select_union')
+@@ -115,6 +115,31 @@ class QuerySetSetOperationTests(TestCase):
+         qs2 = Number.objects.filter(num__gte=2, num__lte=3)
+         self.assertNumbersEqual(qs1.union(qs2).order_by(F('num').desc()), [3, 2, 1, 0])
+ 
++    def test_union_ordering_not_mutated_by_derived_values_list(self):
++        obj1 = SingleObject.objects.create(name='a')
++        obj2 = SingleObject.objects.create(name='b')
++        obj3 = SingleObject.objects.create(name='c')
++        obj4 = SingleObject.objects.create(name='d')
++        qs = SingleObject.objects.filter(pk__in=[obj1.pk, obj2.pk]).order_by().union(
++            SingleObject.objects.filter(pk__in=[obj3.pk, obj4.pk]).order_by(),
++        ).order_by('name')
++        list(qs)
++        list(qs.order_by().values_list('pk', flat=True))
++        self.assertEqual([obj.name for obj in qs], ['a', 'b', 'c', 'd'])
++
++    @skipUnlessDBFeature('supports_slicing_ordering_in_compound')
++    def test_union_ordered_subquery_not_mutated_by_derived_queryset(self):
++        rn1 = ReservedName.objects.create(name='rn1', order=1)
++        rn2 = ReservedName.objects.create(name='rn2', order=2)
++        rn3 = ReservedName.objects.create(name='rn3', order=3)
++        rn4 = ReservedName.objects.create(name='rn4', order=4)
++        qs = ReservedName.objects.filter(pk__in=[rn1.pk, rn2.pk]).union(
++            ReservedName.objects.filter(pk__in=[rn3.pk, rn4.pk]).order_by('order'),
++        )
++        self.assertCountEqual(list(qs.values_list('pk', flat=True)), [rn1.pk, rn2.pk, rn3.pk, rn4.pk])
++        list(qs.order_by().values_list('pk', flat=True))
++        self.assertCountEqual(list(qs.values_list('pk', flat=True)), [rn1.pk, rn2.pk, rn3.pk, rn4.pk])
++
+     def test_union_with_values(self):
+         ReservedName.objects.create(name='a', order=2)
+         qs1 = ReservedName.objects.all()

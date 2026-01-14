@@ -1,0 +1,68 @@
+diff --git a/django/contrib/contenttypes/management/__init__.py b/django/contrib/contenttypes/management/__init__.py
+index 2b5f688136..563cba2fdf 100644
+--- a/django/contrib/contenttypes/management/__init__.py
++++ b/django/contrib/contenttypes/management/__init__.py
+@@ -24,7 +24,7 @@ class RenameContentType(migrations.RunPython):
+             content_type.model = new_model
+             try:
+                 with transaction.atomic(using=db):
+-                    content_type.save(update_fields={'model'})
++                    content_type.save(using=db, update_fields={'model'})
+             except IntegrityError:
+                 # Gracefully fallback if a stale content type causes a
+                 # conflict as remove_stale_contenttypes will take care of
+diff --git a/tests/contenttypes_tests/test_operations.py b/tests/contenttypes_tests/test_operations.py
+index bdf492fe2a..e48ddab273 100644
+--- a/tests/contenttypes_tests/test_operations.py
++++ b/tests/contenttypes_tests/test_operations.py
+@@ -1,8 +1,11 @@
++from unittest import mock
++
+ from django.apps.registry import apps
+ from django.conf import settings
+ from django.contrib.contenttypes import management as contenttypes_management
+ from django.contrib.contenttypes.models import ContentType
+ from django.core.management import call_command
++from django.db import connections
+ from django.db import migrations, models
+ from django.test import TransactionTestCase, override_settings
+ 
+@@ -14,6 +17,7 @@ from django.test import TransactionTestCase, override_settings
+     ),
+ )
+ class ContentTypeOperationsTests(TransactionTestCase):
++    databases = {'default', 'other'}
+     available_apps = [
+         'contenttypes_tests',
+         'django.contrib.contenttypes',
+@@ -64,3 +68,30 @@ class ContentTypeOperationsTests(TransactionTestCase):
+         call_command('migrate', 'contenttypes_tests', 'zero', database='default', interactive=False, verbosity=0)
+         self.assertTrue(ContentType.objects.filter(app_label='contenttypes_tests', model='foo').exists())
+         self.assertTrue(ContentType.objects.filter(app_label='contenttypes_tests', model='renamedfoo').exists())
++
++    def test_rename_content_type_save_uses_schema_editor_database(self):
++        ContentType.objects.db_manager('other').create(app_label='contenttypes_tests', model='foo')
++
++        operation = contenttypes_management.RenameContentType(
++            app_label='contenttypes_tests',
++            old_model='foo',
++            new_model='renamedfoo',
++        )
++
++        class DummySchemaEditor:
++            connection = connections['other']
++
++        with mock.patch(
++            'django.db.models.base.router.db_for_write',
++            side_effect=AssertionError('Model.save() should receive `using`'),
++        ):
++            operation._rename(apps, DummySchemaEditor(), old_model='foo', new_model='renamedfoo')
++
++        self.assertFalse(
++            ContentType.objects.using('other').filter(app_label='contenttypes_tests', model='foo').exists()
++        )
++        self.assertTrue(
++            ContentType.objects.using('other').filter(
++                app_label='contenttypes_tests', model='renamedfoo'
++            ).exists()
++        )

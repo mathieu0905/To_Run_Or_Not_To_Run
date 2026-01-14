@@ -1,0 +1,42 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**CRITICAL CONSTRAINT: You CANNOT run tests or execute Python scripts.**
+
+You must generate a fix by reading code, understanding logic, and reasoning about the root cause.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: ddb293685235fd09e932805771ae97f72e817181
+
+## Problem Description
+Use subprocess.run and PGPASSWORD for client in postgres backend
+Description
+	
+​subprocess.run was added in python 3.5 (which is the minimum version since Django 2.1). This function allows you to pass a custom environment for the subprocess.
+Using this in django.db.backends.postgres.client to set PGPASSWORD simplifies the code and makes it more reliable.
+
+
+## What You CAN Do
+✅ Use bash commands to view files (ls, cat, grep, find, etc.)
+✅ Read and analyze code
+✅ Reason and think
+
+## What You CANNOT Do
+❌ Run pytest or any tests
+❌ Execute Python scripts (python xxx.py)
+❌ Run any commands that execute code
+❌ Use git commands (git may interfere with the experimental environment)
+
+## Task Requirements
+1. Carefully read relevant code files (you can read multiple times)
+2. Analyze the root cause of the problem
+3. Reason out the correct fix
+4. Double-check your fix logic
+5. **Use the Edit tool to actually modify the source files**
+
+## CRITICAL: You MUST Actually Modify Files
+- Do NOT just output a diff as text
+- You MUST use the Edit tool to make actual changes to the source files
+- After editing, the changes will be captured by git diff automatically
+
+Remember: You can use bash commands to view code, but cannot run tests or scripts to verify. Ensure correctness through careful logical reasoning.

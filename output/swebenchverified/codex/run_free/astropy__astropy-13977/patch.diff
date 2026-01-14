@@ -1,0 +1,69 @@
+diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
+index b98abfafb..ee7b26aac 100644
+--- a/astropy/units/quantity.py
++++ b/astropy/units/quantity.py
+@@ -666,8 +666,22 @@ class Quantity(np.ndarray):
+         # Same for inputs, but here also convert if necessary.
+         arrays = []
+         for input_, converter in zip(inputs, converters):
+-            input_ = getattr(input_, "value", input_)
+-            arrays.append(converter(input_) if converter else input_)
++            input_original = input_
++            input_ = getattr(input_original, "value", input_original)
++            if converter:
++                try:
++                    input_ = converter(input_)
++                except (TypeError, ValueError):
++                    # If the input looks like it implements __array_ufunc__
++                    # itself, return NotImplemented so numpy can try it.
++                    # This helps with duck types that expose a ``unit``
++                    # attribute but are not convertible by our unit converters.
++                    if not isinstance(input_original, (Quantity, np.ndarray)) and hasattr(
++                        input_original, "__array_ufunc__"
++                    ):
++                        return NotImplemented
++                    raise
++            arrays.append(input_)
+ 
+         # Call our superclass's __array_ufunc__
+         result = super().__array_ufunc__(function, method, *arrays, **kwargs)
+diff --git a/astropy/units/tests/test_quantity_ufuncs.py b/astropy/units/tests/test_quantity_ufuncs.py
+index 5f8c3ab3e..b073542b7 100644
+--- a/astropy/units/tests/test_quantity_ufuncs.py
++++ b/astropy/units/tests/test_quantity_ufuncs.py
+@@ -668,6 +668,35 @@ class TestInvariantUfuncs:
+         assert q_o.unit == q_i1.unit
+         assert_allclose(q_o.value, ufunc(q_i1.value, q_i2.to_value(q_i1.unit)))
+ 
++    def test_invariant_twoarg_duck_array(self):
++        class DuckArray(np.lib.mixins.NDArrayOperatorsMixin):
++            def __init__(self, ndarray):
++                self.ndarray = ndarray
++
++            @property
++            def unit(self):
++                return self.ndarray.unit
++
++            def __array_ufunc__(self, function, method, *inputs, **kwargs):
++                inputs = [
++                    inp.ndarray if isinstance(inp, DuckArray) else inp for inp in inputs
++                ]
++                for inp in inputs:
++                    if isinstance(inp, np.ndarray):
++                        result = inp.__array_ufunc__(function, method, *inputs, **kwargs)
++                        if result is not NotImplemented:
++                            return DuckArray(result)
++
++                return NotImplemented
++
++        q = 1 * u.m
++        duck = DuckArray(1 * u.mm)
++        result = q + duck
++        assert isinstance(result, DuckArray)
++        assert isinstance(result.ndarray, u.Quantity)
++        assert result.ndarray.unit == u.m
++        assert_allclose(result.ndarray.value, 1.001)
++
+     @pytest.mark.parametrize(
+         "ufunc",
+         [

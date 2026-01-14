@@ -1,0 +1,47 @@
+diff --git a/django/db/models/aggregates.py b/django/db/models/aggregates.py
+index ac0b62d0bf..ea88c54b0d 100644
+--- a/django/db/models/aggregates.py
++++ b/django/db/models/aggregates.py
+@@ -68,7 +68,7 @@ class Aggregate(Func):
+         return []
+ 
+     def as_sql(self, compiler, connection, **extra_context):
+-        extra_context['distinct'] = 'DISTINCT' if self.distinct else ''
++        extra_context['distinct'] = 'DISTINCT ' if self.distinct else ''
+         if self.filter:
+             if connection.features.supports_aggregate_filter_clause:
+                 filter_sql, filter_params = self.filter.as_sql(compiler, connection)
+diff --git a/tests/aggregation/tests.py b/tests/aggregation/tests.py
+index 8cac90f020..af21ffaa02 100644
+--- a/tests/aggregation/tests.py
++++ b/tests/aggregation/tests.py
+@@ -5,8 +5,8 @@ from decimal import Decimal
+ from django.core.exceptions import FieldError
+ from django.db import connection
+ from django.db.models import (
+-    Avg, Count, DecimalField, DurationField, F, FloatField, Func, IntegerField,
+-    Max, Min, Sum, Value,
++    Avg, Case, Count, DecimalField, DurationField, F, FloatField, Func,
++    IntegerField, Max, Min, Sum, Value, When,
+ )
+ from django.test import TestCase
+ from django.test.utils import Approximate, CaptureQueriesContext
+@@ -389,6 +389,18 @@ class AggregateTestCase(TestCase):
+         vals = Book.objects.aggregate(Count("rating", distinct=True))
+         self.assertEqual(vals, {"rating__count": 4})
+ 
++    def test_count_distinct_case(self):
++        qs = Book.objects.annotate(
++            cnt=Count(
++                Case(When(rating__gt=4, then=Value(1))),
++                distinct=True,
++            )
++        ).order_by('pk')
++        sql = str(qs.query)
++        self.assertIn('COUNT(DISTINCT CASE', sql)
++        self.assertNotIn('DISTINCTCASE', sql)
++        self.assertEqual(list(qs.values_list('cnt', flat=True)), [1, 0, 0, 0, 0, 1])
++
+     def test_count_star(self):
+         with self.assertNumQueries(1) as ctx:
+             Book.objects.aggregate(n=Count("*"))

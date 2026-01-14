@@ -1,0 +1,72 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..8e86395e3 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -57,10 +57,25 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None, **kwargs):
++        super().__init__(
++            delimiter_pad=None, bookend=False, header_rows=header_rows, **kwargs
++        )
+ 
+-    def write(self, lines):
+-        lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
+-        return lines
++    def write(self, table):
++        lines = super().write(table)
++
++        header_rows = getattr(self.header, "header_rows", ["name"])
++        sep_idx = len(header_rows)
++
++        # For simple RST tables the top and bottom borders are the same as the
++        # header/data separator line.
++        if not lines:
++            return lines
++
++        try:
++            sep_line = lines[sep_idx]
++        except IndexError:
++            sep_line = lines[0]
++
++        return [sep_line] + lines + [sep_line]
+diff --git a/astropy/io/ascii/tests/test_rst.py b/astropy/io/ascii/tests/test_rst.py
+index 84d6fed40..0dc6a9b26 100644
+--- a/astropy/io/ascii/tests/test_rst.py
++++ b/astropy/io/ascii/tests/test_rst.py
+@@ -2,7 +2,9 @@
+ 
+ from io import StringIO
+ 
++import astropy.units as u
+ from astropy.io import ascii
++from astropy.table import QTable
+ 
+ from .common import assert_almost_equal, assert_equal
+ 
+@@ -185,3 +187,21 @@ Col1      Col2 Col3 Col4
+ ==== ========= ==== ====
+ """,
+     )
++
++
++def test_write_header_rows_unit():
++    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.count})
++    out = StringIO()
++    ascii.write(tbl, out, Writer=ascii.RST, header_rows=["name", "unit"])
++    assert_equal_splitlines(
++        out.getvalue(),
++        """\
++===== ========
++ wave response
++   nm       ct
++===== ========
++350.0      0.7
++950.0      1.2
++===== ========
++""",
++    )

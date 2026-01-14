@@ -1,0 +1,94 @@
+diff --git a/astropy/wcs/wcsapi/wrappers/sliced_wcs.py b/astropy/wcs/wcsapi/wrappers/sliced_wcs.py
+index d7605b078..413cd4b67 100644
+--- a/astropy/wcs/wcsapi/wrappers/sliced_wcs.py
++++ b/astropy/wcs/wcsapi/wrappers/sliced_wcs.py
+@@ -242,6 +242,20 @@ class SlicedLowLevelWCS(BaseWCSWrapper):
+ 
+         return world_arrays
+ 
++    @lazyproperty
++    def _world_values_for_fixed_slices(self):
++        """
++        World coordinate values corresponding to fixed (integer) pixel slices.
++
++        These values are used to populate any dropped world dimensions when
++        calling ``world_to_pixel_values`` so that the inverse transformation is
++        consistent with the fixed pixel coordinates.
++        """
++        world = self._pixel_to_world_values_all(*([0] * len(self._pixel_keep)))
++        if self._wcs.world_n_dim == 1:
++            world = (world,)
++        return world
++
+     def world_to_pixel_values(self, *world_arrays):
+         world_arrays = tuple(map(np.asanyarray, world_arrays))
+         world_arrays_new = []
+@@ -251,7 +265,7 @@ class SlicedLowLevelWCS(BaseWCSWrapper):
+                 iworld_curr += 1
+                 world_arrays_new.append(world_arrays[iworld_curr])
+             else:
+-                world_arrays_new.append(1.)
++                world_arrays_new.append(self._world_values_for_fixed_slices[iworld])
+ 
+         world_arrays_new = np.broadcast_arrays(*world_arrays_new)
+         pixel_arrays = list(self._wcs.world_to_pixel_values(*world_arrays_new))
+diff --git a/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py b/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py
+index a35411496..03437f606 100644
+--- a/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py
++++ b/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py
+@@ -518,6 +518,55 @@ CUNIT2  = Hz
+ CUNIT3  = deg
+ """
+ 
++
++HEADER_COUPLED_DROPPED_WORLD = """
++NAXIS   = 3
++NAXIS1  = 100
++NAXIS2  = 25
++NAXIS3  = 2
++WCSAXES = 3
++CRPIX1  = 50.5
++CRPIX2  = 13
++CRPIX3  = 1
++CRVAL1  = 0
++CRVAL2  = 0
++CRVAL3  = 1.05
++CDELT1  = 5
++CDELT2  = 5
++CDELT3  = 0.055
++CUNIT1  = arcsec
++CUNIT2  = arcsec
++CUNIT3  = Angstrom
++CTYPE1  = X
++CTYPE2  = Y
++CTYPE3  = WAVE
++PC1_1   = 0
++PC1_2   = -1
++PC1_3   = 0
++PC2_1   = 1
++PC2_2   = 0
++PC2_3   = -1
++PC3_1   = 0
++PC3_2   = 0
++PC3_3   = 1
++"""
++
++with warnings.catch_warnings():
++    warnings.simplefilter('ignore', VerifyWarning)
++    WCS_COUPLED_DROPPED_WORLD = WCS(Header.fromstring(HEADER_COUPLED_DROPPED_WORLD, sep='\n'))
++
++
++def test_world_to_pixel_uses_fixed_dropped_world_values():
++    wcs = WCS_COUPLED_DROPPED_WORLD
++
++    px_ref, py_ref, pz_ref = 49.5, 12.0, 0.0
++    world_ref = wcs.pixel_to_world_values(px_ref, py_ref, pz_ref)
++
++    assert_allclose(wcs.world_to_pixel_values(*world_ref), (px_ref, py_ref, pz_ref))
++
++    sliced = SlicedLowLevelWCS(wcs, 0)
++    assert_allclose(sliced.world_to_pixel_values(world_ref[0], world_ref[1]), (px_ref, py_ref))
++
+ with warnings.catch_warnings():
+     warnings.simplefilter('ignore', VerifyWarning)
+     WCS_NO_SHAPE_CUBE = WCS(Header.fromstring(HEADER_NO_SHAPE_CUBE, sep='\n'))

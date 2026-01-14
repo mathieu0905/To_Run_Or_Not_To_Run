@@ -1,0 +1,94 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 8c1ac5d73..abaf53d90 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -5,7 +5,7 @@ import warnings
+ 
+ import numpy as np
+ 
+-from .util import _str_to_num, _is_int, translate, _words_group
++from .util import _str_to_num, _is_int, translate, _words_group, decode_ascii
+ from .verify import _Verify, _ErrList, VerifyError, VerifyWarning
+ 
+ from . import conf
+@@ -547,12 +547,15 @@ class Card(_Verify):
+     @classmethod
+     def fromstring(cls, image):
+         """
+-        Construct a `Card` object from a (raw) string. It will pad the string
+-        if it is not the length of a card image (80 columns).  If the card
+-        image is longer than 80 columns, assume it contains ``CONTINUE``
+-        card(s).
++        Construct a `Card` object from a (raw) string or bytes-like object.
++        It will pad the string if it is not the length of a card image (80
++        columns).  If the card image is longer than 80 columns, assume it
++        contains ``CONTINUE`` card(s).
+         """
+ 
++        if isinstance(image, (bytes, bytearray, memoryview)):
++            image = decode_ascii(bytes(image))
++
+         card = cls()
+         card._image = _pad(image)
+         card._verified = False
+diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
+index ad07e6d52..2686657be 100644
+--- a/astropy/io/fits/header.py
++++ b/astropy/io/fits/header.py
+@@ -334,10 +334,12 @@ class Header:
+ 
+         Parameters
+         ----------
+-        data : str
+-           String containing the entire header.
++        data : str or bytes-like
++            String containing the entire header.  If this is a bytes-like
++            object (e.g. `bytes`, `bytearray`, `memoryview`) it will be
++            decoded as ASCII.
+ 
+-        sep : str, optional
++        sep : str or bytes-like, optional
+             The string separating cards from each other, such as a newline.  By
+             default there is no card separator (as is the case in a raw FITS
+             file).
+@@ -348,6 +350,12 @@ class Header:
+             A new `Header` instance.
+         """
+ 
++        if isinstance(data, (bytes, bytearray, memoryview)):
++            data = decode_ascii(bytes(data))
++
++        if isinstance(sep, (bytes, bytearray, memoryview)):
++            sep = decode_ascii(bytes(sep))
++
+         cards = []
+ 
+         # If the card separator contains characters that may validly appear in
+diff --git a/astropy/io/fits/tests/test_header.py b/astropy/io/fits/tests/test_header.py
+index 7c1725aed..ecbd4226c 100644
+--- a/astropy/io/fits/tests/test_header.py
++++ b/astropy/io/fits/tests/test_header.py
+@@ -66,6 +66,23 @@ def test_init_with_ordereddict():
+     assert all(h1[val] == list1[i][1] for i, val in enumerate(h1))
+ 
+ 
++def test_card_fromstring_accepts_bytes():
++    c = fits.Card.fromstring(b'ABC     = 1')
++    assert c.keyword == 'ABC'
++    assert c.value == 1
++
++
++def test_header_fromstring_accepts_bytes():
++    header = fits.Header.fromstring(b"UNDEF   = \nDEFINED = 42\nEND", sep=b'\n')
++    assert header['DEFINED'] == 42
++    assert header['UNDEF'] is None
++
++    header_bytes = encode_ascii(_pad("SIMPLE  =                    T") +
++                                _pad("END"))
++    header = fits.Header.fromstring(header_bytes)
++    assert header['SIMPLE'] is True
++
++
+ class TestHeaderFunctions(FitsTestCase):
+     """Test Header and Card objects."""
+ 

@@ -1,0 +1,59 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..c814cc0a6 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -57,10 +57,22 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, col_starts=None, col_ends=None, header_rows=None):
++        super().__init__(
++            col_starts=col_starts,
++            col_ends=col_ends,
++            delimiter_pad=None,
++            bookend=False,
++            header_rows=header_rows,
++        )
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++        header_rows = getattr(self.data, "header_rows", ["name"])
++        if not header_rows:
++            border_line = lines[0]
++            lines = lines[1:]
++        else:
++            border_line = lines[len(header_rows)]
++        lines = [border_line] + lines + [border_line]
+         return lines
+diff --git a/astropy/io/ascii/tests/test_rst.py b/astropy/io/ascii/tests/test_rst.py
+index 84d6fed40..3b1828cc6 100644
+--- a/astropy/io/ascii/tests/test_rst.py
++++ b/astropy/io/ascii/tests/test_rst.py
+@@ -185,3 +185,24 @@ Col1      Col2 Col3 Col4
+ ==== ========= ==== ====
+ """,
+     )
++
++
++def test_write_header_rows():
++    from astropy.table import QTable
++    import astropy.units as u
++
++    tbl = QTable({"wave": [350, 950] * u.nm, "response": [0.7, 1.2] * u.ct})
++    out = StringIO()
++    ascii.write(tbl, out, Writer=ascii.RST, header_rows=["name", "unit"])
++    assert_equal_splitlines(
++        out.getvalue(),
++        """\
++===== ========
++ wave response
++   nm       ct
++===== ========
++350.0      0.7
++950.0      1.2
++===== ========
++""",
++    )

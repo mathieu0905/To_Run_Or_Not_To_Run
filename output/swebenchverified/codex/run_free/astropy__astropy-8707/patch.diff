@@ -1,0 +1,80 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 8c1ac5d73..66774d50c 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -5,7 +5,7 @@ import warnings
+ 
+ import numpy as np
+ 
+-from .util import _str_to_num, _is_int, translate, _words_group
++from .util import _str_to_num, _is_int, translate, _words_group, decode_ascii
+ from .verify import _Verify, _ErrList, VerifyError, VerifyWarning
+ 
+ from . import conf
+@@ -547,12 +547,21 @@ class Card(_Verify):
+     @classmethod
+     def fromstring(cls, image):
+         """
+-        Construct a `Card` object from a (raw) string. It will pad the string
+-        if it is not the length of a card image (80 columns).  If the card
+-        image is longer than 80 columns, assume it contains ``CONTINUE``
+-        card(s).
++        Construct a `Card` object from a (raw) string or bytes-like object.
++        It will pad the string if it is not the length of a card image (80
++        columns).  If the card image is longer than 80 columns, assume it
++        contains ``CONTINUE`` card(s).
+         """
+ 
++        if isinstance(image, memoryview):
++            image = image.tobytes()
++        elif isinstance(image, bytearray):
++            image = bytes(image)
++        if isinstance(image, bytes):
++            # FITS headers are ASCII; for consistency with Header.fromfile use
++            # ASCII decoding with replacement and a warning for invalid bytes.
++            image = decode_ascii(image)
++
+         card = cls()
+         card._image = _pad(image)
+         card._verified = False
+diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
+index ad07e6d52..1b6706c95 100644
+--- a/astropy/io/fits/header.py
++++ b/astropy/io/fits/header.py
+@@ -334,10 +334,12 @@ class Header:
+ 
+         Parameters
+         ----------
+-        data : str
+-           String containing the entire header.
++        data : str or bytes-like
++           String containing the entire header.  If a bytes-like object is
++           given it is decoded as ASCII, with any invalid bytes replaced by
++           ``'?'`` (matching the behavior of `Header.fromfile`).
+ 
+-        sep : str, optional
++        sep : str or bytes-like, optional
+             The string separating cards from each other, such as a newline.  By
+             default there is no card separator (as is the case in a raw FITS
+             file).
+@@ -348,6 +350,20 @@ class Header:
+             A new `Header` instance.
+         """
+ 
++        if isinstance(data, memoryview):
++            data = data.tobytes()
++        elif isinstance(data, bytearray):
++            data = bytes(data)
++        if isinstance(data, bytes):
++            data = decode_ascii(data)
++
++        if isinstance(sep, memoryview):
++            sep = sep.tobytes()
++        elif isinstance(sep, bytearray):
++            sep = bytes(sep)
++        if isinstance(sep, bytes):
++            sep = decode_ascii(sep)
++
+         cards = []
+ 
+         # If the card separator contains characters that may validly appear in

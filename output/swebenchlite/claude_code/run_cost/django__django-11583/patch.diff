@@ -1,0 +1,51 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 25c3b44250..e278529a96 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -143,6 +143,9 @@ def iter_modules_and_files(modules, extra_files):
+             # The module could have been removed, don't fail loudly if this
+             # is the case.
+             continue
++        except ValueError:
++            # Path contains invalid characters (e.g. null bytes).
++            continue
+         results.add(resolved_path)
+     return frozenset(results)
+ 
+@@ -189,6 +192,9 @@ def sys_path_directories():
+             resolved_path = path.resolve(strict=True).absolute()
+         except FileNotFoundError:
+             continue
++        except ValueError:
++            # Path contains invalid characters (e.g. null bytes).
++            continue
+         # If the path is a file (like a zip file), watch the parent directory.
+         if resolved_path.is_file():
+             yield resolved_path.parent
+diff --git a/tests/utils_tests/test_autoreload.py b/tests/utils_tests/test_autoreload.py
+index 1ea019ac7a..127d5b0d60 100644
+--- a/tests/utils_tests/test_autoreload.py
++++ b/tests/utils_tests/test_autoreload.py
+@@ -140,6 +140,22 @@ class TestIterModulesAndFiles(SimpleTestCase):
+         fake_main = types.ModuleType('__main__')
+         self.assertEqual(autoreload.iter_modules_and_files((fake_main,), frozenset()), frozenset())
+ 
++    def test_path_with_null_byte(self):
++        """
++        A module path with a null byte is ignored and doesn't crash the reloader.
++        Regression test for #30479.
++        """
++        module = types.ModuleType('test_module')
++        module.__spec__ = types.SimpleNamespace(
++            has_location=True,
++            origin='/path/with\x00null/file.py',
++            loader=None,
++        )
++        # Should not raise ValueError
++        result = autoreload.iter_modules_and_files((module,), frozenset())
++        # The path with null byte should be skipped
++        self.assertEqual(result, frozenset())
++
+ 
+ class TestCommonRoots(SimpleTestCase):
+     def test_common_roots(self):
