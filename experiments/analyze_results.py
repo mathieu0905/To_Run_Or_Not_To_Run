@@ -89,7 +89,7 @@ def count_tokens_and_execs(trace_path):
     if max_item_id >= 0:
         turns = max_item_id + 1
 
-    return tokens, exec_count, turns, duration_ms
+    return tokens, exec_count, high_cost_exec, low_cost_exec, turns, duration_ms
 
 def check_patch(patch_path):
     """检查 patch 是否非空"""
@@ -123,12 +123,14 @@ def analyze(output_dir):
                 patch_path = instance_dir / "patch.diff"
 
                 if trace_path.exists():
-                    tokens, exec_count, turns, duration_ms = count_tokens_and_execs(trace_path)
+                    tokens, exec_count, high_cost_exec, low_cost_exec, turns, duration_ms = count_tokens_and_execs(trace_path)
                     has_patch = check_patch(patch_path)
 
                     results[agent][mode][instance] = {
                         "tokens": tokens,
                         "exec_count": exec_count,
+                        "high_cost_exec": high_cost_exec,
+                        "low_cost_exec": low_cost_exec,
                         "turns": turns,
                         "duration_ms": duration_ms,
                         "has_patch": has_patch
@@ -144,15 +146,17 @@ def print_summary(results):
 
     for agent, modes in sorted(results.items()):
         print(f"\n### Agent: {agent}")
-        print("-" * 120)
-        print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'Avg Execs':<10} {'Avg Time':<12} {'Patch'}")
-        print("-" * 120)
+        print("-" * 130)
+        print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'High-Cost':<11} {'Low-Cost':<10} {'Avg Time':<12} {'Patch'}")
+        print("-" * 130)
 
         for mode, instances in sorted(modes.items()):
             n = len(instances)
             total_input = sum(v["tokens"]["input"] for v in instances.values())
             total_output = sum(v["tokens"]["output"] for v in instances.values())
             total_execs = sum(v["exec_count"] for v in instances.values())
+            total_high_cost = sum(v["high_cost_exec"] for v in instances.values())
+            total_low_cost = sum(v["low_cost_exec"] for v in instances.values())
             total_turns = sum(v["turns"] for v in instances.values())
             total_duration = sum(v["duration_ms"] for v in instances.values())
             patches = sum(1 for v in instances.values() if v["has_patch"])
@@ -161,10 +165,11 @@ def print_summary(results):
             avg_output = total_output // n if n > 0 else 0
             avg_total = (total_input + total_output) // n if n > 0 else 0
             avg_turns = total_turns / n if n > 0 else 0
-            avg_execs = total_execs / n if n > 0 else 0
+            avg_high_cost = total_high_cost / n if n > 0 else 0
+            avg_low_cost = total_low_cost / n if n > 0 else 0
             avg_duration_sec = (total_duration / n / 1000) if n > 0 else 0
 
-            print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_execs:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n}")
+            print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_high_cost:<11.1f} {avg_low_cost:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n}")
 
     # 详细信息
     # print("\n" + "=" * 110)
