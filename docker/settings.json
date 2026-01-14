@@ -1,0 +1,19 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-3OfHQnYVYMSlhIT7ijMyouR5lxs4cMkfkU9rGtQ5YXs95jh9",
+    "ANTHROPIC_BASE_URL": "http://vip.xg.frp.one:60660",
+    "ANTHROPIC_API_KEY": "sk-3OfHQnYVYMSlhIT7ijMyouR5lxs4cMkfkU9rGtQ5YXs95jh9",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "API_TIMEOUT_MS": "600000"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": []
+  },
+  "enabledPlugins": {
+    "ralph-loop@claude-plugins-official": true,
+    "superpowers@superpowers-marketplace": true,
+    "code-simplifier@claude-plugins-official": true
+  },
+  "language": "Chinese"
+}

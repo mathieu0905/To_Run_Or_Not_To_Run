@@ -1,0 +1,5 @@
+Building swebench/sweb.eval.x86_64.django_1776_django-15781
+Base tag: swebench/sweb.eval.x86_64.django_1776_django-15781:latest
+Agent tag: swebench/sweb.eval.x86_64.django_1776_django-15781-agent:latest
+
+Image already exists, skipping

@@ -1,0 +1,10 @@
+Building swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168
+Base tag: swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168:latest
+Agent tag: swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168-agent:latest
+
+============================================================
+PULLING BASE IMAGE
+============================================================
+Error response from daemon: Head "https://registry-1.docker.io/v2/swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7168/manifests/latest": Get "https://auth.docker.io/token?scope=repository%3Aswebench%2Fsweb.eval.x86_64.pytest-dev_1776_pytest-7168%3Apull&service=registry.docker.io": EOF
+
+Pull failed with exit code 1

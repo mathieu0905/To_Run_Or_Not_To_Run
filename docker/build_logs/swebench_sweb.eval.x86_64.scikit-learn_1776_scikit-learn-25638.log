@@ -1,0 +1,5 @@
+Building swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-25638
+Base tag: swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-25638:latest
+Agent tag: swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-25638-agent:latest
+
+Image already exists, skipping

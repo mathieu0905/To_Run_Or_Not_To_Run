@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  swebench-base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+    image: swebench-agent-base:latest
+    container_name: swebench-agent-base
+    network_mode: "host"
+    environment:
+      - http_proxy=http://127.0.0.1:15732
+      - https_proxy=http://127.0.0.1:15732
+      - HTTP_PROXY=http://127.0.0.1:15732
+      - HTTPS_PROXY=http://127.0.0.1:15732
+      - NO_PROXY=localhost,127.0.0.1
+    volumes:
+      # 挂载配置文件
+      - ~/.claude/settings.json:/root/.claude/settings.json:ro
+      - ~/.codex/auth.json:/root/.codex/auth.json:ro
+      - ~/.codex/config.toml:/root/.codex/config.toml:ro
+      # 挂载项目目录
+      - ../:/workspace
+    working_dir: /testbed
+    stdin_open: true
+    tty: true
+    command: /bin/bash

@@ -1,0 +1,5 @@
+Building swebench/sweb.eval.x86_64.psf_1776_requests-863
+Base tag: swebench/sweb.eval.x86_64.psf_1776_requests-863:latest
+Agent tag: swebench/sweb.eval.x86_64.psf_1776_requests-863-agent:latest
+
+Image already exists, skipping
