@@ -11,11 +11,42 @@ SCRIPT_DIR="$(pwd)"
 # 切换到 experiments 目录运行
 cd experiments
 
-# 配置
-INSTANCES_FILE="../test_3_instances.txt"
-WORKERS=3  # 每个配置内部的并发数（因为只有3个实例）
-TIMEOUT=600
+# ========== 配置区域 ==========
+# 实验配置
+NUM_INSTANCES=10  # 取前 n 个实例
+WORKERS=5  # 每个配置内部的并发数
+TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Lite"
+
+# Claude Code 配置
+export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"  # 可选: opus, sonnet, haiku
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://39.96.176.191:60660}"
+
+# Codex 配置
+export CODEX_MODEL="${CODEX_MODEL:-gpt-5.2}"
+export CODEX_REASONING_EFFORT="${CODEX_REASONING_EFFORT:-xhigh}"
+# ==============================
+
+# 根据 DATASET 选择对应的 JSON 数据文件
+if [ "$DATASET" = "princeton-nlp/SWE-bench_Lite" ]; then
+    DATA_FILE="${SCRIPT_DIR}/data/swe_bench_lite.json"
+elif [ "$DATASET" = "princeton-nlp/SWE-bench_Verified" ]; then
+    DATA_FILE="${SCRIPT_DIR}/data/swe_bench_verified.json"
+else
+    echo "未知数据集: $DATASET"
+    exit 1
+fi
+
+# 检查数据文件是否存在
+if [ ! -f "$DATA_FILE" ]; then
+    echo "数据文件不存在: $DATA_FILE"
+    exit 1
+fi
+
+# 从 JSON 文件提取 instance_id 并生成临时实例文件（取前 n 个）
+INSTANCES_FILE=$(mktemp)
+python3 -c "import json; data = json.load(open('$DATA_FILE')); print('\n'.join([d['instance_id'] for d in data[:$NUM_INSTANCES]]))" > "$INSTANCES_FILE"
+trap "rm -f $INSTANCES_FILE" EXIT
 
 # 颜色输出
 GREEN='\033[0;32m'
@@ -38,15 +69,16 @@ LOG_DIR="${SCRIPT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 
 # Agent 列表
-AGENTS=("claude_code" "codex")
+# AGENTS=("claude_code" "codex")
+AGENTS=("claude_code")
 
 # 模式配置列表
 # 格式: "mode k_value"
 CONFIGS=(
     "run_free 0"
+    "run_less 1"
     "run_less 2"
-    "run_less 5"
-    "run_less 10"
+    "run_less 3"
     "run_cost 0"
     "run_full 0"
 )
