@@ -181,15 +181,15 @@ class AgentCaller:
 
             # 使用 nonroot 用户运行，这样可以使用 --dangerously-skip-permissions
             # 需要先将 root 的 Claude 配置复制到 nonroot 用户目录
-            # 注意：git diff 必须在 su nonroot 外面用 root 执行，因为挂载目录对 nonroot 没有写权限
+            # 注意：nonroot 用户无法写入挂载目录，所以用管道让 root 写入文件
             claude_cmd = (
                 f"cp -r /root/.claude /home/nonroot/.claude && "
                 f"chown -R nonroot:nonroot /home/nonroot/.claude && "
                 f"su nonroot -c \""
                 f"sed -i 's/\\\"language\\\": \\\"Chinese\\\"/\\\"language\\\": \\\"English\\\"/' /home/nonroot/.claude/settings.json && "
                 f"cd /testbed && "
-                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json {json.dumps(prompt).replace('\"', '\\\"')} > {container_trace_path}"
-                f"\" && "
+                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json {json.dumps(prompt).replace('\"', '\\\"')}"
+                f"\" > {container_trace_path}; "
                 f"cd /testbed && git diff > {container_patch_path}"
             )
 
