@@ -71,12 +71,13 @@ class AgentCaller:
             # 构建命令
             cmd = self._build_claude_command(prompt, trace_path)
 
-            # 执行命令
+            # 执行命令（在 testbed 目录下）
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
+                cwd="/testbed"
             )
 
             duration = time.time() - start
@@ -162,7 +163,8 @@ class AgentCaller:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
+                cwd="/testbed"
             )
 
             duration = time.time() - start

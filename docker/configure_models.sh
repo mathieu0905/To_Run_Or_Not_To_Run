@@ -30,15 +30,16 @@ if [ ! -f "$CLAUDE_SETTINGS" ]; then
     "allow": [],
     "deny": []
   },
+  "language": "English",
   "model": "$CLAUDE_MODEL"
 }
 EOF
 else
-    # 更新现有配置中的 model 字段
+    # 更新现有配置中的 model 和 language 字段
     if command -v jq &> /dev/null; then
         # 使用 jq 更新
         tmp=$(mktemp)
-        jq ".model = \"$CLAUDE_MODEL\"" "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+        jq ".model = \"$CLAUDE_MODEL\" | .language = \"English\"" "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
     else
         # 使用 sed 更新（如果没有 jq）
         if grep -q '"model"' "$CLAUDE_SETTINGS"; then
@@ -46,6 +47,12 @@ else
         else
             # 如果没有 model 字段，添加它
             sed -i 's/^{/{\n  "model": "'"$CLAUDE_MODEL"'",/' "$CLAUDE_SETTINGS"
+        fi
+        # 更新或添加 language 字段
+        if grep -q '"language"' "$CLAUDE_SETTINGS"; then
+            sed -i "s/\"language\": *\"[^\"]*\"/\"language\": \"English\"/" "$CLAUDE_SETTINGS"
+        else
+            sed -i 's/^{/{\n  "language": "English",/' "$CLAUDE_SETTINGS"
         fi
     fi
 fi

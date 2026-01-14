@@ -4,7 +4,7 @@ services:
   swebench-runner:
     image: swebench/sweb.eval.x86_64.base:latest
     container_name: swebench-runner
-    working_dir: /workspace
+    working_dir: /testbed
     volumes:
       # 挂载项目目录到容器
       - ./:/workspace
@@ -37,7 +37,7 @@ services:
   swebench-batch:
     image: swebench/sweb.eval.x86_64.base:latest
     container_name: swebench-batch
-    working_dir: /workspace
+    working_dir: /testbed
     volumes:
       - ./:/workspace
       - ./output:/workspace/output
