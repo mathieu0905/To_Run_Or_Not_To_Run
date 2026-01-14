@@ -26,8 +26,13 @@ echo "数据集: $DATASET"
 echo "=========================================="
 echo ""
 
-# 进入实验目录
-cd experiments
+# 启动 Docker 容器（如果还没启动）
+echo "检查 Docker 容器状态..."
+if ! docker-compose ps swebench-batch | grep -q "Up"; then
+    echo "启动 Docker 容器..."
+    docker-compose up -d swebench-batch
+    sleep 5
+fi
 
 # 创建日志目录（按 agent 分层）
 LOG_DIR="../logs"
@@ -81,11 +86,11 @@ for agent in "${AGENTS[@]}"; do
 
         echo -e "${BLUE}启动任务:${NC} ${GREEN}${TASK_NAME}${NC} (日志: ${LOG_FILE})"
 
-        # 在后台运行批量实验（使用 python -u 禁用缓冲）
+        # 在 Docker 容器内运行批量实验
         if [ "$mode" = "run_less" ]; then
-            (python -u batch_runner.py "../${INSTANCES_FILE}" "$mode" "$k" "$WORKERS" "$agent" "$TIMEOUT" "$DATASET" > "$LOG_FILE" 2>&1) &
+            (docker-compose exec -T swebench-batch bash -c "cd /workspace/experiments && python -u batch_runner.py /workspace/${INSTANCES_FILE} $mode $k $WORKERS $agent $TIMEOUT $DATASET" > "$LOG_FILE" 2>&1) &
         else
-            (python -u batch_runner.py "../${INSTANCES_FILE}" "$mode" 2 "$WORKERS" "$agent" "$TIMEOUT" "$DATASET" > "$LOG_FILE" 2>&1) &
+            (docker-compose exec -T swebench-batch bash -c "cd /workspace/experiments && python -u batch_runner.py /workspace/${INSTANCES_FILE} $mode 2 $WORKERS $agent $TIMEOUT $DATASET" > "$LOG_FILE" 2>&1) &
         fi
 
         # 记录 PID 和任务名
