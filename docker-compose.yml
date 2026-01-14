@@ -18,6 +18,10 @@ services:
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
       # Codex 认证
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # 模型配置
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-opus}
+      - CODEX_MODEL=${CODEX_MODEL:-gpt-5.2}
+      - CODEX_REASONING_EFFORT=${CODEX_REASONING_EFFORT:-xhigh}
       # 代理设置（如果需要）
       - http_proxy=${http_proxy:-}
       - https_proxy=${https_proxy:-}
@@ -26,9 +30,7 @@ services:
     tty: true
     command: >
       bash -c "
-      if [ -f ~/.claude/settings.json ]; then
-        sed -i '/"language":/d' ~/.claude/settings.json;
-      fi;
+      /workspace/docker/configure_models.sh;
       exec /bin/bash"
 
   # 用于批量运行的服务（可选）
@@ -44,6 +46,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-sonnet}
+      - CODEX_MODEL=${CODEX_MODEL:-gpt-5.2}
+      - CODEX_REASONING_EFFORT=${CODEX_REASONING_EFFORT:-medium}
       - http_proxy=${http_proxy:-}
       - https_proxy=${https_proxy:-}
     network_mode: host
@@ -51,7 +56,5 @@ services:
     tty: true
     command: >
       bash -c "
-      if [ -f ~/.claude/settings.json ]; then
-        sed -i '/"language":/d' ~/.claude/settings.json;
-      fi;
+      /workspace/docker/configure_models.sh;
       exec /bin/bash"
