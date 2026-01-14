@@ -51,6 +51,9 @@ python experiments/download_datasets.py
 ### 运行实验
 
 ```bash
+# 全流程测试
+bash ./run_all_experiments.sh
+
 # Run-Free 模式（零执行）
 python experiments/runner.py django__django-11099 run_free
 
