@@ -85,17 +85,24 @@ def clean_error_instances(base_dir: str):
 
         # 更新 checkpoint.json
         if deleted_instances and checkpoint_data:
-            for instance_id in deleted_instances:
-                if instance_id in checkpoint_data:
-                    del checkpoint_data[instance_id]
+            # checkpoint.json 结构: {"completed": ["instance1", "instance2", ...]}
+            if "completed" in checkpoint_data:
+                original_count = len(checkpoint_data["completed"])
+                checkpoint_data["completed"] = [
+                    inst for inst in checkpoint_data["completed"]
+                    if inst not in deleted_instances
+                ]
+                removed_count = original_count - len(checkpoint_data["completed"])
 
-            # 写回 checkpoint.json
-            try:
-                with open(checkpoint_file, 'w') as f:
-                    json.dump(checkpoint_data, f, indent=2)
-                print(f"  已更新 checkpoint.json，删除了 {len(deleted_instances)} 个实例")
-            except Exception as e:
-                print(f"  警告: 无法更新 checkpoint.json: {e}")
+                # 写回 checkpoint.json
+                try:
+                    with open(checkpoint_file, 'w') as f:
+                        json.dump(checkpoint_data, f, indent=2)
+                    print(f"  已更新 checkpoint.json，从 completed 数组中删除了 {removed_count} 个实例")
+                except Exception as e:
+                    print(f"  警告: 无法更新 checkpoint.json: {e}")
+            else:
+                print(f"  警告: checkpoint.json 格式不正确，缺少 'completed' 字段")
 
     print(f"\n总计删除了 {total_deleted} 个包含错误的实例")
 

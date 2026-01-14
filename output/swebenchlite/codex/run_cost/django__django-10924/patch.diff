@@ -1,0 +1,74 @@
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index a977256525..f783bbb0a4 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -1078,7 +1078,9 @@ class MultiValueField(Field):
+ class FilePathField(ChoiceField):
+     def __init__(self, path, *, match=None, recursive=False, allow_files=True,
+                  allow_folders=False, **kwargs):
+-        self.path, self.match, self.recursive = path, match, recursive
++        if callable(path):
++            path = path()
++        self.path, self.match, self.recursive = os.fspath(path), match, recursive
+         self.allow_files, self.allow_folders = allow_files, allow_folders
+         super().__init__(choices=(), **kwargs)
+ 
+@@ -1096,14 +1098,14 @@ class FilePathField(ChoiceField):
+                     for f in sorted(files):
+                         if self.match is None or self.match_re.search(f):
+                             f = os.path.join(root, f)
+-                            self.choices.append((f, f.replace(path, "", 1)))
++                            self.choices.append((f, f.replace(self.path, "", 1)))
+                 if self.allow_folders:
+                     for f in sorted(dirs):
+                         if f == '__pycache__':
+                             continue
+                         if self.match is None or self.match_re.search(f):
+                             f = os.path.join(root, f)
+-                            self.choices.append((f, f.replace(path, "", 1)))
++                            self.choices.append((f, f.replace(self.path, "", 1)))
+         else:
+             choices = []
+             for f in os.scandir(self.path):
+diff --git a/tests/field_deconstruction/tests.py b/tests/field_deconstruction/tests.py
+index 2cf1f93e22..b4de734ee3 100644
+--- a/tests/field_deconstruction/tests.py
++++ b/tests/field_deconstruction/tests.py
+@@ -4,6 +4,10 @@ from django.test import SimpleTestCase, override_settings
+ from django.test.utils import isolate_lru_cache
+ 
+ 
++def filepathfield_path():
++    return "/tmp"
++
++
+ class FieldDeconstructionTests(SimpleTestCase):
+     """
+     Tests the deconstruct() method on all core fields.
+@@ -185,6 +189,11 @@ class FieldDeconstructionTests(SimpleTestCase):
+         self.assertEqual(path, "django.db.models.FilePathField")
+         self.assertEqual(args, [])
+         self.assertEqual(kwargs, {"recursive": True, "allow_folders": True, "max_length": 123})
++        field = models.FilePathField(path=filepathfield_path)
++        name, path, args, kwargs = field.deconstruct()
++        self.assertEqual(path, "django.db.models.FilePathField")
++        self.assertEqual(args, [])
++        self.assertEqual(kwargs, {"path": filepathfield_path})
+ 
+     def test_float_field(self):
+         field = models.FloatField()
+diff --git a/tests/forms_tests/field_tests/test_filepathfield.py b/tests/forms_tests/field_tests/test_filepathfield.py
+index 44f6aff521..3f1093e3ed 100644
+--- a/tests/forms_tests/field_tests/test_filepathfield.py
++++ b/tests/forms_tests/field_tests/test_filepathfield.py
+@@ -59,6 +59,10 @@ class FilePathFieldTest(SimpleTestCase):
+         f = FilePathField(path=self.path, match=r'^.*?\.py$')
+         self.assertChoices(f, self.expected_choices[:4])
+ 
++    def test_callable_path(self):
++        f = FilePathField(path=lambda: self.path, match=r'^.*?\.py$')
++        self.assertChoices(f, self.expected_choices[:4])
++
+     def test_recursive(self):
+         f = FilePathField(path=self.path, recursive=True, match=r'^.*?\.py$')
+         expected = [

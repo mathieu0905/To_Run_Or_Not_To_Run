@@ -1,0 +1,98 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 0c64748ccd..32ea29e34f 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -1708,8 +1708,9 @@ class FilePathField(Field):
+         return str(value)
+ 
+     def formfield(self, **kwargs):
++        path = self.path() if callable(self.path) else self.path
+         return super().formfield(**{
+-            'path': self.path,
++            'path': path,
+             'match': self.match,
+             'recursive': self.recursive,
+             'form_class': forms.FilePathField,
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index a977256525..dd5d8f606f 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -1078,7 +1078,8 @@ class MultiValueField(Field):
+ class FilePathField(ChoiceField):
+     def __init__(self, path, *, match=None, recursive=False, allow_files=True,
+                  allow_folders=False, **kwargs):
+-        self.path, self.match, self.recursive = path, match, recursive
++        self.path = path() if callable(path) else path
++        self.match, self.recursive = match, recursive
+         self.allow_files, self.allow_folders = allow_files, allow_folders
+         super().__init__(choices=(), **kwargs)
+ 
+@@ -1090,6 +1091,7 @@ class FilePathField(ChoiceField):
+         if self.match is not None:
+             self.match_re = re.compile(self.match)
+ 
++        path = self.path
+         if recursive:
+             for root, dirs, files in sorted(os.walk(self.path)):
+                 if self.allow_files:
+diff --git a/tests/field_deconstruction/tests.py b/tests/field_deconstruction/tests.py
+index 2cf1f93e22..16dd7e78ce 100644
+--- a/tests/field_deconstruction/tests.py
++++ b/tests/field_deconstruction/tests.py
+@@ -1,9 +1,15 @@
++import os
++
+ from django.apps import apps
+ from django.db import models
+ from django.test import SimpleTestCase, override_settings
+ from django.test.utils import isolate_lru_cache
+ 
+ 
++def filepathfield_path():
++    return os.path.abspath(os.sep)
++
++
+ class FieldDeconstructionTests(SimpleTestCase):
+     """
+     Tests the deconstruct() method on all core fields.
+@@ -180,6 +186,11 @@ class FieldDeconstructionTests(SimpleTestCase):
+         self.assertEqual(path, "django.db.models.FilePathField")
+         self.assertEqual(args, [])
+         self.assertEqual(kwargs, {"match": r".*\.txt$"})
++        field = models.FilePathField(path=filepathfield_path)
++        name, path, args, kwargs = field.deconstruct()
++        self.assertEqual(path, "django.db.models.FilePathField")
++        self.assertEqual(args, [])
++        self.assertEqual(kwargs, {"path": filepathfield_path})
+         field = models.FilePathField(recursive=True, allow_folders=True, max_length=123)
+         name, path, args, kwargs = field.deconstruct()
+         self.assertEqual(path, "django.db.models.FilePathField")
+diff --git a/tests/forms_tests/field_tests/test_filepathfield.py b/tests/forms_tests/field_tests/test_filepathfield.py
+index 44f6aff521..83c21528dd 100644
+--- a/tests/forms_tests/field_tests/test_filepathfield.py
++++ b/tests/forms_tests/field_tests/test_filepathfield.py
+@@ -6,6 +6,10 @@ from django.test import SimpleTestCase
+ PATH = os.path.dirname(os.path.abspath(__file__))
+ 
+ 
++def get_test_path():
++    return os.path.join(PATH, 'filepathfield_test_dir') + '/'
++
++
+ def fix_os_paths(x):
+     if isinstance(x, str):
+         if x.startswith(PATH):
+@@ -48,6 +52,13 @@ class FilePathFieldTest(SimpleTestCase):
+         ] + self.expected_choices[:4]
+         self.assertChoices(f, expected)
+ 
++    def test_path_callable(self):
++        f = FilePathField(path=get_test_path)
++        expected = [
++            ('/filepathfield_test_dir/README', 'README'),
++        ] + self.expected_choices[:4]
++        self.assertChoices(f, expected)
++
+     def test_clean(self):
+         f = FilePathField(path=self.path)
+         msg = "'Select a valid choice. a.py is not one of the available choices.'"

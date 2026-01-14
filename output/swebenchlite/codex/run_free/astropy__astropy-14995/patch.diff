@@ -1,0 +1,61 @@
+diff --git a/astropy/nddata/mixins/ndarithmetic.py b/astropy/nddata/mixins/ndarithmetic.py
+index 4153dfccb..c50edf515 100644
+--- a/astropy/nddata/mixins/ndarithmetic.py
++++ b/astropy/nddata/mixins/ndarithmetic.py
+@@ -512,19 +512,20 @@ class NDArithmeticMixin:
+             If neither had a mask ``None`` is returned. Otherwise
+             ``handle_mask`` must create (and copy) the returned mask.
+         """
+-        # If only one mask is present we need not bother about any type checks
+-        if (
+-            self.mask is None and operand is not None and operand.mask is None
+-        ) or handle_mask is None:
++        if handle_mask is None:
++            return None
++
++        operand_mask = None if operand is None else getattr(operand, "mask", None)
++
++        if self.mask is None and operand_mask is None:
+             return None
+-        elif self.mask is None and operand is not None:
+-            # Make a copy so there is no reference in the result.
+-            return deepcopy(operand.mask)
+-        elif operand is None:
++        elif self.mask is None:
++            return deepcopy(operand_mask)
++        elif operand_mask is None:
+             return deepcopy(self.mask)
+         else:
+             # Now lets calculate the resulting mask (operation enforces copy)
+-            return handle_mask(self.mask, operand.mask, **kwds)
++            return handle_mask(self.mask, operand_mask, **kwds)
+ 
+     def _arithmetic_wcs(self, operation, operand, compare_wcs, **kwds):
+         """
+diff --git a/astropy/nddata/mixins/tests/test_ndarithmetic.py b/astropy/nddata/mixins/tests/test_ndarithmetic.py
+index 8c461155a..d11f443e4 100644
+--- a/astropy/nddata/mixins/tests/test_ndarithmetic.py
++++ b/astropy/nddata/mixins/tests/test_ndarithmetic.py
+@@ -1226,6 +1226,22 @@ def test_arithmetics_mask_func():
+         nd1.add(nd2, handle_mask=mask_sad_func, fun=1)
+ 
+ 
++def test_arithmetics_mask_func_one_operand_missing_mask():
++    data = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
++    mask = np.array([[0, 1, 64], [8, 0, 1], [2, 1, 0]])
++
++    nd_mask = NDDataArithmetic(data, mask=mask)
++    nd_nomask = NDDataArithmetic(data)
++
++    result = nd_mask.multiply(1.0, handle_mask=np.bitwise_or)
++    assert_array_equal(result.mask, mask)
++    assert result.mask is not nd_mask.mask
++
++    result = nd_mask.multiply(nd_nomask, handle_mask=np.bitwise_or)
++    assert_array_equal(result.mask, mask)
++    assert result.mask is not nd_mask.mask
++
++
+ @pytest.mark.parametrize("meth", ["add", "subtract", "divide", "multiply"])
+ def test_two_argument_useage(meth):
+     ndd1 = NDDataArithmetic(np.ones((3, 3)))

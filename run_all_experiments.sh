@@ -14,7 +14,7 @@ cd experiments
 # ========== 配置区域 ==========
 # 实验配置
 NUM_INSTANCES=10  # 取前 n 个实例
-WORKERS=5  # 每个配置内部的并发数
+WORKERS=10  # 每个配置内部的并发数
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Lite"
 
@@ -143,21 +143,44 @@ echo ""
 echo "等待所有任务完成..."
 echo ""
 
-# 等待所有后台任务完成
+# 等待所有后台任务完成（并行等待）
 COMPLETED=0
 FAILED=0
+declare -A PID_TO_NAME
 
+# 建立 PID 到任务名的映射
 for i in "${!PIDS[@]}"; do
-    PID=${PIDS[$i]}
-    TASK_NAME=${TASK_NAMES[$i]}
+    PID_TO_NAME[${PIDS[$i]}]=${TASK_NAMES[$i]}
+done
 
-    # 等待进程完成
-    if wait $PID; then
-        echo -e "${GREEN}✓${NC} 任务完成: ${TASK_NAME}"
-        COMPLETED=$((COMPLETED + 1))
-    else
-        echo -e "\033[0;31m✗${NC} 任务失败: ${TASK_NAME} (查看日志: ${LOG_DIR}/${TASK_NAME}.log)"
-        FAILED=$((FAILED + 1))
+# 并行等待所有进程
+while [ ${#PIDS[@]} -gt 0 ]; do
+    for i in "${!PIDS[@]}"; do
+        PID=${PIDS[$i]}
+        TASK_NAME=${PID_TO_NAME[$PID]}
+
+        # 非阻塞检查进程是否完成
+        if ! kill -0 $PID 2>/dev/null; then
+            # 进程已完成，获取退出状态
+            wait $PID
+            EXIT_CODE=$?
+
+            if [ $EXIT_CODE -eq 0 ]; then
+                echo -e "${GREEN}✓${NC} 任务完成: ${TASK_NAME}"
+                COMPLETED=$((COMPLETED + 1))
+            else
+                echo -e "\033[0;31m✗${NC} 任务失败: ${TASK_NAME} (查看日志: ${LOG_DIR}/${TASK_NAME}.log)"
+                FAILED=$((FAILED + 1))
+            fi
+
+            # 从数组中移除已完成的 PID
+            unset PIDS[$i]
+        fi
+    done
+
+    # 如果还有进程在运行，短暂休眠后再检查
+    if [ ${#PIDS[@]} -gt 0 ]; then
+        sleep 1
     fi
 done
 

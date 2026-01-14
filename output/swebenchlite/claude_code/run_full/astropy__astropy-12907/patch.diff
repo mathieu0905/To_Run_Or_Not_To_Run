@@ -1,0 +1,48 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e2729..45bea3608 100644
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -242,7 +242,7 @@ def _cstack(left, right):
+         cright = _coord_matrix(right, 'right', noutp)
+     else:
+         cright = np.zeros((noutp, right.shape[1]))
+-        cright[-right.shape[0]:, -right.shape[1]:] = 1
++        cright[-right.shape[0]:, -right.shape[1]:] = right
+ 
+     return np.hstack([cleft, cright])
+ 
+diff --git a/astropy/modeling/tests/test_separable.py b/astropy/modeling/tests/test_separable.py
+index 8dfe5c862..37338cebf 100644
+--- a/astropy/modeling/tests/test_separable.py
++++ b/astropy/modeling/tests/test_separable.py
+@@ -148,3 +148,30 @@ def test_custom_model_separable():
+ 
+     assert not model_c().separable
+     assert np.all(separability_matrix(model_c()) == [True, True])
++
++
++def test_nested_compound_model():
++    """Test that nested compound models compute separability correctly."""
++    # Create a simple compound model
++    cm = models.Linear1D(10) & models.Linear1D(5)
++
++    # Test the simple compound model
++    result = separability_matrix(cm)
++    expected = np.array([[True, False], [False, True]])
++    assert_allclose(result, expected)
++
++    # Test non-nested complex compound
++    model1 = models.Pix2Sky_TAN() & models.Linear1D(10) & models.Linear1D(5)
++    result1 = separability_matrix(model1)
++    expected1 = np.array([
++        [True, True, False, False],
++        [True, True, False, False],
++        [False, False, True, False],
++        [False, False, False, True]
++    ])
++    assert_allclose(result1, expected1)
++
++    # Test nested compound model - should give same result as non-nested
++    model2 = models.Pix2Sky_TAN() & cm
++    result2 = separability_matrix(model2)
++    assert_allclose(result2, expected1)

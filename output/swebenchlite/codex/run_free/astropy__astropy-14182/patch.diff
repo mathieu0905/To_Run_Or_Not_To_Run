@@ -1,0 +1,54 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..862eed250 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -46,6 +46,9 @@ class RST(FixedWidth):
+           2    4.5  Worlds
+         ==== ===== ======
+ 
++    When writing, additional header rows can be requested with the
++    ``header_rows`` argument (e.g. ``["name", "unit"]``).
++
+     Currently there is no support for reading tables which utilize continuation lines,
+     or for ones which define column spans through the use of an additional
+     line of dashes in the header.
+@@ -57,10 +60,33 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None):
++        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
++
++        # For reading, the first two table lines are the top border line and the
++        # header/data separator line, so data starts after those plus the header rows.
++        n_header_rows = len(getattr(self.header, "header_rows", ["name"]))
++        self.data.start_line = n_header_rows + 2 if n_header_rows else 1
++
++    def write(self, table):
++        lines = super().write(table)
++
++        header_rows = getattr(self.header, "header_rows", ["name"])
++        n_header_rows = len(header_rows)
++
++        # The FixedWidth machinery writes a single "position" separator line after
++        # the header rows. For RST we also need a matching top and bottom border.
++        sep_idx = n_header_rows
++        if lines and sep_idx < len(lines):
++            sep_line = lines[sep_idx]
++        else:
++            # Defensive fallback for unexpected writer output.
++            return lines
++
++        if n_header_rows == 0:
++            # Avoid duplicating the separator line at the top when there are no
++            # header rows (the separator line would otherwise be both the top
++            # border and the header/data separator).
++            lines = lines[1:] if lines[:1] == [sep_line] else lines
+ 
+-    def write(self, lines):
+-        lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
+-        return lines
++        return [sep_line] + lines + [sep_line]

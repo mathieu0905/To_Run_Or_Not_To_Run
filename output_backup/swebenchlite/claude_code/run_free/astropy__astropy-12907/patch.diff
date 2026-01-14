@@ -1,3 +1,5 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e2729..45bea3608 100644
 --- a/astropy/modeling/separable.py
 +++ b/astropy/modeling/separable.py
 @@ -242,7 +242,7 @@ def _cstack(left, right):
@@ -8,17 +10,4 @@
 +        cright[-right.shape[0]:, -right.shape[1]:] = right
  
      return np.hstack([cleft, cright])
-```
-
-## Explanation
-
-The bug occurs in the `_cstack` function which handles the `&` (parallel composition) operator for compound models. When processing nested CompoundModels:
-
-1. The `_separable` function recursively processes the left and right sides of a CompoundModel
-2. For nested models, the recursive calls return matrices (ndarrays) representing the separability
-3. In `_cstack`, when `right` is a matrix (not a Model instance), the code creates a zero matrix and should copy the values from `right`
-4. However, line 245 incorrectly sets all values to `1` instead of copying from `right`
-
-This causes the separability information from nested compound models to be lost, making all outputs appear coupled when they should remain independent.
-
-The fix is simple: change `= 1` to `= right` on line 245, which properly preserves the separability matrix from the nested compound model.
+ 

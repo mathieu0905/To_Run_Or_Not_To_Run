@@ -1,0 +1,71 @@
+diff --git a/astropy/wcs/tests/test_wcs.py b/astropy/wcs/tests/test_wcs.py
+index 85853e10e5..7ad470ca7f 100644
+--- a/astropy/wcs/tests/test_wcs.py
++++ b/astropy/wcs/tests/test_wcs.py
+@@ -158,6 +158,26 @@ def test_pix2world():
+     assert np.all(np.abs(result - answer) < close_enough)
+ 
+ 
++def test_empty_arrays_in_transformations():
++    filename = get_pkg_data_filename('data/sip2.fits')
++    with catch_warnings(wcs.wcs.FITSFixedWarning):
++        ww = wcs.WCS(filename)
++
++    ra, dec = ww.wcs_pix2world([], [], 0, ra_dec_order=True)
++    assert ra.shape == (0,)
++    assert dec.shape == (0,)
++
++    world = ww.wcs_pix2world([], 0, ra_dec_order=True)
++    assert world.shape == (0, 2)
++
++    x, y = ww.wcs_world2pix([], [], 0, ra_dec_order=True)
++    assert x.shape == (0,)
++    assert y.shape == (0,)
++
++    pix = ww.wcs_world2pix([], 0, ra_dec_order=True)
++    assert pix.shape == (0, 2)
++
++
+ def test_load_fits_path():
+     fits_name = get_pkg_data_filename('data/sip.fits')
+     w = wcs.WCS(fits_name)
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+index d3a06f2b31..c4f105304d 100644
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1222,6 +1222,14 @@ reduce these to 2 dimensions using the naxis kwarg.
+ 
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
++            if xy.shape[0] == 0:
++                output = np.empty((0, self.naxis), dtype=float)
++                if ra_dec_order and sky == 'output':
++                    output = self._normalize_sky(output)
++                    return (output[:, 0].reshape(axes[0].shape),
++                            output[:, 1].reshape(axes[0].shape))
++                return [output[:, i].reshape(axes[0].shape)
++                        for i in range(output.shape[1])]
+             output = func(xy, origin)
+             if ra_dec_order and sky == 'output':
+                 output = self._normalize_sky(output)
+@@ -1237,6 +1245,11 @@ reduce these to 2 dimensions using the naxis kwarg.
+                     "of shape (N, {0})".format(self.naxis))
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
++            if xy.shape[0] == 0:
++                result = np.empty((0, self.naxis), dtype=float)
++                if ra_dec_order and sky == 'output':
++                    result = self._normalize_sky(result)
++                return result
+             result = func(xy, origin)
+             if ra_dec_order and sky == 'output':
+                 result = self._normalize_sky(result)
+@@ -1251,6 +1264,8 @@ reduce these to 2 dimensions using the naxis kwarg.
+                 raise TypeError(
+                     "When providing two arguments, they must be "
+                     "(coords[N][{0}], origin)".format(self.naxis))
++            if xy.ndim == 1 and xy.size == 0 and self.naxis > 1:
++                xy = xy.reshape((0, self.naxis))
+             if self.naxis == 1 and len(xy.shape) == 1:
+                 return _return_list_of_arrays([xy], origin)
+             return _return_single_array(xy, origin)

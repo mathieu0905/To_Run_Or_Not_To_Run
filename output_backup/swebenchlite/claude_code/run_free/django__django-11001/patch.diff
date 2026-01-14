@@ -1,5 +1,5 @@
 diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
-index ef082ebb84..1234567890 100644
+index 7649c39262..f478cd85a2 100644
 --- a/django/db/models/sql/compiler.py
 +++ b/django/db/models/sql/compiler.py
 @@ -353,7 +353,7 @@ class SQLCompiler:
@@ -7,7 +7,7 @@ index ef082ebb84..1234567890 100644
              # is refactored into expressions, then we can check each part as we
              # generate it.
 -            without_ordering = self.ordering_parts.search(sql).group(1)
-+            without_ordering = self.ordering_parts.search(sql.replace('\n', ' ').replace('\r', ' ')).group(1)
++            without_ordering = self.ordering_parts.search(sql.replace('\n', ' ')).group(1)
              params_hash = make_hashable(params)
              if (without_ordering, params_hash) in seen:
                  continue
@@ -16,14 +16,7 @@ index ef082ebb84..1234567890 100644
              select_sql = [t[1] for t in select]
              for expr, (sql, params, is_ref) in order_by:
 -                without_ordering = self.ordering_parts.search(sql).group(1)
-+                without_ordering = self.ordering_parts.search(sql.replace('\n', ' ').replace('\r', ' ')).group(1)
++                without_ordering = self.ordering_parts.search(sql.replace('\n', ' ')).group(1)
                  if not is_ref and (without_ordering, params) not in select_sql:
                      extra_select.append((expr, (without_ordering, params), None))
          return extra_select
-```
-
-This fix:
-1. Replaces `\n` (newline) and `\r` (carriage return) with spaces before applying the regex
-2. Ensures the entire SQL expression is captured, not just the last line
-3. Correctly identifies unique ORDER BY clauses even when they have similar last lines
-4. Maintains backward compatibility with single-line SQL expressions

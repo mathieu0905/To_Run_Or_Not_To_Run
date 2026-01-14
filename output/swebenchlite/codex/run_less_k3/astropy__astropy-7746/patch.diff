@@ -1,0 +1,71 @@
+diff --git a/astropy/wcs/tests/test_wcs.py b/astropy/wcs/tests/test_wcs.py
+index 85853e10e5..260fd141e5 100644
+--- a/astropy/wcs/tests/test_wcs.py
++++ b/astropy/wcs/tests/test_wcs.py
+@@ -248,6 +248,35 @@ def test_broadcasting():
+     assert yp.shape == (2, 3, 4)
+ 
+ 
++def test_empty_arrays():
++    w = wcs.WCS(naxis=2)
++
++    xw, yw = w.wcs_pix2world([], [], 0)
++    assert xw.shape == (0,)
++    assert yw.shape == (0,)
++
++    xp, yp = w.wcs_world2pix([], [], 0)
++    assert xp.shape == (0,)
++    assert yp.shape == (0,)
++
++    xy = np.empty((0, 2))
++    world = w.wcs_pix2world(xy, 0)
++    assert world.shape == (0, 2)
++
++    pix = w.wcs_world2pix(xy, 0)
++    assert pix.shape == (0, 2)
++
++    x = np.empty((0, 3))
++    y = np.empty((0, 3))
++    xw, yw = w.wcs_pix2world(x, y, 0)
++    assert xw.shape == (0, 3)
++    assert yw.shape == (0, 3)
++
++    w1 = wcs.WCS(naxis=1)
++    xw, = w1.wcs_pix2world([], 0)
++    assert xw.shape == (0,)
++
++
+ def test_shape_mismatch():
+     w = wcs.WCS(naxis=2)
+ 
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+index d3a06f2b31..a338ae15c1 100644
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1222,6 +1222,14 @@ reduce these to 2 dimensions using the naxis kwarg.
+ 
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
++            if xy.shape[0] == 0:
++                output = np.empty((0, xy.shape[1]), dtype=float)
++                if ra_dec_order and sky == 'output':
++                    output = self._normalize_sky(output)
++                    return (output[:, 0].reshape(axes[0].shape),
++                            output[:, 1].reshape(axes[0].shape))
++                return [output[:, i].reshape(axes[0].shape)
++                        for i in range(output.shape[1])]
+             output = func(xy, origin)
+             if ra_dec_order and sky == 'output':
+                 output = self._normalize_sky(output)
+@@ -1237,6 +1245,11 @@ reduce these to 2 dimensions using the naxis kwarg.
+                     "of shape (N, {0})".format(self.naxis))
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
++            if xy.shape[0] == 0:
++                result = np.empty((0, xy.shape[-1]), dtype=float)
++                if ra_dec_order and sky == 'output':
++                    result = self._normalize_sky(result)
++                return result
+             result = func(xy, origin)
+             if ra_dec_order and sky == 'output':
+                 result = self._normalize_sky(result)

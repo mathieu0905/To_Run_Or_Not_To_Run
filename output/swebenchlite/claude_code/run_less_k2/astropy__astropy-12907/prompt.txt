@@ -1,0 +1,100 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**EXECUTION CONSTRAINT: You can run Python code at most 2 times.**
+
+Each execution is precious. Make every run count by planning carefully before executing.
+
+## Repository Information
+- Repository: astropy/astropy
+- Base Commit: d16bfe05a744909de4b27f5875fe0d4ed41ce607
+
+## Problem Description
+Modeling's `separability_matrix` does not compute separability correctly for nested CompoundModels
+Consider the following model:
+
+```python
+from astropy.modeling import models as m
+from astropy.modeling.separable import separability_matrix
+
+cm = m.Linear1D(10) & m.Linear1D(5)
+```
+
+It's separability matrix as you might expect is a diagonal:
+
+```python
+>>> separability_matrix(cm)
+array([[ True, False],
+       [False,  True]])
+```
+
+If I make the model more complex:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & m.Linear1D(10) & m.Linear1D(5))
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True, False],
+       [False, False, False,  True]])
+```
+
+The output matrix is again, as expected, the outputs and inputs to the linear models are separable and independent of each other.
+
+If however, I nest these compound models:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & cm)
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True,  True],
+       [False, False,  True,  True]])
+```
+Suddenly the inputs and outputs are no longer separable?
+
+This feels like a bug to me, but I might be missing something?
+
+
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
+- Read and analyze code - UNLIMITED
+- Run Python code (tests, scripts) - **at most 2 times**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## Why Running Tests Helps
+Running tests is valuable for:
+1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
+2. **Verifying the fix**: A passing test confirms your fix actually works
+3. **Catching regressions**: Tests ensure you haven't broken other functionality
+
+## Recommended Workflow
+
+### Step 1: Write a Test Script
+Based on the problem description, write a simple test script to reproduce the issue:
+```python
+# test_bug.py
+def test_issue():
+    result = some_function(test_input)
+    print(f"Result: {result}")
+    assert result == expected_output, f"Expected X, got {result}"
+
+if __name__ == "__main__":
+    test_issue()
+```
+
+### Step 2: Run Test to Confirm the Bug
+Run your test script to verify the bug exists and understand the failure.
+
+### Step 3: Analyze and Fix
+1. Read the relevant source code
+2. Identify the root cause
+3. Implement the fix
+
+### Step 4: Run Test to Verify the Fix
+Run the test again to confirm your fix works.
+
+## Execution Budget
+- Total allowed: 2 runs
+- After each run, track: "Remaining runs: X"
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

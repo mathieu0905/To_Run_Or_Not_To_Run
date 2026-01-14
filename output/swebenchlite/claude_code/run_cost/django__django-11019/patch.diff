@@ -1,0 +1,67 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..b6d52d8649 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -139,11 +139,16 @@ class Media:
+                 combined_list.insert(last_insert_index, path)
+             else:
+                 if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
++                    # Only warn if both list_1 and list_2 contain both elements.
++                    # If one of the lists doesn't contain both elements, then there's
++                    # no real conflict - the ordering is just from a previous merge.
++                    element_at_insert = combined_list[last_insert_index]
++                    if element_at_insert in list_1 and element_at_insert in list_2:
++                        warnings.warn(
++                            'Detected duplicate Media files in an opposite order:\n'
++                            '%s\n%s' % (element_at_insert, path),
++                            MediaOrderConflictWarning,
++                        )
+                 # path already exists in the list. Update last_insert_index so
+                 # that the following elements are inserted in front of this one.
+                 last_insert_index = index
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 8cb484a15e..db2b44be5d 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -1,3 +1,5 @@
++import warnings
++
+ from django.forms import CharField, Form, Media, MultiWidget, TextInput
+ from django.template import Context, Template
+ from django.test import SimpleTestCase, override_settings
+@@ -571,3 +573,30 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_js_three_way_with_deps(self):
++        """
++        Merging 3+ media objects should not raise warnings for false conflicts.
++        Regression test for issue where intermediate merges created false
++        ordering constraints that triggered unnecessary MediaOrderConflictWarnings.
++        """
++        # Widgets with independent JS files
++        widget1 = Media(js=['color-picker.js'])
++        widget2 = Media(js=['text-editor.js'])
++        # Widget that depends on both
++        widget3 = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++
++        # Merge all three - should not raise any warnings
++        with warnings.catch_warnings(record=True) as w:
++            warnings.simplefilter("always")
++            merged = widget1 + widget2 + widget3
++            result = merged._js
++
++            # Should not raise any warnings because neither widget1 nor widget2
++            # define any ordering relationship with text-editor-extras.js
++            self.assertEqual(len(w), 0)
++
++            # All three files should be present
++            self.assertIn('text-editor.js', result)
++            self.assertIn('text-editor-extras.js', result)
++            self.assertIn('color-picker.js', result)

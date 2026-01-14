@@ -1,31 +1,39 @@
 diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e2729..45ca17cec 100644
 --- a/astropy/modeling/separable.py
 +++ b/astropy/modeling/separable.py
-@@ -255,7 +255,7 @@ def _cstack(left, right):
+@@ -16,7 +16,6 @@ returns an array of shape (``n_outputs``, ``n_inputs``).
+ """
+ 
+ import numpy as np
+-
+ from .core import Model, ModelDefinitionError, CompoundModel
+ from .mappings import Mapping
+ 
+@@ -242,8 +241,7 @@ def _cstack(left, right):
          cright = _coord_matrix(right, 'right', noutp)
      else:
          cright = np.zeros((noutp, right.shape[1]))
 -        cright[-right.shape[0]:, -right.shape[1]:] = 1
-+        cright[-right.shape[0]:, : right.shape[1]] = right
- 
+-
++        cright[-right.shape[0]:, -right.shape[1]:] = right
      return np.hstack([cleft, cright])
+ 
+ 
 diff --git a/astropy/modeling/tests/test_separable.py b/astropy/modeling/tests/test_separable.py
+index 8dfe5c862..3c4454a99 100644
 --- a/astropy/modeling/tests/test_separable.py
 +++ b/astropy/modeling/tests/test_separable.py
-@@ -160,3 +160,13 @@ def test_custom_model_separable():
+@@ -148,3 +148,12 @@ def test_custom_model_separable():
  
      assert not model_c().separable
      assert np.all(separability_matrix(model_c()) == [True, True])
 +
 +
-+def test_separability_nested_compound_right_operand():
-+    compound = sh1 & (sh2 & scl1)
-+    assert_allclose(separability_matrix(compound), np.eye(3, dtype=bool))
++def test_nested_compound_separability_matrix(monkeypatch):
++    cm = models.Linear1D(10) & models.Linear1D(5)
 +
++    flat = models.Pix2Sky_TAN() & models.Linear1D(10) & models.Linear1D(5)
++    nested = models.Pix2Sky_TAN() & cm
 +
-+def test_separability_nested_compound_both_operands():
-+    compound = (sh1 & sh2) & (scl1 & scl2)
-+    assert_allclose(separability_matrix(compound), np.eye(4, dtype=bool))
-```
-
-To verify in this repo: run `python -m pytest astropy/modeling/tests/test_separable.py -k nested_compound`.
++    assert_allclose(separability_matrix(nested), separability_matrix(flat))

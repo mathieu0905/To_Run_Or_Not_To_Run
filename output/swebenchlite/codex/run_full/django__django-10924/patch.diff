@@ -1,0 +1,68 @@
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index a977256525..d4cef7e42d 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -1078,6 +1078,9 @@ class MultiValueField(Field):
+ class FilePathField(ChoiceField):
+     def __init__(self, path, *, match=None, recursive=False, allow_files=True,
+                  allow_folders=False, **kwargs):
++        if callable(path):
++            path = path()
++        path = os.fspath(path)
+         self.path, self.match, self.recursive = path, match, recursive
+         self.allow_files, self.allow_folders = allow_files, allow_folders
+         super().__init__(choices=(), **kwargs)
+diff --git a/tests/forms_tests/field_tests/test_filepathfield.py b/tests/forms_tests/field_tests/test_filepathfield.py
+index 44f6aff521..0a8be47964 100644
+--- a/tests/forms_tests/field_tests/test_filepathfield.py
++++ b/tests/forms_tests/field_tests/test_filepathfield.py
+@@ -48,6 +48,16 @@ class FilePathFieldTest(SimpleTestCase):
+         ] + self.expected_choices[:4]
+         self.assertChoices(f, expected)
+ 
++    def test_callable_path(self):
++        def get_path():
++            return self.path
++
++        f = FilePathField(path=get_path)
++        expected = [
++            ('/filepathfield_test_dir/README', 'README'),
++        ] + self.expected_choices[:4]
++        self.assertChoices(f, expected)
++
+     def test_clean(self):
+         f = FilePathField(path=self.path)
+         msg = "'Select a valid choice. a.py is not one of the available choices.'"
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index 790d6a3efa..bbd2b3d2f1 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -35,6 +35,10 @@ class Money(decimal.Decimal):
+         )
+ 
+ 
++def filepathfield_path():
++    return '/somewhere/dynamic/'
++
++
+ class TestModel1:
+     def upload_to(self):
+         return '/somewhere/dynamic/'
+@@ -339,6 +343,17 @@ class WriterTests(SimpleTestCase):
+         self.assertEqual(string, 'models.SET(42)')
+         self.serialize_round_trip(models.SET(42))
+ 
++    def test_serialize_filepathfield_callable_path(self):
++        field = models.FilePathField(path=filepathfield_path)
++        string, imports = MigrationWriter.serialize(field)
++        self.assertEqual(
++            string,
++            'models.FilePathField(path=migrations.test_writer.filepathfield_path)'
++        )
++        self.assertEqual(imports, {'from django.db import models', 'import migrations.test_writer'})
++        new_field = self.serialize_round_trip(field)
++        self.assertIs(new_field.path, filepathfield_path)
++
+     def test_serialize_datetime(self):
+         self.assertSerializedEqual(datetime.datetime.utcnow())
+         self.assertSerializedEqual(datetime.datetime.utcnow)

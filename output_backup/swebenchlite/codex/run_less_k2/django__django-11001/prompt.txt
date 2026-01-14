@@ -105,7 +105,9 @@ def calculate(x):
   "✅ Used X test runs, Y remaining"
 
 ## Output Format
-Finally, output your fix as a git diff patch.
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+After editing, the changes will be captured by git diff automatically.
 
 Remember:
 - Bash commands (ls, cat, grep, etc.) do NOT count toward execution budget, use freely

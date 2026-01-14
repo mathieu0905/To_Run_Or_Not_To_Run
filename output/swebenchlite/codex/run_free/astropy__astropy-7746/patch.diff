@@ -1,0 +1,59 @@
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+index d3a06f2b31..4e49edb491 100644
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1211,6 +1211,13 @@ reduce these to 2 dimensions using the naxis kwarg.
+         or a single Nx2 array.
+         """
+ 
++        def _result_naxis():
++            # When ra_dec_order is requested, sky coordinates are returned as
++            # (ra, dec) pairs regardless of internal axis order.
++            if ra_dec_order and sky == 'output':
++                return 2
++            return self.naxis
++
+         def _return_list_of_arrays(axes, origin):
+             try:
+                 axes = np.broadcast_arrays(*axes)
+@@ -1220,6 +1227,21 @@ reduce these to 2 dimensions using the naxis kwarg.
+ 
+             xy = np.hstack([x.reshape((x.size, 1)) for x in axes])
+ 
++            # wcslib does not accept ncoord=0; short-circuit empty inputs.
++            if xy.shape[0] == 0:
++                if ra_dec_order and sky == 'input':
++                    # Preserve validation behavior for ra_dec_order=True.
++                    self._denormalize_sky(xy)
++                shape = axes[0].shape
++                if ra_dec_order and sky == 'output':
++                    out = self._normalize_sky(
++                        np.empty((0, self.naxis), dtype=float)
++                    )
++                    return (out[:, 0].reshape(shape), out[:, 1].reshape(shape))
++                return [
++                    np.empty(shape, dtype=float) for _ in range(_result_naxis())
++                ]
++
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
+             output = func(xy, origin)
+@@ -1235,6 +1257,18 @@ reduce these to 2 dimensions using the naxis kwarg.
+                 raise ValueError(
+                     "When providing two arguments, the array must be "
+                     "of shape (N, {0})".format(self.naxis))
++
++            # wcslib does not accept ncoord=0; short-circuit empty inputs.
++            if xy.shape[0] == 0:
++                if ra_dec_order and sky == 'input':
++                    # Preserve validation behavior for ra_dec_order=True.
++                    self._denormalize_sky(xy)
++                if ra_dec_order and sky == 'output':
++                    return self._normalize_sky(
++                        np.empty((0, self.naxis), dtype=float)
++                    )
++                return np.empty((0, _result_naxis()), dtype=float)
++
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
+             result = func(xy, origin)

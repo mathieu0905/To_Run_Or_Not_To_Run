@@ -1,43 +1,56 @@
 diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
-index 3f76f3fd87..2f6d13f7e2 100644
+index 7649c39262..57150f96dc 100644
 --- a/django/db/models/sql/compiler.py
 +++ b/django/db/models/sql/compiler.py
 @@ -32,7 +32,7 @@ class SQLCompiler:
+         self.select = None
+         self.annotation_col_map = None
          self.klass_info = None
 -        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)')
-+        self.ordering_parts = re.compile(r'^(.*)\s+(ASC|DESC)(.*)$', re.DOTALL)
++        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)', re.DOTALL)
          self._meta_ordering = None
  
      def setup_query(self):
-diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
-index 9fc1d29d8c..3ff5685bb2 100644
---- a/tests/expressions/tests.py
-+++ b/tests/expressions/tests.py
-@@ -78,6 +78,22 @@ class BasicExpressionsTests(TestCase):
-     def test_annotate_values_count(self):
-         companies = Company.objects.annotate(foo=RawSQL('%s', ['value']))
-         self.assertEqual(companies.count(), 3)
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index bce514c0bf..9dd7c32a7d 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -7,6 +7,7 @@ from operator import attrgetter
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db import DEFAULT_DB_ALIAS, connection
+ from django.db.models import Count, F, Q
++from django.db.models.expressions import RawSQL
+ from django.db.models.sql.constants import LOUTER
+ from django.db.models.sql.where import NothingNode, WhereNode
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+@@ -1452,6 +1453,30 @@ class Queries4Tests(TestCase):
+         qs = Author.objects.order_by().order_by('name')
+         self.assertIn('ORDER BY', qs.query.get_compiler(qs.db).as_sql()[0])
  
-+    def test_order_by_multiline_rawsql_preserves_distinct_expressions(self):
-+        qs = Company.objects.order_by(
++    def test_order_by_multiline_rawsql_is_not_deduplicated(self):
++        qs = Author.objects.order_by(
 +            RawSQL(
-+                "CASE WHEN num_employees > 1\n THEN 2\n ELSE 1 END",
++                """
++                case when 1 = 1
++                     then 1
++                     else null end
++                """,
 +                [],
 +            ).desc(),
 +            RawSQL(
-+                "CASE WHEN num_employees > 1\n THEN num_employees\n ELSE NULL END",
++                """
++                case when 1 = 1
++                     then 2
++                     else null end
++                """,
 +                [],
 +            ).asc(),
-+            RawSQL(
-+                "CASE WHEN num_employees > 2\n THEN num_chairs\n ELSE NULL END",
-+                [],
-+            ).desc(),
 +        )
-+        compiler = qs.query.get_compiler(qs.db)
-+        self.assertEqual(len(compiler.get_order_by()), 3)
++        sql = qs.query.get_compiler(qs.db).as_sql()[0].lower()
++        self.assertIn('then 1', sql)
++        self.assertIn('then 2', sql)
++        self.assertEqual(sql.count('else null end'), 2)
 +
-     @unittest.skipIf(connection.vendor == 'oracle', "Oracle doesn't support using boolean type in SELECT")
-     def test_filtering_on_annotate_that_uses_q(self):
-         self.assertEqual(
-             Company.objects.annotate(
-```
+     def test_order_by_reverse_fk(self):
+         # It is possible to order by reverse of foreign key, although that can lead
+         # to duplicate results.

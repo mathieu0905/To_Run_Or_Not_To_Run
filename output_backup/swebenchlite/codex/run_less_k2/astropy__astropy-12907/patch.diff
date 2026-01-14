@@ -1,4 +1,5 @@
 diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e2729..45bea3608 100644
 --- a/astropy/modeling/separable.py
 +++ b/astropy/modeling/separable.py
 @@ -242,7 +242,7 @@ def _cstack(left, right):
@@ -6,26 +7,26 @@ diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
      else:
          cright = np.zeros((noutp, right.shape[1]))
 -        cright[-right.shape[0]:, -right.shape[1]:] = 1
-+        cright[-right.shape[0]:, :right.shape[1]] = right
++        cright[-right.shape[0]:, -right.shape[1]:] = right
  
      return np.hstack([cleft, cright])
+ 
 diff --git a/astropy/modeling/tests/test_separable.py b/astropy/modeling/tests/test_separable.py
+index 8dfe5c862..86a5ddbf1 100644
 --- a/astropy/modeling/tests/test_separable.py
 +++ b/astropy/modeling/tests/test_separable.py
-@@ -112,6 +112,15 @@ def test_cstack():
-                               [0, 0, 1]])
-                     )
+@@ -148,3 +148,14 @@ def test_custom_model_separable():
  
-+def test_separable_nested_compound_cstack():
-+    m1 = models.Shift(1) & models.Shift(2)
-+    m2 = models.Scale(1) & models.Scale(2)
-+    nested = m1 & m2
+     assert not model_c().separable
+     assert np.all(separability_matrix(model_c()) == [True, True])
 +
-+    assert_allclose(is_separable(nested), np.array([True, True, True, True]))
-+    assert_allclose(separability_matrix(nested), np.eye(4, dtype=bool))
 +
- 
- def test_arith_oper():
-     # Models as inputs
-     result = _arith_oper(sh1, scl1)
-```
++def test_separability_matrix_nested_compound_model():
++    cm = models.Linear1D(10) & models.Linear1D(5)
++
++    expected = separability_matrix(
++        models.Pix2Sky_TAN() & models.Linear1D(10) & models.Linear1D(5)
++    )
++    actual = separability_matrix(models.Pix2Sky_TAN() & cm)
++
++    assert_allclose(actual, expected)

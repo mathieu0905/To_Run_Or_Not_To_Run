@@ -1,0 +1,35 @@
+diff --git a/astropy/io/fits/fitsrec.py b/astropy/io/fits/fitsrec.py
+index 574b4073b1..11f8c608e5 100644
+--- a/astropy/io/fits/fitsrec.py
++++ b/astropy/io/fits/fitsrec.py
+@@ -1261,7 +1261,8 @@ class FITS_rec(np.recarray):
+ 
+         # Replace exponent separator in floating point numbers
+         if 'D' in format:
+-            output_field.replace(encode_ascii('E'), encode_ascii('D'))
++            output_field[:] = output_field.replace(encode_ascii('E'),
++                                                   encode_ascii('D'))
+ 
+ 
+ def _get_recarray_field(array, key):
+diff --git a/astropy/io/fits/tests/test_table.py b/astropy/io/fits/tests/test_table.py
+index 67fe21aa72..90d286ee03 100644
+--- a/astropy/io/fits/tests/test_table.py
++++ b/astropy/io/fits/tests/test_table.py
+@@ -2841,6 +2841,16 @@ class TestColumnFunctions(FitsTestCase):
+             raw = np.rec.recarray.field(hdul[1].data, 'TEST')
+             assert raw.tostring() == b'   1.   2.   3.'
+ 
++    def test_d_exponent_format_in_ascii_table(self):
++        c = fits.Column('TEST', 'D15.7', array=[1.2345e5, 1.0])
++        t = fits.TableHDU.from_columns([c])
++        t.writeto(self.temp('test_d_exponent.fits'))
++
++        with fits.open(self.temp('test_d_exponent.fits')) as hdul:
++            assert hdul[1].header['TFORM1'] == 'D15.7'
++            raw = np.rec.recarray.field(hdul[1].data, 'TEST')
++            assert raw.tostring() == b' 1.2345000D+05 1.0000000D+00'
++
+     def test_column_array_type_mismatch(self):
+         """Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/218"""
+ 

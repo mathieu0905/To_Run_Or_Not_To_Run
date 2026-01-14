@@ -1,0 +1,42 @@
+diff --git a/astropy/io/fits/fitsrec.py b/astropy/io/fits/fitsrec.py
+index 574b4073b1..101d9a2f70 100644
+--- a/astropy/io/fits/fitsrec.py
++++ b/astropy/io/fits/fitsrec.py
+@@ -1261,7 +1261,11 @@ class FITS_rec(np.recarray):
+ 
+         # Replace exponent separator in floating point numbers
+         if 'D' in format:
+-            output_field.replace(encode_ascii('E'), encode_ascii('D'))
++            if output_field.dtype.kind == 'U':
++                output_field[:] = output_field.replace('E', 'D')
++            else:
++                output_field[:] = output_field.replace(
++                    encode_ascii('E'), encode_ascii('D'))
+ 
+ 
+ def _get_recarray_field(array, key):
+diff --git a/astropy/io/fits/tests/test_table.py b/astropy/io/fits/tests/test_table.py
+index 67fe21aa72..ea04ab4cc7 100644
+--- a/astropy/io/fits/tests/test_table.py
++++ b/astropy/io/fits/tests/test_table.py
+@@ -300,6 +300,20 @@ class TestTableFunctions(FitsTestCase):
+         hdul.close()
+         a.close()
+ 
++    def test_ascii_table_d_exponent_separator(self):
++        col = fits.Column(
++            name='x', format='D12.5',
++            array=np.array([1.234e-5, -2.0e10], dtype=float))
++        hdu = fits.TableHDU.from_columns([col])
++
++        hdu.data._scale_back()
++        raw = np.rec.recarray.field(hdu.data, 'x')
++
++        assert b'E' not in raw[0]
++        assert b'D' in raw[0]
++        assert b'E' not in raw[1]
++        assert b'D' in raw[1]
++
+     def test_endianness(self):
+         x = np.ndarray((1,), dtype=object)
+         channelsIn = np.array([3], dtype='uint8')

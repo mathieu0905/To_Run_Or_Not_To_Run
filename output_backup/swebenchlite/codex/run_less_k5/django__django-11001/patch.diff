@@ -1,51 +1,62 @@
 diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
-index 3378143866..75b4e528ab 100644
+index 7649c39262..5f99493dc3 100644
 --- a/django/db/models/sql/compiler.py
 +++ b/django/db/models/sql/compiler.py
-@@ -32,7 +32,7 @@ class SQLCompiler:
-         # separately a list of extra select columns needed for grammatical correctness
-         # of the query, but these columns are not included in self.select.
+@@ -32,7 +32,10 @@ class SQLCompiler:
          self.select = None
          self.annotation_col_map = None
          self.klass_info = None
 -        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)')
-+        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)', re.DOTALL)
++        self.ordering_parts = re.compile(
++            r'(?s)^(.*?)(?:\s+(?:ASC|DESC))(?:\s+NULLS\s+(?:FIRST|LAST))?\s*$',
++            re.IGNORECASE,
++        )
          self._meta_ordering = None
  
      def setup_query(self):
-         if all(self.query.alias_refcount[a] == 0 for a in self.query.alias_map):
-             self.query.get_initial_alias()
-diff --git a/tests/queries/tests.py b/tests/queries/tests.py
-index 2ecb35df00..d65a0a4e51 100644
---- a/tests/queries/tests.py
-+++ b/tests/queries/tests.py
-@@ -8,6 +8,7 @@ from operator import attrgetter
- from django.core.exceptions import EmptyResultSet, FieldError
- from django.db import DEFAULT_DB_ALIAS, connection
- from django.db.models import Count, F, Q
-+from django.db.models.expressions import RawSQL
- from django.db.models.sql.constants import LOUTER
- from django.db.models.sql.where import NothingNode, WhereNode
- from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
- from django.test.utils import CaptureQueriesContext
-@@ -1455,6 +1456,19 @@ class Queries1Tests(TestCase):
-         qs = Author.objects.order_by().order_by('name')
-         self.assertIn('ORDER BY', qs.query.get_compiler(qs.db).as_sql()[0])
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index c22ff34ee8..7240e8d47c 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -74,6 +74,41 @@ class BasicExpressionsTests(TestCase):
+         companies = Company.objects.annotate(foo=RawSQL('%s', ['value']))
+         self.assertEqual(companies.count(), 3)
  
-+    def test_order_by_multiline_rawsql_not_deduped(self):
-+        qs = Author.objects.order_by(
-+            RawSQL(
-+                'CASE WHEN 1=1\nTHEN 2 ELSE 1 END', []
-+            ).desc(),
-+            RawSQL(
-+                'CASE WHEN 1=0\nTHEN 2 ELSE 1 END', []
-+            ).desc(),
-+        )
-+        self.assertEqual(len(qs.query.get_compiler(qs.db).get_order_by()), 2)
++    def test_multiline_rawsql_order_by_not_deduped(self):
++        expr1 = RawSQL(
++            """
++            CASE WHEN 1=1
++                THEN 2
++                ELSE 1 END
++            """,
++            [],
++        ).desc()
++        expr2 = RawSQL(
++            """
++            CASE WHEN 1=0
++                THEN 3
++                ELSE 1 END
++            """,
++            [],
++        ).asc()
 +
-     def test_order_by_reverse_fk(self):
-         # It is possible to order by reverse of foreign key, although that can lead
-         # to duplicate results.
-         c1 = SimpleCategory.objects.create(name="category1")
-         c2 = SimpleCategory.objects.create(name="category2")
-```
++        queryset = Company.objects.order_by(expr1, expr2)
++        compiler = queryset.query.get_compiler(connection=connection)
++        compiler.setup_query()
++
++        resolved1 = expr1.resolve_expression(queryset.query, allow_joins=True, reuse=None)
++        resolved2 = expr2.resolve_expression(queryset.query, allow_joins=True, reuse=None)
++        sql1, params1 = compiler.compile(resolved1)
++        sql2, params2 = compiler.compile(resolved2)
++        without_ordering1 = compiler.ordering_parts.search(sql1).group(1)
++        without_ordering2 = compiler.ordering_parts.search(sql2).group(1)
++        self.assertNotEqual((without_ordering1, params1), (without_ordering2, params2))
++
++        # Ensure both order_by clauses are preserved even if the last line of
++        # a multiline RawSQL expression is identical.
++        order_by = compiler.get_order_by()
++        self.assertEqual(len(order_by), 2)
++
+     @unittest.skipIf(connection.vendor == 'oracle', "Oracle doesn't support using boolean type in SELECT")
+     def test_filtering_on_annotate_that_uses_q(self):
+         self.assertEqual(
