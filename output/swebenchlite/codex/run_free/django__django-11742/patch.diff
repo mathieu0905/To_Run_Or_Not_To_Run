@@ -1,0 +1,161 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..7b648c0f20 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -202,6 +202,7 @@ class Field(RegisterLookupMixin):
+         return [
+             *self._check_field_name(),
+             *self._check_choices(),
++            *self._check_choices_max_length(),
+             *self._check_db_index(),
+             *self._check_null_allowed_for_primary_keys(),
+             *self._check_backend_specific_checks(**kwargs),
+@@ -291,6 +292,9 @@ class Field(RegisterLookupMixin):
+             )
+         ]
+ 
++    def _check_choices_max_length(self):
++        return []
++
+     def _check_db_index(self):
+         if self.db_index not in (None, True, False):
+             return [
+@@ -957,6 +961,63 @@ class CharField(Field):
+             *self._check_max_length_attribute(**kwargs),
+         ]
+ 
++    def _check_choices_max_length(self):
++        if (
++            not self.choices or
++            self.max_length is None or
++            not isinstance(self.max_length, int) or
++            isinstance(self.max_length, bool) or
++            self.max_length <= 0
++        ):
++            return []
++
++        def is_value(value, accept_promise=True):
++            return isinstance(value, (str, Promise) if accept_promise else str) or not is_iterable(value)
++
++        choice_values = []
++        for choices_group in self.choices:
++            if isinstance(choices_group, str):
++                # Special case: choices=['ab'], handled by fields.E005.
++                return []
++            try:
++                group_name, group_choices = choices_group
++            except (TypeError, ValueError):
++                # Containing non-pairs, handled by fields.E005.
++                return []
++
++            if not is_value(group_choices):
++                try:
++                    for value, _ in group_choices:
++                        choice_values.append(value)
++                except (TypeError, ValueError):
++                    # Invalid groups, handled by fields.E005.
++                    return []
++            else:
++                choice_values.append(group_name)
++
++        if not choice_values:
++            return []
++
++        required_max_length = 0
++        for value in choice_values:
++            if value is None:
++                continue
++            prepared_value = self.to_python(value)
++            if prepared_value is None:
++                continue
++            required_max_length = max(required_max_length, len(prepared_value))
++
++        if required_max_length > self.max_length:
++            return [
++                checks.Error(
++                    "'max_length' is too small to fit the longest value in 'choices'.",
++                    hint="Increase 'max_length' to at least %d." % required_max_length,
++                    obj=self,
++                    id='fields.E123',
++                )
++            ]
++        return []
++
+     def _check_max_length_attribute(self, **kwargs):
+         if self.max_length is None:
+             return [
+@@ -1589,6 +1650,61 @@ class FilePathField(Field):
+             *self._check_allowing_files_or_folders(**kwargs),
+         ]
+ 
++    def _check_choices_max_length(self):
++        # FilePathField stores values as strings, like CharField.
++        if (
++            not self.choices or
++            self.max_length is None or
++            not isinstance(self.max_length, int) or
++            isinstance(self.max_length, bool) or
++            self.max_length <= 0
++        ):
++            return []
++
++        def is_value(value, accept_promise=True):
++            return isinstance(value, (str, Promise) if accept_promise else str) or not is_iterable(value)
++
++        choice_values = []
++        for choices_group in self.choices:
++            if isinstance(choices_group, str):
++                return []
++            try:
++                group_name, group_choices = choices_group
++            except (TypeError, ValueError):
++                return []
++
++            if not is_value(group_choices):
++                try:
++                    for value, _ in group_choices:
++                        choice_values.append(value)
++                except (TypeError, ValueError):
++                    return []
++            else:
++                choice_values.append(group_name)
++
++        if not choice_values:
++            return []
++
++        required_max_length = 0
++        for value in choice_values:
++            if value is None:
++                continue
++            prepared_value = self.get_prep_value(value)
++            if prepared_value is None:
++                continue
++            required_max_length = max(required_max_length, len(prepared_value))
++
++        if required_max_length > self.max_length:
++            return [
++                checks.Error(
++                    "'max_length' is too small to fit the longest value in 'choices'.",
++                    hint="Increase 'max_length' to at least %d." % required_max_length,
++                    obj=self,
++                    id='fields.E123',
++                )
++            ]
++        return []
++
+     def _check_allowing_files_or_folders(self, **kwargs):
+         if not self.allow_files and not self.allow_folders:
+             return [
+diff --git a/docs/ref/checks.txt b/docs/ref/checks.txt
+index 4da932720e..efb92ea12d 100644
+--- a/docs/ref/checks.txt
++++ b/docs/ref/checks.txt
+@@ -143,6 +143,8 @@ Model fields
+   appeared before support for null values was added in Django 2.1.*
+ * **fields.E120**: ``CharField``\s must define a ``max_length`` attribute.
+ * **fields.E121**: ``max_length`` must be a positive integer.
++* **fields.E123**: ``max_length`` is too small to fit the longest value in
++  ``choices``.
+ * **fields.W122**: ``max_length`` is ignored when used with
+   ``<integer field type>``.
+ * **fields.E130**: ``DecimalField``\s must define a ``decimal_places`` attribute.

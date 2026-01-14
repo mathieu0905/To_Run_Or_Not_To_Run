@@ -1,0 +1,76 @@
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 105dc93251..df79451ee8 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -262,9 +262,22 @@ class Exact(FieldGetDbPrepValueMixin, BuiltinLookup):
+         from django.db.models.sql.query import Query
+         if isinstance(self.rhs, Query):
+             if self.rhs.has_limit_one():
+-                # The subquery must select only the pk.
+-                self.rhs.clear_select_clause()
+-                self.rhs.add_fields(['pk'])
++                # The subquery must select a single column.
++                self.rhs = self.rhs.clone()
++                if not self.rhs.has_select_fields:
++                    self.rhs.clear_select_clause()
++                    self.rhs.add_fields(['pk'])
++                else:
++                    rhs_select_fields = (
++                        len(self.rhs.select) +
++                        len(self.rhs.annotation_select) +
++                        len(self.rhs.extra_select)
++                    )
++                    if rhs_select_fields != 1:
++                        raise ValueError(
++                            'The QuerySet value for an exact lookup must '
++                            'select a single field.'
++                        )
+             else:
+                 raise ValueError(
+                     'The QuerySet value for an exact lookup must be limited to '
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index a603824c0d..978157ae8f 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -5,6 +5,7 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import FieldError
+ from django.db import connection
++from django.db.models import Max
+ from django.db.models.expressions import Exists, OuterRef
+ from django.db.models.functions import Substr
+ from django.test import TestCase, skipUnlessDBFeature
+@@ -891,6 +892,33 @@ class LookupTests(TestCase):
+             [self.a5, self.a6, self.a7]
+         )
+ 
++    def test_exact_sliced_queryset_keeps_selected_field(self):
++        """
++        A sliced queryset used in an exact lookup must preserve its selected
++        field if it already selects a single column.
++        """
++        from django.db.models.sql.query import Query
++
++        Author.objects.create(name='Author 3', alias=None)
++        Author.objects.create(name='Author 4', alias=None)
++        inner_qs = (
++            Author.objects.filter(alias__isnull=True)
++            .values('alias')
++            .annotate(m=Max('id'))
++            .values('m')[:1]
++        )
++        outer_qs = Author.objects.filter(id=inner_qs)
++        inner_query = outer_qs.query.where.children[0].rhs
++        self.assertIsInstance(inner_query, Query)
++        self.assertIn('m', inner_query.annotation_select)
++        group_by_exprs = inner_query.group_by or ()
++        group_by_fields = [
++            expr.target.name for expr in group_by_exprs
++            if hasattr(expr, 'target')
++        ]
++        self.assertIn('alias', group_by_fields)
++        self.assertNotIn('id', group_by_fields)
++
+     def test_exact_sliced_queryset_not_limited_to_one(self):
+         msg = (
+             'The QuerySet value for an exact lookup must be limited to one '

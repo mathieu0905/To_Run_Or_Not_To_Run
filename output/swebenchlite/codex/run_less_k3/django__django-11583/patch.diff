@@ -1,0 +1,60 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 25c3b44250..e40ba8cc77 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -139,9 +139,11 @@ def iter_modules_and_files(modules, extra_files):
+         path = Path(filename)
+         try:
+             resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
+-            # The module could have been removed, don't fail loudly if this
+-            # is the case.
++        except (FileNotFoundError, OSError, RuntimeError, ValueError):
++            # The module could have been removed (FileNotFoundError), the path
++            # could be invalid (ValueError: embedded null byte), or resolving
++            # it could fail for other OS-related reasons. In all cases, ignore
++            # the path rather than crashing the reloader.
+             continue
+         results.add(resolved_path)
+     return frozenset(results)
+@@ -187,7 +189,7 @@ def sys_path_directories():
+         path = Path(path)
+         try:
+             resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
++        except (FileNotFoundError, OSError, RuntimeError, ValueError):
+             continue
+         # If the path is a file (like a zip file), watch the parent directory.
+         if resolved_path.is_file():
+diff --git a/tests/utils_tests/test_autoreload.py b/tests/utils_tests/test_autoreload.py
+index 1ea019ac7a..cc0df46a0a 100644
+--- a/tests/utils_tests/test_autoreload.py
++++ b/tests/utils_tests/test_autoreload.py
+@@ -140,6 +140,16 @@ class TestIterModulesAndFiles(SimpleTestCase):
+         fake_main = types.ModuleType('__main__')
+         self.assertEqual(autoreload.iter_modules_and_files((fake_main,), frozenset()), frozenset())
+ 
++    def test_invalid_paths_are_ignored(self):
++        module = types.ModuleType('test_invalid_path_module')
++        module.__spec__ = types.SimpleNamespace(
++            has_location=True,
++            origin='invalid\0path.py',
++            loader=object(),
++        )
++        self.clear_autoreload_caches()
++        self.assertEqual(autoreload.iter_modules_and_files((module,), frozenset()), frozenset())
++
+ 
+ class TestCommonRoots(SimpleTestCase):
+     def test_common_roots(self):
+@@ -184,6 +194,10 @@ class TestSysPathDirectories(SimpleTestCase):
+             paths = list(autoreload.sys_path_directories())
+         self.assertIn(self.directory, paths)
+ 
++    def test_sys_paths_invalid_paths_are_ignored(self):
++        with extend_sys_path('invalid\0path'):
++            list(autoreload.sys_path_directories())  # No crash.
++
+ 
+ class GetReloaderTests(SimpleTestCase):
+     @mock.patch('django.utils.autoreload.WatchmanReloader')

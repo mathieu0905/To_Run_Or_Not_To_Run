@@ -1,0 +1,80 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index ee45bb941e..6a9493d70f 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -2,6 +2,7 @@ import collections.abc
+ import copy
+ import datetime
+ import decimal
++import inspect
+ import operator
+ import uuid
+ import warnings
+@@ -763,8 +764,19 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            setattr(cls, 'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self))
++            method_name = 'get_%s_display' % self.name
++            # Don't override explicit or inherited custom implementations.
++            if method_name not in cls.__dict__:
++                existing = inspect.getattr_static(cls, method_name, None)
++                if existing is None or (
++                    isinstance(existing, partialmethod) and
++                    existing.func == cls._get_FIELD_display
++                ):
++                    setattr(
++                        cls,
++                        method_name,
++                        partialmethod(cls._get_FIELD_display, field=self),
++                    )
+ 
+     def get_filter_kwargs_for_object(self, obj):
+         """
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index 98b32d0c1e..637d01ad6e 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -76,6 +76,16 @@ class Choiceful(models.Model):
+     empty_choices_text = models.TextField(choices=())
+ 
+ 
++class OverrideGetFieldDisplay(models.Model):
++    foo_bar = models.IntegerField(choices=[(1, 'foo'), (2, 'bar')])
++
++    def __str__(self):
++        return self.get_foo_bar_display()
++
++    def get_foo_bar_display(self):
++        return 'something'
++
++
+ class BigD(models.Model):
+     d = models.DecimalField(max_digits=32, decimal_places=30)
+ 
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index 0d6e930b06..e2e572a339 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -8,7 +8,7 @@ from django.utils.functional import lazy
+ 
+ from .models import (
+     Bar, Choiceful, Foo, RenamedField, VerboseNameField, Whiz, WhizDelayed,
+-    WhizIter, WhizIterEmpty,
++    WhizIter, WhizIterEmpty, OverrideGetFieldDisplay,
+ )
+ 
+ 
+@@ -162,6 +162,11 @@ class GetFieldDisplayTests(SimpleTestCase):
+         self.assertEqual(Whiz(c='').get_c_display(), '')        # Empty value
+         self.assertEqual(WhizDelayed(c=0).get_c_display(), 'Other')  # Delayed choices
+ 
++    def test_get_FIELD_display_can_be_overridden(self):
++        obj = OverrideGetFieldDisplay(foo_bar=1)
++        self.assertEqual(obj.get_foo_bar_display(), 'something')
++        self.assertEqual(str(obj), 'something')
++
+     def test_get_FIELD_display_translated(self):
+         """A translated display value is coerced to str."""
+         val = Whiz(c=5).get_c_display()

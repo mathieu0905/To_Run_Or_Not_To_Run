@@ -1,0 +1,214 @@
+diff --git a/django/contrib/auth/migrations/0011_update_proxy_permissions.py b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+index 0e66649695..914100f429 100644
+--- a/django/contrib/auth/migrations/0011_update_proxy_permissions.py
++++ b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+@@ -1,7 +1,75 @@
+-from django.db import migrations
++from django.db import connections, migrations, router
+ from django.db.models import Q
+ 
+ 
++def _get_connection(using, schema_editor):
++    if schema_editor is not None:
++        return schema_editor.connection
++    return connections[using]
++
++
++def _quote_name(schema_editor, connection):
++    if schema_editor is not None:
++        return schema_editor.quote_name
++    return connection.ops.quote_name
++
++
++def _permission_related_m2m_tables(Permission):
++    """
++    Return all m2m through models that include a FK to Permission.
++
++    This includes the built-in Group.permissions relation as well as the
++    swappable user model's user_permissions relation.
++    """
++    for relation in Permission._meta.related_objects:
++        if not getattr(relation, 'many_to_many', False):
++            continue
++        through = relation.through
++        permission_fk = None
++        other_fk = None
++        for field in through._meta.fields:
++            remote_field = getattr(field, 'remote_field', None)
++            if not remote_field:
++                continue
++            if remote_field.model == Permission:
++                permission_fk = field
++            else:
++                other_fk = field
++        if permission_fk is None or other_fk is None:
++            continue
++        yield through._meta.db_table, permission_fk.column, other_fk.column
++
++
++def _merge_permission_references(using, schema_editor, Permission, old_id, new_id):
++    """
++    Replace all references to Permission(old_id) with Permission(new_id).
++
++    Any duplicate m2m rows created by merging are removed.
++    """
++    if old_id == new_id:
++        return
++    connection = _get_connection(using, schema_editor)
++    quote_name = _quote_name(schema_editor, connection)
++    with connection.cursor() as cursor:
++        for db_table, permission_column, other_column in _permission_related_m2m_tables(Permission):
++            table = quote_name(db_table)
++            permission_column = quote_name(permission_column)
++            other_column = quote_name(other_column)
++            cursor.execute(
++                f"""
++                DELETE FROM {table}
++                WHERE {permission_column} = %s AND {other_column} IN (
++                    SELECT {other_column} FROM {table} WHERE {permission_column} = %s
++                )
++                """,
++                [old_id, new_id],
++            )
++            cursor.execute(
++                f"UPDATE {table} SET {permission_column} = %s WHERE {permission_column} = %s",
++                [new_id, old_id],
++            )
++
++
+ def update_proxy_model_permissions(apps, schema_editor, reverse=False):
+     """
+     Update the content_type of proxy model permissions to use the ContentType
+@@ -9,25 +77,47 @@ def update_proxy_model_permissions(apps, schema_editor, reverse=False):
+     """
+     Permission = apps.get_model('auth', 'Permission')
+     ContentType = apps.get_model('contenttypes', 'ContentType')
++    using = schema_editor.connection.alias if schema_editor is not None else router.db_for_write(Permission)
+     for Model in apps.get_models():
+         opts = Model._meta
+         if not opts.proxy:
+             continue
+-        proxy_default_permissions_codenames = [
++        proxy_permissions_codenames = {
+             '%s_%s' % (action, opts.model_name)
+             for action in opts.default_permissions
+-        ]
+-        permissions_query = Q(codename__in=proxy_default_permissions_codenames)
+-        for codename, name in opts.permissions:
+-            permissions_query = permissions_query | Q(codename=codename, name=name)
+-        concrete_content_type = ContentType.objects.get_for_model(Model, for_concrete_model=True)
+-        proxy_content_type = ContentType.objects.get_for_model(Model, for_concrete_model=False)
++        }
++        proxy_permissions_codenames.update(codename for codename, name in opts.permissions)
++        if not proxy_permissions_codenames:
++            continue
++        permissions_query = Q(codename__in=proxy_permissions_codenames)
++        concrete_content_type = ContentType.objects.db_manager(using).get_for_model(Model, for_concrete_model=True)
++        proxy_content_type = ContentType.objects.db_manager(using).get_for_model(Model, for_concrete_model=False)
+         old_content_type = proxy_content_type if reverse else concrete_content_type
+         new_content_type = concrete_content_type if reverse else proxy_content_type
+-        Permission.objects.filter(
++        old_permissions = Permission.objects.using(using).filter(
+             permissions_query,
+             content_type=old_content_type,
+-        ).update(content_type=new_content_type)
++        )
++        if not old_permissions.exists():
++            continue
++        existing_permission_ids = dict(
++            Permission.objects.using(using)
++            .filter(content_type=new_content_type, codename__in=proxy_permissions_codenames)
++            .values_list('codename', 'id')
++        )
++        conflicting_codenames = set(existing_permission_ids).intersection(
++            old_permissions.values_list('codename', flat=True)
++        )
++        for old_permission in old_permissions.filter(codename__in=conflicting_codenames):
++            _merge_permission_references(
++                using,
++                schema_editor,
++                Permission,
++                old_permission.id,
++                existing_permission_ids[old_permission.codename],
++            )
++            old_permission.delete()
++        old_permissions.exclude(codename__in=conflicting_codenames).update(content_type=new_content_type)
+ 
+ 
+ def revert_proxy_model_permissions(apps, schema_editor):
+diff --git a/tests/auth_tests/test_migrations.py b/tests/auth_tests/test_migrations.py
+index 5ff2f6b4b3..49ca9acb9c 100644
+--- a/tests/auth_tests/test_migrations.py
++++ b/tests/auth_tests/test_migrations.py
+@@ -152,3 +152,71 @@ class ProxyModelWithSameAppLabelTests(TestCase):
+         user = User._default_manager.get(pk=user.pk)
+         for permission in [self.default_permission, self.custom_permission]:
+             self.assertTrue(user.has_perm('auth_tests.' + permission.codename))
++
++
++class ProxyModelPermissionDuplicatesTests(TestCase):
++    available_apps = [
++        'auth_tests',
++        'django.contrib.auth',
++        'django.contrib.contenttypes',
++    ]
++
++    def test_forward_migration_merges_duplicate_permissions(self):
++        Permission.objects.all().delete()
++        concrete_content_type = ContentType.objects.get_for_model(Proxy)
++        proxy_content_type = ContentType.objects.get_for_model(Proxy, for_concrete_model=False)
++        proxy_permission = Permission.objects.create(
++            content_type=proxy_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++        concrete_permission = Permission.objects.create(
++            content_type=concrete_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++        user = User.objects.create()
++        user.user_permissions.add(proxy_permission, concrete_permission)
++        update_proxy_permissions.update_proxy_model_permissions(apps, None)
++        # Reload user to purge the _perm_cache.
++        user = User._default_manager.get(pk=user.pk)
++        self.assertTrue(user.has_perm('auth_tests.add_proxy'))
++        permission = user.user_permissions.get(codename='add_proxy')
++        self.assertEqual(permission.content_type, proxy_content_type)
++        self.assertEqual(
++            Permission.objects.filter(content_type=proxy_content_type, codename='add_proxy').count(),
++            1,
++        )
++        self.assertFalse(
++            Permission.objects.filter(content_type=concrete_content_type, codename='add_proxy').exists(),
++        )
++
++    def test_backward_migration_merges_duplicate_permissions(self):
++        Permission.objects.all().delete()
++        concrete_content_type = ContentType.objects.get_for_model(Proxy)
++        proxy_content_type = ContentType.objects.get_for_model(Proxy, for_concrete_model=False)
++        concrete_permission = Permission.objects.create(
++            content_type=concrete_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++        proxy_permission = Permission.objects.create(
++            content_type=proxy_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++        user = User.objects.create()
++        user.user_permissions.add(concrete_permission, proxy_permission)
++        update_proxy_permissions.revert_proxy_model_permissions(apps, None)
++        # Reload user to purge the _perm_cache.
++        user = User._default_manager.get(pk=user.pk)
++        self.assertTrue(user.has_perm('auth_tests.add_proxy'))
++        permission = user.user_permissions.get(codename='add_proxy')
++        self.assertEqual(permission.content_type, concrete_content_type)
++        self.assertEqual(
++            Permission.objects.filter(content_type=concrete_content_type, codename='add_proxy').count(),
++            1,
++        )
++        self.assertFalse(
++            Permission.objects.filter(content_type=proxy_content_type, codename='add_proxy').exists(),
++        )

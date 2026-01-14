@@ -1,0 +1,46 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**CRITICAL CONSTRAINT: You CANNOT run tests or execute Python scripts.**
+
+You must generate a fix by reading code, understanding logic, and reasoning about the root cause.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: d26b2424437dabeeca94d7900b37d2df4410da0c
+
+## Problem Description
+UsernameValidator allows trailing newline in usernames
+Description
+	
+ASCIIUsernameValidator and UnicodeUsernameValidator use the regex 
+r'^[\w.@+-]+$'
+The intent is to only allow alphanumeric characters as well as ., @, +, and -. However, a little known quirk of Python regexes is that $ will also match a trailing newline. Therefore, the user name validators will accept usernames which end with a newline. You can avoid this behavior by instead using \A and \Z to terminate regexes. For example, the validator regex could be changed to
+r'\A[\w.@+-]+\Z'
+in order to reject usernames that end with a newline.
+I am not sure how to officially post a patch, but the required change is trivial - using the regex above in the two validators in contrib.auth.validators.
+
+
+## What You CAN Do
+✅ Use bash commands to view files (ls, cat, grep, find, etc.)
+✅ Read and analyze code
+✅ Reason and think
+
+## What You CANNOT Do
+❌ Run pytest or any tests
+❌ Execute Python scripts (python xxx.py)
+❌ Run any commands that execute code
+❌ Use git commands (git may interfere with the experimental environment)
+
+## Task Requirements
+1. Carefully read relevant code files (you can read multiple times)
+2. Analyze the root cause of the problem
+3. Reason out the correct fix
+4. Double-check your fix logic
+5. **Use the Edit tool to actually modify the source files**
+
+## CRITICAL: You MUST Actually Modify Files
+- Do NOT just output a diff as text
+- You MUST use the Edit tool to make actual changes to the source files
+- After editing, the changes will be captured by git diff automatically
+
+Remember: You can use bash commands to view code, but cannot run tests or scripts to verify. Ensure correctness through careful logical reasoning.

@@ -1,0 +1,65 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**EXECUTION CONSTRAINT: You have UNLIMITED Python executions.**
+
+Feel free to run tests and scripts as many times as needed to debug and verify your fix.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: d26b2424437dabeeca94d7900b37d2df4410da0c
+
+## Problem Description
+UsernameValidator allows trailing newline in usernames
+Description
+	
+ASCIIUsernameValidator and UnicodeUsernameValidator use the regex 
+r'^[\w.@+-]+$'
+The intent is to only allow alphanumeric characters as well as ., @, +, and -. However, a little known quirk of Python regexes is that $ will also match a trailing newline. Therefore, the user name validators will accept usernames which end with a newline. You can avoid this behavior by instead using \A and \Z to terminate regexes. For example, the validator regex could be changed to
+r'\A[\w.@+-]+\Z'
+in order to reject usernames that end with a newline.
+I am not sure how to officially post a patch, but the required change is trivial - using the regex above in the two validators in contrib.auth.validators.
+
+
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
+- Read and analyze code - UNLIMITED
+- Run Python code (tests, scripts) - **UNLIMITED**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## Why Running Tests Helps
+Running tests is valuable for:
+1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
+2. **Verifying the fix**: A passing test confirms your fix actually works
+3. **Catching regressions**: Tests ensure you haven't broken other functionality
+
+## Recommended Workflow
+
+### Step 1: Write a Test Script
+Based on the problem description, write a simple test script to reproduce the issue:
+```python
+# test_bug.py
+def test_issue():
+    result = some_function(test_input)
+    print(f"Result: {result}")
+    assert result == expected_output, f"Expected X, got {result}"
+
+if __name__ == "__main__":
+    test_issue()
+```
+
+### Step 2: Run Test to Confirm the Bug
+Run your test script to verify the bug exists and understand the failure.
+
+### Step 3: Analyze and Fix
+1. Read the relevant source code
+2. Identify the root cause
+3. Implement the fix
+
+### Step 4: Run Test to Verify the Fix
+Run the test again to confirm your fix works. If it fails, iterate on steps 3-4.
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

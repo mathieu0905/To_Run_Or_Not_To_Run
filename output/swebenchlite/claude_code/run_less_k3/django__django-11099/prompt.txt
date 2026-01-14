@@ -1,0 +1,48 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**EXECUTION CONSTRAINT: You can run Python code at most 3 times.**
+
+Each execution is precious. Use your execution budget wisely.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: d26b2424437dabeeca94d7900b37d2df4410da0c
+
+## Problem Description
+UsernameValidator allows trailing newline in usernames
+Description
+	
+ASCIIUsernameValidator and UnicodeUsernameValidator use the regex 
+r'^[\w.@+-]+$'
+The intent is to only allow alphanumeric characters as well as ., @, +, and -. However, a little known quirk of Python regexes is that $ will also match a trailing newline. Therefore, the user name validators will accept usernames which end with a newline. You can avoid this behavior by instead using \A and \Z to terminate regexes. For example, the validator regex could be changed to
+r'\A[\w.@+-]+\Z'
+in order to reject usernames that end with a newline.
+I am not sure how to officially post a patch, but the required change is trivial - using the regex above in the two validators in contrib.auth.validators.
+
+
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
+- Read and analyze code - UNLIMITED
+- Run Python code (tests, scripts) - **at most 3 times**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## How Execution Can Help
+Running code is valuable for:
+1. **Reproducing the bug**: A failing test helps you understand exactly what's broken
+2. **Verifying your fix**: A passing test confirms your solution actually works
+
+You decide how to use your 3 execution opportunities. Consider:
+- If the problem description is clear, you might analyze the code and implement a fix directly
+- If the bug is unclear, you might use an execution to reproduce and understand it first
+- If you're confident in your fix, you might use an execution to verify it works
+- If you have very high confidence, you might not need to execute at all
+
+## Execution Budget
+- Total allowed: 3 runs
+- After each run, output: "Remaining runs: X"
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

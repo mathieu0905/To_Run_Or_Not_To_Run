@@ -7,10 +7,11 @@ from pathlib import Path
 from collections import defaultdict
 
 def count_tokens_and_execs(trace_path):
-    """从 trace.jsonl 统计 token、执行次数和交互轮数"""
+    """从 trace.jsonl 统计 token、执行次数、交互轮数和时间"""
     tokens = {"input": 0, "output": 0}
     exec_count = 0
     turns = 0
+    duration_ms = 0
 
     test_patterns = ["pytest", "python -m pytest", "python -m unittest",
                      "manage.py test", "tox", "nose", "nosetests"]
@@ -47,9 +48,12 @@ def count_tokens_and_execs(trace_path):
                             cmd = c.get("input", {}).get("command", "")
                             if any(p in cmd for p in test_patterns):
                                 exec_count += 1
+                # 提取时间信息 (最后一行的 result)
+                if item.get("type") == "result":
+                    duration_ms = item.get("duration_ms", 0)
             except:
                 continue
-    return tokens, exec_count, turns
+    return tokens, exec_count, turns, duration_ms
 
 def check_patch(patch_path):
     """检查 patch 是否非空"""
@@ -83,13 +87,14 @@ def analyze(output_dir):
                 patch_path = instance_dir / "patch.diff"
 
                 if trace_path.exists():
-                    tokens, exec_count, turns = count_tokens_and_execs(trace_path)
+                    tokens, exec_count, turns, duration_ms = count_tokens_and_execs(trace_path)
                     has_patch = check_patch(patch_path)
 
                     results[agent][mode][instance] = {
                         "tokens": tokens,
                         "exec_count": exec_count,
                         "turns": turns,
+                        "duration_ms": duration_ms,
                         "has_patch": has_patch
                     }
 
@@ -103,9 +108,9 @@ def print_summary(results):
 
     for agent, modes in sorted(results.items()):
         print(f"\n### Agent: {agent}")
-        print("-" * 100)
-        print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'Avg Execs':<10} {'Patch'}")
-        print("-" * 100)
+        print("-" * 120)
+        print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'Avg Execs':<10} {'Avg Time':<12} {'Patch'}")
+        print("-" * 120)
 
         for mode, instances in sorted(modes.items()):
             n = len(instances)
@@ -113,6 +118,7 @@ def print_summary(results):
             total_output = sum(v["tokens"]["output"] for v in instances.values())
             total_execs = sum(v["exec_count"] for v in instances.values())
             total_turns = sum(v["turns"] for v in instances.values())
+            total_duration = sum(v["duration_ms"] for v in instances.values())
             patches = sum(1 for v in instances.values() if v["has_patch"])
 
             avg_input = total_input // n if n > 0 else 0
@@ -120,21 +126,23 @@ def print_summary(results):
             avg_total = (total_input + total_output) // n if n > 0 else 0
             avg_turns = total_turns / n if n > 0 else 0
             avg_execs = total_execs / n if n > 0 else 0
+            avg_duration_sec = (total_duration / n / 1000) if n > 0 else 0
 
-            print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_execs:<10.1f} {patches}/{n}")
+            print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_execs:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n}")
 
     # 详细信息
-    print("\n" + "=" * 110)
-    print("详细结果")
-    print("=" * 110)
+    # print("\n" + "=" * 110)
+    # print("详细结果")
+    # print("=" * 110)
 
-    for agent, modes in sorted(results.items()):
-        for mode, instances in sorted(modes.items()):
-            print(f"\n[{agent}] {mode}:")
-            for inst, data in sorted(instances.items()):
-                t = data["tokens"]
-                patch_mark = "✓" if data["has_patch"] else "✗"
-                print(f"  {inst}: input={t['input']}, output={t['output']}, total={t['input']+t['output']}, turns={data['turns']}, execs={data['exec_count']}, patch={patch_mark}")
+    # for agent, modes in sorted(results.items()):
+    #     for mode, instances in sorted(modes.items()):
+    #         print(f"\n[{agent}] {mode}:")
+    #         for inst, data in sorted(instances.items()):
+    #             t = data["tokens"]
+    #             patch_mark = "✓" if data["has_patch"] else "✗"
+    #             duration_sec = data["duration_ms"] / 1000
+    #             print(f"  {inst}: input={t['input']}, output={t['output']}, total={t['input']+t['output']}, turns={data['turns']}, execs={data['exec_count']}, time={duration_sec:.1f}s, patch={patch_mark}")
 
 if __name__ == "__main__":
     import sys

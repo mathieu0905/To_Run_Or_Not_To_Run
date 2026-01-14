@@ -1,0 +1,93 @@
+diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py
+index 5c2266ca1d..68f80e10f1 100644
+--- a/django/core/checks/model_checks.py
++++ b/django/core/checks/model_checks.py
+@@ -9,7 +9,9 @@ from django.core.checks import Error, Tags, register
+ 
+ @register(Tags.models)
+ def check_all_models(app_configs=None, **kwargs):
+-    db_table_models = defaultdict(list)
++    from django.db import connections, router
++
++    db_table_models = defaultdict(lambda: defaultdict(list))
+     indexes = defaultdict(list)
+     constraints = defaultdict(list)
+     errors = []
+@@ -17,9 +19,17 @@ def check_all_models(app_configs=None, **kwargs):
+         models = apps.get_models()
+     else:
+         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
++    db_aliases = list(connections)
+     for model in models:
+         if model._meta.managed and not model._meta.proxy:
+-            db_table_models[model._meta.db_table].append(model._meta.label)
++            for db in db_aliases:
++                if router.allow_migrate(
++                    db,
++                    model._meta.app_label,
++                    model_name=model._meta.model_name,
++                    model=model,
++                ):
++                    db_table_models[model._meta.db_table][db].append(model._meta.label)
+         if not inspect.ismethod(model.check):
+             errors.append(
+                 Error(
+@@ -35,12 +45,20 @@ def check_all_models(app_configs=None, **kwargs):
+             indexes[model_index.name].append(model._meta.label)
+         for model_constraint in model._meta.constraints:
+             constraints[model_constraint.name].append(model._meta.label)
+-    for db_table, model_labels in db_table_models.items():
+-        if len(model_labels) != 1:
++    for db_table, db_model_labels in db_table_models.items():
++        collision_model_labels = []
++        seen = set()
++        for model_labels in db_model_labels.values():
++            if len(model_labels) > 1:
++                for label in model_labels:
++                    if label not in seen:
++                        seen.add(label)
++                        collision_model_labels.append(label)
++        if collision_model_labels:
+             errors.append(
+                 Error(
+                     "db_table '%s' is used by multiple models: %s."
+-                    % (db_table, ', '.join(db_table_models[db_table])),
++                    % (db_table, ', '.join(collision_model_labels)),
+                     obj=db_table,
+                     id='models.E028',
+                 )
+diff --git a/tests/check_framework/test_model_checks.py b/tests/check_framework/test_model_checks.py
+index 79177e38f7..c4e3e2fca0 100644
+--- a/tests/check_framework/test_model_checks.py
++++ b/tests/check_framework/test_model_checks.py
+@@ -74,6 +74,30 @@ class DuplicateDBTableTests(SimpleTestCase):
+         self.assertEqual(Model._meta.db_table, ProxyModel._meta.db_table)
+         self.assertEqual(checks.run_checks(app_configs=self.apps.get_app_configs()), [])
+ 
++    @modify_settings(INSTALLED_APPS={'append': 'basic'})
++    @isolate_apps('basic', 'check_framework', kwarg_name='apps')
++    def test_no_collision_with_database_router(self, apps):
++        class TestRouter:
++            def allow_migrate(self, db, app_label, model_name=None, **hints):
++                if app_label == 'basic':
++                    return db == 'default'
++                if app_label == 'check_framework':
++                    return db == 'other'
++                return None
++
++        with self.settings(DATABASE_ROUTERS=[TestRouter()]):
++            class Model1(models.Model):
++                class Meta:
++                    app_label = 'basic'
++                    db_table = 'test_table'
++
++            class Model2(models.Model):
++                class Meta:
++                    app_label = 'check_framework'
++                    db_table = 'test_table'
++
++            self.assertEqual(checks.run_checks(app_configs=apps.get_app_configs()), [])
++
+ 
+ @isolate_apps('check_framework', attr_name='apps')
+ @override_system_checks([checks.model_checks.check_all_models])

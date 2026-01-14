@@ -1,0 +1,73 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**EXECUTION CONSTRAINT: Every Python execution has a cost (time, compute, money).**
+
+You can run code, but each execution costs resources. Decide wisely whether to run based on expected value.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: fee75d2aed4e58ada6567c464cfd22e89dc65f4a
+
+## Problem Description
+Add check to ensure max_length fits longest choice.
+Description
+	
+There is currently no check to ensure that Field.max_length is large enough to fit the longest value in Field.choices.
+This would be very helpful as often this mistake is not noticed until an attempt is made to save a record with those values that are too long.
+
+
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - FREE, no cost
+- Read and analyze code - FREE, no cost
+- Run Python code (tests, scripts) - **each run has a cost**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## Why Running Tests Helps
+Running tests is valuable for:
+1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
+2. **Verifying the fix**: A passing test confirms your fix actually works
+3. **Catching regressions**: Tests ensure you haven't broken other functionality
+
+## Cost-Aware Decision Making
+
+Before each execution, evaluate:
+- **High confidence (>90%)**: You may skip testing if very certain
+- **Medium confidence (50-90%)**: Testing is likely worth the cost
+- **Low confidence (<50%)**: Testing is strongly recommended
+
+Output your decision:
+```
+[DECISION] Confidence: X% | Action: Run/Skip | Reason: ...
+```
+
+## Recommended Workflow
+
+### Step 1: Write a Test Script
+Based on the problem description, write a simple test script to reproduce the issue:
+```python
+# test_bug.py
+def test_issue():
+    result = some_function(test_input)
+    print(f"Result: {result}")
+    assert result == expected_output, f"Expected X, got {result}"
+
+if __name__ == "__main__":
+    test_issue()
+```
+
+### Step 2: Decide Whether to Run
+Assess your confidence and decide if running the test is worth the cost.
+
+### Step 3: Analyze and Fix
+1. Read the relevant source code
+2. Identify the root cause
+3. Implement the fix
+
+### Step 4: Decide Whether to Verify
+If confident in your fix, you may skip verification. Otherwise, run the test.
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

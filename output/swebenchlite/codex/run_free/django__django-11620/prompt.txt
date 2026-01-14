@@ -1,0 +1,45 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**CRITICAL CONSTRAINT: You CANNOT run tests or execute Python scripts.**
+
+You must generate a fix by reading code, understanding logic, and reasoning about the root cause.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 514efa3129792ec2abb2444f3e7aeb3f21a38386
+
+## Problem Description
+When DEBUG is True, raising Http404 in a path converter's to_python method does not result in a technical response
+Description
+	
+This is the response I get (plain text): 
+A server error occurred. Please contact the administrator.
+I understand a ValueError should be raised which tells the URL resolver "this path does not match, try next one" but Http404 is what came to my mind intuitively and the error message was not very helpful.
+One could also make a point that raising a Http404 should be valid way to tell the resolver "this is indeed the right path but the current parameter value does not match anything so stop what you are doing and let the handler return the 404 page (including a helpful error message when DEBUG is True instead of the default 'Django tried these URL patterns')".
+This would prove useful for example to implement a path converter that uses get_object_or_404.
+
+
+## What You CAN Do
+✅ Use bash commands to view files (ls, cat, grep, find, etc.)
+✅ Read and analyze code
+✅ Reason and think
+
+## What You CANNOT Do
+❌ Run pytest or any tests
+❌ Execute Python scripts (python xxx.py)
+❌ Run any commands that execute code
+❌ Use git commands (git may interfere with the experimental environment)
+
+## Task Requirements
+1. Carefully read relevant code files (you can read multiple times)
+2. Analyze the root cause of the problem
+3. Reason out the correct fix
+4. Double-check your fix logic
+5. **Use the Edit tool to actually modify the source files**
+
+## CRITICAL: You MUST Actually Modify Files
+- Do NOT just output a diff as text
+- You MUST use the Edit tool to make actual changes to the source files
+- After editing, the changes will be captured by git diff automatically
+
+Remember: You can use bash commands to view code, but cannot run tests or scripts to verify. Ensure correctness through careful logical reasoning.

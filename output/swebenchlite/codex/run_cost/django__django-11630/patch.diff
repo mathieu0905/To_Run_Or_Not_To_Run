@@ -1,0 +1,111 @@
+diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py
+index 5c2266ca1d..04d3631451 100644
+--- a/django/core/checks/model_checks.py
++++ b/django/core/checks/model_checks.py
+@@ -9,7 +9,11 @@ from django.core.checks import Error, Tags, register
+ 
+ @register(Tags.models)
+ def check_all_models(app_configs=None, **kwargs):
+-    db_table_models = defaultdict(list)
++    from django.db import connections, router
++
++    db_table_models_by_database = defaultdict(lambda: defaultdict(set))
++    collision_databases = defaultdict(set)
++    model_label_order = {}
+     indexes = defaultdict(list)
+     constraints = defaultdict(list)
+     errors = []
+@@ -19,7 +23,10 @@ def check_all_models(app_configs=None, **kwargs):
+         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
+     for model in models:
+         if model._meta.managed and not model._meta.proxy:
+-            db_table_models[model._meta.db_table].append(model._meta.label)
++            model_label_order.setdefault(model._meta.label, len(model_label_order))
++            for db in connections:
++                if router.allow_migrate_model(db, model):
++                    db_table_models_by_database[db][model._meta.db_table].add(model._meta.label)
+         if not inspect.ismethod(model.check):
+             errors.append(
+                 Error(
+@@ -35,16 +42,22 @@ def check_all_models(app_configs=None, **kwargs):
+             indexes[model_index.name].append(model._meta.label)
+         for model_constraint in model._meta.constraints:
+             constraints[model_constraint.name].append(model._meta.label)
+-    for db_table, model_labels in db_table_models.items():
+-        if len(model_labels) != 1:
+-            errors.append(
+-                Error(
+-                    "db_table '%s' is used by multiple models: %s."
+-                    % (db_table, ', '.join(db_table_models[db_table])),
+-                    obj=db_table,
+-                    id='models.E028',
+-                )
++
++    for db, tables in db_table_models_by_database.items():
++        for db_table, model_labels in tables.items():
++            if len(model_labels) != 1:
++                collision_databases[(db_table, frozenset(model_labels))].add(db)
++
++    for (db_table, model_labels) in collision_databases:
++        model_labels = sorted(model_labels, key=model_label_order.get)
++        errors.append(
++            Error(
++                "db_table '%s' is used by multiple models: %s."
++                % (db_table, ', '.join(model_labels)),
++                obj=db_table,
++                id='models.E028',
+             )
++        )
+     for index_name, model_labels in indexes.items():
+         if len(model_labels) > 1:
+             model_labels = set(model_labels)
+diff --git a/tests/check_framework/test_model_checks.py b/tests/check_framework/test_model_checks.py
+index 79177e38f7..d1c457a3e1 100644
+--- a/tests/check_framework/test_model_checks.py
++++ b/tests/check_framework/test_model_checks.py
+@@ -3,7 +3,8 @@ from django.core.checks import Error
+ from django.db import models
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+ from django.test.utils import (
+-    isolate_apps, modify_settings, override_system_checks,
++    ignore_warnings, isolate_apps, modify_settings, override_settings,
++    override_system_checks,
+ )
+ 
+ 
+@@ -50,6 +51,35 @@ class DuplicateDBTableTests(SimpleTestCase):
+             )
+         ])
+ 
++    @modify_settings(INSTALLED_APPS={'append': 'basic'})
++    @isolate_apps('basic', 'check_framework', kwarg_name='apps')
++    def test_no_collision_across_databases(self, apps):
++        class SeparateDatabasesRouter:
++            def allow_migrate(self, db, app_label, **hints):
++                if app_label == 'basic':
++                    return db == 'default'
++                if app_label == 'check_framework':
++                    return db == 'other'
++                return None
++
++        databases = {
++            'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': 'default.sqlite3'},
++            'other': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': 'other.sqlite3'},
++        }
++        with ignore_warnings(message=r'Overriding setting DATABASES.*', category=UserWarning):
++            with override_settings(DATABASES=databases, DATABASE_ROUTERS=[SeparateDatabasesRouter()]):
++                class Model1(models.Model):
++                    class Meta:
++                        app_label = 'basic'
++                        db_table = 'test_table'
++
++                class Model2(models.Model):
++                    class Meta:
++                        app_label = 'check_framework'
++                        db_table = 'test_table'
++
++                self.assertEqual(checks.run_checks(app_configs=apps.get_app_configs()), [])
++
+     def test_no_collision_for_unmanaged_models(self):
+         class Unmanaged(models.Model):
+             class Meta:

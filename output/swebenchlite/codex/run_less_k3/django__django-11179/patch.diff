@@ -1,0 +1,39 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 92fe4affb9..3a462f1c4c 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -277,6 +277,7 @@ class Collector:
+             if self.can_fast_delete(instance):
+                 with transaction.mark_for_rollback_on_error():
+                     count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
++                setattr(instance, model._meta.pk.attname, None)
+                 return count, {model._meta.label: count}
+ 
+         with transaction.atomic(using=self.using, savepoint=False):
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 55eeb226ea..857eddd6a5 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -1,6 +1,7 @@
+ from math import ceil
+ 
+ from django.db import IntegrityError, connection, models
++from django.db.models.deletion import Collector
+ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+ 
+@@ -14,6 +15,14 @@ class OnDeleteTests(TestCase):
+     def setUp(self):
+         self.DEFAULT = get_default_r()
+ 
++    def test_fast_delete_clears_pk(self):
++        b = Base.objects.create()
++        collector = Collector(using=b._state.db)
++        collector.collect([b])
++        self.assertTrue(collector.can_fast_delete(b))
++        b.delete()
++        self.assertIsNone(b.pk)
++
+     def test_auto(self):
+         a = create_a('auto')
+         a.auto.delete()

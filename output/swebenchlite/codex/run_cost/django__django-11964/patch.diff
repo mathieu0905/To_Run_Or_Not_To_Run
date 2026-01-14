@@ -1,0 +1,37 @@
+diff --git a/django/db/models/enums.py b/django/db/models/enums.py
+index bbe362a6ab..1992a3076c 100644
+--- a/django/db/models/enums.py
++++ b/django/db/models/enums.py
+@@ -60,7 +60,14 @@ class ChoicesMeta(enum.EnumMeta):
+ 
+ class Choices(enum.Enum, metaclass=ChoicesMeta):
+     """Class for creating enumerated choices."""
+-    pass
++
++    def __str__(self):
++        """
++        Return the member's value, not its name, for consistency with values
++        loaded from the database and to avoid leaking enum names into external
++        APIs when stringifying model field values.
++        """
++        return str(self.value)
+ 
+ 
+ class IntegerChoices(int, Choices):
+diff --git a/tests/model_enums/tests.py b/tests/model_enums/tests.py
+index 6b4bd6e7fd..f72a3ff13f 100644
+--- a/tests/model_enums/tests.py
++++ b/tests/model_enums/tests.py
+@@ -41,6 +41,12 @@ class Gender(models.TextChoices):
+ 
+ 
+ class ChoicesTests(SimpleTestCase):
++    def test_choices_str_returns_value(self):
++        self.assertEqual(str(Suit.DIAMOND), '1')
++        self.assertEqual(f'{Suit.DIAMOND}', '1')
++        self.assertEqual(str(YearInSchool.FRESHMAN), 'FR')
++        self.assertEqual(f'{YearInSchool.FRESHMAN}', 'FR')
++
+     def test_integerchoices(self):
+         self.assertEqual(Suit.choices, [(1, 'Diamond'), (2, 'Spade'), (3, 'Heart'), (4, 'Club')])
+         self.assertEqual(Suit.labels, ['Diamond', 'Spade', 'Heart', 'Club'])

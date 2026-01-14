@@ -1,0 +1,54 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 7ca0d68fae..af88a05e5a 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -114,13 +114,21 @@ def iter_modules_and_files(modules, extra_files):
+         # During debugging (with PyDev) the 'typing.io' and 'typing.re' objects
+         # are added to sys.modules, however they are types not modules and so
+         # cause issues here.
+-        if not isinstance(module, ModuleType) or getattr(module, '__spec__', None) is None:
++        if not isinstance(module, ModuleType):
+             continue
+-        spec = module.__spec__
+-        # Modules could be loaded from places without a concrete location. If
+-        # this is the case, skip them.
+-        if spec.has_location:
+-            origin = spec.loader.archive if isinstance(spec.loader, zipimporter) else spec.origin
++        spec = getattr(module, '__spec__', None)
++        if spec is None:
++            # When Python is executed with a script (e.g. "manage.py"), the
++            # __main__ module may not have a spec but it's still important to
++            # track its source file for autoreloading.
++            origin = getattr(module, '__file__', None)
++        else:
++            # Modules could be loaded from places without a concrete location.
++            # If this is the case, skip them.
++            origin = spec.loader.archive if (spec.has_location and isinstance(spec.loader, zipimporter)) else spec.origin
++            if not spec.has_location:
++                origin = None
++        if origin:
+             sys_file_paths.append(origin)
+ 
+     results = set()
+diff --git a/tests/utils_tests/test_autoreload.py b/tests/utils_tests/test_autoreload.py
+index 42bcd0a50b..f7537f567f 100644
+--- a/tests/utils_tests/test_autoreload.py
++++ b/tests/utils_tests/test_autoreload.py
+@@ -132,6 +132,17 @@ class TestIterModulesAndFiles(SimpleTestCase):
+         del module.__spec__
+         self.assertEqual(autoreload.iter_modules_and_files((module,), frozenset()), frozenset())
+ 
++    def test_module_with_file_without_spec(self):
++        filename = self.temporary_file('test_main_like_module.py')
++        filename.touch()
++        module = types.ModuleType('test_module')
++        module.__spec__ = None
++        module.__file__ = str(filename)
++        self.assertEqual(
++            autoreload.iter_modules_and_files((module,), frozenset()),
++            frozenset({filename.resolve()}),
++        )
++
+ 
+ class TestCommonRoots(SimpleTestCase):
+     def test_common_roots(self):

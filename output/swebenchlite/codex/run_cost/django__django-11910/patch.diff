@@ -1,0 +1,51 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 1c40161c7f..27c51d3aa0 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -927,7 +927,10 @@ class MigrationAutodetector:
+                 if remote_field_name:
+                     to_field_rename_key = rename_key + (remote_field_name,)
+                     if to_field_rename_key in self.renamed_fields:
+-                        new_field.remote_field.field_name = old_field.remote_field.field_name
++                        old_remote_meta = getattr(old_field.remote_field.model, '_meta', None)
++                        old_remote_pk_name = getattr(getattr(old_remote_meta, 'pk', None), 'name', None)
++                        if old_field.remote_field.field_name != old_remote_pk_name:
++                            new_field.remote_field.field_name = old_field.remote_field.field_name
+                 # Handle ForeignObjects which can have multiple from_fields/to_fields.
+                 from_fields = getattr(new_field, 'from_fields', None)
+                 if from_fields:
+diff --git a/tests/migrations/test_autodetector.py b/tests/migrations/test_autodetector.py
+index 1d5b8ef463..a6f933e17d 100644
+--- a/tests/migrations/test_autodetector.py
++++ b/tests/migrations/test_autodetector.py
+@@ -863,6 +863,30 @@ class AutodetectorTests(TestCase):
+         self.assertOperationTypes(changes, 'app', 0, ['RenameField'])
+         self.assertOperationAttributes(changes, 'app', 0, 0, old_name='field', new_name='renamed_field')
+ 
++    def test_rename_primary_key_field_foreign_key(self):
++        before = [
++            ModelState('app', 'Foo', [
++                ('field_wrong', models.CharField(max_length=50, primary_key=True)),
++            ]),
++            ModelState('app', 'Bar', [
++                ('id', models.AutoField(primary_key=True)),
++                ('foo', models.ForeignKey('app.Foo', models.CASCADE, blank=True, null=True)),
++            ]),
++        ]
++        after = [
++            ModelState('app', 'Foo', [
++                ('field_fixed', models.CharField(max_length=50, primary_key=True)),
++            ]),
++            ModelState('app', 'Bar', [
++                ('id', models.AutoField(primary_key=True)),
++                ('foo', models.ForeignKey('app.Foo', models.CASCADE, blank=True, null=True)),
++            ]),
++        ]
++        changes = self.get_changes(before, after, MigrationQuestioner({'ask_rename': True}))
++        self.assertNumberMigrations(changes, 'app', 1)
++        self.assertOperationTypes(changes, 'app', 0, ['RenameField'])
++        self.assertOperationAttributes(changes, 'app', 0, 0, old_name='field_wrong', new_name='field_fixed')
++
+     def test_rename_foreign_object_fields(self):
+         fields = ('first', 'second')
+         renamed_fields = ('first_renamed', 'second_renamed')

@@ -1,0 +1,64 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index ee45bb941e..7b6f397ea4 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -763,8 +763,13 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            setattr(cls, 'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self))
++            display_method_name = 'get_%s_display' % self.name
++            if not hasattr(cls, display_method_name):
++                setattr(
++                    cls,
++                    display_method_name,
++                    partialmethod(cls._get_FIELD_display, field=self),
++                )
+ 
+     def get_filter_kwargs_for_object(self, obj):
+         """
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index 98b32d0c1e..006e21bdc9 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -52,6 +52,13 @@ class Whiz(models.Model):
+     c = models.IntegerField(choices=CHOICES, null=True)
+ 
+ 
++class OverrideGetFieldDisplay(models.Model):
++    status = models.IntegerField(choices=[(1, 'foo'), (2, 'bar')])
++
++    def get_status_display(self):
++        return 'something'
++
++
+ class WhizDelayed(models.Model):
+     c = models.IntegerField(choices=(), null=True)
+ 
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index 0d6e930b06..9532b08aef 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -7,8 +7,8 @@ from django.test import SimpleTestCase, TestCase
+ from django.utils.functional import lazy
+ 
+ from .models import (
+-    Bar, Choiceful, Foo, RenamedField, VerboseNameField, Whiz, WhizDelayed,
+-    WhizIter, WhizIterEmpty,
++    Bar, Choiceful, Foo, OverrideGetFieldDisplay, RenamedField, VerboseNameField,
++    Whiz, WhizDelayed, WhizIter, WhizIterEmpty,
+ )
+ 
+ 
+@@ -162,6 +162,10 @@ class GetFieldDisplayTests(SimpleTestCase):
+         self.assertEqual(Whiz(c='').get_c_display(), '')        # Empty value
+         self.assertEqual(WhizDelayed(c=0).get_c_display(), 'Other')  # Delayed choices
+ 
++    def test_get_FIELD_display_can_be_overridden(self):
++        instance = OverrideGetFieldDisplay(status=1)
++        self.assertEqual(instance.get_status_display(), 'something')
++
+     def test_get_FIELD_display_translated(self):
+         """A translated display value is coerced to str."""
+         val = Whiz(c=5).get_c_display()

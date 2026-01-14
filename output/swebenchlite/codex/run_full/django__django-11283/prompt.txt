@@ -1,0 +1,66 @@
+You are a code repair expert. Your task is to fix the following bug.
+
+**EXECUTION CONSTRAINT: You have UNLIMITED Python executions.**
+
+Feel free to run tests and scripts as many times as needed to debug and verify your fix.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 08a4ee06510ae45562c228eefbdcaac84bd38c7a
+
+## Problem Description
+Migration auth.0011_update_proxy_permissions fails for models recreated as a proxy.
+Description
+	 
+		(last modified by Mariusz Felisiak)
+	 
+I am trying to update my project to Django 2.2. When I launch python manage.py migrate, I get this error message when migration auth.0011_update_proxy_permissions is applying (full stacktrace is available ​here):
+django.db.utils.IntegrityError: duplicate key value violates unique constraint "idx_18141_auth_permission_content_type_id_01ab375a_uniq" DETAIL: Key (co.ntent_type_id, codename)=(12, add_agency) already exists.
+It looks like the migration is trying to re-create already existing entries in the auth_permission table. At first I though it cloud because we recently renamed a model. But after digging and deleting the entries associated with the renamed model from our database in the auth_permission table, the problem still occurs with other proxy models.
+I tried to update directly from 2.0.13 and 2.1.8. The issues appeared each time. I also deleted my venv and recreated it without an effect.
+I searched for a ticket about this on the bug tracker but found nothing. I also posted this on ​django-users and was asked to report this here.
+
+
+## What You CAN Do
+- Use bash commands to view files (ls, cat, grep, find, etc.) - UNLIMITED
+- Read and analyze code - UNLIMITED
+- Run Python code (tests, scripts) - **UNLIMITED**
+
+## What You CANNOT Do
+- Use git commands (git may interfere with the experimental environment)
+
+## Why Running Tests Helps
+Running tests is valuable for:
+1. **Locating the bug**: A failing test pinpoints exactly where the problem occurs
+2. **Verifying the fix**: A passing test confirms your fix actually works
+3. **Catching regressions**: Tests ensure you haven't broken other functionality
+
+## Recommended Workflow
+
+### Step 1: Write a Test Script
+Based on the problem description, write a simple test script to reproduce the issue:
+```python
+# test_bug.py
+def test_issue():
+    result = some_function(test_input)
+    print(f"Result: {result}")
+    assert result == expected_output, f"Expected X, got {result}"
+
+if __name__ == "__main__":
+    test_issue()
+```
+
+### Step 2: Run Test to Confirm the Bug
+Run your test script to verify the bug exists and understand the failure.
+
+### Step 3: Analyze and Fix
+1. Read the relevant source code
+2. Identify the root cause
+3. Implement the fix
+
+### Step 4: Run Test to Verify the Fix
+Run the test again to confirm your fix works. If it fails, iterate on steps 3-4.
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

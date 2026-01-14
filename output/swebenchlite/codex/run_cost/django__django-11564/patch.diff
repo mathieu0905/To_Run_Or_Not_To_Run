@@ -1,0 +1,222 @@
+diff --git a/django/core/files/storage.py b/django/core/files/storage.py
+index 4c27fce605..44e43dac2b 100644
+--- a/django/core/files/storage.py
++++ b/django/core/files/storage.py
+@@ -1,6 +1,6 @@
+ import os
+ from datetime import datetime
+-from urllib.parse import urljoin
++from urllib.parse import urljoin, urlsplit, urlunsplit
+ 
+ from django.conf import settings
+ from django.core.exceptions import SuspiciousFileOperation
+@@ -329,10 +329,22 @@ class FileSystemStorage(Storage):
+     def url(self, name):
+         if self.base_url is None:
+             raise ValueError("This file is not accessible via a URL.")
++        base_url = self.base_url
++        from django.urls.base import get_script_prefix
++        script_prefix = get_script_prefix()
++        if base_url and script_prefix not in {'', '/'}:
++            parts = urlsplit(base_url)
++            if (
++                not parts.scheme and not parts.netloc and
++                parts.path.startswith('/') and
++                not parts.path.startswith(script_prefix)
++            ):
++                path = script_prefix.rstrip('/') + parts.path
++                base_url = urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
+         url = filepath_to_uri(name)
+         if url is not None:
+             url = url.lstrip('/')
+-        return urljoin(self.base_url, url)
++        return urljoin(base_url, url)
+ 
+     def _datetime_from_timestamp(self, ts):
+         """
+diff --git a/django/template/context_processors.py b/django/template/context_processors.py
+index 0e9efb2f69..714c36160e 100644
+--- a/django/template/context_processors.py
++++ b/django/template/context_processors.py
+@@ -8,6 +8,7 @@ of a DjangoTemplates backend and used by RequestContext.
+ """
+ 
+ import itertools
++from urllib.parse import urlsplit, urlunsplit
+ 
+ from django.conf import settings
+ from django.middleware.csrf import get_token
+@@ -67,14 +68,40 @@ def static(request):
+     """
+     Add static-related context variables to the context.
+     """
+-    return {'STATIC_URL': settings.STATIC_URL}
++    url = settings.STATIC_URL
++    script_name = request.META.get('SCRIPT_NAME') or ''
++    if script_name and script_name != '/':
++        if not script_name.endswith('/'):
++            script_name += '/'
++        parts = urlsplit(url)
++        if (
++            not parts.scheme and not parts.netloc and
++            parts.path.startswith('/') and
++            not parts.path.startswith(script_name)
++        ):
++            path = script_name.rstrip('/') + parts.path
++            url = urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
++    return {'STATIC_URL': url}
+ 
+ 
+ def media(request):
+     """
+     Add media-related context variables to the context.
+     """
+-    return {'MEDIA_URL': settings.MEDIA_URL}
++    url = settings.MEDIA_URL
++    script_name = request.META.get('SCRIPT_NAME') or ''
++    if script_name and script_name != '/':
++        if not script_name.endswith('/'):
++            script_name += '/'
++        parts = urlsplit(url)
++        if (
++            not parts.scheme and not parts.netloc and
++            parts.path.startswith('/') and
++            not parts.path.startswith(script_name)
++        ):
++            path = script_name.rstrip('/') + parts.path
++            url = urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
++    return {'MEDIA_URL': url}
+ 
+ 
+ def request(request):
+diff --git a/django/templatetags/static.py b/django/templatetags/static.py
+index 39712aaba0..7ebd678f53 100644
+--- a/django/templatetags/static.py
++++ b/django/templatetags/static.py
+@@ -1,4 +1,4 @@
+-from urllib.parse import quote, urljoin
++from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+ 
+ from django import template
+ from django.apps import apps
+@@ -44,6 +44,18 @@ class PrefixNode(template.Node):
+             prefix = ''
+         else:
+             prefix = iri_to_uri(getattr(settings, name, ''))
++            if name in {'STATIC_URL', 'MEDIA_URL'}:
++                from django.urls.base import get_script_prefix
++                script_prefix = get_script_prefix()
++                if script_prefix not in {'', '/'}:
++                    parts = urlsplit(prefix)
++                    if (
++                        not parts.scheme and not parts.netloc and
++                        parts.path.startswith('/') and
++                        not parts.path.startswith(script_prefix)
++                    ):
++                        path = script_prefix.rstrip('/') + parts.path
++                        prefix = urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
+         return prefix
+ 
+     def render(self, context):
+diff --git a/django/urls/base.py b/django/urls/base.py
+index dd9b2e4c22..f4bc72b670 100644
+--- a/django/urls/base.py
++++ b/django/urls/base.py
+@@ -113,7 +113,6 @@ def get_script_prefix():
+     """
+     return getattr(_prefixes, "value", '/')
+ 
+-
+ def clear_script_prefix():
+     """
+     Unset the script prefix for the current thread.
+diff --git a/tests/file_storage/tests.py b/tests/file_storage/tests.py
+index 1c4176014c..76aa23b95b 100644
+--- a/tests/file_storage/tests.py
++++ b/tests/file_storage/tests.py
+@@ -20,7 +20,7 @@ from django.db.models.fields.files import FileDescriptor
+ from django.test import (
+     LiveServerTestCase, SimpleTestCase, TestCase, override_settings,
+ )
+-from django.test.utils import requires_tz_support
++from django.test.utils import override_script_prefix, requires_tz_support
+ from django.urls import NoReverseMatch, reverse_lazy
+ from django.utils import timezone
+ 
+@@ -344,6 +344,14 @@ class FileStorageTests(SimpleTestCase):
+ 
+         self.assertEqual(self.storage.url(None), "/test_media_url/")
+ 
++    def test_file_url_prepends_script_prefix(self):
++        with override_script_prefix('/prefix/'):
++            self.assertEqual(self.storage.url('test.file'), '/prefix/test_media_url/test.file')
++            self.assertEqual(self.storage.url(None), '/prefix/test_media_url/')
++
++            storage = self.storage_class(location=self.temp_dir, base_url='/prefix/test_media_url/')
++            self.assertEqual(storage.url('test.file'), '/prefix/test_media_url/test.file')
++
+     def test_base_url(self):
+         """
+         File storage returns a url even when its base_url is unset or modified.
+diff --git a/tests/template_tests/syntax_tests/test_static.py b/tests/template_tests/syntax_tests/test_static.py
+index 00f8cdbc11..325e03b7b4 100644
+--- a/tests/template_tests/syntax_tests/test_static.py
++++ b/tests/template_tests/syntax_tests/test_static.py
+@@ -3,6 +3,7 @@ from urllib.parse import urljoin
+ from django.conf import settings
+ from django.template import TemplateSyntaxError
+ from django.test import SimpleTestCase, override_settings
++from django.test.utils import override_script_prefix
+ 
+ from ..utils import setup
+ 
+@@ -16,6 +17,12 @@ class StaticTagTests(SimpleTestCase):
+         output = self.engine.render_to_string('static-prefixtag01')
+         self.assertEqual(output, settings.STATIC_URL)
+ 
++    @setup({'static-prefixtag01-scriptprefix': '{% load static %}{% get_static_prefix %}'})
++    def test_static_prefixtag_script_prefix(self):
++        with override_script_prefix('/prefix/'):
++            output = self.engine.render_to_string('static-prefixtag01-scriptprefix')
++        self.assertEqual(output, '/prefix/static/')
++
+     @setup({'static-prefixtag02': '{% load static %}'
+                                   '{% get_static_prefix as static_prefix %}{{ static_prefix }}'})
+     def test_static_prefixtag02(self):
+@@ -27,6 +34,12 @@ class StaticTagTests(SimpleTestCase):
+         output = self.engine.render_to_string('static-prefixtag03')
+         self.assertEqual(output, settings.MEDIA_URL)
+ 
++    @setup({'static-prefixtag03-scriptprefix': '{% load static %}{% get_media_prefix %}'})
++    def test_media_prefixtag_script_prefix(self):
++        with override_script_prefix('/prefix/'):
++            output = self.engine.render_to_string('static-prefixtag03-scriptprefix')
++        self.assertEqual(output, '/prefix/media/')
++
+     @setup({'static-prefixtag04': '{% load static %}'
+                                   '{% get_media_prefix as media_prefix %}{{ media_prefix }}'})
+     def test_static_prefixtag04(self):
+@@ -44,6 +57,12 @@ class StaticTagTests(SimpleTestCase):
+         output = self.engine.render_to_string('static-statictag01')
+         self.assertEqual(output, urljoin(settings.STATIC_URL, 'admin/base.css'))
+ 
++    @setup({'static-statictag01-scriptprefix': '{% load static %}{% static "admin/base.css" %}'})
++    def test_static_statictag_script_prefix(self):
++        with override_script_prefix('/prefix/'):
++            output = self.engine.render_to_string('static-statictag01-scriptprefix')
++        self.assertEqual(output, urljoin('/prefix/static/', 'admin/base.css'))
++
+     @setup({'static-statictag02': '{% load static %}{% static base_css %}'})
+     def test_static_statictag02(self):
+         output = self.engine.render_to_string('static-statictag02', {'base_css': 'admin/base.css'})
+@@ -69,3 +88,10 @@ class StaticTagTests(SimpleTestCase):
+         msg = "'static' takes at least one argument (path to file)"
+         with self.assertRaisesMessage(TemplateSyntaxError, msg):
+             self.engine.render_to_string('t')
++
++    @override_settings(STATIC_URL='/prefix/static/')
++    @setup({'static-prefixtag-no-double': '{% load static %}{% get_static_prefix %}'})
++    def test_static_prefixtag_does_not_double_prefix(self):
++        with override_script_prefix('/prefix/'):
++            output = self.engine.render_to_string('static-prefixtag-no-double')
++        self.assertEqual(output, '/prefix/static/')

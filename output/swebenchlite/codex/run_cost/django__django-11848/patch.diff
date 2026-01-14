@@ -1,0 +1,62 @@
+diff --git a/django/utils/http.py b/django/utils/http.py
+index 572cfb4347..9d69f14e1b 100644
+--- a/django/utils/http.py
++++ b/django/utils/http.py
+@@ -2,6 +2,7 @@ import base64
+ import calendar
+ import datetime
+ import re
++import time
+ import unicodedata
+ import warnings
+ from binascii import Error as BinasciiError
+@@ -176,10 +177,10 @@ def parse_http_date(date):
+     try:
+         year = int(m.group('year'))
+         if year < 100:
+-            if year < 70:
+-                year += 2000
+-            else:
+-                year += 1900
++            current_year = time.gmtime().tm_year
++            year += current_year - (current_year % 100)
++            if year > current_year + 50:
++                year -= 100
+         month = MONTHS.index(m.group('mon').lower()) + 1
+         day = int(m.group('day'))
+         hour = int(m.group('hour'))
+diff --git a/tests/utils_tests/test_http.py b/tests/utils_tests/test_http.py
+index bc8bcfe977..fa9c715af4 100644
+--- a/tests/utils_tests/test_http.py
++++ b/tests/utils_tests/test_http.py
+@@ -1,5 +1,7 @@
++import time
+ import unittest
+ from datetime import datetime
++from unittest import mock
+ 
+ from django.test import SimpleTestCase, ignore_warnings
+ from django.utils.datastructures import MultiValueDict
+@@ -328,6 +330,22 @@ class HttpDateProcessingTests(unittest.TestCase):
+         parsed = parse_http_date('Sun Nov  6 08:49:37 0037')
+         self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(2037, 11, 6, 8, 49, 37))
+ 
++    def test_parsing_two_digit_year_more_than_50_years_in_future(self):
++        with mock.patch(
++            'django.utils.http.time.gmtime',
++            return_value=time.struct_time((2010, 1, 1, 0, 0, 0, 4, 1, -1)),
++        ):
++            parsed = parse_http_date('Sunday, 06-Nov-68 08:49:37 GMT')
++        self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(1968, 11, 6, 8, 49, 37))
++
++    def test_parsing_two_digit_year_most_recent_in_past(self):
++        with mock.patch(
++            'django.utils.http.time.gmtime',
++            return_value=time.struct_time((2075, 1, 1, 0, 0, 0, 3, 1, -1)),
++        ):
++            parsed = parse_http_date('Sunday, 06-Nov-74 08:49:37 GMT')
++        self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(2074, 11, 6, 8, 49, 37))
++
+ 
+ class EscapeLeadingSlashesTests(unittest.TestCase):
+     def test(self):

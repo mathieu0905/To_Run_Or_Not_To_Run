@@ -1,0 +1,43 @@
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 9344979c56..5bcc8bee69 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -462,9 +462,15 @@ class IsNull(BuiltinLookup):
+     lookup_name = 'isnull'
+     prepare_rhs = False
+ 
++    def get_prep_lookup(self):
++        rhs = super().get_prep_lookup()
++        if rhs is not True and rhs is not False:
++            raise ValueError('The __isnull lookup expects a boolean value.')
++        return rhs
++
+     def as_sql(self, compiler, connection):
+         sql, params = compiler.compile(self.lhs)
+-        if self.rhs:
++        if self.rhs is True:
+             return "%s IS NULL" % sql, params
+         else:
+             return "%s IS NOT NULL" % sql, params
+diff --git a/tests/null_queries/tests.py b/tests/null_queries/tests.py
+index 342b43f126..2190be8eea 100644
+--- a/tests/null_queries/tests.py
++++ b/tests/null_queries/tests.py
+@@ -44,6 +44,17 @@ class NullQueriesTests(TestCase):
+         p2 = Poll(question="How?")
+         self.assertEqual(repr(p2.choice_set.all()), '<QuerySet []>')
+ 
++    def test_isnull_lookups_require_boolean(self):
++        msg = 'The __isnull lookup expects a boolean value.'
++        with self.assertRaisesMessage(ValueError, msg):
++            Choice.objects.filter(choice__isnull=1)
++        with self.assertRaisesMessage(ValueError, msg):
++            Choice.objects.filter(choice__isnull=0)
++        with self.assertRaisesMessage(ValueError, msg):
++            Choice.objects.filter(choice__isnull='true')
++        with self.assertRaisesMessage(ValueError, msg):
++            Choice.objects.filter(choice__isnull=None)
++
+     def test_reverse_relations(self):
+         """
+         Querying across reverse relations and then another relation should
