@@ -183,7 +183,7 @@ class AgentCaller:
             claude_cmd = (
                 f"sed -i 's/\"language\": \"Chinese\"/\"language\": \"English\"/' /root/.claude/settings.json && "
                 f"cd /testbed && "
-                f"claude -p --verbose --output-format stream-json {json.dumps(prompt)} > {container_trace_path}; "
+                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json {json.dumps(prompt)} > {container_trace_path}; "
                 f"git diff > {container_patch_path}"
             )
 
