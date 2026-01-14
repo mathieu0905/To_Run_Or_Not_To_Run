@@ -179,12 +179,17 @@ class AgentCaller:
             container_patch_path = "/workspace/output/patch.diff"
             host_trace_dir = str(Path(trace_path).parent.absolute())
 
-            # 先修改语言设置为 English，然后执行 claude 命令，最后运行 git diff 获取补丁
+            # 使用 nonroot 用户运行，这样可以使用 --dangerously-skip-permissions
+            # 需要先将 root 的 Claude 配置复制到 nonroot 用户目录
             claude_cmd = (
-                f"sed -i 's/\"language\": \"Chinese\"/\"language\": \"English\"/' /root/.claude/settings.json && "
+                f"cp -r /root/.claude /home/nonroot/.claude && "
+                f"chown -R nonroot:nonroot /home/nonroot/.claude && "
+                f"su nonroot -c \""
+                f"sed -i 's/\\\"language\\\": \\\"Chinese\\\"/\\\"language\\\": \\\"English\\\"/' /home/nonroot/.claude/settings.json && "
                 f"cd /testbed && "
-                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json {json.dumps(prompt)} > {container_trace_path}; "
+                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json {json.dumps(prompt).replace('\"', '\\\"')} > {container_trace_path}; "
                 f"git diff > {container_patch_path}"
+                f"\""
             )
 
             return [
@@ -210,15 +215,17 @@ class AgentCaller:
         if docker_image:
             # 在 Docker 容器内执行
             container_trace_path = "/workspace/output/trace.jsonl"
+            container_patch_path = "/workspace/output/patch.diff"
             host_trace_dir = str(Path(trace_path).parent.absolute())
 
+            # 使用 --full-auto 跳过确认，执行完后运行 git diff
             return [
                 "docker", "run", "--rm",
                 "-v", f"{host_trace_dir}:/workspace/output",
                 "--network", "host",
                 docker_image,
                 "bash", "-c",
-                f"cd /testbed && codex exec {json.dumps(prompt)} --json --skip-git-repo-check > {container_trace_path}"
+                f"cd /testbed && codex exec {json.dumps(prompt)} --json --skip-git-repo-check --full-auto > {container_trace_path}; git diff > {container_patch_path}"
             ]
         else:
             # 直接在宿主机执行
