@@ -114,6 +114,8 @@ def run_experiment(
     caller = AgentCaller(agent_type=agent_type, instance_id=instance_id)
     trace: AgentTrace = caller.call(prompt, timeout=timeout, trace_output_path=str(trace_file))
     print(f"Trace saved to: {trace_file}")
+    if trace.error:
+        print(f"Agent error: {trace.error}")
 
     # 4. 读取 git diff 生成的补丁（由 agent_caller 在容器内执行 git diff 生成）
     patch_file = instance_output_dir / "patch.diff"

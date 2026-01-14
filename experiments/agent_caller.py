@@ -183,6 +183,8 @@ class AgentCaller:
             # 需要先将 root 的 Claude 配置复制到 nonroot 用户目录
             # 注意：nonroot 用户无法写入挂载目录，所以用管道让 root 写入文件
             # 激活 testbed conda 环境，确保 agent 运行测试时使用正确的 Python 环境
+            # 将 prompt 写入文件避免 shell 转义问题
+            container_prompt_path = "/workspace/output/prompt.txt"
             claude_cmd = (
                 f"cp -r /root/.claude /home/nonroot/.claude && "
                 f"chown -R nonroot:nonroot /home/nonroot/.claude && "
@@ -190,10 +192,14 @@ class AgentCaller:
                 f"sed -i 's/\\\"language\\\": \\\"Chinese\\\"/\\\"language\\\": \\\"English\\\"/' /home/nonroot/.claude/settings.json && "
                 f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
                 f"cd /testbed && "
-                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json {json.dumps(prompt).replace('\"', '\\\"')}"
+                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json < {container_prompt_path}"
                 f"\" > {container_trace_path}; "
                 f"cd /testbed && git diff > {container_patch_path}"
             )
+
+            # 先将 prompt 写入宿主机目录
+            prompt_file = Path(host_trace_dir) / "prompt.txt"
+            prompt_file.write_text(prompt, encoding='utf-8')
 
             return [
                 "docker", "run", "--rm",
@@ -222,13 +228,20 @@ class AgentCaller:
             host_trace_dir = str(Path(trace_path).parent.absolute())
 
             # 使用 --full-auto 跳过确认，激活 testbed conda 环境，执行完后运行 git diff
+            # 将 prompt 写入文件避免 shell 转义问题
+            container_prompt_path = "/workspace/output/prompt.txt"
+
+            # 先将 prompt 写入宿主机目录
+            prompt_file = Path(host_trace_dir) / "prompt.txt"
+            prompt_file.write_text(prompt, encoding='utf-8')
+
             return [
                 "docker", "run", "--rm",
                 "-v", f"{host_trace_dir}:/workspace/output",
                 "--network", "host",
                 docker_image,
                 "bash", "-c",
-                f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && cd /testbed && codex exec {json.dumps(prompt)} --json --skip-git-repo-check --full-auto > {container_trace_path}; git diff > {container_patch_path}"
+                f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && cd /testbed && codex exec \"$(cat {container_prompt_path})\" --json --skip-git-repo-check --full-auto > {container_trace_path}; git diff > {container_patch_path}"
             ]
         else:
             # 直接在宿主机执行
