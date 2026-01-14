@@ -14,13 +14,13 @@ cd experiments
 # ========== 配置区域 ==========
 # 实验配置
 NUM_INSTANCES=30  # 取前 n 个实例
-WORKERS=30  # 每个配置内部的并发数
+WORKERS=8  # 每个配置内部的并发数
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Lite"
 
 # Claude Code 配置
 export CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"  # 可选: opus, sonnet, haiku
-export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://39.96.176.191:60660}"
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://uk.frp.one:60660}"
 
 # Codex 配置
 export CODEX_MODEL="${CODEX_MODEL:-gpt-5.2}"
@@ -76,8 +76,8 @@ AGENTS=("claude_code")
 # 格式: "mode k_value"
 CONFIGS=(
     "run_free 0"
-    "run_less 1"
-    "run_less 2"
+    # "run_less 1"
+    # "run_less 2"
     "run_less 3"
     "run_cost 0"
     "run_full 0"

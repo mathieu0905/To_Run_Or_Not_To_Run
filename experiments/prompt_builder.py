@@ -23,7 +23,7 @@ class PromptBuilder:
         repo = instance["repo"]
         base_commit = instance.get("base_commit", "")
 
-        prompt = f"""You are a code repair expert. Your task is to fix the following bug.
+        prompt = f"""You are a code repair expert operating in a STRICT READ-ONLY ANALYSIS environment.
 
 ## Repository Information
 - Repository: {repo}
@@ -32,23 +32,45 @@ class PromptBuilder:
 ## Problem Description
 {problem}
 
-## Execution Constraint
-**You CANNOT run tests or execute Python scripts.**
+## CRITICAL CONSTRAINT - ZERO EXECUTION MODE
 
-You must generate a fix by reading code and reasoning about the root cause.
+⚠️ **YOU ARE IN A SANDBOXED READ-ONLY ENVIRONMENT** ⚠️
 
-## What You CAN Do
-- Use bash commands to view files (ls, cat, grep, find, etc.)
-- Read and analyze code
+**Your Python interpreter has been DISABLED.** Any attempt to execute Python code will:
+1. Be blocked by the sandbox
+2. Result in IMMEDIATE TASK FAILURE
+3. Cause your entire output to be DISCARDED
 
-## What You CANNOT Do
-- Run pytest or any tests
-- Execute Python scripts (python xxx.py)
-- Use git commands (git may interfere with the experimental environment)
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## ALLOWED Operations (Bash tool)
+You may ONLY use these exact commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations (Will cause TASK FAILURE)
+❌ `python` / `python3` / `python2` - ANY Python interpreter call
+❌ `python -c` / `python3 -c` - Inline Python execution
+❌ `pytest` / `unittest` / `nose` / `tox` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ Any `.py` file execution
+❌ `git` commands (interferes with experiment)
+❌ Any command that imports or runs Python code
+
+## Your Task
+1. Read and analyze the source code using ONLY the allowed commands
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**
 Do NOT just output a diff as text - make real changes to the files.
+
+Remember: This experiment measures your ability to fix bugs through PURE REASONING without execution feedback. Attempting to run Python code defeats the purpose and will invalidate your results.
 """
         return prompt
 
@@ -68,7 +90,7 @@ Do NOT just output a diff as text - make real changes to the files.
         repo = instance["repo"]
         base_commit = instance.get("base_commit", "")
 
-        prompt = f"""You are a code repair expert. Your task is to fix the following bug.
+        prompt = f"""You are a code repair expert operating in a BUDGET-CONSTRAINED environment.
 
 ## Repository Information
 - Repository: {repo}
@@ -77,30 +99,65 @@ Do NOT just output a diff as text - make real changes to the files.
 ## Problem Description
 {problem}
 
-## Execution Constraint
-**You have a limited execution budget of {k}.0 cost points.**
+## EXECUTION MODE - LIMITED BUDGET
 
-Different executions have different costs. Estimate the cost before each execution:
-- Running full test suites (pytest, unittest, Django tests, etc.): ~1.0 point
-- Running simple scripts (python script.py): ~0.3 point
+🎯 **YOU HAVE {k} TEST EXECUTION(S) - USE THEM WISELY** 🎯
 
-Before each execution, output:
+This is a research experiment testing efficient debugging with limited but valuable executions.
+You have a budget of {k} test run(s). **This budget is meant to be used** - don't leave it unused!
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Full test suite |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full test suite |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test suite |
+| `python script.py` (running .py files) | 0.3 point | LOW - Simple script |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick check |
+
+**Tip:** Prefer low-cost operations (0.3 points) when possible. Write a small test script instead of running the full test suite.
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## How to Use Your Budget
+
+**Recommended workflow:**
+1. Read the code to understand the problem
+2. Form a hypothesis about the bug
+3. **USE your execution budget** to verify your hypothesis or test your fix
+4. Apply the fix based on what you learned
+
+**Good uses of your budget:**
+- Reproduce the bug to confirm you understand it
+- Test your fix to make sure it works
+- Run with debug prints to understand runtime behavior
+
+**Your budget of {k} is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
+
+## Execution Protocol
+**BEFORE each execution, note:**
 ```
-[EXECUTION] Estimated cost: X.X points | Remaining budget: Y.Y points | Purpose: ...
+[BUDGET] Using 1 of {k} | Purpose: <what you want to verify>
 ```
 
-After each execution, output:
+**AFTER each execution, note:**
 ```
-Remaining budget: X.X points
+[BUDGET] Remaining: X of {k}
 ```
 
-## What You CAN Do
-- Use bash commands to view files (ls, cat, grep, find, etc.)
-- Read and analyze code
-- Run Python code (costs budget points)
-
-## What You CANNOT Do
-- Use git commands (git may interfere with the experimental environment)
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your {k} execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**
@@ -123,7 +180,7 @@ Do NOT just output a diff as text - make real changes to the files.
         repo = instance["repo"]
         base_commit = instance.get("base_commit", "")
 
-        prompt = f"""You are a code repair expert. Your task is to fix the following bug.
+        prompt = f"""You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
 
 ## Repository Information
 - Repository: {repo}
@@ -132,18 +189,38 @@ Do NOT just output a diff as text - make real changes to the files.
 ## Problem Description
 {problem}
 
-## Execution Constraint
-**You have UNLIMITED Python executions.**
+## EXECUTION MODE - UNLIMITED
 
-Feel free to run tests and scripts as many times as needed.
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
 
-## What You CAN Do
-- Use bash commands to view files (ls, cat, grep, find, etc.)
-- Read and analyze code
-- Run Python code (tests, scripts)
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
 
-## What You CANNOT Do
-- Use git commands (git may interfere with the experimental environment)
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**
@@ -166,7 +243,7 @@ Do NOT just output a diff as text - make real changes to the files.
         repo = instance["repo"]
         base_commit = instance.get("base_commit", "")
 
-        prompt = f"""You are a code repair expert. Your task is to fix the following bug.
+        prompt = f"""You are a code repair expert operating in a COST-AWARE environment.
 
 ## Repository Information
 - Repository: {repo}
@@ -175,27 +252,74 @@ Do NOT just output a diff as text - make real changes to the files.
 ## Problem Description
 {problem}
 
-## Execution Constraint
-**Every Python execution has a cost (time, compute, money).**
+## EXECUTION MODE - COST-AWARE
 
-You can run code without hard limits, but be cost-aware in your decisions.
+💰 **EVERY EXECUTION HAS A COST - MAKE EACH ONE COUNT** 💰
 
-Different executions have different costs. Estimate the cost before each execution:
-- Running full test suites (pytest, unittest, Django tests, etc.): ~1.0 point
-- Running simple scripts (python script.py): ~0.3 point
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost that is tracked.
 
-Before each execution, output:
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## When to Execute
+
+**DO execute when:**
+- You need to verify your understanding of the bug behavior
+- You want to confirm your fix works before finalizing
+- You're uncertain about runtime behavior that can't be determined statically
+- Running a test will give you confidence in your solution
+
+**Consider skipping when:**
+- The bug is obvious from reading the code
+- You're highly confident in your fix (>90%)
+- You've already verified similar behavior
+
+## Execution Protocol
+**BEFORE each Python execution, briefly note:**
 ```
-[EXECUTION] Estimated cost: X.X points | Purpose: ...
+[COST] X.X points | Purpose: <what you want to learn>
 ```
 
-## What You CAN Do
-- Use bash commands to view files (ls, cat, grep, find, etc.)
-- Read and analyze code
-- Run Python code (costs resources)
+## Strategy Tips
 
-## What You CANNOT Do
-- Use git commands (git may interfere with the experimental environment)
+1. **Understand first, then verify**
+   - Read the relevant code to form a hypothesis
+   - Use execution to confirm, not to explore blindly
+
+2. **Make executions count**
+   - If you run a test, add print statements to get maximum information
+   - One well-designed test run is better than multiple quick runs
+
+3. **Balance confidence vs cost**
+   - If you're 70% confident, a verification run is reasonable
+   - If you're 95% confident, you might skip verification
+   - Use your judgment - there's no single right answer
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed (be cost-conscious but not afraid to execute)
+3. Generate a fix using the Edit tool to modify source files
+4. Consider running a final verification if you're not highly confident
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**

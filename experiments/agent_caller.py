@@ -207,6 +207,16 @@ class AgentCaller:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             docker_dir = os.path.join(project_root, "docker")
 
+            # 从环境变量获取配置并传递到容器
+            base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
+            api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+            claude_model = os.environ.get('CLAUDE_MODEL', 'sonnet')
+
+            # 提取域名（去掉 http:// 或 https:// 和端口）
+            from urllib.parse import urlparse
+            parsed = urlparse(base_url)
+            api_host = parsed.hostname or 'api.anthropic.com'
+
             # 使用 nonroot 用户运行，这样可以使用 --dangerously-skip-permissions
             # 1. 先运行 configure_models.sh 配置 Claude Code（使用环境变量）
             # 2. 将配置复制到 nonroot 用户目录
@@ -220,7 +230,7 @@ class AgentCaller:
                 f"su nonroot -c \""
                 f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
                 f"cd /testbed && "
-                f"claude -p --dangerously-skip-permissions --verbose --output-format stream-json < {container_prompt_path}"
+                f"claude -p --model {claude_model} --dangerously-skip-permissions --verbose --output-format stream-json < {container_prompt_path}"
                 f"\" > {container_trace_path}; "
                 f"cd /testbed && git diff > {container_patch_path}"
             )
@@ -228,16 +238,6 @@ class AgentCaller:
             # 先将 prompt 写入宿主机目录
             prompt_file = Path(host_trace_dir) / "prompt.txt"
             prompt_file.write_text(prompt, encoding='utf-8')
-
-            # 从环境变量获取配置并传递到容器
-            base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
-            api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-            claude_model = os.environ.get('CLAUDE_MODEL', 'sonnet')
-
-            # 提取域名（去掉 http:// 或 https:// 和端口）
-            from urllib.parse import urlparse
-            parsed = urlparse(base_url)
-            api_host = parsed.hostname or 'api.anthropic.com'
 
             return [
                 "docker", "run", "--rm",

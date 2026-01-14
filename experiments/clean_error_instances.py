@@ -72,16 +72,19 @@ def clean_error_instances(base_dir: str):
             if not trace_file.exists():
                 continue
 
-            # 检查是否有错误或缺少 patch
+            # 检查是否有错误或缺少 patch 或 patch 为空
             has_error = check_trace_has_error(trace_file)
             missing_patch = not patch_file.exists()
+            empty_patch = patch_file.exists() and patch_file.stat().st_size == 0
 
-            if has_error or missing_patch:
+            if has_error or missing_patch or empty_patch:
                 reason = []
                 if has_error:
                     reason.append("trace 错误")
                 if missing_patch:
                     reason.append("缺少 patch")
+                if empty_patch:
+                    reason.append("patch 为空")
                 print(f"  删除实例: {instance_id} ({', '.join(reason)})")
 
                 # 删除实例目录

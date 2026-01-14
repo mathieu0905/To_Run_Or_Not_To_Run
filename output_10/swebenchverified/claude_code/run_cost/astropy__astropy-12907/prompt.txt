@@ -1,0 +1,142 @@
+You are a code repair expert operating in a COST-AWARE environment.
+
+## Repository Information
+- Repository: astropy/astropy
+- Base Commit: d16bfe05a744909de4b27f5875fe0d4ed41ce607
+
+## Problem Description
+Modeling's `separability_matrix` does not compute separability correctly for nested CompoundModels
+Consider the following model:
+
+```python
+from astropy.modeling import models as m
+from astropy.modeling.separable import separability_matrix
+
+cm = m.Linear1D(10) & m.Linear1D(5)
+```
+
+It's separability matrix as you might expect is a diagonal:
+
+```python
+>>> separability_matrix(cm)
+array([[ True, False],
+       [False,  True]])
+```
+
+If I make the model more complex:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & m.Linear1D(10) & m.Linear1D(5))
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True, False],
+       [False, False, False,  True]])
+```
+
+The output matrix is again, as expected, the outputs and inputs to the linear models are separable and independent of each other.
+
+If however, I nest these compound models:
+```python
+>>> separability_matrix(m.Pix2Sky_TAN() & cm)
+array([[ True,  True, False, False],
+       [ True,  True, False, False],
+       [False, False,  True,  True],
+       [False, False,  True,  True]])
+```
+Suddenly the inputs and outputs are no longer separable?
+
+This feels like a bug to me, but I might be missing something?
+
+
+## EXECUTION MODE - COST-AWARE
+
+💰 **EXECUTION IS EXPENSIVE - THINK BEFORE YOU RUN** 💰
+
+This is a research experiment measuring your ability to minimize execution costs while maintaining fix quality.
+Your goal: **Fix the bug with the LOWEST possible execution cost.**
+
+Every execution you make is recorded and contributes to your total cost score.
+The best engineers solve problems through careful reasoning, not trial-and-error.
+
+## Cost Table
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point (HIGH) |
+| `python manage.py test` (Django) | 1.0 point (HIGH) |
+| `tox` / `nose` / `nosetests` | 1.0 point (HIGH) |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## CRITICAL: Decision Framework Before Each Execution
+
+**BEFORE running ANY Python code, you MUST ask yourself:**
+
+1. **Can I answer this through static analysis?**
+   - Reading code, tracing logic, understanding data flow
+   - If YES → Do NOT execute, reason through it instead
+
+2. **What is my current confidence level?**
+   - HIGH (>80%): You likely don't need to execute - just apply the fix
+   - MEDIUM (50-80%): Consider if execution will significantly increase confidence
+   - LOW (<50%): Execution may be justified, but first exhaust static analysis
+
+3. **What specific question will this execution answer?**
+   - If you can't articulate a specific hypothesis, do NOT execute
+   - Vague goals like "see what happens" are NOT valid reasons
+
+4. **Is this execution NECESSARY or just CONVENIENT?**
+   - Convenient: "I could figure this out by reading, but running is easier"
+   - Necessary: "I cannot determine this without runtime information"
+   - Only execute when NECESSARY
+
+## Execution Protocol
+**BEFORE each Python execution, you MUST output:**
+```
+[COST-DECISION]
+- Confidence without execution: X%
+- Specific question to answer: <precise question>
+- Why static analysis is insufficient: <reason>
+- Expected confidence after execution: Y%
+- Cost: Z.Z points
+- Decision: EXECUTE / SKIP
+```
+
+If you decide to SKIP, explain how you'll proceed with static analysis instead.
+
+## Strategy: Minimize Cost, Maximize Reasoning
+
+1. **Read First, Run Never (if possible)**
+   - Thoroughly understand the codebase through reading
+   - Trace the bug through code paths mentally
+   - Many bugs are obvious once you read the right code
+
+2. **One Smart Run > Many Blind Runs**
+   - If you must execute, make it count
+   - Add strategic print statements to maximize information
+   - Design your execution to answer multiple questions at once
+
+3. **Trust Your Analysis**
+   - If your static analysis points to a clear fix, apply it
+   - Don't execute "just to be sure" - that's wasted cost
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Apply the decision framework before ANY execution
+3. Generate a fix using the Edit tool to modify source files
+4. Aim for ZERO or minimal executions while still fixing the bug correctly
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+
+Remember: Your execution cost is being measured. The best solution is a correct fix with minimal or zero executions.
