@@ -35,7 +35,7 @@ class AgentCaller:
         """
         self.agent_type = agent_type
 
-    def call(self, prompt: str, timeout: int = 600) -> AgentTrace:
+    def call(self, prompt: str, timeout: int = 600, trace_output_path: Optional[str] = None) -> AgentTrace:
         """
         调用 agent 并返回 trace
 
@@ -47,20 +47,25 @@ class AgentCaller:
             AgentTrace 对象
         """
         if self.agent_type == "claude_code":
-            return self._call_claude_code(prompt, timeout)
+            return self._call_claude_code(prompt, timeout, trace_output_path)
         elif self.agent_type == "codex":
-            return self._call_codex(prompt, timeout)
+            return self._call_codex(prompt, timeout, trace_output_path)
         else:
             raise ValueError(f"Unknown agent type: {self.agent_type}")
 
-    def _call_claude_code(self, prompt: str, timeout: int) -> AgentTrace:
+    def _call_claude_code(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
         """调用 Claude Code"""
         import time
         start = time.time()
 
-        # 创建临时文件保存 trace
-        with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False) as trace_file:
-            trace_path = trace_file.name
+        # 使用指定的输出路径或创建临时文件保存 trace
+        if trace_output_path:
+            trace_path = trace_output_path
+            # 确保目录存在
+            Path(trace_path).parent.mkdir(parents=True, exist_ok=True)
+        else:
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False) as trace_file:
+                trace_path = trace_file.name
 
         try:
             # 构建命令
@@ -118,8 +123,9 @@ class AgentCaller:
                 error=str(e)
             )
         finally:
-            # 清理临时文件
-            Path(trace_path).unlink(missing_ok=True)
+            # 只清理临时文件（不清理指定的输出文件）
+            if not trace_output_path:
+                Path(trace_path).unlink(missing_ok=True)
 
     def _build_claude_command(self, prompt: str, trace_path: str) -> List[str]:
         """构建 Claude Code 命令"""
@@ -135,13 +141,19 @@ class AgentCaller:
             f"codex exec {json.dumps(prompt)} --json --skip-git-repo-check > {trace_path}"
         ]
 
-    def _call_codex(self, prompt: str, timeout: int) -> AgentTrace:
+    def _call_codex(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
         """调用 Codex"""
         import time
         start = time.time()
 
-        with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False) as trace_file:
-            trace_path = trace_file.name
+        # 使用指定的输出路径或创建临时文件保存 trace
+        if trace_output_path:
+            trace_path = trace_output_path
+            # 确保目录存在
+            Path(trace_path).parent.mkdir(parents=True, exist_ok=True)
+        else:
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False) as trace_file:
+                trace_path = trace_file.name
 
         try:
             cmd = self._build_codex_command(prompt, trace_path)
@@ -195,7 +207,9 @@ class AgentCaller:
                 error=str(e)
             )
         finally:
-            Path(trace_path).unlink(missing_ok=True)
+            # 只清理临时文件（不清理指定的输出文件）
+            if not trace_output_path:
+                Path(trace_path).unlink(missing_ok=True)
 
     def _read_trace_file(self, trace_path: str) -> List[Dict[str, Any]]:
         """读取 stream-json 格式的 trace 文件"""

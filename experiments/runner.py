@@ -106,16 +106,11 @@ def run_experiment(
     prompt_file.write_text(prompt, encoding="utf-8")
     print(f"Prompt saved to: {prompt_file}")
 
-    # 3. 调用 agent
+    # 3. 调用 agent（trace 实时写入到输出目录）
     print(f"Calling {agent_type} agent (timeout={timeout}s)...")
-    caller = AgentCaller(agent_type=agent_type)
-    trace: AgentTrace = caller.call(prompt, timeout=timeout)
-
-    # 保存 trace 到实例目录
     trace_file = instance_output_dir / "trace.jsonl"
-    with open(trace_file, 'w', encoding='utf-8') as f:
-        for entry in trace.raw_trace:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+    caller = AgentCaller(agent_type=agent_type)
+    trace: AgentTrace = caller.call(prompt, timeout=timeout, trace_output_path=str(trace_file))
     print(f"Trace saved to: {trace_file}")
 
     # 4. 提取补丁

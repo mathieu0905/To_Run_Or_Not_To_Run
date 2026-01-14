@@ -29,7 +29,7 @@ echo ""
 # 进入实验目录
 cd experiments
 
-# 创建日志目录
+# 创建日志目录（按 agent 分层）
 LOG_DIR="../logs"
 mkdir -p "$LOG_DIR"
 
@@ -40,9 +40,9 @@ AGENTS=("claude_code" "codex")
 # 格式: "mode k_value"
 CONFIGS=(
     "run_free 0"
-    "run_less 1"
     "run_less 2"
-    "run_less 3"
+    "run_less 5"
+    "run_less 10"
     "run_cost 0"
     "run_full 0"
 )
@@ -72,16 +72,20 @@ for agent in "${AGENTS[@]}"; do
             TASK_NAME="${agent}_${mode}"
         fi
 
+        # 创建分层日志目录
+        AGENT_LOG_DIR="${LOG_DIR}/${agent}"
+        mkdir -p "$AGENT_LOG_DIR"
+
         # 日志文件
-        LOG_FILE="${LOG_DIR}/${TASK_NAME}.log"
+        LOG_FILE="${AGENT_LOG_DIR}/${MODE_DESC}.log"
 
         echo -e "${BLUE}启动任务:${NC} ${GREEN}${TASK_NAME}${NC} (日志: ${LOG_FILE})"
 
-        # 在后台运行批量实验
+        # 在后台运行批量实验（使用 python -u 禁用缓冲）
         if [ "$mode" = "run_less" ]; then
-            (python batch_runner.py "../${INSTANCES_FILE}" "$mode" "$k" "$WORKERS" "$agent" "$TIMEOUT" "$DATASET" > "$LOG_FILE" 2>&1) &
+            (python -u batch_runner.py "../${INSTANCES_FILE}" "$mode" "$k" "$WORKERS" "$agent" "$TIMEOUT" "$DATASET" > "$LOG_FILE" 2>&1) &
         else
-            (python batch_runner.py "../${INSTANCES_FILE}" "$mode" 2 "$WORKERS" "$agent" "$TIMEOUT" "$DATASET" > "$LOG_FILE" 2>&1) &
+            (python -u batch_runner.py "../${INSTANCES_FILE}" "$mode" 2 "$WORKERS" "$agent" "$TIMEOUT" "$DATASET" > "$LOG_FILE" 2>&1) &
         fi
 
         # 记录 PID 和任务名
