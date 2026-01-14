@@ -33,8 +33,8 @@ echo "数据集: $DATASET"
 echo "=========================================="
 echo ""
 
-# 创建日志目录（按 agent 分层）
-LOG_DIR="logs"
+# 创建日志目录（在项目根目录，按 agent 分层）
+LOG_DIR="${SCRIPT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 
 # Agent 列表

@@ -52,10 +52,12 @@ You must generate a fix by reading code, understanding logic, and reasoning abou
 2. Analyze the root cause of the problem
 3. Reason out the correct fix
 4. Double-check your fix logic
-5. Generate a patch in git diff format
+5. **Use the Edit tool to actually modify the source files**
 
-## Output Format
-Please output your fix as a git diff patch.
+## CRITICAL: You MUST Actually Modify Files
+- Do NOT just output a diff as text
+- You MUST use the Edit tool to make actual changes to the source files
+- After editing, the changes will be captured by git diff automatically
 
 Remember: You can use bash commands to view code, but cannot run tests or scripts to verify. Ensure correctness through careful logical reasoning.
 """
@@ -150,7 +152,9 @@ def calculate(x):
   "✅ Used X test runs, Y remaining"
 
 ## Output Format
-Finally, output your fix as a git diff patch.
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+After editing, the changes will be captured by git diff automatically.
 
 Remember:
 - Bash commands (ls, cat, grep, etc.) do NOT count toward execution budget, use freely
@@ -325,7 +329,9 @@ def test_issue():
 ❌ Use git commands (git may interfere with the experimental environment)
 
 ## Output Format
-Finally, output your fix as a git diff patch.
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+After editing, the changes will be captured by git diff automatically.
 
 Remember:
 - Bash commands (ls, cat, grep, etc.) have no cost, use freely
