@@ -294,7 +294,7 @@ if __name__ == "__main__":
     if args.output_dir:
         output_dirs = [args.output_dir]
     else:
-        base_dir = "/home/zhihao/hdd/run_free_run_less_run_full/output"
+        base_dir = "/home/junhua/hdd/Run_More_With_Less/output"
         output_dirs = [
             f"{base_dir}/swebenchlite",
             f"{base_dir}/swebenchverified"
