@@ -9,6 +9,7 @@
     "django__django-13265",
     "django__django-13658",
     "django__django-10924",
+    "django__django-15814",
     "django__django-14580",
     "django__django-13933",
     "django__django-11964",
@@ -18,7 +19,6 @@
     "django__django-13158",
     "django__django-12125",
     "django__django-13447",
-    "django__django-12856",
     "django__django-13220",
     "django__django-13590",
     "django__django-14667",
@@ -45,8 +45,8 @@
     "django__django-14997",
     "django__django-12589",
     "django__django-14411",
-    "django__django-13925",
     "django__django-13964",
+    "django__django-13925",
     "astropy__astropy-7746",
     "django__django-11283",
     "django__django-11019",
@@ -95,9 +95,10 @@
     "django__django-15695",
     "django__django-15202",
     "django__django-11999",
+    "django__django-15252",
     "astropy__astropy-14365",
     "django__django-14730",
     "astropy__astropy-6938",
-    "django__django-15252"
+    "django__django-12856"
   ]
 }
