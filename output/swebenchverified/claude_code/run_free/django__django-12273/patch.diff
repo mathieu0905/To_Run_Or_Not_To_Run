@@ -1,0 +1,63 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 844c01e95e..5727e49bd5 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -804,9 +804,11 @@ class Model(metaclass=ModelBase):
+         inserted = False
+         for parent, field in meta.parents.items():
+             # Make sure the link fields are synced between parent and self.
+-            if (field and getattr(self, parent._meta.pk.attname) is None and
+-                    getattr(self, field.attname) is not None):
+-                setattr(self, parent._meta.pk.attname, getattr(self, field.attname))
++            if field and getattr(self, parent._meta.pk.attname) is None:
++                # If the parent's PK is None, also set the link field to None
++                # to ensure a new object is created rather than updating an
++                # existing one.
++                setattr(self, field.attname, None)
+             parent_inserted = self._save_parents(cls=parent, using=using, update_fields=update_fields)
+             updated = self._save_table(
+                 cls=parent, using=using, update_fields=update_fields,
+diff --git a/tests/model_inheritance/tests.py b/tests/model_inheritance/tests.py
+index 5eef0f5bfa..8832ef2cc6 100644
+--- a/tests/model_inheritance/tests.py
++++ b/tests/model_inheritance/tests.py
+@@ -149,6 +149,39 @@ class ModelInheritanceTests(TestCase):
+                     sql = query['sql']
+                     self.assertIn('INSERT INTO', sql, sql)
+ 
++    def test_pk_reset_creates_new_object(self):
++        """Resetting primary key on a child model creates a new object."""
++        # Create a Restaurant object
++        restaurant = Restaurant.objects.create(
++            name="Test Restaurant",
++            address="123 Test St",
++            serves_hot_dogs=True,
++            serves_pizza=False,
++            rating=3,
++        )
++        original_pk = restaurant.pk
++
++        # Access through parent and reset parent's PK
++        place = Place.objects.get(pk=original_pk)
++        restaurant_from_place = place.restaurant
++        # Reset the parent's PK (which is what users would do)
++        restaurant_from_place.id = None
++        restaurant_from_place.name = "New Restaurant"
++        restaurant_from_place.save()
++        new_pk = restaurant_from_place.pk
++
++        # Verify a new object was created
++        self.assertNotEqual(original_pk, new_pk)
++        self.assertEqual(Restaurant.objects.count(), 2)
++
++        # Verify original object still exists with original data
++        original_restaurant = Restaurant.objects.get(pk=original_pk)
++        self.assertEqual(original_restaurant.name, "Test Restaurant")
++
++        # Verify new object has new data
++        new_restaurant = Restaurant.objects.get(pk=new_pk)
++        self.assertEqual(new_restaurant.name, "New Restaurant")
++
+     def test_eq(self):
+         # Equality doesn't transfer in multitable inheritance.
+         self.assertNotEqual(Place(id=1), Restaurant(id=1))

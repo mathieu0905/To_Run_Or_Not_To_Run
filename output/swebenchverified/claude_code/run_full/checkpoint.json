@@ -11,6 +11,7 @@
     "astropy__astropy-8707",
     "django__django-11239",
     "django__django-11119",
+    "django__django-11490",
     "astropy__astropy-7336",
     "django__django-11099",
     "django__django-11133",
@@ -26,7 +27,6 @@
     "astropy__astropy-8872",
     "astropy__astropy-13977",
     "django__django-11333",
-    "astropy__astropy-14369",
     "django__django-10973",
     "django__django-11206",
     "astropy__astropy-14309",
@@ -45,10 +45,11 @@
     "astropy__astropy-14365",
     "django__django-11095",
     "django__django-11163",
+    "django__django-11149",
     "astropy__astropy-14598",
     "astropy__astropy-13398",
     "django__django-10914",
-    "django__django-11149",
+    "astropy__astropy-14369",
     "django__django-11211",
     "django__django-10999"
   ]
