@@ -1,8 +1,8 @@
 diff --git a/django/db/backends/postgresql/client.py b/django/db/backends/postgresql/client.py
-index 7fca6eff30..1333394390 100644
+index 7fca6eff30..38f9a46c99 100644
 --- a/django/db/backends/postgresql/client.py
 +++ b/django/db/backends/postgresql/client.py
-@@ -2,17 +2,9 @@ import os
+@@ -2,20 +2,38 @@ import os
  import signal
  import subprocess
  
@@ -20,7 +20,36 @@ index 7fca6eff30..1333394390 100644
  class DatabaseClient(BaseDatabaseClient):
      executable_name = 'psql'
  
-@@ -34,38 +26,19 @@ class DatabaseClient(BaseDatabaseClient):
++    @classmethod
++    def settings_to_cmd_args_env(cls, settings_dict):
++        args = [cls.executable_name]
++        options = settings_dict.get('OPTIONS', {})
++
++        host = settings_dict.get('HOST')
++        port = settings_dict.get('PORT')
++        dbname = settings_dict.get('NAME') or options.get('database')
++        user = settings_dict.get('USER')
++        passwd = settings_dict.get('PASSWORD')
++
++        if user:
++            args += ['-U', user]
++        if host:
++            args += ['-h', host]
++        if port:
++            args += ['-p', str(port)]
++        if dbname:
++            args += [dbname]
++
++        env = None
++        if passwd:
++            env = os.environ.copy()
++            env['PGPASSWORD'] = passwd
++        return args, env
++
+     @classmethod
+     def runshell_db(cls, conn_params):
+         args = [cls.executable_name]
+@@ -34,38 +52,19 @@ class DatabaseClient(BaseDatabaseClient):
              args += ['-p', str(port)]
          args += [dbname]
  
@@ -54,7 +83,7 @@ index 7fca6eff30..1333394390 100644
              # Allow SIGINT to pass to psql to abort queries.
              signal.signal(signal.SIGINT, signal.SIG_IGN)
 -            subprocess.check_call(args)
-+            subprocess.run(args, env=env)
++            subprocess.run(args, env=env, check=True)
          finally:
              # Restore the original SIGINT handler.
              signal.signal(signal.SIGINT, sigint_handler)
@@ -66,7 +95,7 @@ index 7fca6eff30..1333394390 100644
      def runshell(self):
          DatabaseClient.runshell_db(self.connection.get_connection_params())
 diff --git a/tests/dbshell/test_postgresql.py b/tests/dbshell/test_postgresql.py
-index 0d4f28554d..cb7e5617db 100644
+index 0d4f28554d..c146e553a9 100644
 --- a/tests/dbshell/test_postgresql.py
 +++ b/tests/dbshell/test_postgresql.py
 @@ -1,4 +1,3 @@
@@ -74,7 +103,7 @@ index 0d4f28554d..cb7e5617db 100644
  import signal
  from unittest import mock
  
-@@ -11,23 +10,18 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+@@ -11,23 +10,19 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
      def _run_it(self, dbinfo):
          """
          That function invokes the runshell command, while mocking
@@ -85,7 +114,7 @@ index 0d4f28554d..cb7e5617db 100644
 +        - The PGPASSWORD environment variable, or None.
          """
 -        def _mock_subprocess_call(*args):
-+        def _mock_subprocess_run(*args, env=None):
++        def _mock_subprocess_run(*args, env=None, **kwargs):
              self.subprocess_args = list(*args)
 -            if 'PGPASSFILE' in os.environ:
 -                with open(os.environ['PGPASSFILE']) as f:
@@ -94,6 +123,7 @@ index 0d4f28554d..cb7e5617db 100644
 -                self.pgpass = None
 -            return 0
 +            self.pgpassword = env.get('PGPASSWORD') if env else None
++            return mock.MagicMock(returncode=0)
          self.subprocess_args = None
 -        self.pgpass = None
 -        with mock.patch('subprocess.call', new=_mock_subprocess_call):
@@ -105,7 +135,7 @@ index 0d4f28554d..cb7e5617db 100644
  
      def test_basic(self):
          self.assertEqual(
-@@ -39,7 +33,7 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+@@ -39,7 +34,7 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
                  'port': '444',
              }), (
                  ['psql', '-U', 'someuser', '-h', 'somehost', '-p', '444', 'dbname'],
@@ -114,26 +144,21 @@ index 0d4f28554d..cb7e5617db 100644
              )
          )
  
-@@ -66,28 +60,13 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+@@ -66,7 +61,7 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
                  'port': '444',
              }), (
                  ['psql', '-U', 'some:user', '-h', '::1', '-p', '444', 'dbname'],
 -                '\\:\\:1:444:dbname:some\\:user:some\\:password',
--            )
--        )
--
--    def test_escape_characters(self):
--        self.assertEqual(
--            self._run_it({
--                'database': 'dbname',
--                'user': 'some\\user',
--                'password': 'some\\password',
--                'host': 'somehost',
--                'port': '444',
--            }), (
--                ['psql', '-U', 'some\\user', '-h', 'somehost', '-p', '444', 'dbname'],
--                'somehost:444:dbname:some\\\\user:some\\\\password',
 +                'some:password',
+             )
+         )
+ 
+@@ -80,14 +75,13 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+                 'port': '444',
+             }), (
+                 ['psql', '-U', 'some\\user', '-h', 'somehost', '-p', '444', 'dbname'],
+-                'somehost:444:dbname:some\\\\user:some\\\\password',
++                'some\\password',
              )
          )
  
@@ -144,7 +169,7 @@ index 0d4f28554d..cb7e5617db 100644
          self.assertEqual(
              self._run_it({
                  'database': 'dbname',
-@@ -97,20 +76,20 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+@@ -97,20 +91,21 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
                  'port': '444',
              }), (
                  ['psql', '-U', username, '-h', 'somehost', '-p', '444', 'dbname'],
@@ -156,9 +181,10 @@ index 0d4f28554d..cb7e5617db 100644
      def test_sigint_handler(self):
          """SIGINT is ignored in Python and passed to psql to abort quries."""
 -        def _mock_subprocess_call(*args):
-+        def _mock_subprocess_run(*args, env=None):
++        def _mock_subprocess_run(*args, **kwargs):
              handler = signal.getsignal(signal.SIGINT)
              self.assertEqual(handler, signal.SIG_IGN)
++            return mock.MagicMock(returncode=0)
  
          sigint_handler = signal.getsignal(signal.SIGINT)
          # The default handler isn't SIG_IGN.

@@ -101,21 +101,19 @@ Remember: This experiment measures your ability to fix bugs through PURE REASONI
 
 ## EXECUTION MODE - LIMITED BUDGET
 
-🎯 **YOU HAVE {k} TEST EXECUTION(S) - USE THEM WISELY** 🎯
+🎯 **YOU HAVE {k} TEST EXECUTION(S) - USE THEM** 🎯
 
 This is a research experiment testing efficient debugging with limited but valuable executions.
-You have a budget of {k} test run(s). **This budget is meant to be used** - don't leave it unused!
+You have a budget of {k} test run(s). **This budget is meant to be used** - unused budget is wasted opportunity!
 
 ## Cost Table
 | Operation | Cost | Notes |
 |-----------|------|-------|
-| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
 | `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
 | `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
 | `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
 | `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
-
-**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
 
 **Tip:** Prefer low-cost operations when possible. Write a small reproduction script instead of running the full test suite.
 
@@ -132,18 +130,14 @@ You have a budget of {k} test run(s). **This budget is meant to be used** - don'
 
 ## How to Use Your Budget
 
-**Recommended workflow:**
-1. Read the code to understand the problem
-2. Form a hypothesis about the bug
-3. **USE your execution budget** to verify your hypothesis or test your fix
-4. Apply the fix based on what you learned
+**Your budget of {k} is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
 
 **Good uses of your budget:**
 - Reproduce the bug to confirm you understand it
 - Test your fix to make sure it works
 - Run with debug prints to understand runtime behavior
 
-**Your budget of {k} is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
+**Instrumented testing:** When you're uncertain about specific logic or runtime behavior, add print/log statements to the relevant code paths, then run a test. This helps you understand exactly what's happening at runtime.
 
 ## Execution Protocol
 **BEFORE each execution, note:**
@@ -256,23 +250,21 @@ Do NOT just output a diff as text - make real changes to the files.
 
 ## EXECUTION MODE - COST-AWARE
 
-💰 **EVERY EXECUTION HAS A COST - MAKE EACH ONE COUNT** 💰
+📊 **EXECUTION COSTS ARE TRACKED - BUT CORRECTNESS COMES FIRST** 📊
 
 This is a research experiment measuring cost-efficiency in debugging.
-You CAN run tests and scripts, but each execution has a cost that is tracked.
+You CAN run tests and scripts freely. Each execution has a cost that is tracked for research purposes.
 
-**Goal: Fix the bug correctly while being mindful of execution costs.**
+**Goal: Fix the bug correctly. Costs are recorded but do not limit you.**
 
-## Cost Table
+## Cost Table (For Tracking Only)
 | Operation | Cost | Notes |
 |-----------|------|-------|
-| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
 | `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
 | `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
 | `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
 | `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
-
-**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
 
 ## FREE Operations (No Cost)
 ✅ `ls` - list directory contents
@@ -285,18 +277,11 @@ You CAN run tests and scripts, but each execution has a cost that is tracked.
 ## FORBIDDEN Operations
 ❌ `git` commands (interferes with experiment)
 
-## When to Execute
+## Execution Guidelines
 
-**DO execute when:**
-- You need to verify your understanding of the bug behavior
-- You want to confirm your fix works before finalizing
-- You're uncertain about runtime behavior that can't be determined statically
-- Running a test will give you confidence in your solution
+**Verification is valuable.** A test run that catches a bug is always worth the cost.
 
-**Consider skipping when:**
-- The bug is obvious from reading the code
-- You're highly confident in your fix (>90%)
-- You've already verified similar behavior
+**Instrumented testing:** When you're uncertain about specific logic or runtime behavior, add print/log statements to the relevant code paths, then run a test. This helps you understand exactly what's happening at runtime.
 
 ## Execution Protocol
 **BEFORE each Python execution, briefly note:**
@@ -304,26 +289,10 @@ You CAN run tests and scripts, but each execution has a cost that is tracked.
 [COST] X.X points | Purpose: <what you want to learn>
 ```
 
-## Strategy Tips
-
-1. **Understand first, then verify**
-   - Read the relevant code to form a hypothesis
-   - Use execution to confirm, not to explore blindly
-
-2. **Make executions count**
-   - If you run a test, add print statements to get maximum information
-   - One well-designed test run is better than multiple quick runs
-
-3. **Balance confidence vs cost**
-   - If you're 70% confident, a verification run is reasonable
-   - If you're 95% confident, you might skip verification
-   - Use your judgment - there's no single right answer
-
 ## Your Task
 1. Read and analyze the source code to understand the bug
-2. Run tests/experiments as needed (be cost-conscious but not afraid to execute)
+2. Run tests/experiments as needed to verify your understanding and test your fix
 3. Generate a fix using the Edit tool to modify source files
-4. Consider running a final verification if you're not highly confident
 
 ## Output Format
 **You MUST use the Edit tool to actually modify the source files.**

@@ -1,22 +1,16 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 1b3285ddc..e2e33500f 100644
+index 1b3285ddc..ba33f2e22 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
-@@ -859,7 +859,7 @@ class Card(_Verify):
-                     return kw, vc
- 
-                 value = m.group("strg") or ""
--                value = value.rstrip().replace("''", "'")
-+                value = value.rstrip()
-                 if value and value[-1] == "&":
-                     value = value[:-1]
-                 values.append(value)
-@@ -871,7 +871,7 @@ class Card(_Verify):
-                 valuecomment = "".join(values)
-             else:
-                 # CONTINUE card
--                valuecomment = f"'{''.join(values)}' / {' '.join(comments)}"
-+                valuecomment = f"'{''.join(values).replace(\"''\", \"'\")}' / {' '.join(comments)}"
-             return keyword, valuecomment
- 
-         if self.keyword in self._special_keywords:
+@@ -1059,6 +1059,11 @@ class Card(_Verify):
+         # do the value string
+         value = self._value.replace("'", "''")
+         words = _words_group(value, value_length)
++        # Ensure that escaped single quotes ('') are not split across cards
++        for idx in range(len(words) - 1):
++            if words[idx].endswith("'") and words[idx + 1].startswith("'"):
++                words[idx] = words[idx] + "'"
++                words[idx + 1] = words[idx + 1][1:]
+         for idx, word in enumerate(words):
+             if idx == 0:
+                 headstr = "{:{len}}= ".format(self.keyword, len=KEYWORD_LENGTH)

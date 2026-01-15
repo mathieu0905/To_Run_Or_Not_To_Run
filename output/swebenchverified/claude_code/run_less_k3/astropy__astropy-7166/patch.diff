@@ -1,5 +1,5 @@
 diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
-index de3fb01d1..3ef39c5e7 100644
+index de3fb01d1..909febb8f 100644
 --- a/astropy/utils/misc.py
 +++ b/astropy/utils/misc.py
 @@ -536,6 +536,15 @@ class InheritDocstrings(type):
@@ -8,12 +8,12 @@ index de3fb01d1..3ef39c5e7 100644
                          break
 +            elif (isinstance(val, property) and
 +                  is_public_member(key) and
-+                  val.__doc__ is None):
++                  val.fget is not None and
++                  val.fget.__doc__ is None):
 +                for base in cls.__mro__[1:]:
 +                    super_property = getattr(base, key, None)
 +                    if super_property is not None:
-+                        setattr(cls, key, property(val.fget, val.fset,
-+                                                   val.fdel, super_property.__doc__))
++                        val.fget.__doc__ = super_property.__doc__
 +                        break
  
          super().__init__(name, bases, dct)

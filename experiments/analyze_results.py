@@ -28,6 +28,7 @@ def count_tokens_and_execs(trace_path):
     turns = 0
     duration_ms = 0
     max_item_id = -1
+    cost_points = 0.0  # run_cost 模式的成本点数
 
     # 高成本执行：测试框架（运行整个测试套件）
     high_cost_patterns = [
@@ -40,6 +41,8 @@ def count_tokens_and_execs(trace_path):
     # 低成本执行：直接运行 Python 脚本
     import re
     python_script_pattern = re.compile(r'\bpython\s+[a-zA-Z_][\w/\-]*\.py\b')
+    # [COST] X.X points 模式
+    cost_pattern = re.compile(r'\[COST\]\s*([\d.]+)\s*points?', re.IGNORECASE)
 
     with open(trace_path) as f:
         for line in f:

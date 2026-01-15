@@ -1,17 +1,24 @@
 diff --git a/astropy/coordinates/sky_coordinate.py b/astropy/coordinates/sky_coordinate.py
-index ab475f7d0..b48d6f2c2 100644
+index ab475f7d0..c3aa4610b 100644
 --- a/astropy/coordinates/sky_coordinate.py
 +++ b/astropy/coordinates/sky_coordinate.py
-@@ -895,6 +895,12 @@ class SkyCoord(ShapedLikeNDArray):
-                 return self.transform_to(attr)
- 
-         # Fail
-+        # Check if attr is a descriptor (like a property) in the class hierarchy.
-+        # If so, invoke it to get the real error from inside the descriptor.
+@@ -871,6 +871,19 @@ class SkyCoord(ShapedLikeNDArray):
+         Overrides getattr to return coordinates that this can be transformed
+         to, based on the alias attr in the primary transform graph.
+         """
++        # For an attr like `prop` that is an instance of a class which
++        # inherits from SkyCoord, the attribute lookup will first check the
++        # class hierarchy. If `prop` is a property and raises an AttributeError,
++        # Python will call __getattr__ with `attr='prop'`. We need to detect
++        # this case and re-raise the original exception by calling the
++        # property getter again.
 +        for cls in type(self).__mro__:
-+            if attr in getattr(cls, "__dict__", {}):
++            if attr in cls.__dict__:
++                # Attribute exists in class hierarchy - invoke it to get the
++                # original error (e.g., from a property that accesses a
++                # non-existent attribute).
 +                return cls.__dict__[attr].__get__(self, type(self))
 +
-         raise AttributeError(
-             f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-         )
+         if "_sky_coord_frame" in self.__dict__:
+             if self._is_name(attr):
+                 return self  # Should this be a deepcopy of self?

@@ -1,5 +1,5 @@
 diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
-index ded609cbe..0fbbe5000 100644
+index ded609cbe..e6378f41d 100644
 --- a/astropy/units/quantity.py
 +++ b/astropy/units/quantity.py
 @@ -296,7 +296,7 @@ class Quantity(np.ndarray, metaclass=InheritDocstrings):
@@ -7,7 +7,7 @@ index ded609cbe..0fbbe5000 100644
                      return value
  
 -                if not (np.can_cast(np.float32, value.dtype) or
-+                if not (np.issubdtype(value.dtype, np.floating) or
++                if not (np.can_cast(np.float16, value.dtype) or
                          value.dtype.fields):
                      dtype = float
  
@@ -16,7 +16,7 @@ index ded609cbe..0fbbe5000 100644
  
          # by default, cast any integer, boolean, etc., to float
 -        if dtype is None and (not (np.can_cast(np.float32, value.dtype)
-+        if dtype is None and (not (np.issubdtype(value.dtype, np.floating)
++        if dtype is None and (not (np.can_cast(np.float16, value.dtype)
                                     or value.dtype.fields)
                                or value.dtype.kind == 'O'):
              value = value.astype(float)

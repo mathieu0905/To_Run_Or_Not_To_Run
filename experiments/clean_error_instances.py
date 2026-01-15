@@ -124,4 +124,5 @@ if __name__ == "__main__":
     print("=" * 60)
     print("清理 output 目录中的错误实例")
     print("=" * 60)
-    clean_error_instances("../output/swebenchlite/claude_code")
+    clean_error_instances("output/swebenchlite/claude_code")
+    clean_error_instances("output/swebenchverified/claude_code")

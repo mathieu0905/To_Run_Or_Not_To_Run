@@ -1,5 +1,5 @@
 diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
-index 3a462f1c4c..6f19cceb11 100644
+index 3a462f1c4c..61a3e6d3a1 100644
 --- a/django/db/models/deletion.py
 +++ b/django/db/models/deletion.py
 @@ -234,7 +234,7 @@ class Collector:
@@ -7,7 +7,7 @@ index 3a462f1c4c..6f19cceb11 100644
          return related.related_model._base_manager.using(self.using).filter(
              **{"%s__in" % related.field.name: objs}
 -        )
-+        ).only('pk')
++        ).only('pk', related.field.name)
  
      def instances_with_model(self):
          for model, instances in self.data.items():

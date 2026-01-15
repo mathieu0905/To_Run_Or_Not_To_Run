@@ -1,5 +1,5 @@
 diff --git a/django/db/backends/postgresql/client.py b/django/db/backends/postgresql/client.py
-index 7fca6eff30..dc2f249490 100644
+index 7fca6eff30..1333394390 100644
 --- a/django/db/backends/postgresql/client.py
 +++ b/django/db/backends/postgresql/client.py
 @@ -2,17 +2,9 @@ import os
@@ -20,11 +20,16 @@ index 7fca6eff30..dc2f249490 100644
  class DatabaseClient(BaseDatabaseClient):
      executable_name = 'psql'
  
-@@ -34,38 +26,18 @@ class DatabaseClient(BaseDatabaseClient):
+@@ -34,38 +26,19 @@ class DatabaseClient(BaseDatabaseClient):
              args += ['-p', str(port)]
          args += [dbname]
  
 -        temp_pgpass = None
++        env = None
++        if passwd:
++            env = os.environ.copy()
++            env['PGPASSWORD'] = passwd
++
          sigint_handler = signal.getsignal(signal.SIGINT)
          try:
 -            if passwd:
@@ -49,10 +54,6 @@ index 7fca6eff30..dc2f249490 100644
              # Allow SIGINT to pass to psql to abort queries.
              signal.signal(signal.SIGINT, signal.SIG_IGN)
 -            subprocess.check_call(args)
-+            env = None
-+            if passwd:
-+                env = os.environ.copy()
-+                env['PGPASSWORD'] = passwd
 +            subprocess.run(args, env=env)
          finally:
              # Restore the original SIGINT handler.
@@ -65,7 +66,7 @@ index 7fca6eff30..dc2f249490 100644
      def runshell(self):
          DatabaseClient.runshell_db(self.connection.get_connection_params())
 diff --git a/tests/dbshell/test_postgresql.py b/tests/dbshell/test_postgresql.py
-index 0d4f28554d..77973343f5 100644
+index 0d4f28554d..b88e537318 100644
 --- a/tests/dbshell/test_postgresql.py
 +++ b/tests/dbshell/test_postgresql.py
 @@ -1,4 +1,3 @@
@@ -81,7 +82,7 @@ index 0d4f28554d..77973343f5 100644
 +        subprocess.run. It returns a 2-tuple with:
          - The command line list
 -        - The content of the file pointed by environment PGPASSFILE, or None.
-+        - The value of the PGPASSWORD environment variable, or None.
++        - The PGPASSWORD environment variable value, or None.
          """
 -        def _mock_subprocess_call(*args):
 +        def _mock_subprocess_run(*args, env=None):

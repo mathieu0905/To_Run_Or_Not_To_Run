@@ -1,34 +1,13 @@
 diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
-index 100cdf1b8..59f789292 100644
+index 100cdf1b8..d3608ef01 100644
 --- a/astropy/io/fits/diff.py
 +++ b/astropy/io/fits/diff.py
-@@ -1373,20 +1373,19 @@ class TableDataDiff(_BaseDiff):
-             if fieldname in colsb:
-                 del colsb[fieldname]
- 
--        colsa_set = set(colsa.values())
--        colsb_set = set(colsb.values())
-+        # Find common columns by name, not by full Column equality
-+        # (which includes format and can differ for VLA columns)
-+        colsa_keys = set(colsa.keys())
-+        colsb_keys = set(colsb.keys())
-+        common_names = colsa_keys.intersection(colsb_keys)
-         self.common_columns = sorted(
--            colsa_set.intersection(colsb_set), key=operator.attrgetter("name")
-+            (colsa[name] for name in common_names), key=operator.attrgetter("name")
-         )
- 
--        self.common_column_names = {col.name.lower() for col in self.common_columns}
-+        self.common_column_names = common_names
- 
--        left_only_columns = {
--            col.name.lower(): col for col in colsa_set.difference(colsb_set)
--        }
--        right_only_columns = {
--            col.name.lower(): col for col in colsb_set.difference(colsa_set)
--        }
-+        left_only_columns = {name: colsa[name] for name in colsa_keys.difference(colsb_keys)}
-+        right_only_columns = {name: colsb[name] for name in colsb_keys.difference(colsa_keys)}
- 
-         if left_only_columns or right_only_columns:
-             self.diff_columns = (left_only_columns, right_only_columns)
+@@ -1449,7 +1449,7 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif "P" in col.format or "Q" in col.format:
+                 diffs = (
+                     [
+                         idx

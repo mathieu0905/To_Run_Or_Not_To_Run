@@ -1,32 +1,24 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 118bfced8..e361c9dcd 100644
+index 118bfced8..f8d059821 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
-@@ -1299,6 +1299,27 @@ def _format_value(value):
+@@ -1299,7 +1299,18 @@ def _format_value(value):
  
  def _format_float(value):
      """Format a floating number to make sure it gets the decimal point."""
-+    # Try the default Python string representation first as it often produces
-+    # a shorter string that still round-trips correctly (e.g., 0.009125 instead
-+    # of 0.009124999999999999)
+-    value_str = f"{value:.16G}"
++    # Try Python's default str() first as it often produces shorter representations
++    # that are still accurate (e.g., "0.009125" instead of "0.009124999999999999")
 +    value_str = str(value)
-+    if value_str.lstrip("-").startswith("0.") or "e" in value_str:
-+        # For small decimals or exponential notation, check if it round-trips
-+        if len(value_str) <= 20 and float(value_str) == value:
-+            # Normalize exponential notation to uppercase E
-+            if "e" in value_str:
-+                value_str = value_str.replace("e", "E")
-+                # Ensure exponent is zero-padded to two digits
-+                significand, exponent = value_str.split("E")
-+                if exponent[0] in ("+", "-"):
-+                    sign = exponent[0]
-+                    exponent = exponent[1:]
-+                else:
-+                    sign = ""
-+                value_str = f"{significand}E{sign}{int(exponent):02d}"
-+            return value_str
-+
-+    # Fall back to 16 significant digits
-     value_str = f"{value:.16G}"
++    if "d" in value_str or "D" in value_str:
++        # Fortran-style exponent, fall back to .16G
++        value_str = f"{value:.16G}"
++    elif len(value_str) > 20 or float(value_str) != value:
++        # str() representation is too long or doesn't round-trip, use .16G
++        value_str = f"{value:.16G}"
++    else:
++        # str() representation is good, just normalize exponent format
++        value_str = value_str.replace("e", "E")
      if "." not in value_str and "E" not in value_str:
          value_str += ".0"
+     elif "E" in value_str:

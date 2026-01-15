@@ -22,22 +22,19 @@ index 8c1ac5d73..b335916a5 100644
          card._image = _pad(image)
          card._verified = False
 diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
-index ad07e6d52..5fc635bbe 100644
+index ad07e6d52..8d50b97da 100644
 --- a/astropy/io/fits/header.py
 +++ b/astropy/io/fits/header.py
-@@ -334,8 +334,9 @@ class Header:
+@@ -334,7 +334,7 @@ class Header:
  
          Parameters
          ----------
 -        data : str
--           String containing the entire header.
 +        data : str or bytes
-+           String or bytes containing the entire header.  In the case of bytes,
-+           it will be decoded using ASCII.
+            String containing the entire header.
  
          sep : str, optional
-             The string separating cards from each other, such as a newline.  By
-@@ -348,6 +349,9 @@ class Header:
+@@ -348,6 +348,9 @@ class Header:
              A new `Header` instance.
          """
  

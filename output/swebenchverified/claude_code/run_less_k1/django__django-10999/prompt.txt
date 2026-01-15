@@ -25,21 +25,21 @@ that doesn't match to negative durations, because of the <hours> definition fina
 
 ## EXECUTION MODE - LIMITED BUDGET
 
-🎯 **YOU HAVE 1 TEST EXECUTION(S) - USE THEM WISELY** 🎯
+🎯 **YOU HAVE 1 TEST EXECUTION(S) - USE THEM** 🎯
 
 This is a research experiment testing efficient debugging with limited but valuable executions.
-You have a budget of 1 test run(s). **This budget is meant to be used** - don't leave it unused!
+You have a budget of 1 test run(s). **This budget is meant to be used** - unused budget is wasted opportunity!
 
 ## Cost Table
 | Operation | Cost | Notes |
 |-----------|------|-------|
-| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Full test suite |
-| `python manage.py test` (Django) | 1.0 point | HIGH - Full test suite |
-| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test suite |
-| `python script.py` (running .py files) | 0.3 point | LOW - Simple script |
-| `python -c "..."` (inline code) | 0.3 point | LOW - Quick check |
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
 
-**Tip:** Prefer low-cost operations (0.3 points) when possible. Write a small test script instead of running the full test suite.
+**Tip:** Prefer low-cost operations when possible. Write a small reproduction script instead of running the full test suite.
 
 ## FREE Operations (No Cost)
 ✅ `ls` - list directory contents
@@ -54,18 +54,14 @@ You have a budget of 1 test run(s). **This budget is meant to be used** - don't 
 
 ## How to Use Your Budget
 
-**Recommended workflow:**
-1. Read the code to understand the problem
-2. Form a hypothesis about the bug
-3. **USE your execution budget** to verify your hypothesis or test your fix
-4. Apply the fix based on what you learned
+**Your budget of 1 is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
 
 **Good uses of your budget:**
 - Reproduce the bug to confirm you understand it
 - Test your fix to make sure it works
 - Run with debug prints to understand runtime behavior
 
-**Your budget of 1 is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
+**Instrumented testing:** When you're uncertain about specific logic or runtime behavior, add print/log statements to the relevant code paths, then run a test. This helps you understand exactly what's happening at runtime.
 
 ## Execution Protocol
 **BEFORE each execution, note:**

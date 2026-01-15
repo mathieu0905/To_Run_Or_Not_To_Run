@@ -1,5 +1,5 @@
 diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
-index abdeba8ef..d2aa65f67 100644
+index abdeba8ef..886ef91e0 100644
 --- a/astropy/io/ascii/rst.py
 +++ b/astropy/io/ascii/rst.py
 @@ -57,10 +57,12 @@ class RST(FixedWidth):
@@ -15,6 +15,6 @@ index abdeba8ef..d2aa65f67 100644
          lines = super().write(lines)
 -        lines = [lines[1]] + lines + [lines[1]]
 +        header_rows = getattr(self.data, "header_rows", ["name"])
-+        idx = len(header_rows)
-+        lines = [lines[idx]] + lines + [lines[idx]]
++        pos_line = lines[len(header_rows)]
++        lines = [pos_line] + lines + [pos_line]
          return lines
