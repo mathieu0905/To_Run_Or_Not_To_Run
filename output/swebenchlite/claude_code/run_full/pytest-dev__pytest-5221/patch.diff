@@ -1,0 +1,96 @@
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+index 377357846..96842476c 100644
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -1346,7 +1346,9 @@ def _showfixtures_main(config, session):
+             funcargspec = "%s -- %s" % (argname, bestrel)
+         else:
+             funcargspec = argname
+-        tw.line(funcargspec, green=True)
++        tw.write(funcargspec, green=True)
++        tw.write(" [%s scope]" % fixturedef.scope, cyan=True)
++        tw.line()
+         loc = getlocation(fixturedef.func, curdir)
+         doc = fixturedef.func.__doc__ or ""
+         if doc:
+diff --git a/testing/python/fixtures.py b/testing/python/fixtures.py
+index 48f8028e6..74d40dd22 100644
+--- a/testing/python/fixtures.py
++++ b/testing/python/fixtures.py
+@@ -3058,7 +3058,7 @@ class TestShowFixtures(object):
+         result = testdir.runpytest("--fixtures", p)
+         result.stdout.fnmatch_lines(
+             """
+-            *tmpdir
++            *tmpdir*
+             *fixtures defined from*
+             *arg1*
+             *hello world*
+@@ -3120,10 +3120,10 @@ class TestShowFixtures(object):
+             textwrap.dedent(
+                 """\
+                 * fixtures defined from test_show_fixtures_trimmed_doc *
+-                arg2
++                arg2 *
+                     line1
+                     line2
+-                arg1
++                arg1 *
+                     line1
+                     line2
+                 """
+@@ -3149,7 +3149,7 @@ class TestShowFixtures(object):
+             textwrap.dedent(
+                 """\
+                 * fixtures defined from test_show_fixtures_indented_doc *
+-                fixture1
++                fixture1 *
+                     line1
+                         indented line
+                 """
+@@ -3175,7 +3175,7 @@ class TestShowFixtures(object):
+             textwrap.dedent(
+                 """\
+                 * fixtures defined from test_show_fixtures_indented_doc_first_line_unindented *
+-                fixture1
++                fixture1 *
+                     line1
+                     line2
+                         indented line
+@@ -3203,7 +3203,7 @@ class TestShowFixtures(object):
+             textwrap.dedent(
+                 """\
+                 * fixtures defined from test_show_fixtures_indented_in_class *
+-                fixture1
++                fixture1 *
+                     line1
+                     line2
+                         indented line
+@@ -3245,11 +3245,11 @@ class TestShowFixtures(object):
+         result.stdout.fnmatch_lines(
+             """
+             * fixtures defined from test_a *
+-            fix_a
++            fix_a *
+                 Fixture A
+ 
+             * fixtures defined from test_b *
+-            fix_b
++            fix_b *
+                 Fixture B
+         """
+         )
+@@ -3285,11 +3285,11 @@ class TestShowFixtures(object):
+         result.stdout.fnmatch_lines(
+             """
+             * fixtures defined from conftest *
+-            arg1
++            arg1 *
+                 Hello World in conftest.py
+ 
+             * fixtures defined from test_show_fixtures_with_same_name *
+-            arg1
++            arg1 *
+                 Hi from test module
+         """
+         )

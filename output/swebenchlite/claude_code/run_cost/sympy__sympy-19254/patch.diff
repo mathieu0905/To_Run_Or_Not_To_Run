@@ -1,0 +1,69 @@
+diff --git a/sympy/polys/factortools.py b/sympy/polys/factortools.py
+index 93298f47e6..7a994a78be 100644
+--- a/sympy/polys/factortools.py
++++ b/sympy/polys/factortools.py
+@@ -41,7 +41,7 @@
+     dup_sub_mul, dmp_sub_mul,
+     dup_lshift,
+     dup_max_norm, dmp_max_norm,
+-    dup_l1_norm,
++    dup_l1_norm, dmp_l1_norm,
+     dup_mul_ground, dmp_mul_ground,
+     dup_quo_ground, dmp_quo_ground)
+ 
+@@ -74,7 +74,7 @@
+ from sympy.ntheory import nextprime, isprime, factorint
+ from sympy.utilities import subsets
+ 
+-from math import ceil as _ceil, log as _log
++from math import ceil as _ceil, log as _log, factorial as _factorial
+ 
+ 
+ def dup_trial_division(f, factors, K):
+@@ -124,21 +124,21 @@ def dmp_trial_division(f, factors, u, K):
+ 
+ 
+ def dup_zz_mignotte_bound(f, K):
+-    """Mignotte bound for univariate polynomials in `K[x]`. """
+-    a = dup_max_norm(f, K)
++    """Knuth-Cohen bound for univariate polynomials in `K[x]`. """
++    a = dup_l1_norm(f, K)
+     b = abs(dup_LC(f, K))
+     n = dup_degree(f)
+ 
+-    return K.sqrt(K(n + 1))*2**n*a*b
++    return K(_factorial(n) // (_factorial(n // 2) * _factorial(n - n // 2))) * a + b
+ 
+ 
+ def dmp_zz_mignotte_bound(f, u, K):
+-    """Mignotte bound for multivariate polynomials in `K[X]`. """
+-    a = dmp_max_norm(f, u, K)
++    """Knuth-Cohen bound for multivariate polynomials in `K[X]`. """
++    a = dmp_l1_norm(f, u, K)
+     b = abs(dmp_ground_LC(f, u, K))
+     n = sum(dmp_degree_list(f, u))
+ 
+-    return K.sqrt(K(n + 1))*2**n*a*b
++    return K(_factorial(n) // (_factorial(n // 2) * _factorial(n - n // 2))) * a + b
+ 
+ 
+ def dup_zz_hensel_step(m, f, g, h, s, t, K):
+diff --git a/sympy/polys/tests/test_factortools.py b/sympy/polys/tests/test_factortools.py
+index 7bcd935756..335ef55546 100644
+--- a/sympy/polys/tests/test_factortools.py
++++ b/sympy/polys/tests/test_factortools.py
+@@ -27,12 +27,12 @@ def test_dmp_trial_division():
+ 
+ def test_dup_zz_mignotte_bound():
+     R, x = ring("x", ZZ)
+-    assert R.dup_zz_mignotte_bound(2*x**2 + 3*x + 4) == 32
++    assert R.dup_zz_mignotte_bound(2*x**2 + 3*x + 4) == 20
+ 
+ 
+ def test_dmp_zz_mignotte_bound():
+     R, x, y = ring("x,y", ZZ)
+-    assert R.dmp_zz_mignotte_bound(2*x**2 + 3*x + 4) == 32
++    assert R.dmp_zz_mignotte_bound(2*x**2 + 3*x + 4) == 20
+ 
+ 
+ def test_dup_zz_hensel_step():

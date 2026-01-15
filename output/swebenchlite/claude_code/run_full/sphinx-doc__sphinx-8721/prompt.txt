@@ -1,0 +1,73 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: sphinx-doc/sphinx
+- Base Commit: 82ef497a8c88f0f6e50d84520e7276bfbf65025d
+
+## Problem Description
+viewcode creates pages for epub even if `viewcode_enable_epub=False` on `make html epub`
+**Describe the bug**
+viewcode creates pages for epub even if `viewcode_enable_epub=False` on `make html epub`
+
+**To Reproduce**
+```
+$ make html epub
+```
+
+**Expected behavior**
+module pages should not be created for epub by default.
+
+**Your project**
+No
+
+**Screenshots**
+No
+
+**Environment info**
+- OS: Mac
+- Python version: 3.9.1
+- Sphinx version: HEAD of 3.x
+- Sphinx extensions:  sphinx.ext.viewcode
+- Extra tools: No
+
+**Additional context**
+No
+
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

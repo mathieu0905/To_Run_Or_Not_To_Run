@@ -109,13 +109,15 @@ You have a budget of {k} test run(s). **This budget is meant to be used** - don'
 ## Cost Table
 | Operation | Cost | Notes |
 |-----------|------|-------|
-| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Full test suite |
-| `python manage.py test` (Django) | 1.0 point | HIGH - Full test suite |
-| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test suite |
-| `python script.py` (running .py files) | 0.3 point | LOW - Simple script |
-| `python -c "..."` (inline code) | 0.3 point | LOW - Quick check |
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
 
-**Tip:** Prefer low-cost operations (0.3 points) when possible. Write a small test script instead of running the full test suite.
+**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
+
+**Tip:** Prefer low-cost operations when possible. Write a small reproduction script instead of running the full test suite.
 
 ## FREE Operations (No Cost)
 ✅ `ls` - list directory contents
@@ -262,13 +264,15 @@ You CAN run tests and scripts, but each execution has a cost that is tracked.
 **Goal: Fix the bug correctly while being mindful of execution costs.**
 
 ## Cost Table
-| Operation | Cost |
-|-----------|------|
-| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
-| `python manage.py test` (Django) | 1.0 point |
-| `tox` / `nose` / `nosetests` | 1.0 point |
-| `python script.py` (running .py files) | 0.3 point |
-| `python -c "..."` (inline code) | 0.3 point |
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
 
 ## FREE Operations (No Cost)
 ✅ `ls` - list directory contents

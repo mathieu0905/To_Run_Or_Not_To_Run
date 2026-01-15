@@ -1,0 +1,28 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 63ca817355..335ac4b8e1 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -6,7 +6,7 @@ from itertools import chain
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db import DatabaseError, NotSupportedError
+ from django.db.models.constants import LOOKUP_SEP
+-from django.db.models.expressions import OrderBy, Random, RawSQL, Ref, Value
++from django.db.models.expressions import OrderBy, Random, RawSQL, Ref, Subquery, Value
+ from django.db.models.functions import Cast
+ from django.db.models.query_utils import Q, select_related_descend
+ from django.db.models.sql.constants import (
+@@ -133,7 +133,13 @@ class SQLCompiler:
+         expressions = self.collapse_group_by(expressions, having_group_by)
+ 
+         for expr in expressions:
+-            sql, params = self.compile(expr)
++            # If expr is a Ref to a Subquery, compile the Subquery directly
++            # because SQL doesn't allow GROUP BY on an alias that refers
++            # to a subquery expression.
++            if isinstance(expr, Ref) and isinstance(expr.source, Subquery):
++                sql, params = self.compile(expr.source)
++            else:
++                sql, params = self.compile(expr)
+             params_hash = make_hashable(params)
+             if (sql, params_hash) not in seen:
+                 result.append((sql, params))

@@ -1,0 +1,113 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: sympy/sympy
+- Base Commit: 62000f37b8821573ba00280524ffb4ac4a380875
+
+## Problem Description
+Sympy incorrectly attempts to eval reprs in its __eq__ method
+Passing strings produced by unknown objects into eval is **very bad**. It is especially surprising for an equality check to trigger that kind of behavior. This should be fixed ASAP.
+
+Repro code:
+
+```
+import sympy
+class C:
+    def __repr__(self):
+        return 'x.y'
+_ = sympy.Symbol('x') == C()
+```
+
+Results in:
+
+```
+E   AttributeError: 'Symbol' object has no attribute 'y'
+```
+
+On the line:
+
+```
+    expr = eval(
+        code, global_dict, local_dict)  # take local objects in preference
+```
+
+Where code is:
+
+```
+Symbol ('x' ).y
+```
+
+Full trace:
+
+```
+FAILED                   [100%]
+        class C:
+            def __repr__(self):
+                return 'x.y'
+    
+>       _ = sympy.Symbol('x') == C()
+
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+sympy/core/expr.py:124: in __eq__
+    other = sympify(other)
+sympy/core/sympify.py:385: in sympify
+    expr = parse_expr(a, local_dict=locals, transformations=transformations, evaluate=evaluate)
+sympy/parsing/sympy_parser.py:1011: in parse_expr
+    return eval_expr(code, local_dict, global_dict)
+sympy/parsing/sympy_parser.py:906: in eval_expr
+    code, global_dict, local_dict)  # take local objects in preference
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+>   ???
+E   AttributeError: 'Symbol' object has no attribute 'y'
+
+<string>:1: AttributeError
+```
+
+Related issue: an unknown object whose repr is `x` will incorrectly compare as equal to a sympy symbol x:
+
+```
+    class C:
+        def __repr__(self):
+            return 'x'
+
+    assert sympy.Symbol('x') != C()  # fails
+```
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

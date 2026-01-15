@@ -1,0 +1,57 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: sphinx-doc/sphinx
+- Base Commit: 88b81a06eb635a1596617f8971fa97a84c069e93
+
+## Problem Description
+Generate man page section directories
+**Current man page generation does not conform to `MANPATH` search functionality**
+Currently, all generated man pages are placed in to a single-level directory: `<build-dir>/man`. Unfortunately, this cannot be used in combination with the unix `MANPATH` environment variable. The `man` program explicitly looks for man pages in section directories (such as `man/man1`, etc.). 
+
+**Describe the solution you'd like**
+It would be great if sphinx would automatically create the section directories (e.g., `man/man1/`, `man/man3/`, etc.) and place each generated man page within appropriate section.
+
+**Describe alternatives you've considered**
+This problem can be over come within our project’s build system, ensuring the built man pages are installed in a correct location, but it would be nice if the build directory had the proper layout.
+
+I’m happy to take a crack at implementing a fix, though this change in behavior may break some people who expect everything to appear in a `man/` directory. 
+
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

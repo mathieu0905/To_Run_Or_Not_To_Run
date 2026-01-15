@@ -1,0 +1,102 @@
+You are a code repair expert operating in a COST-AWARE environment.
+
+## Repository Information
+- Repository: scikit-learn/scikit-learn
+- Base Commit: 3aefc834dce72e850bff48689bea3c7dff5f3fad
+
+## Problem Description
+Expose warm_start in Isolation forest
+It seems to me that `sklearn.ensemble.IsolationForest` supports incremental addition of new trees with the `warm_start` parameter of its parent class, `sklearn.ensemble.BaseBagging`.
+
+Even though this parameter is not exposed in `__init__()` , it gets inherited from `BaseBagging` and one can use it by changing it to `True` after initialization. To make it work, you have to also increment `n_estimators` on every iteration. 
+
+It took me a while to notice that it actually works, and I had to inspect the source code of both `IsolationForest` and `BaseBagging`. Also, it looks to me that the behavior is in-line with `sklearn.ensemble.BaseForest` that is behind e.g. `sklearn.ensemble.RandomForestClassifier`.
+
+To make it more easier to use, I'd suggest to:
+* expose `warm_start` in `IsolationForest.__init__()`, default `False`;
+* document it in the same way as it is documented for `RandomForestClassifier`, i.e. say:
+```py
+    warm_start : bool, optional (default=False)
+        When set to ``True``, reuse the solution of the previous call to fit
+        and add more estimators to the ensemble, otherwise, just fit a whole
+        new forest. See :term:`the Glossary <warm_start>`.
+```
+* add a test to make sure it works properly;
+* possibly also mention in the "IsolationForest example" documentation entry;
+
+
+
+## EXECUTION MODE - COST-AWARE
+
+💰 **EVERY EXECUTION HAS A COST - MAKE EACH ONE COUNT** 💰
+
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost that is tracked.
+
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## When to Execute
+
+**DO execute when:**
+- You need to verify your understanding of the bug behavior
+- You want to confirm your fix works before finalizing
+- You're uncertain about runtime behavior that can't be determined statically
+- Running a test will give you confidence in your solution
+
+**Consider skipping when:**
+- The bug is obvious from reading the code
+- You're highly confident in your fix (>90%)
+- You've already verified similar behavior
+
+## Execution Protocol
+**BEFORE each Python execution, briefly note:**
+```
+[COST] X.X points | Purpose: <what you want to learn>
+```
+
+## Strategy Tips
+
+1. **Understand first, then verify**
+   - Read the relevant code to form a hypothesis
+   - Use execution to confirm, not to explore blindly
+
+2. **Make executions count**
+   - If you run a test, add print statements to get maximum information
+   - One well-designed test run is better than multiple quick runs
+
+3. **Balance confidence vs cost**
+   - If you're 70% confident, a verification run is reasonable
+   - If you're 95% confident, you might skip verification
+   - Use your judgment - there's no single right answer
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed (be cost-conscious but not afraid to execute)
+3. Generate a fix using the Edit tool to modify source files
+4. Consider running a final verification if you're not highly confident
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

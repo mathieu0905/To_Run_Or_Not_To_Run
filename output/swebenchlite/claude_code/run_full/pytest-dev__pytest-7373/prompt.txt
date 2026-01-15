@@ -1,0 +1,81 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: pytest-dev/pytest
+- Base Commit: 7b77fc086aab8b3a8ebc890200371884555eea1e
+
+## Problem Description
+Incorrect caching of skipif/xfail string condition evaluation
+Version: pytest 5.4.3, current master
+
+pytest caches the evaluation of the string in e.g. `@pytest.mark.skipif("sys.platform == 'win32'")`. The caching key is only the string itself (see `cached_eval` in `_pytest/mark/evaluate.py`). However, the evaluation also depends on the item's globals, so the caching can lead to incorrect results. Example:
+
+```py
+# test_module_1.py
+import pytest
+
+skip = True
+
+@pytest.mark.skipif("skip")
+def test_should_skip():
+    assert False
+```
+
+```py
+# test_module_2.py
+import pytest
+
+skip = False
+
+@pytest.mark.skipif("skip")
+def test_should_not_skip():
+    assert False
+```
+
+Running `pytest test_module_1.py test_module_2.py`.
+
+Expected: `test_should_skip` is skipped, `test_should_not_skip` is not skipped.
+
+Actual: both are skipped.
+
+---
+
+I think the most appropriate fix is to simply remove the caching, which I don't think is necessary really, and inline `cached_eval` into `MarkEvaluator._istrue`.
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

@@ -1,0 +1,23 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index d37d43d5c5..606ce5eb8e 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -247,6 +247,9 @@ class BaseCommand:
+ 
+     # Configuration shortcuts that alter various logic.
+     _called_from_command_line = False
++    # Custom formatter class for help output. Set to RawTextHelpFormatter to
++    # preserve whitespace in help text.
++    formatter_class = DjangoHelpFormatter
+     output_transaction = False  # Whether to wrap the output in a "BEGIN; COMMIT;"
+     requires_migrations_checks = False
+     requires_system_checks = "__all__"
+@@ -289,7 +292,7 @@ class BaseCommand:
+         parser = CommandParser(
+             prog="%s %s" % (os.path.basename(prog_name), subcommand),
+             description=self.help or None,
+-            formatter_class=DjangoHelpFormatter,
++            formatter_class=self.formatter_class,
+             missing_args_message=getattr(self, "missing_args_message", None),
+             called_from_command_line=getattr(self, "_called_from_command_line", None),
+             **kwargs,

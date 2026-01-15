@@ -1,0 +1,25 @@
+diff --git a/django/db/models/fields/related_descriptors.py b/django/db/models/fields/related_descriptors.py
+index 872a4c98dc..09b530dd14 100644
+--- a/django/db/models/fields/related_descriptors.py
++++ b/django/db/models/fields/related_descriptors.py
+@@ -73,6 +73,20 @@ from django.utils.functional import cached_property
+ 
+ 
+ class ForeignKeyDeferredAttribute(DeferredAttribute):
++    def __get__(self, instance, cls=None):
++        if instance is None:
++            return self
++        # If a cached related object exists, return its current pk value
++        # to handle cases where the related object's pk was set after assignment.
++        if self.field.is_cached(instance):
++            rel_obj = self.field.get_cached_value(instance)
++            if rel_obj is not None:
++                pk = rel_obj.pk
++                # Update the cached fk value to match the related object's pk.
++                instance.__dict__[self.field.attname] = pk
++                return pk
++        return super().__get__(instance, cls)
++
+     def __set__(self, instance, value):
+         if instance.__dict__.get(self.field.attname) != value and self.field.is_cached(instance):
+             self.field.delete_cached_value(instance)

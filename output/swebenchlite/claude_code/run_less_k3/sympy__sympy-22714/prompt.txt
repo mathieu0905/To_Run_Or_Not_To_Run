@@ -1,0 +1,110 @@
+You are a code repair expert operating in a BUDGET-CONSTRAINED environment.
+
+## Repository Information
+- Repository: sympy/sympy
+- Base Commit: 3ff4717b6aef6086e78f01cdfa06f64ae23aed7e
+
+## Problem Description
+simpify gives `Imaginary coordinates are not permitted.` with evaluate(False)
+## Issue
+`with evaluate(False)` crashes unexpectedly with `Point2D`
+
+## Code
+```python
+import sympy as sp
+with sp.evaluate(False):
+  sp.S('Point2D(Integer(1),Integer(2))')
+```
+
+## Error
+```
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/avinash/.local/lib/python3.8/site-packages/sympy/core/sympify.py", line 472, in sympify
+    expr = parse_expr(a, local_dict=locals, transformations=transformations, evaluate=evaluate)
+  File "/home/avinash/.local/lib/python3.8/site-packages/sympy/parsing/sympy_parser.py", line 1026, in parse_expr
+    raise e from ValueError(f"Error from parse_expr with transformed code: {code!r}")
+  File "/home/avinash/.local/lib/python3.8/site-packages/sympy/parsing/sympy_parser.py", line 1017, in parse_expr
+    rv = eval_expr(code, local_dict, global_dict)
+  File "/home/avinash/.local/lib/python3.8/site-packages/sympy/parsing/sympy_parser.py", line 911, in eval_expr
+    expr = eval(
+  File "<string>", line 1, in <module>
+  File "/home/avinash/.local/lib/python3.8/site-packages/sympy/geometry/point.py", line 912, in __new__
+    args = Point(*args, **kwargs)
+  File "/home/avinash/.local/lib/python3.8/site-packages/sympy/geometry/point.py", line 153, in __new__
+    raise ValueError('Imaginary coordinates are not permitted.')
+ValueError: Imaginary coordinates are not permitted.
+```
+
+However, it works without `with evaluate(False)`. Both of following commands work
+```python
+sp.S('Point2D(Integer(1),Integer(2))')
+sp.S('Point2D(Integer(1),Integer(2))', evaluate=False)
+```
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 3 TEST EXECUTION(S) - USE THEM WISELY** 🎯
+
+This is a research experiment testing efficient debugging with limited but valuable executions.
+You have a budget of 3 test run(s). **This budget is meant to be used** - don't leave it unused!
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
+
+**Tip:** Prefer low-cost operations when possible. Write a small reproduction script instead of running the full test suite.
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## How to Use Your Budget
+
+**Recommended workflow:**
+1. Read the code to understand the problem
+2. Form a hypothesis about the bug
+3. **USE your execution budget** to verify your hypothesis or test your fix
+4. Apply the fix based on what you learned
+
+**Good uses of your budget:**
+- Reproduce the bug to confirm you understand it
+- Test your fix to make sure it works
+- Run with debug prints to understand runtime behavior
+
+**Your budget of 3 is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 3 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 3
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 3 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

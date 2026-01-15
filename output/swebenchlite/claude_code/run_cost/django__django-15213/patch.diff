@@ -1,0 +1,34 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 69a2d9298f..702d81cf17 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -280,7 +280,16 @@ class SQLCompiler:
+                 else:
+                     sql, params = self.compile(Value(empty_result_set_value))
+             else:
+-                sql, params = col.select_format(self, sql, params)
++                if sql:
++                    sql, params = col.select_format(self, sql, params)
++                else:
++                    # Empty SQL means a full result set (e.g. a negated empty
++                    # Q() object). Use full_result_set_value if available.
++                    full_result_set_value = getattr(col, 'full_result_set_value', NotImplemented)
++                    if full_result_set_value is NotImplemented:
++                        sql, params = '1', ()
++                    else:
++                        sql, params = self.compile(Value(full_result_set_value))
+             ret.append((col, (sql, params), alias))
+         return ret, klass_info, annotations
+ 
+diff --git a/django/db/models/sql/where.py b/django/db/models/sql/where.py
+index 50ff13be75..cc7ab9b7fe 100644
+--- a/django/db/models/sql/where.py
++++ b/django/db/models/sql/where.py
+@@ -28,6 +28,7 @@ class WhereNode(tree.Node):
+     default = AND
+     resolved = False
+     conditional = True
++    full_result_set_value = True
+ 
+     def split_having(self, negated=False):
+         """

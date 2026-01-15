@@ -1,0 +1,28 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 38da1e6ecc..1719331486 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -125,8 +125,22 @@ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
++        v = self.value
++        if v.name is None:
++            # Combined flags (e.g., re.UNICODE | re.IGNORECASE) have no name.
++            # Decompose into individual flags and OR them together.
++            members = [
++                m for m in enum_class if m in v and m.value != 0
++            ] or [enum_class(0)]
++            return (
++                " | ".join(
++                    "%s.%s.%s" % (module, enum_class.__qualname__, m.name)
++                    for m in members
++                ),
++                {"import %s" % module},
++            )
+         return (
+-            "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
++            "%s.%s[%r]" % (module, enum_class.__qualname__, v.name),
+             {"import %s" % module},
+         )
+ 

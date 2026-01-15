@@ -1,0 +1,22 @@
+diff --git a/sympy/simplify/trigsimp.py b/sympy/simplify/trigsimp.py
+index 34a3bab3fc..46321deebf 100644
+--- a/sympy/simplify/trigsimp.py
++++ b/sympy/simplify/trigsimp.py
+@@ -482,6 +482,7 @@ def trigsimp(expr, **opts):
+ 
+     old = opts.pop('old', False)
+     if not old:
++        expr = exptrigsimp(expr)
+         opts.pop('deep', None)
+         recursive = opts.pop('recursive', None)
+         method = opts.pop('method', 'matching')
+@@ -537,7 +538,8 @@ def exp_trig(e):
+         choices = [e]
+         if e.has(*_trigs):
+             choices.append(e.rewrite(exp))
+-        choices.append(e.rewrite(cos))
++        choices.append(e.rewrite(cos).expand())
++        choices.append(e.rewrite(sin).expand())
+         return min(*choices, key=count_ops)
+     newexpr = bottom_up(expr, exp_trig)
+ 

@@ -1,0 +1,70 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 781dfd5499..f13ef09103 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -779,14 +779,29 @@ class Query(BaseExpression):
+         # Only include fields mentioned in the mask.
+         for field_name, field_mask in mask.items():
+             field = opts.get_field(field_name)
+-            field_select_mask = select_mask.setdefault(field, {})
+-            if field_mask:
+-                if not field.is_relation:
+-                    raise FieldError(next(iter(field_mask)))
+-                related_model = field.remote_field.model._meta.concrete_model
+-                self._get_only_select_mask(
+-                    related_model._meta, field_mask, field_select_mask
+-                )
++            # Handle reverse OneToOne relations that are not parent links.
++            if (
++                not field.concrete
++                and field.is_relation
++                and field.one_to_one
++                and not field.field.remote_field.parent_link
++            ):
++                field = field.field
++                field_select_mask = select_mask.setdefault(field, {})
++                if field_mask:
++                    related_model = field.model._meta.concrete_model
++                    self._get_only_select_mask(
++                        related_model._meta, field_mask, field_select_mask
++                    )
++            else:
++                field_select_mask = select_mask.setdefault(field, {})
++                if field_mask:
++                    if not field.is_relation:
++                        raise FieldError(next(iter(field_mask)))
++                    related_model = field.remote_field.model._meta.concrete_model
++                    self._get_only_select_mask(
++                        related_model._meta, field_mask, field_select_mask
++                    )
+         return select_mask
+ 
+     def get_select_mask(self):
+diff --git a/tests/select_related_onetoone/tests.py b/tests/select_related_onetoone/tests.py
+index 8bdfb83fe8..bc09045611 100644
+--- a/tests/select_related_onetoone/tests.py
++++ b/tests/select_related_onetoone/tests.py
+@@ -259,6 +259,23 @@ class ReverseSelectRelatedTestCase(TestCase):
+             item1_db = LinkedList.objects.select_related("next_item").get(name="item1")
+             self.assertEqual(item1_db.next_item.name, "item2")
+ 
++    def test_reverse_one_to_one_with_only(self):
++        """
++        select_related() with only() should only load specified fields
++        for reverse OneToOneField relations.
++        """
++        user = User.objects.get(username="test")
++        qs = User.objects.select_related("userprofile").only(
++            "username", "userprofile__city"
++        )
++        with self.assertNumQueries(1):
++            u = qs.get(pk=user.pk)
++            self.assertEqual(u.username, "test")
++            self.assertEqual(u.userprofile.city, "Lawrence")
++        # Accessing a deferred field should require an additional query.
++        with self.assertNumQueries(1):
++            self.assertEqual(u.userprofile.state, "KS")
++
+ 
+ class ReverseSelectRelatedValidationTests(SimpleTestCase):
+     """

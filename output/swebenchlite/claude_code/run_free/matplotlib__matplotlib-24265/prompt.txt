@@ -1,0 +1,105 @@
+You are a code repair expert operating in a STRICT READ-ONLY ANALYSIS environment.
+
+## Repository Information
+- Repository: matplotlib/matplotlib
+- Base Commit: e148998d9bed9d1b53a91587ad48f9bb43c7737f
+
+## Problem Description
+[Bug]: Setting matplotlib.pyplot.style.library['seaborn-colorblind'] result in key error on matplotlib v3.6.1
+### Bug summary
+
+I have code that executes:
+```
+import matplotlib.pyplot as plt
+the_rc = plt.style.library["seaborn-colorblind"]
+```
+
+Using version 3.4.3 of matplotlib, this works fine. I recently installed my code on a machine with matplotlib version 3.6.1 and upon importing my code, this generated a key error for line `the_rc = plt.style.library["seaborn-colorblind"]` saying "seaborn-colorblind" was a bad key.
+
+### Code for reproduction
+
+```python
+import matplotlib.pyplot as plt
+the_rc = plt.style.library["seaborn-colorblind"]
+```
+
+
+### Actual outcome
+
+Traceback (most recent call last):
+KeyError: 'seaborn-colorblind'
+
+### Expected outcome
+
+seaborn-colorblind should be set as the matplotlib library style and I should be able to continue plotting with that style.
+
+### Additional information
+
+- Bug occurs with matplotlib version 3.6.1
+- Bug does not occur with matplotlib version 3.4.3
+- Tested on MacOSX and Ubuntu (same behavior on both)
+
+### Operating system
+
+OS/X
+
+### Matplotlib Version
+
+3.6.1
+
+### Matplotlib Backend
+
+MacOSX
+
+### Python version
+
+3.9.7
+
+### Jupyter version
+
+_No response_
+
+### Installation
+
+pip
+
+
+## CRITICAL CONSTRAINT - ZERO EXECUTION MODE
+
+⚠️ **YOU ARE IN A SANDBOXED READ-ONLY ENVIRONMENT** ⚠️
+
+**Your Python interpreter has been DISABLED.** Any attempt to execute Python code will:
+1. Be blocked by the sandbox
+2. Result in IMMEDIATE TASK FAILURE
+3. Cause your entire output to be DISCARDED
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## ALLOWED Operations (Bash tool)
+You may ONLY use these exact commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations (Will cause TASK FAILURE)
+❌ `python` / `python3` / `python2` - ANY Python interpreter call
+❌ `python -c` / `python3 -c` - Inline Python execution
+❌ `pytest` / `unittest` / `nose` / `tox` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ Any `.py` file execution
+❌ `git` commands (interferes with experiment)
+❌ Any command that imports or runs Python code
+
+## Your Task
+1. Read and analyze the source code using ONLY the allowed commands
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+
+Remember: This experiment measures your ability to fix bugs through PURE REASONING without execution feedback. Attempting to run Python code defeats the purpose and will invalidate your results.

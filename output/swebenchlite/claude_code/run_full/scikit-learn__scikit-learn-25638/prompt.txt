@@ -1,0 +1,86 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: scikit-learn/scikit-learn
+- Base Commit: 6adb209acd63825affc884abcd85381f148fb1b0
+
+## Problem Description
+Support nullable pandas dtypes in `unique_labels`
+### Describe the workflow you want to enable
+
+I would like to be able to pass the nullable pandas dtypes ("Int64", "Float64", "boolean") into sklearn's `unique_labels` function. Because the dtypes become `object` dtype when converted to numpy arrays we get `ValueError: Mix type of y not allowed, got types {'binary', 'unknown'}`:
+
+Repro with sklearn 1.2.1
+```py 
+    import pandas as pd
+    import pytest
+    from sklearn.utils.multiclass import unique_labels
+    
+    for dtype in ["Int64", "Float64", "boolean"]:
+        y_true = pd.Series([1, 0, 0, 1, 0, 1, 1, 0, 1], dtype=dtype)
+        y_predicted = pd.Series([0, 0, 1, 1, 0, 1, 1, 1, 1], dtype="int64")
+
+        with pytest.raises(ValueError, match="Mix type of y not allowed, got types"):
+            unique_labels(y_true, y_predicted)
+```
+
+### Describe your proposed solution
+
+We should get the same behavior as when `int64`, `float64`, and `bool` dtypes are used, which is no error:  
+
+```python
+    import pandas as pd
+    from sklearn.utils.multiclass import unique_labels
+    
+    for dtype in ["int64", "float64", "bool"]:
+        y_true = pd.Series([1, 0, 0, 1, 0, 1, 1, 0, 1], dtype=dtype)
+        y_predicted = pd.Series([0, 0, 1, 1, 0, 1, 1, 1, 1], dtype="int64")
+
+        unique_labels(y_true, y_predicted)
+```
+
+### Describe alternatives you've considered, if relevant
+
+Our current workaround is to convert the data to numpy arrays with the corresponding dtype that works prior to passing it into `unique_labels`.
+
+### Additional context
+
+_No response_
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

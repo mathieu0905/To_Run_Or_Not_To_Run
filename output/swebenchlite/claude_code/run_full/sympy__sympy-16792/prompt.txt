@@ -1,0 +1,98 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: sympy/sympy
+- Base Commit: 09786a173e7a0a488f46dd6000177c23e5d24eed
+
+## Problem Description
+autowrap with cython backend fails when array arguments do not appear in wrapped expr
+When using the cython backend for autowrap, it appears that the code is not correctly generated when the function in question has array arguments that do not appear in the final expression. A minimal counterexample is:
+
+```python
+from sympy.utilities.autowrap import autowrap
+from sympy import MatrixSymbol
+import numpy as np
+
+x = MatrixSymbol('x', 2, 1)
+expr = 1.0
+f = autowrap(expr, args=(x,), backend='cython')
+
+f(np.array([[1.0, 2.0]]))
+```
+
+This should of course return `1.0` but instead fails with:
+```python
+TypeError: only size-1 arrays can be converted to Python scalars
+```
+
+A little inspection reveals that this is because the corresponding C function is generated with an incorrect signature:
+
+```C
+double autofunc(double x) {
+
+   double autofunc_result;
+   autofunc_result = 1.0;
+   return autofunc_result;
+
+}
+```
+
+(`x` should be `double *`, not `double` in this case)
+
+I've found that this error won't occur so long as `expr` depends at least in part on each argument. For example this slight modification of the above counterexample works perfectly:
+
+```python
+from sympy.utilities.autowrap import autowrap
+from sympy import MatrixSymbol
+import numpy as np
+
+x = MatrixSymbol('x', 2, 1)
+# now output depends on x
+expr = x[0,0]
+f = autowrap(expr, args=(x,), backend='cython')
+
+# returns 1.0 as expected, without failure
+f(np.array([[1.0, 2.0]]))
+```
+
+This may seem like a silly issue ("why even have `x` as an argument if it doesn't appear in the expression you're trying to evaluate?"). But of course in interfacing with external libraries (e.g. for numerical integration), one often needs functions to have a pre-defined signature regardless of whether a given argument contributes to the output.
+
+I think I've identified the problem in `codegen` and will suggest a PR shortly.
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

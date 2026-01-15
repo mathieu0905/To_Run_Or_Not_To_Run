@@ -1,0 +1,66 @@
+You are a code repair expert operating in a STRICT READ-ONLY ANALYSIS environment.
+
+## Repository Information
+- Repository: sympy/sympy
+- Base Commit: 3546ac7ed78e1780c1a76929864bb33330055740
+
+## Problem Description
+Python 2->3 pickle fails with float-containing expressions
+Dumping a pickled sympy expression containing a float in Python 2, then loading it in Python 3 generates an error.
+
+Here is a minimum working example, verified with sympy git commit 3546ac7 (master at time of writing), Python 2.7 and Python 3.6:
+
+```python
+python2 -c 'import pickle; import sympy; x = sympy.symbols("x"); print pickle.dumps(x + 1.0, 2)' | python3 -c 'import pickle; import sys; print(pickle.loads(sys.stdin.buffer.read()))'
+```
+
+and the result:
+
+```
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/Users/alex/git/VU/sympy/sympy/core/numbers.py", line 1045, in __new__
+    num[1] = long(num[1], 16)
+ValueError: invalid literal for int() with base 16: '1L'
+```
+
+
+## CRITICAL CONSTRAINT - ZERO EXECUTION MODE
+
+⚠️ **YOU ARE IN A SANDBOXED READ-ONLY ENVIRONMENT** ⚠️
+
+**Your Python interpreter has been DISABLED.** Any attempt to execute Python code will:
+1. Be blocked by the sandbox
+2. Result in IMMEDIATE TASK FAILURE
+3. Cause your entire output to be DISCARDED
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## ALLOWED Operations (Bash tool)
+You may ONLY use these exact commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations (Will cause TASK FAILURE)
+❌ `python` / `python3` / `python2` - ANY Python interpreter call
+❌ `python -c` / `python3 -c` - Inline Python execution
+❌ `pytest` / `unittest` / `nose` / `tox` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ Any `.py` file execution
+❌ `git` commands (interferes with experiment)
+❌ Any command that imports or runs Python code
+
+## Your Task
+1. Read and analyze the source code using ONLY the allowed commands
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+
+Remember: This experiment measures your ability to fix bugs through PURE REASONING without execution feedback. Attempting to run Python code defeats the purpose and will invalidate your results.

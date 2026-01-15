@@ -1,0 +1,113 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: sympy/sympy
+- Base Commit: d60497958f6dea7f5e25bc41e9107a6a63694d01
+
+## Problem Description
+Wrong result with apart
+```
+Python 3.6.0 |Continuum Analytics, Inc.| (default, Dec 23 2016, 12:22:00) 
+Type "copyright", "credits" or "license" for more information.
+
+IPython 5.1.0 -- An enhanced Interactive Python.
+?         -> Introduction and overview of IPython's features.
+%quickref -> Quick reference.
+help      -> Python's own help system.
+object?   -> Details about 'object', use 'object??' for extra details.
+
+In [1]: from sympy import symbols
+
+In [2]: a = symbols('a', real=True)
+
+In [3]: t = symbols('t', real=True, negative=False)
+
+In [4]: bug = a * (-t + (-t + 1) * (2 * t - 1)) / (2 * t - 1)
+
+In [5]: bug.subs(a, 1)
+Out[5]: (-t + (-t + 1)*(2*t - 1))/(2*t - 1)
+
+In [6]: bug.subs(a, 1).apart()
+Out[6]: -t + 1/2 - 1/(2*(2*t - 1))
+
+In [7]: bug.subs(a, 1).apart(t)
+Out[7]: -t + 1/2 - 1/(2*(2*t - 1))
+
+In [8]: bug.apart(t)
+Out[8]: -a*t
+
+In [9]: import sympy; sympy.__version__
+Out[9]: '1.0'
+```
+Wrong result with apart
+```
+Python 3.6.0 |Continuum Analytics, Inc.| (default, Dec 23 2016, 12:22:00) 
+Type "copyright", "credits" or "license" for more information.
+
+IPython 5.1.0 -- An enhanced Interactive Python.
+?         -> Introduction and overview of IPython's features.
+%quickref -> Quick reference.
+help      -> Python's own help system.
+object?   -> Details about 'object', use 'object??' for extra details.
+
+In [1]: from sympy import symbols
+
+In [2]: a = symbols('a', real=True)
+
+In [3]: t = symbols('t', real=True, negative=False)
+
+In [4]: bug = a * (-t + (-t + 1) * (2 * t - 1)) / (2 * t - 1)
+
+In [5]: bug.subs(a, 1)
+Out[5]: (-t + (-t + 1)*(2*t - 1))/(2*t - 1)
+
+In [6]: bug.subs(a, 1).apart()
+Out[6]: -t + 1/2 - 1/(2*(2*t - 1))
+
+In [7]: bug.subs(a, 1).apart(t)
+Out[7]: -t + 1/2 - 1/(2*(2*t - 1))
+
+In [8]: bug.apart(t)
+Out[8]: -a*t
+
+In [9]: import sympy; sympy.__version__
+Out[9]: '1.0'
+```
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

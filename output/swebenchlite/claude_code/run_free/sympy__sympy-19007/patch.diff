@@ -1,0 +1,61 @@
+diff --git a/sympy/matrices/expressions/blockmatrix.py b/sympy/matrices/expressions/blockmatrix.py
+index b821c42845..75a2a82b72 100644
+--- a/sympy/matrices/expressions/blockmatrix.py
++++ b/sympy/matrices/expressions/blockmatrix.py
+@@ -233,19 +233,52 @@ def transpose(self):
+         return self._eval_transpose()
+ 
+     def _entry(self, i, j, **kwargs):
++        from sympy.functions import Piecewise
++
+         # Find row entry
++        orig_i, orig_j = i, j
+         for row_block, numrows in enumerate(self.rowblocksizes):
+-            if (i < numrows) != False:
++            cmp = i < numrows
++            if cmp == True:
+                 break
+-            else:
++            elif cmp == False:
+                 i -= numrows
++            else:
++                # Symbolic index - Loss of information, return Piecewise
++                return Piecewise(
++                    *self._entry_piecewise(orig_i, orig_j, **kwargs)
++                )
+         for col_block, numcols in enumerate(self.colblocksizes):
+-            if (j < numcols) != False:
++            cmp = j < numcols
++            if cmp == True:
+                 break
+-            else:
++            elif cmp == False:
+                 j -= numcols
++            else:
++                # Symbolic index - Loss of information, return Piecewise
++                return Piecewise(
++                    *self._entry_piecewise(orig_i, orig_j, **kwargs)
++                )
+         return self.blocks[row_block, col_block][i, j]
+ 
++    def _entry_piecewise(self, i, j, **kwargs):
++        from sympy import And
++        # Build Piecewise conditions for symbolic indices
++        row_offset = 0
++        pieces = []
++        for row_idx, numrows in enumerate(self.rowblocksizes):
++            col_offset = 0
++            for col_idx, numcols in enumerate(self.colblocksizes):
++                block = self.blocks[row_idx, col_idx]
++                row_cond = And(i >= row_offset, i < row_offset + numrows)
++                col_cond = And(j >= col_offset, j < col_offset + numcols)
++                cond = And(row_cond, col_cond)
++                entry = block[i - row_offset, j - col_offset]
++                pieces.append((entry, cond))
++                col_offset += numcols
++            row_offset += numrows
++        return pieces
++
+     @property
+     def is_Identity(self):
+         if self.blockshape[0] != self.blockshape[1]:

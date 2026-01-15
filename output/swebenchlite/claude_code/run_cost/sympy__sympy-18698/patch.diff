@@ -1,0 +1,40 @@
+diff --git a/sympy/polys/polytools.py b/sympy/polys/polytools.py
+index c9e77a901f..b2d451fb70 100644
+--- a/sympy/polys/polytools.py
++++ b/sympy/polys/polytools.py
+@@ -5895,6 +5895,24 @@ def _factors_product(factors):
+     return Mul(*[f.as_expr()**k for f, k in factors])
+ 
+ 
++def _combine_factors_by_multiplicity(factors, opt):
++    """Combine factors with the same multiplicity for sqf_list."""
++    from collections import defaultdict
++    by_mult = defaultdict(list)
++    for f, k in factors:
++        by_mult[k].append(f)
++    result = []
++    for k, fs in by_mult.items():
++        if len(fs) == 1:
++            result.append((fs[0], k))
++        else:
++            # Multiply factors with the same multiplicity
++            product = Mul(*[f.as_expr() for f in fs])
++            poly, _ = _poly_from_expr(product, opt)
++            result.append((poly, k))
++    return result
++
++
+ def _symbolic_factor_list(expr, opt, method):
+     """Helper function for :func:`_symbolic_factor`. """
+     coeff, factors = S.One, []
+@@ -5950,6 +5968,10 @@ def _symbolic_factor_list(expr, opt, method):
+ 
+                 factors.append((_factors_product(other), exp))
+ 
++    if method == 'sqf':
++        # Combine factors with the same multiplicity
++        factors = _combine_factors_by_multiplicity(factors, opt)
++
+     return coeff, factors
+ 
+ 

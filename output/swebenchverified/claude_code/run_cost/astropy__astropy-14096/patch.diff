@@ -1,0 +1,17 @@
+diff --git a/astropy/coordinates/sky_coordinate.py b/astropy/coordinates/sky_coordinate.py
+index ab475f7d0..b48d6f2c2 100644
+--- a/astropy/coordinates/sky_coordinate.py
++++ b/astropy/coordinates/sky_coordinate.py
+@@ -895,6 +895,12 @@ class SkyCoord(ShapedLikeNDArray):
+                 return self.transform_to(attr)
+ 
+         # Fail
++        # Check if attr is a descriptor (like a property) in the class hierarchy.
++        # If so, invoke it to get the real error from inside the descriptor.
++        for cls in type(self).__mro__:
++            if attr in getattr(cls, "__dict__", {}):
++                return cls.__dict__[attr].__get__(self, type(self))
++
+         raise AttributeError(
+             f"'{self.__class__.__name__}' object has no attribute '{attr}'"
+         )

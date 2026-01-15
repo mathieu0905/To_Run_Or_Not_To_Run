@@ -1,0 +1,97 @@
+You are a code repair expert operating in a COST-AWARE environment.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 36300ef336e3f130a0dadc1143163ff3d23dc843
+
+## Problem Description
+Fix parse_duration() for some negative durations
+Description
+	
+The ​https://docs.djangoproject.com/en/2.1/_modules/django/utils/dateparse/ defines:
+standard_duration_re = re.compile(
+	r'^'
+	r'(?:(?P<days>-?\d+) (days?, )?)?'
+	r'((?:(?P<hours>-?\d+):)(?=\d+:\d+))?'
+	r'(?:(?P<minutes>-?\d+):)?'
+	r'(?P<seconds>-?\d+)'
+	r'(?:\.(?P<microseconds>\d{1,6})\d{0,6})?'
+	r'$'
+)
+that doesn't match to negative durations, because of the <hours> definition final (lookahead) part does not have '-?' in it. The following will work:
+	r'((?:(?P<hours>-?\d+):)(?=-?\d+:-?\d+))?'
+(Thanks to Konstantin Senichev for finding the fix.)
+
+
+## EXECUTION MODE - COST-AWARE
+
+💰 **EVERY EXECUTION HAS A COST - MAKE EACH ONE COUNT** 💰
+
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost that is tracked.
+
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## When to Execute
+
+**DO execute when:**
+- You need to verify your understanding of the bug behavior
+- You want to confirm your fix works before finalizing
+- You're uncertain about runtime behavior that can't be determined statically
+- Running a test will give you confidence in your solution
+
+**Consider skipping when:**
+- The bug is obvious from reading the code
+- You're highly confident in your fix (>90%)
+- You've already verified similar behavior
+
+## Execution Protocol
+**BEFORE each Python execution, briefly note:**
+```
+[COST] X.X points | Purpose: <what you want to learn>
+```
+
+## Strategy Tips
+
+1. **Understand first, then verify**
+   - Read the relevant code to form a hypothesis
+   - Use execution to confirm, not to explore blindly
+
+2. **Make executions count**
+   - If you run a test, add print statements to get maximum information
+   - One well-designed test run is better than multiple quick runs
+
+3. **Balance confidence vs cost**
+   - If you're 70% confident, a verification run is reasonable
+   - If you're 95% confident, you might skip verification
+   - Use your judgment - there's no single right answer
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed (be cost-conscious but not afraid to execute)
+3. Generate a fix using the Edit tool to modify source files
+4. Consider running a final verification if you're not highly confident
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

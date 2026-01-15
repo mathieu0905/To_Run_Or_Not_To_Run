@@ -1,0 +1,22 @@
+diff --git a/sympy/polys/polytools.py b/sympy/polys/polytools.py
+index c9e77a901f..47675bf321 100644
+--- a/sympy/polys/polytools.py
++++ b/sympy/polys/polytools.py
+@@ -5995,6 +5995,17 @@ def _generic_factor_list(expr, gens, args, method):
+                     f, _ = _poly_from_expr(f, _opt)
+                     factors[i] = (f, k)
+ 
++        if method == 'sqf':
++            # Combine factors with the same multiplicity
++            for factors in (fp, fq):
++                combined = {}
++                for f, k in factors:
++                    if k in combined:
++                        combined[k] *= f
++                    else:
++                        combined[k] = f
++                factors[:] = [(f, k) for k, f in combined.items()]
++
+         fp = _sorted_factors(fp, method)
+         fq = _sorted_factors(fq, method)
+ 

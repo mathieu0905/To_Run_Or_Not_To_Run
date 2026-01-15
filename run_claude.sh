@@ -13,8 +13,8 @@ cd experiments
 
 # ========== 配置区域 ==========
 # 实验配置
-NUM_INSTANCES=30  # 取前 n 个实例
-WORKERS=8  # 每个配置内部的并发数
+NUM_INSTANCES=300  # 取前 n 个实例
+WORKERS=30  # 每个配置内部的并发数
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Lite"
 

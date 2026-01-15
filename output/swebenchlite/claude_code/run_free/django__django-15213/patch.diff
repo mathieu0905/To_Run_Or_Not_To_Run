@@ -1,0 +1,13 @@
+diff --git a/django/db/models/sql/where.py b/django/db/models/sql/where.py
+index 50ff13be75..2986da0922 100644
+--- a/django/db/models/sql/where.py
++++ b/django/db/models/sql/where.py
+@@ -214,6 +214,8 @@ class WhereNode(tree.Node):
+         # Wrap filters with a CASE WHEN expression if a database backend
+         # (e.g. Oracle) doesn't support boolean expression in SELECT or GROUP
+         # BY list.
++        if not sql:
++            return '1', params
+         if not compiler.connection.features.supports_boolean_expr_in_select_clause:
+             sql = f'CASE WHEN {sql} THEN 1 ELSE 0 END'
+         return sql, params

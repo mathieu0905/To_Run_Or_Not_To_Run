@@ -1,0 +1,71 @@
+diff --git a/django/db/backends/base/features.py b/django/db/backends/base/features.py
+index 11dd079110..121e3490f0 100644
+--- a/django/db/backends/base/features.py
++++ b/django/db/backends/base/features.py
+@@ -33,6 +33,7 @@ class BaseDatabaseFeatures:
+     can_use_chunked_reads = True
+     can_return_columns_from_insert = False
+     can_return_rows_from_bulk_insert = False
++    can_return_rows_from_bulk_insert_on_conflict = False
+     has_bulk_insert = True
+     uses_savepoints = True
+     can_release_savepoints = False
+diff --git a/django/db/backends/postgresql/features.py b/django/db/backends/postgresql/features.py
+index 29b6a4f6c5..cf8c695c85 100644
+--- a/django/db/backends/postgresql/features.py
++++ b/django/db/backends/postgresql/features.py
+@@ -11,6 +11,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
+     allows_group_by_selected_pks = True
+     can_return_columns_from_insert = True
+     can_return_rows_from_bulk_insert = True
++    can_return_rows_from_bulk_insert_on_conflict = True
+     has_real_datatype = True
+     has_native_uuid_field = True
+     has_native_duration_field = True
+diff --git a/django/db/backends/sqlite3/features.py b/django/db/backends/sqlite3/features.py
+index f471b72cb2..7774c6538e 100644
+--- a/django/db/backends/sqlite3/features.py
++++ b/django/db/backends/sqlite3/features.py
+@@ -165,3 +165,6 @@ class DatabaseFeatures(BaseDatabaseFeatures):
+     can_return_rows_from_bulk_insert = property(
+         operator.attrgetter("can_return_columns_from_insert")
+     )
++    can_return_rows_from_bulk_insert_on_conflict = property(
++        operator.attrgetter("can_return_columns_from_insert")
++    )
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index 5ac2407ea3..6e9a22f081 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -813,6 +813,9 @@ class QuerySet(AltersData):
+                 if (
+                     connection.features.can_return_rows_from_bulk_insert
+                     and on_conflict is None
++                ) or (
++                    connection.features.can_return_rows_from_bulk_insert_on_conflict
++                    and on_conflict == OnConflict.UPDATE
+                 ):
+                     assert len(returned_columns) == len(objs_without_pk)
+                 for obj_without_pk, results in zip(objs_without_pk, returned_columns):
+@@ -1846,6 +1849,21 @@ class QuerySet(AltersData):
+                         returning_fields=self.model._meta.db_returning_fields,
+                     )
+                 )
++            elif (
++                on_conflict == OnConflict.UPDATE
++                and connection.features.can_return_rows_from_bulk_insert_on_conflict
++            ):
++                inserted_rows.extend(
++                    self._insert(
++                        item,
++                        fields=fields,
++                        using=self.db,
++                        on_conflict=on_conflict,
++                        update_fields=update_fields,
++                        unique_fields=unique_fields,
++                        returning_fields=self.model._meta.db_returning_fields,
++                    )
++                )
+             else:
+                 self._insert(
+                     item,

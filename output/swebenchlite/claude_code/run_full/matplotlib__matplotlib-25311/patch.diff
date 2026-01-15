@@ -1,0 +1,36 @@
+diff --git a/lib/matplotlib/offsetbox.py b/lib/matplotlib/offsetbox.py
+index 1dee8a23d9..9eac79dd14 100644
+--- a/lib/matplotlib/offsetbox.py
++++ b/lib/matplotlib/offsetbox.py
+@@ -1505,8 +1505,9 @@ class DraggableBase:
+         if not ref_artist.pickable():
+             ref_artist.set_picker(True)
+         self.got_artist = False
++        self._use_blit = use_blit
+         self.canvas = self.ref_artist.figure.canvas
+-        self._use_blit = use_blit and self.canvas.supports_blit
++        self._c1 = None
+         self.cids = [
+             self.canvas.callbacks._connect_picklable(
+                 'pick_event', self.on_pick),
+@@ -1514,6 +1515,20 @@ class DraggableBase:
+                 'button_release_event', self.on_release),
+         ]
+ 
++    def __getstate__(self):
++        state = self.__dict__.copy()
++        # The canvas cannot be pickled, but will be set on unpickle.
++        state.pop('canvas')
++        state.pop('cids')
++        state.pop('_c1')
++        return state
++
++    def __setstate__(self, state):
++        self.__dict__.update(state)
++        self.canvas = None
++        self.cids = []
++        self._c1 = None
++
+     def on_motion(self, evt):
+         if self._check_still_parented() and self.got_artist:
+             dx = evt.x - self.mouse_x

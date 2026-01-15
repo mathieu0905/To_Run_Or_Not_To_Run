@@ -1,0 +1,99 @@
+You are a code repair expert operating in a BUDGET-CONSTRAINED environment.
+
+## Repository Information
+- Repository: pytest-dev/pytest
+- Base Commit: 29e336bd9bf87eaef8e2683196ee1975f1ad4088
+
+## Problem Description
+Hostname and timestamp properties in generated JUnit XML reports
+Pytest enables generating JUnit XML reports of the tests.
+
+However, there are some properties missing, specifically `hostname` and `timestamp` from the `testsuite` XML element. Is there an option to include them?
+
+Example of a pytest XML report:
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<testsuite errors="0" failures="2" name="check" skipped="0" tests="4" time="0.049">
+	<testcase classname="test_sample.TestClass" file="test_sample.py" line="3" name="test_addOne_normal" time="0.001"></testcase>
+	<testcase classname="test_sample.TestClass" file="test_sample.py" line="6" name="test_addOne_edge" time="0.001"></testcase>
+</testsuite>
+```
+
+Example of a junit XML report:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="location.GeoLocationTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2019-04-22T10:32:27" hostname="Anass-MacBook-Pro.local" time="0.048">
+  <properties/>
+  <testcase name="testIoException()" classname="location.GeoLocationTest" time="0.044"/>
+  <testcase name="testJsonDeserialization()" classname="location.GeoLocationTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
+```
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 3 TEST EXECUTION(S) - USE THEM WISELY** 🎯
+
+This is a research experiment testing efficient debugging with limited but valuable executions.
+You have a budget of 3 test run(s). **This budget is meant to be used** - don't leave it unused!
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
+
+**Tip:** Prefer low-cost operations when possible. Write a small reproduction script instead of running the full test suite.
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## How to Use Your Budget
+
+**Recommended workflow:**
+1. Read the code to understand the problem
+2. Form a hypothesis about the bug
+3. **USE your execution budget** to verify your hypothesis or test your fix
+4. Apply the fix based on what you learned
+
+**Good uses of your budget:**
+- Reproduce the bug to confirm you understand it
+- Test your fix to make sure it works
+- Run with debug prints to understand runtime behavior
+
+**Your budget of 3 is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 3 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 3
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 3 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

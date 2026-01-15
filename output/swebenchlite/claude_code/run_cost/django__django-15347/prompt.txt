@@ -1,0 +1,104 @@
+You are a code repair expert operating in a COST-AWARE environment.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 7c4f3965098baad2396e24501e09237425a7bd6f
+
+## Problem Description
+Messages framework incorrectly serializes/deserializes extra_tags when it's an empty string
+Description
+	
+When a message is serialised and then deserialised with any of the built in storage backends, then extra_tags=="" is converted to extra_tags==None. This is because MessageEncoder checks for the truthyness of extra_tags rather than checking it is not None.
+To replicate this bug
+>>> from django.conf import settings
+>>> settings.configure() # Just to allow the following import
+>>> from django.contrib.messages.storage.base import Message
+>>> from django.contrib.messages.storage.cookie import MessageEncoder, MessageDecoder
+>>> original_message = Message(10, "Here is a message", extra_tags="")
+>>> encoded_message = MessageEncoder().encode(original_message)
+>>> decoded_message = MessageDecoder().decode(encoded_message)
+>>> original_message.extra_tags == ""
+True
+>>> decoded_message.extra_tags is None
+True
+Effect of the bug in application behaviour
+This error occurred in the wild with a template tag similar to the following:
+{% if x not in message.extra_tags %}
+When the message was displayed as part of a redirect, it had been serialised and deserialized which meant that extra_tags was None instead of the empty string. This caused an error.
+It's important to note that this bug affects all of the standard API (messages.debug, messages.info etc. all have a default value of extra_tags equal to "").
+
+
+## EXECUTION MODE - COST-AWARE
+
+💰 **EVERY EXECUTION HAS A COST - MAKE EACH ONE COUNT** 💰
+
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost that is tracked.
+
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## When to Execute
+
+**DO execute when:**
+- You need to verify your understanding of the bug behavior
+- You want to confirm your fix works before finalizing
+- You're uncertain about runtime behavior that can't be determined statically
+- Running a test will give you confidence in your solution
+
+**Consider skipping when:**
+- The bug is obvious from reading the code
+- You're highly confident in your fix (>90%)
+- You've already verified similar behavior
+
+## Execution Protocol
+**BEFORE each Python execution, briefly note:**
+```
+[COST] X.X points | Purpose: <what you want to learn>
+```
+
+## Strategy Tips
+
+1. **Understand first, then verify**
+   - Read the relevant code to form a hypothesis
+   - Use execution to confirm, not to explore blindly
+
+2. **Make executions count**
+   - If you run a test, add print statements to get maximum information
+   - One well-designed test run is better than multiple quick runs
+
+3. **Balance confidence vs cost**
+   - If you're 70% confident, a verification run is reasonable
+   - If you're 95% confident, you might skip verification
+   - Use your judgment - there's no single right answer
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed (be cost-conscious but not afraid to execute)
+3. Generate a fix using the Edit tool to modify source files
+4. Consider running a final verification if you're not highly confident
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

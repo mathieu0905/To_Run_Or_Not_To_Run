@@ -1,0 +1,103 @@
+You are a code repair expert operating in a BUDGET-CONSTRAINED environment.
+
+## Repository Information
+- Repository: sympy/sympy
+- Base Commit: e8c22f6eac7314be8d92590bfff92ced79ee03e2
+
+## Problem Description
+collect_factor_and_dimension does not detect equivalent dimensions in addition
+Code to reproduce:
+```python
+from sympy.physics import units
+from sympy.physics.units.systems.si import SI
+
+v1 = units.Quantity('v1')
+SI.set_quantity_dimension(v1, units.velocity)
+SI.set_quantity_scale_factor(v1, 2 * units.meter / units.second)
+
+a1 = units.Quantity('a1')
+SI.set_quantity_dimension(a1, units.acceleration)
+SI.set_quantity_scale_factor(a1, -9.8 * units.meter / units.second**2)
+
+t1 = units.Quantity('t1')
+SI.set_quantity_dimension(t1, units.time)
+SI.set_quantity_scale_factor(t1, 5 * units.second)
+
+expr1 = a1*t1 + v1
+SI._collect_factor_and_dimension(expr1)
+```
+Results in:
+```
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "C:\Python\Python310\lib\site-packages\sympy\physics\units\unitsystem.py", line 179, in _collect_factor_and_dimension
+    raise ValueError(
+ValueError: Dimension of "v1" is Dimension(velocity), but it should be Dimension(acceleration*time)
+```
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 3 TEST EXECUTION(S) - USE THEM WISELY** 🎯
+
+This is a research experiment testing efficient debugging with limited but valuable executions.
+You have a budget of 3 test run(s). **This budget is meant to be used** - don't leave it unused!
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework with setup/teardown overhead |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+**Cost Model Rationale:** Test frameworks (1.0) have higher overhead due to test discovery, fixture setup, and reporting. Simple scripts (0.3) run directly with minimal overhead. These are relative weights for comparing execution strategies, not actual runtime measurements.
+
+**Tip:** Prefer low-cost operations when possible. Write a small reproduction script instead of running the full test suite.
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## How to Use Your Budget
+
+**Recommended workflow:**
+1. Read the code to understand the problem
+2. Form a hypothesis about the bug
+3. **USE your execution budget** to verify your hypothesis or test your fix
+4. Apply the fix based on what you learned
+
+**Good uses of your budget:**
+- Reproduce the bug to confirm you understand it
+- Test your fix to make sure it works
+- Run with debug prints to understand runtime behavior
+
+**Your budget of 3 is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 3 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 3
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 3 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

@@ -1,0 +1,24 @@
+diff --git a/sympy/parsing/sympy_parser.py b/sympy/parsing/sympy_parser.py
+index 0e3c8e4be7..9c6817b615 100644
+--- a/sympy/parsing/sympy_parser.py
++++ b/sympy/parsing/sympy_parser.py
+@@ -1096,3 +1096,19 @@ def visit_BinOp(self, node):
+ 
+             return new_node
+         return node
++
++    functions = (
++        'Abs', 'im', 're', 'sign', 'arg', 'conjugate',
++        'acos', 'acot', 'acsc', 'asec', 'asin', 'atan',
++        'acosh', 'acoth', 'acsch', 'asech', 'asinh', 'atanh',
++        'cos', 'cot', 'csc', 'sec', 'sin', 'tan',
++        'cosh', 'coth', 'csch', 'sech', 'sinh', 'tanh',
++        'exp', 'ln', 'log', 'sqrt', 'cbrt',
++        'ceiling', 'floor',
++    )
++
++    def visit_Call(self, node):
++        new_node = self.generic_visit(node)
++        if isinstance(node.func, ast.Name) and node.func.id in self.functions:
++            new_node.keywords.append(ast.keyword(arg='evaluate', value=ast.NameConstant(value=False)))
++        return new_node

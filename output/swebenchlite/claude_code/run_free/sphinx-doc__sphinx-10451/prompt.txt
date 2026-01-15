@@ -1,0 +1,141 @@
+You are a code repair expert operating in a STRICT READ-ONLY ANALYSIS environment.
+
+## Repository Information
+- Repository: sphinx-doc/sphinx
+- Base Commit: 195e911f1dab04b8ddeacbe04b7d214aaf81bb0b
+
+## Problem Description
+Fix duplicated *args and **kwargs with autodoc_typehints
+Fix duplicated *args and **kwargs with autodoc_typehints
+
+### Bugfix
+- Bugfix
+
+### Detail
+Consider this
+```python
+class _ClassWithDocumentedInitAndStarArgs:
+    """Class docstring."""
+
+    def __init__(self, x: int, *args: int, **kwargs: int) -> None:
+        """Init docstring.
+
+        :param x: Some integer
+        :param *args: Some integer
+        :param **kwargs: Some integer
+        """
+```
+when using the autodoc extension and the setting `autodoc_typehints = "description"`.
+
+WIth sphinx 4.2.0, the current output is
+```
+Class docstring.
+
+   Parameters:
+      * **x** (*int*) --
+
+      * **args** (*int*) --
+
+      * **kwargs** (*int*) --
+
+   Return type:
+      None
+
+   __init__(x, *args, **kwargs)
+
+      Init docstring.
+
+      Parameters:
+         * **x** (*int*) -- Some integer
+
+         * ***args** --
+
+           Some integer
+
+         * ****kwargs** --
+
+           Some integer
+
+         * **args** (*int*) --
+
+         * **kwargs** (*int*) --
+
+      Return type:
+         None
+```
+where the *args and **kwargs are duplicated and incomplete.
+
+The expected output is
+```
+  Class docstring.
+
+   Parameters:
+      * **x** (*int*) --
+
+      * ***args** (*int*) --
+
+      * ****kwargs** (*int*) --
+
+   Return type:
+      None
+
+   __init__(x, *args, **kwargs)
+
+      Init docstring.
+
+      Parameters:
+         * **x** (*int*) -- Some integer
+
+         * ***args** (*int*) --
+
+           Some integer
+
+         * ****kwargs** (*int*) --
+
+           Some integer
+
+      Return type:
+         None
+
+```
+
+
+## CRITICAL CONSTRAINT - ZERO EXECUTION MODE
+
+⚠️ **YOU ARE IN A SANDBOXED READ-ONLY ENVIRONMENT** ⚠️
+
+**Your Python interpreter has been DISABLED.** Any attempt to execute Python code will:
+1. Be blocked by the sandbox
+2. Result in IMMEDIATE TASK FAILURE
+3. Cause your entire output to be DISCARDED
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## ALLOWED Operations (Bash tool)
+You may ONLY use these exact commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations (Will cause TASK FAILURE)
+❌ `python` / `python3` / `python2` - ANY Python interpreter call
+❌ `python -c` / `python3 -c` - Inline Python execution
+❌ `pytest` / `unittest` / `nose` / `tox` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ Any `.py` file execution
+❌ `git` commands (interferes with experiment)
+❌ Any command that imports or runs Python code
+
+## Your Task
+1. Read and analyze the source code using ONLY the allowed commands
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+
+Remember: This experiment measures your ability to fix bugs through PURE REASONING without execution feedback. Attempting to run Python code defeats the purpose and will invalidate your results.

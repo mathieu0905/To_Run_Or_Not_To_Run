@@ -1,0 +1,97 @@
+diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+index 03f0f11507..633aff33db 100644
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -538,6 +538,28 @@ class BaseDatabaseSchemaEditor:
+             fields = [model._meta.get_field(field) for field in field_names]
+             self.execute(self._create_unique_sql(model, fields))
+ 
++    def alter_unique_together_with_model(
++        self, old_model, new_model, old_unique_together, new_unique_together
++    ):
++        """
++        Deal with a model changing its unique_together, using old_model for
++        deletions and new_model for additions.
++        """
++        olds = {tuple(fields) for fields in old_unique_together}
++        news = {tuple(fields) for fields in new_unique_together}
++        # Deleted uniques
++        for fields in olds.difference(news):
++            self._delete_composed_index(
++                old_model,
++                fields,
++                {"unique": True, "primary_key": False},
++                self.sql_delete_unique,
++            )
++        # Created uniques
++        for field_names in news.difference(olds):
++            fields = [new_model._meta.get_field(field) for field in field_names]
++            self.execute(self._create_unique_sql(new_model, fields))
++
+     def alter_index_together(self, model, old_index_together, new_index_together):
+         """
+         Deal with a model changing its index_together. The input
+@@ -559,6 +581,28 @@ class BaseDatabaseSchemaEditor:
+             fields = [model._meta.get_field(field) for field in field_names]
+             self.execute(self._create_index_sql(model, fields=fields, suffix="_idx"))
+ 
++    def alter_index_together_with_model(
++        self, old_model, new_model, old_index_together, new_index_together
++    ):
++        """
++        Deal with a model changing its index_together, using old_model for
++        deletions and new_model for additions.
++        """
++        olds = {tuple(fields) for fields in old_index_together}
++        news = {tuple(fields) for fields in new_index_together}
++        # Deleted indexes
++        for fields in olds.difference(news):
++            self._delete_composed_index(
++                old_model,
++                fields,
++                {"index": True, "unique": False},
++                self.sql_delete_index,
++            )
++        # Created indexes
++        for field_names in news.difference(olds):
++            fields = [new_model._meta.get_field(field) for field in field_names]
++            self.execute(self._create_index_sql(new_model, fields=fields, suffix="_idx"))
++
+     def _delete_composed_index(self, model, fields, constraint_kwargs, sql):
+         meta_constraint_names = {
+             constraint.name for constraint in model._meta.constraints
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index 75a3b8b030..29453e5cc9 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -561,12 +561,25 @@ class AlterTogetherOptionOperation(ModelOptionOperation):
+         new_model = to_state.apps.get_model(app_label, self.name)
+         if self.allow_migrate_model(schema_editor.connection.alias, new_model):
+             old_model = from_state.apps.get_model(app_label, self.name)
+-            alter_together = getattr(schema_editor, "alter_%s" % self.option_name)
+-            alter_together(
+-                new_model,
+-                getattr(old_model._meta, self.option_name, set()),
+-                getattr(new_model._meta, self.option_name, set()),
++            alter_together_with_model = getattr(
++                schema_editor,
++                "alter_%s_with_model" % self.option_name,
++                None,
+             )
++            if alter_together_with_model is not None:
++                alter_together_with_model(
++                    old_model,
++                    new_model,
++                    getattr(old_model._meta, self.option_name, set()),
++                    getattr(new_model._meta, self.option_name, set()),
++                )
++            else:
++                alter_together = getattr(schema_editor, "alter_%s" % self.option_name)
++                alter_together(
++                    new_model,
++                    getattr(old_model._meta, self.option_name, set()),
++                    getattr(new_model._meta, self.option_name, set()),
++                )
+ 
+     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+         return self.database_forwards(app_label, schema_editor, from_state, to_state)

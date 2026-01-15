@@ -1,0 +1,77 @@
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 2903b8995..711ac61e2 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -549,6 +549,28 @@ def _call_reprcompare(ops, results, expls, each_obj):
+     return expl
+ 
+ 
++def _unroll_all(iter):
++    """Return the first falsy item, or True if all are truthy.
++
++    This allows assertion messages to show the actual failing value.
++    """
++    for item in iter:
++        if not item:
++            return item
++    return True
++
++
++def _unroll_any(iter):
++    """Return the first truthy item, or False if all are falsy.
++
++    This allows assertion messages to show the actual passing value.
++    """
++    for item in iter:
++        if item:
++            return item
++    return False
++
++
+ unary_map = {ast.Not: "not %s", ast.Invert: "~%s", ast.USub: "-%s", ast.UAdd: "+%s"}
+ 
+ binop_map = {
+@@ -968,6 +990,14 @@ warn_explicit(
+         """
+         visit `ast.Call` nodes on Python3.5 and after
+         """
++        if (
++            isinstance(call.func, ast.Name)
++            and call.func.id in ("all", "any")
++            and len(call.args) == 1
++            and not call.keywords
++            and isinstance(call.args[0], ast.GeneratorExp)
++        ):
++            return self.visit_all_any(call)
+         new_func, func_expl = self.visit(call.func)
+         arg_expls = []
+         new_args = []
+@@ -991,6 +1021,28 @@ warn_explicit(
+         outer_expl = "%s\n{%s = %s\n}" % (res_expl, res_expl, expl)
+         return res, outer_expl
+ 
++    def visit_all_any(self, call):
++        """Special handling for all/any with generator expressions.
++
++        Unrolls the iterator to show the first failing/passing element.
++        """
++        func_id = call.func.id
++        gen = call.args[0]
++        comp = gen.generators[0]
++        # Visit the iterator to get its explanation
++        iter_res, iter_expl = self.visit(comp.iter)
++        # Create a new generator with the visited iterator
++        new_gen = ast.GeneratorExp(
++            gen.elt,
++            [ast.comprehension(comp.target, iter_res, comp.ifs, getattr(comp, 'is_async', 0))]
++        )
++        # Call our helper function to unroll the iterator
++        helper_name = "_unroll_" + func_id
++        new_call = self.helper(helper_name, new_gen)
++        res = self.assign(new_call)
++        res_expl = self.explanation_param(self.display(res))
++        return res, res_expl
++
+     def visit_Starred(self, starred):
+         # From Python 3.5, a Starred node can appear in a function call
+         res, expl = self.visit(starred.value)

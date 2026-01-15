@@ -1,0 +1,125 @@
+You are a code repair expert operating in a STRICT READ-ONLY ANALYSIS environment.
+
+## Repository Information
+- Repository: pylint-dev/pylint
+- Base Commit: 397c1703e8ae6349d33f7b99f45b2ccaf581e666
+
+## Problem Description
+Linting fails if module contains module of the same name
+### Steps to reproduce
+
+Given multiple files:
+```
+.
+`-- a/
+    |-- a.py
+    `-- b.py
+```
+Which are all empty, running `pylint a` fails:
+
+```
+$ pylint a
+************* Module a
+a/__init__.py:1:0: F0010: error while code parsing: Unable to load file a/__init__.py:
+[Errno 2] No such file or directory: 'a/__init__.py' (parse-error)
+$
+```
+
+However, if I rename `a.py`, `pylint a` succeeds:
+
+```
+$ mv a/a.py a/c.py
+$ pylint a
+$
+```
+Alternatively, I can also `touch a/__init__.py`, but that shouldn't be necessary anymore.
+
+### Current behavior
+
+Running `pylint a` if `a/a.py` is present fails while searching for an `__init__.py` file.
+
+### Expected behavior
+
+Running `pylint a` if `a/a.py` is present should succeed.
+
+### pylint --version output
+
+Result of `pylint --version` output:
+
+```
+pylint 3.0.0a3
+astroid 2.5.6
+Python 3.8.5 (default, Jan 27 2021, 15:41:15) 
+[GCC 9.3.0]
+```
+
+### Additional info
+
+This also has some side-effects in module resolution. For example, if I create another file `r.py`:
+
+```
+.
+|-- a
+|   |-- a.py
+|   `-- b.py
+`-- r.py
+```
+
+With the content:
+
+```
+from a import b
+```
+
+Running `pylint -E r` will run fine, but `pylint -E r a` will fail. Not just for module a, but for module r as well.
+
+```
+************* Module r
+r.py:1:0: E0611: No name 'b' in module 'a' (no-name-in-module)
+************* Module a
+a/__init__.py:1:0: F0010: error while code parsing: Unable to load file a/__init__.py:
+[Errno 2] No such file or directory: 'a/__init__.py' (parse-error)
+```
+
+Again, if I rename `a.py` to `c.py`, `pylint -E r a` will work perfectly.
+
+
+## CRITICAL CONSTRAINT - ZERO EXECUTION MODE
+
+⚠️ **YOU ARE IN A SANDBOXED READ-ONLY ENVIRONMENT** ⚠️
+
+**Your Python interpreter has been DISABLED.** Any attempt to execute Python code will:
+1. Be blocked by the sandbox
+2. Result in IMMEDIATE TASK FAILURE
+3. Cause your entire output to be DISCARDED
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## ALLOWED Operations (Bash tool)
+You may ONLY use these exact commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations (Will cause TASK FAILURE)
+❌ `python` / `python3` / `python2` - ANY Python interpreter call
+❌ `python -c` / `python3 -c` - Inline Python execution
+❌ `pytest` / `unittest` / `nose` / `tox` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ Any `.py` file execution
+❌ `git` commands (interferes with experiment)
+❌ Any command that imports or runs Python code
+
+## Your Task
+1. Read and analyze the source code using ONLY the allowed commands
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+
+Remember: This experiment measures your ability to fix bugs through PURE REASONING without execution feedback. Attempting to run Python code defeats the purpose and will invalidate your results.

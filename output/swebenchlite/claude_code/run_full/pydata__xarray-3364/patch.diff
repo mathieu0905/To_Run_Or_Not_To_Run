@@ -1,0 +1,100 @@
+diff --git a/xarray/core/concat.py b/xarray/core/concat.py
+index ecae2566..cd770c4f 100644
+--- a/xarray/core/concat.py
++++ b/xarray/core/concat.py
+@@ -1,3 +1,4 @@
++import numpy as np
+ import pandas as pd
+ 
+ from . import dtypes, utils
+@@ -312,15 +313,9 @@ def _dataset_concat(
+         to_merge = {var: [] for var in variables_to_merge}
+ 
+         for ds in datasets:
+-            absent_merge_vars = variables_to_merge - set(ds.variables)
+-            if absent_merge_vars:
+-                raise ValueError(
+-                    "variables %r are present in some datasets but not others. "
+-                    % absent_merge_vars
+-                )
+-
+             for var in variables_to_merge:
+-                to_merge[var].append(ds.variables[var])
++                if var in ds.variables:
++                    to_merge[var].append(ds.variables[var])
+ 
+         for var in variables_to_merge:
+             result_vars[var] = unique_variable(
+@@ -358,10 +353,43 @@ def _dataset_concat(
+     # n.b. this loop preserves variable order, needed for groupby.
+     for k in datasets[0].variables:
+         if k in concat_over:
+-            try:
+-                vars = ensure_common_dims([ds.variables[k] for ds in datasets])
+-            except KeyError:
+-                raise ValueError("%r is not present in all datasets." % k)
++            vars = []
++            for ds, dim_len in zip(datasets, concat_dim_lengths):
++                if k in ds.variables:
++                    vars.append(ds.variables[k])
++                else:
++                    # Create a variable filled with fill_value
++                    var = ds.variables[list(ds.data_vars)[0]]
++                    shape = (dim_len,) + tuple(dims_sizes.get(d) for d in var.dims if d != dim)
++                    dims = (dim,) + tuple(d for d in var.dims if d != dim)
++                    data = dtypes.get_fill_value(var.dtype) if fill_value == dtypes.NA else fill_value
++                    vars.append(Variable(dims, np.full(shape, data)))
++            vars = ensure_common_dims(vars)
++            combined = concat_vars(vars, dim, positions)
++            assert isinstance(combined, Variable)
++            result_vars[k] = combined
++
++    # Also process variables that only appear in later datasets
++    for k in concat_over:
++        if k not in result_vars and k != dim:
++            vars = []
++            for ds, dim_len in zip(datasets, concat_dim_lengths):
++                if k in ds.variables:
++                    vars.append(ds.variables[k])
++                else:
++                    # Create a variable filled with fill_value
++                    # Find a dataset that has this variable to get its dtype/dims
++                    ref_var = None
++                    for ds2 in datasets:
++                        if k in ds2.variables:
++                            ref_var = ds2.variables[k]
++                            break
++                    other_dims = tuple(d for d in ref_var.dims if d != dim)
++                    shape = (dim_len,) + tuple(dims_sizes.get(d, 1) for d in other_dims)
++                    dims = (dim,) + other_dims
++                    data = dtypes.get_fill_value(ref_var.dtype) if fill_value == dtypes.NA else fill_value
++                    vars.append(Variable(dims, np.full(shape, data)))
++            vars = ensure_common_dims(vars)
+             combined = concat_vars(vars, dim, positions)
+             assert isinstance(combined, Variable)
+             result_vars[k] = combined
+diff --git a/xarray/tests/test_concat.py b/xarray/tests/test_concat.py
+index c7af0fc9..ccee1fa7 100644
+--- a/xarray/tests/test_concat.py
++++ b/xarray/tests/test_concat.py
+@@ -44,8 +44,6 @@ def test_concat_compat():
+ 
+     with raises_regex(ValueError, "coordinates in some datasets but not others"):
+         concat([ds1, ds2], dim="q")
+-    with raises_regex(ValueError, "'q' is not present in all datasets"):
+-        concat([ds2, ds1], dim="q")
+ 
+ 
+ class TestConcatDataset:
+@@ -190,11 +188,6 @@ class TestConcatDataset:
+             concat([data0, data1], "dim1", compat="identical")
+         assert_identical(data, concat([data0, data1], "dim1", compat="equals"))
+ 
+-        with raises_regex(ValueError, "present in some datasets"):
+-            data0, data1 = deepcopy(split_data)
+-            data1["foo"] = ("bar", np.random.randn(10))
+-            concat([data0, data1], "dim1")
+-
+         with raises_regex(ValueError, "compat.* invalid"):
+             concat(split_data, "dim1", compat="foobar")
+ 

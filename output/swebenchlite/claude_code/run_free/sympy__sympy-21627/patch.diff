@@ -1,0 +1,15 @@
+diff --git a/sympy/functions/elementary/hyperbolic.py b/sympy/functions/elementary/hyperbolic.py
+index 892e19cabb..669a53f6da 100644
+--- a/sympy/functions/elementary/hyperbolic.py
++++ b/sympy/functions/elementary/hyperbolic.py
+@@ -468,6 +468,10 @@ def _eval_is_positive(self):
+                 ])
+             ])
+ 
++    def _eval_is_zero(self):
++        arg = self.args[0]
++        if arg.is_zero:
++            return False
+ 
+     def _eval_is_nonnegative(self):
+         z = self.args[0]

@@ -1,0 +1,32 @@
+diff --git a/sphinx/ext/autodoc/typehints.py b/sphinx/ext/autodoc/typehints.py
+index d912cd7d5..0da028e5f 100644
+--- a/sphinx/ext/autodoc/typehints.py
++++ b/sphinx/ext/autodoc/typehints.py
+@@ -27,7 +27,13 @@ def record_typehints(app: Sphinx, objtype: str, name: str, obj: Any,
+             sig = inspect.signature(obj, type_aliases=app.config.autodoc_type_aliases)
+             for param in sig.parameters.values():
+                 if param.annotation is not param.empty:
+-                    annotation[param.name] = typing.stringify(param.annotation, mode)
++                    if param.kind == param.VAR_POSITIONAL:
++                        name = '*' + param.name
++                    elif param.kind == param.VAR_KEYWORD:
++                        name = '**' + param.name
++                    else:
++                        name = param.name
++                    annotation[name] = typing.stringify(param.annotation, mode)
+             if sig.return_annotation is not sig.empty:
+                 annotation['return'] = typing.stringify(sig.return_annotation, mode)
+     except (TypeError, ValueError):
+diff --git a/tox.ini b/tox.ini
+index 105a02597..90ada0821 100644
+--- a/tox.ini
++++ b/tox.ini
+@@ -29,7 +29,7 @@ setenv =
+     PYTHONWARNINGS = all
+     PYTEST_ADDOPTS = {env:PYTEST_ADDOPTS:} --color yes
+ commands=
+-    python -X dev -X warn_default_encoding -m pytest --durations 25 {posargs}
++    python -X dev -X warn_default_encoding -m pytest -rA --durations 25 {posargs}
+ 
+ [testenv:du-latest]
+ commands =

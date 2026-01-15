@@ -1,0 +1,49 @@
+diff --git a/sympy/printing/mathml.py b/sympy/printing/mathml.py
+index 1aa0ee01a2..f7e91a99c7 100644
+--- a/sympy/printing/mathml.py
++++ b/sympy/printing/mathml.py
+@@ -477,6 +477,17 @@ def _print_int(self, p):
+         dom_element.appendChild(self.dom.createTextNode(str(p)))
+         return dom_element
+ 
++    def _print_Indexed(self, e):
++        x = self.dom.createElement('apply')
++        x.appendChild(self.dom.createElement('csymbol'))
++        x.appendChild(self._print(e.base))
++        for idx in e.indices:
++            x.appendChild(self._print(idx))
++        return x
++
++    def _print_IndexedBase(self, e):
++        return self._print(e.label)
++
+ 
+ class MathMLPresentationPrinter(MathMLPrinterBase):
+     """Prints an expression to the Presentation MathML markup language.
+@@ -1189,6 +1200,26 @@ def _print_int(self, p):
+         dom_element.appendChild(self.dom.createTextNode(str(p)))
+         return dom_element
+ 
++    def _print_Indexed(self, e):
++        mrow = self.dom.createElement('mrow')
++        x = self.dom.createElement('msub')
++        x.appendChild(self._print(e.base))
++        if len(e.indices) == 1:
++            x.appendChild(self._print(e.indices[0]))
++        else:
++            mrow_indices = self.dom.createElement('mrow')
++            for i, idx in enumerate(e.indices):
++                if i > 0:
++                    mo = self.dom.createElement('mo')
++                    mo.appendChild(self.dom.createTextNode(','))
++                    mrow_indices.appendChild(mo)
++                mrow_indices.appendChild(self._print(idx))
++            x.appendChild(mrow_indices)
++        mrow.appendChild(x)
++        return mrow
++
++    def _print_IndexedBase(self, e):
++        return self._print(e.label)
+ 
+     def _print_Integers(self, e):
+         x = self.dom.createElement('mi')

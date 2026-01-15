@@ -1,0 +1,157 @@
+diff --git a/setup.py b/setup.py
+index 8d40de1a8..03f325278 100644
+--- a/setup.py
++++ b/setup.py
+@@ -15,22 +15,22 @@ if sys.version_info < (3, 5):
+     sys.exit(1)
+ 
+ install_requires = [
+-    'sphinxcontrib-applehelp',
+-    'sphinxcontrib-devhelp',
++    'sphinxcontrib-applehelp<=1.0.7',
++    'sphinxcontrib-devhelp<=1.0.5',
+     'sphinxcontrib-jsmath',
+-    'sphinxcontrib-htmlhelp',
+-    'sphinxcontrib-serializinghtml',
+-    'sphinxcontrib-qthelp',
+-    'Jinja2>=2.3',
++    'sphinxcontrib-htmlhelp<=2.0.4',
++    'sphinxcontrib-serializinghtml<=1.1.9',
++    'sphinxcontrib-qthelp<=1.0.6',
++    'Jinja2<3.0',
+     'Pygments>=2.0',
+     'docutils>=0.12',
+     'snowballstemmer>=1.1',
+     'babel>=1.3',
+-    'alabaster>=0.7,<0.8',
++    'alabaster>=0.7,<0.7.12',
+     'imagesize',
+     'requests>=2.5.0',
+     'setuptools',
+-    'packaging',
++    'packaging', 'markupsafe<=2.0.1',
+ ]
+ 
+ extras_require = {
+diff --git a/sphinx/util/typing.py b/sphinx/util/typing.py
+index 2d4f67bba..aaba51ac0 100644
+--- a/sphinx/util/typing.py
++++ b/sphinx/util/typing.py
+@@ -34,6 +34,23 @@ if False:
+     from typing import Type  # NOQA # for python3.5.1
+ 
+ 
++def _get_public_module_name(cls: Any) -> str:
++    """Get the public module name for a class.
++
++    Some classes (like struct.Struct) have their __module__ set to an internal
++    module name (like _struct). This function returns the public module name
++    if the class is re-exported from a public module.
++    """
++    modname = getattr(cls, '__module__', None)
++    if modname and modname.startswith('_') and not modname.startswith('__'):
++        public_name = modname[1:]  # Remove leading underscore
++        if public_name in sys.modules:
++            public_mod = sys.modules[public_name]
++            if getattr(public_mod, getattr(cls, '__name__', ''), None) is cls:
++                return public_name
++    return modname
++
++
+ # An entry of Directive.option_spec
+ DirectiveOption = Callable[[str], Any]
+ 
+@@ -126,7 +143,7 @@ def _restify_py37(cls: Optional["Type"]) -> str:
+             if cls.__module__ == 'typing':
+                 text = ':class:`%s`' % cls._name
+             else:
+-                text = ':class:`%s.%s`' % (cls.__module__, cls._name)
++                text = ':class:`%s.%s`' % (_get_public_module_name(cls), cls._name)
+         else:
+             text = restify(cls.__origin__)
+ 
+@@ -146,22 +163,22 @@ def _restify_py37(cls: Optional["Type"]) -> str:
+         if cls.__module__ == 'typing':
+             return ':class:`%s`' % cls.__qualname__
+         else:
+-            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
++            return ':class:`%s.%s`' % (_get_public_module_name(cls), cls.__qualname__)
+     elif hasattr(cls, '_name'):
+         # SpecialForm
+         if cls.__module__ == 'typing':
+             return ':obj:`%s`' % cls._name
+         else:
+-            return ':obj:`%s.%s`' % (cls.__module__, cls._name)
++            return ':obj:`%s.%s`' % (_get_public_module_name(cls), cls._name)
+     elif isinstance(cls, ForwardRef):
+         return ':class:`%s`' % cls.__forward_arg__
+     else:
+         # not a class (ex. TypeVar)
+-        return ':obj:`%s.%s`' % (cls.__module__, cls.__name__)
++        return ':obj:`%s.%s`' % (_get_public_module_name(cls), cls.__name__)
+ 
+ 
+ def _restify_py36(cls: Optional["Type"]) -> str:
+-    module = getattr(cls, '__module__', None)
++    module = _get_public_module_name(cls)
+     if module == 'typing':
+         if getattr(cls, '_name', None):
+             qualname = cls._name
+@@ -263,22 +280,22 @@ def _restify_py36(cls: Optional["Type"]) -> str:
+         if cls.__module__ == 'typing':
+             return ':class:`%s`' % cls.__qualname__
+         else:
+-            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
++            return ':class:`%s.%s`' % (_get_public_module_name(cls), cls.__qualname__)
+     elif hasattr(cls, '_name'):
+         # SpecialForm
+         if cls.__module__ == 'typing':
+             return ':obj:`%s`' % cls._name
+         else:
+-            return ':obj:`%s.%s`' % (cls.__module__, cls._name)
++            return ':obj:`%s.%s`' % (_get_public_module_name(cls), cls._name)
+     elif hasattr(cls, '__name__'):
+         # not a class (ex. TypeVar)
+-        return ':obj:`%s.%s`' % (cls.__module__, cls.__name__)
++        return ':obj:`%s.%s`' % (_get_public_module_name(cls), cls.__name__)
+     else:
+         # others (ex. Any)
+         if cls.__module__ == 'typing':
+             return ':obj:`%s`' % qualname
+         else:
+-            return ':obj:`%s.%s`' % (cls.__module__, qualname)
++            return ':obj:`%s.%s`' % (_get_public_module_name(cls), qualname)
+ 
+ 
+ def stringify(annotation: Any) -> str:
+@@ -314,7 +331,7 @@ def stringify(annotation: Any) -> str:
+ 
+ def _stringify_py37(annotation: Any) -> str:
+     """stringify() for py37+."""
+-    module = getattr(annotation, '__module__', None)
++    module = _get_public_module_name(annotation)
+     if module == 'typing':
+         if getattr(annotation, '_name', None):
+             qualname = annotation._name
+@@ -366,7 +383,7 @@ def _stringify_py37(annotation: Any) -> str:
+ 
+ def _stringify_py36(annotation: Any) -> str:
+     """stringify() for py35 and py36."""
+-    module = getattr(annotation, '__module__', None)
++    module = _get_public_module_name(annotation)
+     if module == 'typing':
+         if getattr(annotation, '_name', None):
+             qualname = annotation._name
+diff --git a/tox.ini b/tox.ini
+index 21a0faec3..be1a9127e 100644
+--- a/tox.ini
++++ b/tox.ini
+@@ -28,7 +28,7 @@ setenv =
+     PYTHONWARNINGS = all,ignore::ImportWarning:importlib._bootstrap_external,ignore::DeprecationWarning:site,ignore::DeprecationWarning:distutils,ignore::DeprecationWarning:pip._vendor.packaging.version
+     PYTEST_ADDOPTS = {env:PYTEST_ADDOPTS:} --color yes
+ commands=
+-    python -X dev -m pytest --durations 25 {posargs}
++    python -X dev -m pytest -rA --durations 25 {posargs}
+ 
+ [testenv:flake8]
+ basepython = python3

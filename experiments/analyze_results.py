@@ -228,22 +228,24 @@ def print_summary(results, show_eval: bool = False):
 
         for mode, instances in sorted(modes.items()):
             n = len(instances)
-            total_input = sum(v["tokens"]["input"] for v in instances.values())
-            total_output = sum(v["tokens"]["output"] for v in instances.values())
-            total_execs = sum(v["exec_count"] for v in instances.values())
-            total_high_cost = sum(v["high_cost_exec"] for v in instances.values())
-            total_low_cost = sum(v["low_cost_exec"] for v in instances.values())
-            total_turns = sum(v["turns"] for v in instances.values())
-            total_duration = sum(v["duration_ms"] for v in instances.values())
-            patches = sum(1 for v in instances.values() if v["has_patch"])
+            # 只统计有 patch 的实例
+            patched = {k: v for k, v in instances.items() if v["has_patch"]}
+            patches = len(patched)
 
-            avg_input = total_input // n if n > 0 else 0
-            avg_output = total_output // n if n > 0 else 0
-            avg_total = (total_input + total_output) // n if n > 0 else 0
-            avg_turns = total_turns / n if n > 0 else 0
-            avg_high_cost = total_high_cost / n if n > 0 else 0
-            avg_low_cost = total_low_cost / n if n > 0 else 0
-            avg_duration_sec = (total_duration / n / 1000) if n > 0 else 0
+            total_input = sum(v["tokens"]["input"] for v in patched.values())
+            total_output = sum(v["tokens"]["output"] for v in patched.values())
+            total_high_cost = sum(v["high_cost_exec"] for v in patched.values())
+            total_low_cost = sum(v["low_cost_exec"] for v in patched.values())
+            total_turns = sum(v["turns"] for v in patched.values())
+            total_duration = sum(v["duration_ms"] for v in patched.values())
+
+            avg_input = total_input // patches if patches > 0 else 0
+            avg_output = total_output // patches if patches > 0 else 0
+            avg_total = (total_input + total_output) // patches if patches > 0 else 0
+            avg_turns = total_turns / patches if patches > 0 else 0
+            avg_high_cost = total_high_cost / patches if patches > 0 else 0
+            avg_low_cost = total_low_cost / patches if patches > 0 else 0
+            avg_duration_sec = (total_duration / patches / 1000) if patches > 0 else 0
 
             if show_eval:
                 applied = 0

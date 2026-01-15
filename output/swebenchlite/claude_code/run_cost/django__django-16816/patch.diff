@@ -1,0 +1,31 @@
+diff --git a/django/contrib/admin/checks.py b/django/contrib/admin/checks.py
+index 0fefe65e48..fab81b1681 100644
+--- a/django/contrib/admin/checks.py
++++ b/django/contrib/admin/checks.py
+@@ -9,6 +9,10 @@ from django.core.exceptions import FieldDoesNotExist
+ from django.db import models
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.expressions import Combinable
++from django.db.models.fields.related_descriptors import (
++    ManyToManyDescriptor,
++    ReverseManyToOneDescriptor,
++)
+ from django.forms.models import BaseModelForm, BaseModelFormSet, _get_foreign_key
+ from django.template import engines
+ from django.template.backends.django import DjangoTemplates
+@@ -916,6 +920,15 @@ class ModelAdminChecks(BaseModelAdminChecks):
+                         id="admin.E108",
+                     )
+                 ]
++            if isinstance(field, (ReverseManyToOneDescriptor, ManyToManyDescriptor)):
++                return [
++                    checks.Error(
++                        f"The value of '{label}' must not be a many-to-many field or a "
++                        f"reverse foreign key.",
++                        obj=obj.__class__,
++                        id="admin.E109",
++                    )
++                ]
+         if isinstance(field, models.ManyToManyField) or (
+             getattr(field, "rel", None) and field.rel.field.many_to_one
+         ):

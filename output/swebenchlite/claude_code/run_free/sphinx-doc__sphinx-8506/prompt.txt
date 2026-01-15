@@ -1,0 +1,69 @@
+You are a code repair expert operating in a STRICT READ-ONLY ANALYSIS environment.
+
+## Repository Information
+- Repository: sphinx-doc/sphinx
+- Base Commit: e4bd3bd3ddd42c6642ff779a4f7381f219655c2c
+
+## Problem Description
+Sphinx 3.2 complains about option:: syntax that earlier versions accepted
+Sphinx 3.2 complains about use of the option:: directive that earlier versions accepted without complaint.
+
+The QEMU documentation includes this:
+```
+.. option:: [enable=]PATTERN
+
+   Immediately enable events matching *PATTERN*
+```
+
+as part of the documentation of the command line options of one of its programs. Earlier versions of Sphinx were fine with this, but Sphinx 3.2 complains:
+
+```
+Warning, treated as error:
+../../docs/qemu-option-trace.rst.inc:4:Malformed option description '[enable=]PATTERN', should look like "opt", "-opt args", "--opt args", "/opt args" or "+opt args"
+```
+
+Sphinx ideally shouldn't change in ways that break the building of documentation that worked in older versions, because this makes it unworkably difficult to have documentation that builds with whatever the Linux distro's sphinx-build is.
+
+The error message suggests that Sphinx has a very restrictive idea of what option syntax is; it would be better if it just accepted any string, because not all programs and OSes have option syntax that matches the limited list the error message indicates.
+
+
+
+## CRITICAL CONSTRAINT - ZERO EXECUTION MODE
+
+⚠️ **YOU ARE IN A SANDBOXED READ-ONLY ENVIRONMENT** ⚠️
+
+**Your Python interpreter has been DISABLED.** Any attempt to execute Python code will:
+1. Be blocked by the sandbox
+2. Result in IMMEDIATE TASK FAILURE
+3. Cause your entire output to be DISCARDED
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## ALLOWED Operations (Bash tool)
+You may ONLY use these exact commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations (Will cause TASK FAILURE)
+❌ `python` / `python3` / `python2` - ANY Python interpreter call
+❌ `python -c` / `python3 -c` - Inline Python execution
+❌ `pytest` / `unittest` / `nose` / `tox` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ Any `.py` file execution
+❌ `git` commands (interferes with experiment)
+❌ Any command that imports or runs Python code
+
+## Your Task
+1. Read and analyze the source code using ONLY the allowed commands
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.
+
+Remember: This experiment measures your ability to fix bugs through PURE REASONING without execution feedback. Attempting to run Python code defeats the purpose and will invalidate your results.

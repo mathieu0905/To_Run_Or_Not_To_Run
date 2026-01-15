@@ -1,0 +1,87 @@
+You are a code repair expert operating in an UNRESTRICTED EXECUTION environment.
+
+## Repository Information
+- Repository: sphinx-doc/sphinx
+- Base Commit: c087d717f6ed183dd422359bf91210dc59689d63
+
+## Problem Description
+overescaped trailing underscore on attribute with napoleon
+**Describe the bug**
+Attribute name `hello_` shows up as `hello\_` in the html (visible backslash) with napoleon.
+
+**To Reproduce**
+Steps to reproduce the behavior:
+
+empty `__init__.py`
+`a.py` contains
+```python
+class A:
+    """
+    Attributes
+    ----------
+    hello_: int
+        hi
+    """
+    pass
+```
+run `sphinx-quickstart`
+add `'sphinx.ext.autodoc', 'sphinx.ext.napoleon'` to extensions in conf.py.
+add `.. autoclass:: a.A` to index.rst
+PYTHONPATH=. make clean html
+open _build/html/index.html in web browser and see the ugly backslash.
+
+**Expected behavior**
+No backslash, a similar output to what I get for
+```rst
+    .. attribute:: hello_
+        :type: int
+
+        hi
+```
+(the type shows up differently as well, but that's not the point here)
+Older versions like 2.4.3 look ok to me.
+
+**Environment info**
+- OS: Linux debian testing
+- Python version: 3.8.3
+- Sphinx version: 3.0.4
+- Sphinx extensions:  sphinx.ext.autodoc, sphinx.ext.napoleon
+- Extra tools:
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+Use trial-and-error debugging freely to understand and fix the bug.
+
+## Cost Table (For Reference Only - No Limits)
+| Operation | Cost |
+|-----------|------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point |
+| `python manage.py test` (Django) | 1.0 point |
+| `tox` / `nose` / `nosetests` | 1.0 point |
+| `python script.py` (running .py files) | 0.3 point |
+| `python -c "..."` (inline code) | 0.3 point |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+4. Verify your fix by running tests
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

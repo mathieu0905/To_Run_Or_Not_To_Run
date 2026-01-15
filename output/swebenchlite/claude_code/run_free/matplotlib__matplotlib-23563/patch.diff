@@ -1,0 +1,23 @@
+diff --git a/lib/mpl_toolkits/mplot3d/art3d.py b/lib/mpl_toolkits/mplot3d/art3d.py
+index 8fe6e7a9c1..8ae72dca3e 100644
+--- a/lib/mpl_toolkits/mplot3d/art3d.py
++++ b/lib/mpl_toolkits/mplot3d/art3d.py
+@@ -168,6 +168,18 @@ class Line3D(lines.Line2D):
+         super().__init__([], [], *args, **kwargs)
+         self._verts3d = xs, ys, zs
+ 
++    def set_data(self, *args):
++        """
++        Set the x and y data.
++
++        See `.Line2D.set_data`.
++        """
++        super().set_data(*args)
++        xs = self.get_xdata()
++        ys = self.get_ydata()
++        zs = self._verts3d[2] if hasattr(self, '_verts3d') else np.zeros_like(xs)
++        self._verts3d = xs, ys, zs
++
+     def set_3d_properties(self, zs=0, zdir='z'):
+         xs = self.get_xdata()
+         ys = self.get_ydata()
