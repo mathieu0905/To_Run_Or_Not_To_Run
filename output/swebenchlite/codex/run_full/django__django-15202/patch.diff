@@ -1,0 +1,75 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+index 72fbe15551..667155d7b4 100644
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -102,6 +102,11 @@ class URLValidator(RegexValidator):
+             raise ValidationError(self.message, code=self.code, params={'value': value})
+         if self.unsafe_chars.intersection(value):
+             raise ValidationError(self.message, code=self.code, params={'value': value})
++        def split_url(url):
++            try:
++                return urlsplit(url)
++            except ValueError:  # for example, "Invalid IPv6 URL"
++                raise ValidationError(self.message, code=self.code, params={'value': url})
+         # Check if the scheme is valid.
+         scheme = value.split('://')[0].lower()
+         if scheme not in self.schemes:
+@@ -113,10 +118,7 @@ class URLValidator(RegexValidator):
+         except ValidationError as e:
+             # Trivial case failed. Try for possible IDN domain
+             if value:
+-                try:
+-                    scheme, netloc, path, query, fragment = urlsplit(value)
+-                except ValueError:  # for example, "Invalid IPv6 URL"
+-                    raise ValidationError(self.message, code=self.code, params={'value': value})
++                scheme, netloc, path, query, fragment = split_url(value)
+                 try:
+                     netloc = punycode(netloc)  # IDN -> ACE
+                 except UnicodeError:  # invalid domain part
+@@ -127,7 +129,7 @@ class URLValidator(RegexValidator):
+                 raise
+         else:
+             # Now verify IPv6 in the netloc part
+-            host_match = re.search(r'^\[(.+)\](?::\d{1,5})?$', urlsplit(value).netloc)
++            host_match = re.search(r'^\[(.+)\](?::\d{1,5})?$', split_url(value).netloc)
+             if host_match:
+                 potential_ip = host_match[1]
+                 try:
+@@ -139,7 +141,8 @@ class URLValidator(RegexValidator):
+         # section 3.1. It's defined to be 255 bytes or less, but this includes
+         # one byte for the length of the name and one byte for the trailing dot
+         # that's used to indicate absolute names in DNS.
+-        if len(urlsplit(value).hostname) > 253:
++        hostname = split_url(value).hostname
++        if hostname is None or len(hostname) > 253:
+             raise ValidationError(self.message, code=self.code, params={'value': value})
+ 
+ 
+diff --git a/tests/forms_tests/field_tests/test_urlfield.py b/tests/forms_tests/field_tests/test_urlfield.py
+index 152456f216..6c9655fae6 100644
+--- a/tests/forms_tests/field_tests/test_urlfield.py
++++ b/tests/forms_tests/field_tests/test_urlfield.py
+@@ -1,3 +1,5 @@
++from unittest.mock import patch
++
+ from django.core.exceptions import ValidationError
+ from django.forms import URLField
+ from django.test import SimpleTestCase
+@@ -107,6 +109,17 @@ class URLFieldTest(FormFieldAssertionsMixin, SimpleTestCase):
+                 with self.assertRaisesMessage(ValidationError, msg):
+                     f.clean(value)
+ 
++    def test_urlfield_clean_urlsplit_valueerror_is_validationerror(self):
++        """
++        urllib.parse.urlsplit() may raise ValueError for some malformed URLs
++        (e.g. invalid IPv6); URLField.clean() should always raise ValidationError.
++        """
++        f = URLField()
++        msg = "'Enter a valid URL.'"
++        with patch('django.core.validators.urlsplit', side_effect=ValueError('Invalid IPv6 URL')):
++            with self.assertRaisesMessage(ValidationError, msg):
++                f.clean('http://[12:34::3a53]/')
++
+     def test_urlfield_clean_required(self):
+         f = URLField()
+         msg = "'This field is required.'"

@@ -1,0 +1,52 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 338d54d72f..3e0f21cc60 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -376,6 +376,12 @@ class FileInput(Input):
+     needs_multipart_form = True
+     template_name = 'django/forms/widgets/file.html'
+ 
++    def use_required_attribute(self, initial):
++        # File inputs can't render an existing value. If initial data exists,
++        # don't add the "required" attribute as it would prevent submitting the
++        # form without selecting a new file.
++        return super().use_required_attribute(initial) and not initial
++
+     def format_value(self, value):
+         """File input never renders a value."""
+         return
+@@ -451,9 +457,6 @@ class ClearableFileInput(FileInput):
+             return False
+         return upload
+ 
+-    def use_required_attribute(self, initial):
+-        return super().use_required_attribute(initial) and not initial
+-
+     def value_omitted_from_data(self, data, files, name):
+         return (
+             super().value_omitted_from_data(data, files, name) and
+diff --git a/tests/forms_tests/tests/test_forms.py b/tests/forms_tests/tests/test_forms.py
+index 552f3b866c..d55e949f7f 100644
+--- a/tests/forms_tests/tests/test_forms.py
++++ b/tests/forms_tests/tests/test_forms.py
+@@ -3608,6 +3608,20 @@ Good luck picking a username that doesn&#x27;t already exist.</p>
+             '</select></td></tr>',
+         )
+ 
++    def test_fileinput_does_not_render_required_attribute_with_initial(self):
++        class MyForm(Form):
++            use_required_attribute = True
++            f = FileField(required=True, widget=forms.FileInput)
++
++        self.assertHTMLEqual(
++            MyForm().as_p(),
++            '<p><label for="id_f">F:</label> <input type="file" name="f" id="id_f" required></p>',
++        )
++        self.assertHTMLEqual(
++            MyForm(initial={'f': 'resume.txt'}).as_p(),
++            '<p><label for="id_f">F:</label> <input type="file" name="f" id="id_f"></p>',
++        )
++
+     def test_use_required_attribute_false(self):
+         class MyForm(Form):
+             use_required_attribute = False

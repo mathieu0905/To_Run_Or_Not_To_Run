@@ -1,0 +1,73 @@
+diff --git a/django/core/cache/backends/db.py b/django/core/cache/backends/db.py
+index 33c79c5a14..093b25b410 100644
+--- a/django/core/cache/backends/db.py
++++ b/django/core/cache/backends/db.py
+@@ -264,12 +264,24 @@ class DatabaseCache(BaseDatabaseCache):
+             num = cursor.fetchone()[0]
+             if num > self._max_entries:
+                 cull_num = num // self._cull_frequency
++                # If the culling ratio would remove everything (e.g. a
++                # CULL_FREQUENCY of 1), avoid generating SQL that returns no
++                # rows.
++                if cull_num >= num:
++                    cursor.execute('DELETE FROM %s' % table)
++                    return
+                 cursor.execute(
+                     connection.ops.cache_key_culling_sql() % table,
+                     [cull_num])
++                row = cursor.fetchone()
++                if row is None:
++                    # The culling query can return no rows (e.g. due to a race
++                    # with another process clearing/deleting cache keys). In
++                    # that case, there's nothing left to cull.
++                    return
+                 cursor.execute("DELETE FROM %s "
+                                "WHERE cache_key < %%s" % table,
+-                               [cursor.fetchone()[0]])
++                               [row[0]])
+ 
+     def clear(self):
+         db = router.db_for_write(self.cache_model_class)
+diff --git a/tests/cache/tests.py b/tests/cache/tests.py
+index d404475e16..e0c0cafb59 100644
+--- a/tests/cache/tests.py
++++ b/tests/cache/tests.py
+@@ -1040,6 +1040,38 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
+     def test_zero_cull(self):
+         self._perform_cull_test('zero_cull', 50, 18)
+ 
++    @override_settings(CACHES=caches_setting_for_tests(
++        BACKEND='django.core.cache.backends.db.DatabaseCache',
++        LOCATION='test cache table',
++        OPTIONS={'MAX_ENTRIES': 2, 'CULL_FREQUENCY': 2},
++    ))
++    def test_cull_query_returning_no_rows_doesnt_crash(self):
++        # If the SQL used to find a culling threshold returns no rows (e.g. due
++        # to a concurrent clear/delete), the cache backend should not crash.
++        c = caches['default']
++        c.set('k1', 'v1')
++        c.set('k2', 'v2')
++        c.set('k3', 'v3')
++        with mock.patch.object(
++            connection.ops,
++            'cache_key_culling_sql',
++            return_value="SELECT cache_key FROM %s WHERE 0=1 LIMIT 1 OFFSET %%s",
++        ):
++            c.set('k4', 'v4')
++
++    @override_settings(CACHES=caches_setting_for_tests(
++        BACKEND='django.core.cache.backends.db.DatabaseCache',
++        LOCATION='test cache table',
++        OPTIONS={'MAX_ENTRIES': 2, 'CULL_FREQUENCY': 1},
++    ))
++    def test_cull_frequency_one_doesnt_crash(self):
++        # A CULL_FREQUENCY of 1 means "cull everything" (1/1 of entries).
++        c = caches['default']
++        c.set('k1', 'v1')
++        c.set('k2', 'v2')
++        c.set('k3', 'v3')
++        c.set('k4', 'v4')  # triggers a cull (COUNT(*) is > MAX_ENTRIES)
++
+     def test_second_call_doesnt_crash(self):
+         out = io.StringIO()
+         management.call_command('createcachetable', stdout=out)

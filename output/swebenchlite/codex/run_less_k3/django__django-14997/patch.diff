@@ -1,0 +1,81 @@
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index c06386a2fa..9205f56490 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -231,6 +231,13 @@ class Expressions(TableColumns):
+         self.expressions = expressions
+ 
+     def __str__(self):
+-        sql, params = self.compiler.compile(self.expressions)
++        # Index/constraint expressions are always evaluated in the context of
++        # a single table. Qualifying column references with a table name/alias
++        # (e.g. "table"."col") is unnecessary and breaks on some backends
++        # (SQLite rejects the "." operator in index expressions).
++        expressions = deepcopy(self.expressions)
++        for col in self.compiler.query._gen_cols([expressions]):
++            col.alias = None
++        sql, params = self.compiler.compile(expressions)
+         params = map(self.quote_value, params)
+         return sql % tuple(params)
+diff --git a/tests/schema/tests.py b/tests/schema/tests.py
+index b8ad08239b..321d360a25 100644
+--- a/tests/schema/tests.py
++++ b/tests/schema/tests.py
+@@ -1523,6 +1523,57 @@ class SchemaTests(TransactionTestCase):
+         with self.assertRaises(IntegrityError):
+             IntegerUnique.objects.create(i=1, j=2)
+ 
++    @unittest.skipUnless(connection.vendor == 'sqlite', 'SQLite specific test.')
++    @skipUnlessDBFeature('supports_expression_indexes')
++    @isolate_apps('schema')
++    def test_remake_table_with_unique_constraint_expressions(self):
++        """
++        SQLite remakes tables for many schema changes. Expression-based unique
++        constraints must not qualify columns with a table name as SQLite
++        rejects the "." operator in index expressions.
++        """
++        class Tag(Model):
++            name = SlugField()
++            value = CharField(max_length=200)
++
++            class Meta:
++                app_label = 'schema'
++                constraints = [
++                    UniqueConstraint(
++                        F('name'),
++                        F('value'),
++                        name='unique_name_value',
++                    ),
++                ]
++
++        with connection.schema_editor() as editor:
++            editor.create_model(Tag)
++        self.isolated_local_models = [Tag]
++
++        Tag.objects.create(name='a', value='1')
++        with self.assertRaises(IntegrityError):
++            Tag.objects.create(name='a', value='1')
++
++        old_field = Tag._meta.get_field('value')
++        new_field = CharField(max_length=150)
++        new_field.model = Tag
++        new_field.set_attributes_from_name('value')
++        with connection.schema_editor() as editor:
++            editor.alter_field(Tag, old_field, new_field, strict=True)
++
++        class TagNew(Model):
++            name = SlugField()
++            value = CharField(max_length=150)
++
++            class Meta:
++                app_label = 'schema'
++                apps = new_apps
++                db_table = Tag._meta.db_table
++
++        TagNew.objects.create(name='b', value='1')
++        with self.assertRaises(IntegrityError):
++            TagNew.objects.create(name='b', value='1')
++
+     def test_rename(self):
+         """
+         Tests simple altering of fields

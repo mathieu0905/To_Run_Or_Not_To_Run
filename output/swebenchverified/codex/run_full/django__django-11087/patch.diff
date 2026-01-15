@@ -1,0 +1,162 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 3a462f1c4c..b011ae520e 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -109,6 +109,7 @@ class Collector:
+         Schedule a field update. 'objs' must be a homogeneous iterable
+         collection of model instances (e.g. a QuerySet).
+         """
++        objs = self._to_model_instances(objs)
+         if not objs:
+             return
+         model = objs[0].__class__
+@@ -188,6 +189,10 @@ class Collector:
+         if self.can_fast_delete(objs):
+             self.fast_deletes.append(objs)
+             return
++        # Avoid implicit QuerySet evaluation (e.g. `if qs:` or `qs[0]`) that
++        # fetches all fields; only load what's needed for deletion/cascades.
++        if hasattr(objs, 'model') and hasattr(objs, '_raw_delete'):
++            objs = self._to_model_instances(objs)
+         new_objs = self.add(objs, source, nullable,
+                             reverse_dependency=reverse_dependency)
+         if not new_objs:
+@@ -232,9 +237,55 @@ class Collector:
+         """
+         Get a QuerySet of objects related to `objs` via the relation `related`.
+         """
+-        return related.related_model._base_manager.using(self.using).filter(
++        qs = related.related_model._base_manager.using(self.using).filter(
+             **{"%s__in" % related.field.name: objs}
+         )
++        # Only fetch fields required for cascading deletes and signal emission.
++        # This avoids decoding/converting unrelated fields and reduces memory
++        # usage for large cascades.
++        return qs.only(*self._required_fields(related.related_model))
++
++    def _required_fields(self, model):
++        """
++        Return field names required to collect related objects for deletion.
++
++        The collector only needs the primary key and any fields that other
++        models' relations can target via ForeignKey.to_field (defaults to pk).
++        """
++        cache = getattr(self, '_required_fields_cache', None)
++        if cache is None:
++            cache = self._required_fields_cache = {}
++        if model in cache:
++            return cache[model]
++
++        opts = model._meta
++        fields = {'pk'}
++        for related in get_candidate_relations_to_delete(opts):
++            # The related model has a FK/OneToOneField to this model; include
++            # the remote field that FK targets to avoid deferred loads during
++            # the subsequent __in lookups.
++            field = related.field
++            target_field = getattr(field, 'target_field', None)
++            if target_field is None:
++                # Compatibility with older Field APIs.
++                target_field = field.remote_field.get_related_field()
++            fields.add(target_field.name)
++
++        cache[model] = tuple(fields)
++        return cache[model]
++
++    def _to_model_instances(self, objs):
++        """
++        Normalize 'objs' to a list of model instances, minimizing loaded fields
++        when 'objs' is a QuerySet.
++        """
++        if hasattr(objs, 'model') and hasattr(objs, '_raw_delete'):
++            # Preserve the result cache if the QuerySet was already evaluated
++            # (e.g. via truthiness checks in collect()).
++            if objs._result_cache is None:
++                objs = objs.only(*self._required_fields(objs.model))
++            return list(objs)
++        return list(objs)
+ 
+     def instances_with_model(self):
+         for model, instances in self.data.items():
+diff --git a/tests/delete_regress/models.py b/tests/delete_regress/models.py
+index 90eae1ba1c..3002297f7c 100644
+--- a/tests/delete_regress/models.py
++++ b/tests/delete_regress/models.py
+@@ -5,6 +5,17 @@ from django.contrib.contenttypes.models import ContentType
+ from django.db import models
+ 
+ 
++class RaisingFromDBValueTextField(models.TextField):
++    """
++    A field that raises if Django tries to load it from the database.
++
++    Used to ensure QuerySet.delete() doesn't fetch unrelated fields while
++    collecting objects for cascades.
++    """
++    def from_db_value(self, value, expression, connection, context):
++        raise RuntimeError("This field should not be loaded from the database.")
++
++
+ class Award(models.Model):
+     name = models.CharField(max_length=25)
+     object_id = models.PositiveIntegerField()
+@@ -141,3 +152,12 @@ class OrderedPerson(models.Model):
+ 
+     class Meta:
+         ordering = ['name']
++
++
++class ParentForDeleteOnlyTests(models.Model):
++    pass
++
++
++class ChildForDeleteOnlyTests(models.Model):
++    parent = models.ForeignKey(ParentForDeleteOnlyTests, models.CASCADE)
++    bad = RaisingFromDBValueTextField()
+diff --git a/tests/delete_regress/tests.py b/tests/delete_regress/tests.py
+index a1bead144e..f7fb34f46d 100644
+--- a/tests/delete_regress/tests.py
++++ b/tests/delete_regress/tests.py
+@@ -6,8 +6,9 @@ from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
+ from .models import (
+     Award, AwardNote, Book, Child, Contact, Eaten, Email, File, Food, FooFile,
+     FooFileProxy, FooImage, FooPhoto, House, Image, Item, Location, Login,
+-    OrderedPerson, OrgUnit, Person, Photo, PlayedWith, PlayedWithNote, Policy,
+-    Researcher, Toy, Version,
++    OrderedPerson, OrgUnit, Person, Photo, PlayedWith, PlayedWithNote,
++    Policy, Researcher, Toy, Version, ParentForDeleteOnlyTests,
++    ChildForDeleteOnlyTests,
+ )
+ 
+ 
+@@ -92,6 +93,30 @@ class DeleteCascadeTests(TestCase):
+         Item.objects.create(version=version, location=location)
+         policy.delete()
+ 
++    def test_delete_only_loads_required_fields(self):
++        """
++        Collector should only fetch the fields required for cascades/signals.
++
++        Regression test for UnicodeDecodeError (or other conversion errors)
++        raised while collecting related objects for deletion.
++        """
++        parent = ParentForDeleteOnlyTests.objects.create()
++        ChildForDeleteOnlyTests.objects.create(parent=parent, bad='x')
++
++        def noop(*args, **kwargs):
++            pass
++
++        # Ensure the child isn't eligible for fast-delete, forcing it to be
++        # collected and instantiated (but without loading the 'bad' field).
++        models.signals.post_delete.connect(noop, sender=ChildForDeleteOnlyTests)
++        try:
++            ParentForDeleteOnlyTests.objects.all().delete()
++        finally:
++            models.signals.post_delete.disconnect(noop, sender=ChildForDeleteOnlyTests)
++
++        self.assertFalse(ParentForDeleteOnlyTests.objects.exists())
++        self.assertFalse(ChildForDeleteOnlyTests.objects.exists())
++
+ 
+ class DeleteCascadeTransactionTests(TransactionTestCase):
+ 

@@ -1,0 +1,50 @@
+diff --git a/astropy/units/decorators.py b/astropy/units/decorators.py
+index 8bece5a85..1452e1484 100644
+--- a/astropy/units/decorators.py
++++ b/astropy/units/decorators.py
+@@ -220,10 +220,17 @@ class QuantityInput:
+             # Call the original function with any equivalencies in force.
+             with add_enabled_equivalencies(self.equivalencies):
+                 return_ = wrapped_function(*func_args, **func_kwargs)
+-            if wrapped_signature.return_annotation is not inspect.Signature.empty:
+-                return return_.to(wrapped_signature.return_annotation)
+-            else:
+-                return return_
++            return_annotation = wrapped_signature.return_annotation
++            # Only attempt to convert the return value if the annotation is a
++            # unit-like object. In particular, constructors are commonly
++            # annotated with ``-> None``; in that case we should not try to call
++            # ``.to`` on the returned value.
++            if (return_annotation is not inspect.Signature.empty
++                    and return_annotation is not None
++                    and return_annotation is not type(None)):
++                return return_.to(return_annotation)
++
++            return return_
+ 
+         return wrapper
+ 
+diff --git a/astropy/units/tests/py3_test_quantity_annotations.py b/astropy/units/tests/py3_test_quantity_annotations.py
+index 4956b0ec1..8b9229a9c 100644
+--- a/astropy/units/tests/py3_test_quantity_annotations.py
++++ b/astropy/units/tests/py3_test_quantity_annotations.py
+@@ -285,3 +285,19 @@ def test_return_annotation():
+     assert solarx.unit is u.deg
+     """
+     return src
++
++
++@py3only
++def test_constructor_return_annotation_none():
++    src = """
++    class PoC(object):
++
++        @u.quantity_input
++        def __init__(self, voltage: u.V) -> None:
++            self.voltage = voltage
++
++    poc = PoC(1*u.V)
++    assert isinstance(poc, PoC)
++    assert poc.voltage.unit is u.V
++    """
++    return src

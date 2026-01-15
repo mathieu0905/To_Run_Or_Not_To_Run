@@ -1,0 +1,157 @@
+diff --git a/astropy/utils/introspection.py b/astropy/utils/introspection.py
+index 3e784f9fc..7c29c0d3f 100644
+--- a/astropy/utils/introspection.py
++++ b/astropy/utils/introspection.py
+@@ -6,6 +6,7 @@
+ import inspect
+ import types
+ import importlib
++import re
+ from distutils.version import LooseVersion
+ 
+ 
+@@ -15,6 +16,92 @@ __all__ = ['resolve_name', 'minversion', 'find_current_module',
+ 
+ __doctest_skip__ = ['find_current_module']
+ 
++# NOTE: LooseVersion can raise TypeError on Python 3 when comparing versions
++# that have mixed integer/string components (e.g., '1.14.3' vs '1.14dev').
++# We keep LooseVersion for the common/fast path, but fall back to a minimal
++# PEP 440-ish comparator to avoid failures.  See Python issue 30272.
++_PEP440_PRE_TAGS = {
++    'a': -3,
++    'alpha': -3,
++    'b': -2,
++    'beta': -2,
++    'rc': -1,
++    'c': -1,
++    'pre': -1,
++    'preview': -1,
++}
++
++_PEP440_PRE_RE = re.compile(
++    r'(preview|alpha|beta|rc|pre|a|b|c)(\d*)', re.IGNORECASE)
++_PEP440_POST_RE = re.compile(r'(post|rev)(\d*)', re.IGNORECASE)
++_PEP440_DEV_RE = re.compile(r'(dev)(\d*)', re.IGNORECASE)
++
++
++def _pep440_version_key(version):
++    """
++    Convert a version string into a comparable key.
++
++    This is intentionally minimal—just enough to handle common PEP 440-ish
++    version strings and avoid LooseVersion's TypeError on comparisons.
++    """
++    v = str(version).strip().lower()
++
++    # Drop any epoch ('N!') and any local version label ('+...').
++    if '!' in v:
++        v = v.split('!', 1)[1]
++    v = v.split('+', 1)[0]
++
++    # Normalize separators.
++    v = v.replace('-', '.').replace('_', '.')
++
++    m = re.match(r'^(\d+(?:\.\d+)*)', v)
++    if m:
++        release = tuple(int(p) for p in m.group(1).split('.'))
++        rest = v[m.end():]
++    else:
++        release = tuple()
++        rest = v
++
++    pre = _PEP440_PRE_RE.search(rest)
++    post = _PEP440_POST_RE.search(rest)
++    dev = _PEP440_DEV_RE.search(rest)
++
++    if post:
++        stage = (2, int(post.group(2) or 0))
++    elif pre:
++        pre_tag = pre.group(1)
++        pre_num = int(pre.group(2) or 0)
++        dev_num = int(dev.group(2) or 0) if dev else float('inf')
++        stage = (0, _PEP440_PRE_TAGS.get(pre_tag, -1), pre_num, dev_num)
++    elif dev:
++        stage = (-1, 0, 0, int(dev.group(2) or 0))
++    else:
++        stage = (1, 0)
++
++    return release, stage
++
++
++def _pep440_compare_versions(have, want):
++    """Return -1/0/1 if have < / == / > want."""
++    have_release, have_stage = _pep440_version_key(have)
++    want_release, want_stage = _pep440_version_key(want)
++
++    maxlen = max(len(have_release), len(want_release))
++    have_rel = have_release + (0,) * (maxlen - len(have_release))
++    want_rel = want_release + (0,) * (maxlen - len(want_release))
++
++    if have_rel < want_rel:
++        return -1
++    elif have_rel > want_rel:
++        return 1
++
++    if have_stage < want_stage:
++        return -1
++    elif have_stage > want_stage:
++        return 1
++    else:
++        return 0
++
+ 
+ def resolve_name(name, *additional_parts):
+     """Resolve a name like ``module.object`` to an object and return it.
+@@ -139,10 +226,25 @@ def minversion(module, version, inclusive=True, version_path='__version__'):
+     else:
+         have_version = resolve_name(module.__name__, version_path)
+ 
+-    if inclusive:
+-        return LooseVersion(have_version) >= LooseVersion(version)
+-    else:
+-        return LooseVersion(have_version) > LooseVersion(version)
++    have_version = str(have_version)
++    version = str(version)
++
++    # Prefer the PEP 440-ish comparison for the common case of digit-starting
++    # versions.  This avoids both TypeErrors and incorrect ordering in
++    # distutils' LooseVersion for versions like '1.14dev'.
++    if have_version[:1].isdigit() and version[:1].isdigit():
++        cmp_ = _pep440_compare_versions(have_version, version)
++        return cmp_ >= 0 if inclusive else cmp_ > 0
++
++    # Fall back to LooseVersion for non-standard versions.
++    try:
++        if inclusive:
++            return LooseVersion(have_version) >= LooseVersion(version)
++        else:
++            return LooseVersion(have_version) > LooseVersion(version)
++    except TypeError:
++        cmp_ = _pep440_compare_versions(have_version, version)
++        return cmp_ >= 0 if inclusive else cmp_ > 0
+ 
+ 
+ def find_current_module(depth=1, finddiff=False):
+diff --git a/astropy/utils/tests/test_introspection.py b/astropy/utils/tests/test_introspection.py
+index d8262d458..c37c7bd77 100644
+--- a/astropy/utils/tests/test_introspection.py
++++ b/astropy/utils/tests/test_introspection.py
+@@ -67,9 +67,16 @@ def test_minversion():
+     from types import ModuleType
+     test_module = ModuleType(str("test_module"))
+     test_module.__version__ = '0.12.2'
+-    good_versions = ['0.12', '0.12.1', '0.12.0.dev']
++    good_versions = ['0.12', '0.12.1', '0.12.0.dev', '0.12dev']
+     bad_versions = ['1', '1.2rc1']
+     for version in good_versions:
+         assert minversion(test_module, version)
+     for version in bad_versions:
+         assert not minversion(test_module, version)
++
++
++def test_minversion_dev_is_prerelease():
++    from types import ModuleType
++    test_module = ModuleType(str("test_module"))
++    test_module.__version__ = '0.12dev'
++    assert not minversion(test_module, '0.12')

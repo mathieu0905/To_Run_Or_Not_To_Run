@@ -1,0 +1,73 @@
+You are a code repair expert operating in a BUDGET-CONSTRAINED environment.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: ddb293685235fd09e932805771ae97f72e817181
+
+## Problem Description
+Use subprocess.run and PGPASSWORD for client in postgres backend
+Description
+	
+​subprocess.run was added in python 3.5 (which is the minimum version since Django 2.1). This function allows you to pass a custom environment for the subprocess.
+Using this in django.db.backends.postgres.client to set PGPASSWORD simplifies the code and makes it more reliable.
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 1 TEST EXECUTION(S) - USE THEM** 🎯
+
+This is a research experiment testing efficient debugging with limited but valuable executions.
+You have a budget of 1 test run(s). **This budget is meant to be used** - unused budget is wasted opportunity!
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+**Tip:** Prefer low-cost operations when possible. Write a small reproduction script instead of running the full test suite.
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## How to Use Your Budget
+
+**Your budget of 1 is there to help you** - using 0 executions when you have budget available means you're not taking advantage of the tools given to you.
+
+**Good uses of your budget:**
+- Reproduce the bug to confirm you understand it
+- Test your fix to make sure it works
+- Run with debug prints to understand runtime behavior
+
+**Instrumented testing:** When you're uncertain about specific logic or runtime behavior, add print/log statements to the relevant code paths, then run a test. This helps you understand exactly what's happening at runtime.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 1 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 1
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 1 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

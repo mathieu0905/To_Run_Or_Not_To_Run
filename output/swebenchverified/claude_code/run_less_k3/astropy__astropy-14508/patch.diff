@@ -1,24 +1,40 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 118bfced8..7e2ef58e2 100644
+index 118bfced8..cb4e6e34e 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
-@@ -1299,10 +1299,15 @@ def _format_value(value):
+@@ -1299,6 +1299,35 @@ def _format_value(value):
  
  def _format_float(value):
      """Format a floating number to make sure it gets the decimal point."""
--    value_str = f"{value:.16G}"
--    if "." not in value_str and "E" not in value_str:
--        value_str += ".0"
--    elif "E" in value_str:
-+    # Try str() first as it may produce a shorter representation
++    # First try Python's str() representation - it's often shorter and more accurate
 +    value_str = str(value)
-+    if "." not in value_str and "E" not in value_str.upper():
-+        value_str = f"{value:.16G}"
-+        if "." not in value_str and "E" not in value_str:
-+            value_str += ".0"
-+    elif len(value_str) > 20:
-+        value_str = f"{value:.16G}"
-+    if "E" in value_str:
-         # On some Windows builds of Python (and possibly other platforms?) the
-         # exponent is zero-padded out to, it seems, three digits.  Normalize
-         # the format to pad only to two digits.
++
++    # Ensure it has a decimal point or exponent notation
++    if "." not in value_str and "e" not in value_str and "E" not in value_str:
++        value_str += ".0"
++
++    # If str() produces a short enough string, use it
++    if len(value_str) <= 20:
++        # Normalize exponent format if present
++        if "e" in value_str or "E" in value_str:
++            # Convert to uppercase E and normalize exponent padding
++            if "e" in value_str:
++                significand, exponent = value_str.split("e")
++            else:
++                significand, exponent = value_str.split("E")
++
++            if exponent[0] in ("+", "-"):
++                sign = exponent[0]
++                exponent = exponent[1:]
++            else:
++                sign = ""
++            value_str = f"{significand}E{sign}{int(exponent):02d}"
++
++        # Double-check length after normalization
++        if len(value_str) <= 20:
++            return value_str
++
++    # Fall back to .16G formatting if str() was too long
+     value_str = f"{value:.16G}"
+     if "." not in value_str and "E" not in value_str:
+         value_str += ".0"

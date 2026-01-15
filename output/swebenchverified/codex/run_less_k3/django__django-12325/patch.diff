@@ -1,0 +1,79 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 8ea6c05ef9..7a559e6fe8 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -204,7 +204,21 @@ class ModelBase(type):
+             for field in base._meta.local_fields:
+                 if isinstance(field, OneToOneField):
+                     related = resolve_relation(new_class, field.remote_field.model)
+-                    parent_links[make_model_tuple(related)] = field
++                    key = make_model_tuple(related)
++                    # Multiple OneToOneFields may point at the same related
++                    # model (e.g. an explicit parent link plus another
++                    # OneToOneField). Prefer the one marked as parent_link.
++                    existing = parent_links.get(key)
++                    if existing is None:
++                        parent_links[key] = field
++                    else:
++                        if field.remote_field.parent_link and not existing.remote_field.parent_link:
++                            parent_links[key] = field
++                        elif field.remote_field.parent_link == existing.remote_field.parent_link:
++                            # Preserve historical behavior where later fields
++                            # override earlier ones (e.g. child overrides an
++                            # abstract base field).
++                            parent_links[key] = field
+ 
+         # Track fields inherited from base models.
+         inherited_attributes = set()
+diff --git a/tests/model_inheritance/tests.py b/tests/model_inheritance/tests.py
+index 5eef0f5bfa..b12601ced8 100644
+--- a/tests/model_inheritance/tests.py
++++ b/tests/model_inheritance/tests.py
+@@ -204,6 +204,47 @@ class ModelInheritanceTests(TestCase):
+ 
+         self.assertEqual(A.attr.called, (A, 'attr'))
+ 
++    @isolate_apps('model_inheritance')
++    def test_mti_parent_link_with_multiple_onetoone(self):
++        """
++        Multi-table inheritance should pick the explicit parent link even when
++        there are other OneToOneFields to the same parent model, regardless of
++        field declaration order.
++        """
++        class Document(models.Model):
++            pass
++
++        class PickingFirst(Document):
++            document_ptr = models.OneToOneField(
++                Document,
++                on_delete=models.CASCADE,
++                parent_link=True,
++                related_name='+',
++            )
++            origin = models.OneToOneField(
++                Document,
++                related_name='picking_first',
++                on_delete=models.PROTECT,
++            )
++
++        class PickingSecond(Document):
++            origin = models.OneToOneField(
++                Document,
++                related_name='picking_second',
++                on_delete=models.PROTECT,
++            )
++            document_ptr = models.OneToOneField(
++                Document,
++                on_delete=models.CASCADE,
++                parent_link=True,
++                related_name='+',
++            )
++
++        for Model in (PickingFirst, PickingSecond):
++            self.assertIs(Model._meta.parents[Document], Model._meta.get_field('document_ptr'))
++            self.assertTrue(Model._meta.get_field('document_ptr').remote_field.parent_link)
++            self.assertEqual(Model._meta.pk.name, 'document_ptr')
++
+ 
+ class ModelInheritanceDataTests(TestCase):
+     @classmethod

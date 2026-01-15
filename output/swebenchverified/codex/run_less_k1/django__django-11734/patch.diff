@@ -1,0 +1,71 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 35f3c5e1ea..7827dfeb69 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1022,7 +1022,9 @@ class Query(BaseExpression):
+                 not self.distinct_fields and
+                 not self.select_for_update):
+             clone.clear_ordering(True)
+-        clone.where.resolve_expression(query, *args, **kwargs)
++        # Assign the returned WhereNode. This ensures all branches are
++        # resolved, including those containing cloned subtrees.
++        clone.where = clone.where.resolve_expression(query, *args, **kwargs)
+         for key, value in clone.annotations.items():
+             resolved = value.resolve_expression(query, *args, **kwargs)
+             if hasattr(resolved, 'external_aliases'):
+diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
+index 668d5e6ad6..36a4fae95f 100644
+--- a/tests/queries/test_qs_combinators.py
++++ b/tests/queries/test_qs_combinators.py
+@@ -1,9 +1,12 @@
+ from django.db import connection
+-from django.db.models import Exists, F, IntegerField, OuterRef, Value
++from django.db.models import Exists, F, IntegerField, OuterRef, Q, Value
+ from django.db.utils import DatabaseError, NotSupportedError
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
++from django.utils import timezone
+ 
+-from .models import Number, ReservedName
++from .models import (
++    Author, ExtraInfo, Item, NamedCategory, Note, Number, ReservedName, Tag,
++)
+ 
+ 
+ @skipUnlessDBFeature('supports_select_union')
+@@ -285,3 +288,36 @@ class QuerySetSetOperationTests(TestCase):
+                         msg % (operation, combinator),
+                     ):
+                         getattr(getattr(qs, combinator)(qs), operation)()
++
++
++class OuterRefNegatedSubqueryTests(TestCase):
++    def test_exists_exclude(self):
++        number1 = Number.objects.create(num=1)
++        number2 = Number.objects.create(num=2)
++        category = NamedCategory.objects.create(id=number1.pk, name='c1')
++        tag = Tag.objects.create(name='t1', category=category)
++        note = Note.objects.create(note='n1', misc='m1')
++        extra = ExtraInfo.objects.create(info='i1')
++        author = Author.objects.create(name='a1', num=1, extra=extra)
++        item = Item.objects.create(
++            name='i1',
++            created=timezone.now(),
++            creator=author,
++            note=note,
++        )
++        item.tags.add(tag)
++
++        qs = Number.objects.annotate(
++            foo=Exists(Item.objects.filter(tags__category_id=OuterRef('pk'))),
++        ).filter(foo=True)
++        self.assertEqual(list(qs.values_list('pk', flat=True)), [number1.pk])
++
++        qs = Number.objects.annotate(
++            foo=Exists(Item.objects.exclude(tags__category_id=OuterRef('pk'))),
++        ).filter(foo=True)
++        self.assertEqual(list(qs.values_list('pk', flat=True)), [number2.pk])
++
++        qs = Number.objects.annotate(
++            foo=Exists(Item.objects.filter(~Q(tags__category_id=OuterRef('pk')))),
++        ).filter(foo=True)
++        self.assertEqual(list(qs.values_list('pk', flat=True)), [number2.pk])

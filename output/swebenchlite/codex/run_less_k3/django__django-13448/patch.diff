@@ -1,0 +1,107 @@
+diff --git a/django/db/backends/base/creation.py b/django/db/backends/base/creation.py
+index 503f7f56fd..54404a0846 100644
+--- a/django/db/backends/base/creation.py
++++ b/django/db/backends/base/creation.py
+@@ -58,17 +58,43 @@ class BaseDatabaseCreation:
+         settings.DATABASES[self.connection.alias]["NAME"] = test_database_name
+         self.connection.settings_dict["NAME"] = test_database_name
+ 
++        # We report migrate messages at one level lower than that requested.
++        # This ensures we don't get flooded with messages during testing
++        # (unless you really ask to be flooded).
++        migrate_verbosity = max(verbosity - 1, 0)
+         if self.connection.settings_dict['TEST']['MIGRATE']:
+-            # We report migrate messages at one level lower than that
+-            # requested. This ensures we don't get flooded with messages during
+-            # testing (unless you really ask to be flooded).
+             call_command(
+                 'migrate',
+-                verbosity=max(verbosity - 1, 0),
++                verbosity=migrate_verbosity,
+                 interactive=False,
+                 database=self.connection.alias,
+                 run_syncdb=True,
+             )
++        else:
++            # Disable migrations during test database creation.
++            #
++            # The migrate command is still run (with run_syncdb=True) to create
++            # the database schema for all installed apps using the model
++            # definitions and to emit the post_migrate signal.
++            class DisableMigrations(dict):
++                def __contains__(self, item):
++                    return True
++
++                def __getitem__(self, item):
++                    return None
++
++            old_migration_modules = settings.MIGRATION_MODULES
++            settings.MIGRATION_MODULES = DisableMigrations()
++            try:
++                call_command(
++                    'migrate',
++                    verbosity=migrate_verbosity,
++                    interactive=False,
++                    database=self.connection.alias,
++                    run_syncdb=True,
++                )
++            finally:
++                settings.MIGRATION_MODULES = old_migration_modules
+ 
+         # We then serialize the current state of the database into a string
+         # and store it on the connection. This slightly horrific process is so people
+diff --git a/tests/test_runner/tests.py b/tests/test_runner/tests.py
+index e12ea3b11a..19463ed5e3 100644
+--- a/tests/test_runner/tests.py
++++ b/tests/test_runner/tests.py
+@@ -1,6 +1,7 @@
+ """
+ Tests for django test runner
+ """
++import os
+ import unittest
+ from unittest import mock
+ 
+@@ -154,6 +155,42 @@ class ManageCommandTests(unittest.TestCase):
+         self.assertIn('Total run took', stderr.getvalue())
+ 
+ 
++class MigrateFalseSettingTests(AdminScriptTestCase):
++    """
++    Regression test for #31865.
++
++    When TEST['MIGRATE'] is False, the test database should still be set up
++    (using syncdb-style table creation) so serialization doesn't crash while
++    trying to query non-existent tables.
++    """
++
++    def setUp(self):
++        super().setUp()
++        self.write_settings(
++            'settings.py',
++            apps=['django.contrib.auth', 'django.contrib.contenttypes'],
++            sdict={
++                # Disable migrations for test database creation.
++                "DATABASES['default'].setdefault('TEST', {})['MIGRATE']": "False",
++            },
++        )
++        with open(os.path.join(self.test_dir, 'smoke_tests.py'), 'w') as f:
++            f.write(
++                "from django.test import TestCase\n"
++                "\n"
++                "\n"
++                "class SmokeTests(TestCase):\n"
++                "    def test_ok(self):\n"
++                "        self.assertTrue(True)\n"
++            )
++
++    def test_migrate_false_does_not_crash_during_setup(self):
++        out, err = self.run_manage(['test', 'test_project.smoke_tests', '--verbosity', '1'])
++        self.assertOutput(err, 'Ran 1 test')
++        self.assertOutput(err, 'OK')
++        self.assertNotInOutput(err, 'Traceback')
++
++
+ class CustomTestRunnerOptionsSettingsTests(AdminScriptTestCase):
+     """
+     Custom runners can add command line arguments. The runner is specified

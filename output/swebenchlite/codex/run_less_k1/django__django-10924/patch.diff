@@ -1,0 +1,38 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 0c64748ccd..8438bbc1fc 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -2,6 +2,7 @@ import collections.abc
+ import copy
+ import datetime
+ import decimal
++import os
+ import operator
+ import uuid
+ import warnings
+@@ -1668,6 +1669,16 @@ class FilePathField(Field):
+         kwargs.setdefault('max_length', 100)
+         super().__init__(verbose_name, name, **kwargs)
+ 
++    def _get_path(self):
++        """
++        Return the file path as a string.
++
++        ``FilePathField`` accepts a callable for ``path`` so it can be
++        resolved at runtime (e.g. depending on the current settings).
++        """
++        path = self.path() if callable(self.path) else self.path
++        return os.fspath(path)
++
+     def check(self, **kwargs):
+         return [
+             *super().check(**kwargs),
+@@ -1709,7 +1720,7 @@ class FilePathField(Field):
+ 
+     def formfield(self, **kwargs):
+         return super().formfield(**{
+-            'path': self.path,
++            'path': self._get_path(),
+             'match': self.match,
+             'recursive': self.recursive,
+             'form_class': forms.FilePathField,

@@ -1,0 +1,80 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index d517d7269b..5b5afb76b6 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -914,7 +914,9 @@ class ForeignKey(ForeignObject):
+             return
+ 
+         using = router.db_for_read(self.remote_field.model, instance=model_instance)
+-        qs = self.remote_field.model._default_manager.using(using).filter(
++        # Use the base manager so validation isn't affected by a related
++        # model's default manager filtering (e.g. soft-deletion).
++        qs = self.remote_field.model._base_manager.using(using).filter(
+             **{self.remote_field.field_name: value}
+         )
+         qs = qs.complex_filter(self.get_limit_choices_to())
+diff --git a/tests/custom_managers/models.py b/tests/custom_managers/models.py
+index 14222bfaf3..261c98af07 100644
+--- a/tests/custom_managers/models.py
++++ b/tests/custom_managers/models.py
+@@ -198,6 +198,23 @@ class RestrictedModel(models.Model):
+     plain_manager = models.Manager()
+ 
+ 
++class ArchivedArticleManager(models.Manager):
++    def get_queryset(self):
++        return super().get_queryset().filter(archived=False)
++
++
++class ArchivedArticle(models.Model):
++    title = models.CharField(max_length=100)
++    archived = models.BooleanField(default=False)
++
++    # Don't include archived articles by default.
++    objects = ArchivedArticleManager()
++
++
++class FavoriteArticle(models.Model):
++    article = models.ForeignKey(ArchivedArticle, models.CASCADE)
++
++
+ class OneToOneRestrictedModel(models.Model):
+     name = models.CharField(max_length=50)
+     is_public = models.BooleanField(default=False)
+diff --git a/tests/custom_managers/tests.py b/tests/custom_managers/tests.py
+index 8e5ab1418f..ea78af5b3f 100644
+--- a/tests/custom_managers/tests.py
++++ b/tests/custom_managers/tests.py
+@@ -2,10 +2,11 @@ from django.db import models
+ from django.test import TestCase
+ 
+ from .models import (
+-    Book, Car, CustomManager, CustomQuerySet, DeconstructibleCustomManager,
+-    FastCarAsBase, FastCarAsDefault, FunPerson, OneToOneRestrictedModel,
+-    Person, PersonFromAbstract, PersonManager, PublishedBookManager,
+-    RelatedModel, RestrictedModel,
++    ArchivedArticle, Book, Car, CustomManager, CustomQuerySet,
++    DeconstructibleCustomManager, FastCarAsBase, FastCarAsDefault,
++    FavoriteArticle, FunPerson, OneToOneRestrictedModel, Person,
++    PersonFromAbstract, PersonManager, PublishedBookManager, RelatedModel,
++    RestrictedModel,
+ )
+ 
+ 
+@@ -607,6 +608,16 @@ class CustomManagersRegressTestCase(TestCase):
+         # there would now be two objects in the database.
+         self.assertEqual(RestrictedModel.plain_manager.count(), 1)
+ 
++    def test_foreign_key_validation_uses_base_manager(self):
++        """
++        ForeignKey.validate() must use the related model's base manager so
++        validation isn't affected by default manager filtering.
++        """
++        archived = ArchivedArticle._base_manager.create(title="Draft", archived=True)
++        self.assertFalse(ArchivedArticle.objects.filter(pk=archived.pk).exists())
++        favorite = FavoriteArticle(article=archived)
++        self.assertIsNone(favorite.full_clean())
++
+     def test_refresh_from_db_when_default_manager_filters(self):
+         """
+         Model.refresh_from_db() works for instances hidden by the default

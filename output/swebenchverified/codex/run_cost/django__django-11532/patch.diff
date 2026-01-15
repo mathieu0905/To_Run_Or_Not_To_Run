@@ -1,0 +1,73 @@
+diff --git a/django/core/mail/utils.py b/django/core/mail/utils.py
+index d18dfe4667..3c0d0b923e 100644
+--- a/django/core/mail/utils.py
++++ b/django/core/mail/utils.py
+@@ -13,7 +13,18 @@ class CachedDnsName:
+ 
+     def get_fqdn(self):
+         if not hasattr(self, '_fqdn'):
+-            self._fqdn = socket.getfqdn()
++            fqdn = socket.getfqdn()
++            # email.utils.make_msgid() requires an ASCII domain. Convert
++            # internationalized hostnames to IDNA (punycode) to avoid failures
++            # when the email's encoding isn't Unicode-capable (e.g. latin-1).
++            try:
++                fqdn.encode('ascii')
++            except UnicodeEncodeError:
++                try:
++                    fqdn = fqdn.encode('idna').decode('ascii')
++                except UnicodeError:
++                    fqdn = 'localhost'
++            self._fqdn = fqdn
+         return self._fqdn
+ 
+ 
+diff --git a/tests/mail/tests.py b/tests/mail/tests.py
+index 15593dc3f7..a053e8288f 100644
+--- a/tests/mail/tests.py
++++ b/tests/mail/tests.py
+@@ -7,6 +7,7 @@ import smtpd
+ import sys
+ import tempfile
+ import threading
++from unittest.mock import patch
+ from email import charset, message_from_binary_file, message_from_bytes
+ from email.header import Header
+ from email.mime.text import MIMEText
+@@ -22,6 +23,7 @@ from django.core.mail import (
+ )
+ from django.core.mail.backends import console, dummy, filebased, locmem, smtp
+ from django.core.mail.message import BadHeaderError, sanitize_address
++from django.core.mail.utils import DNS_NAME
+ from django.test import SimpleTestCase, override_settings
+ from django.test.utils import requires_tz_support
+ from django.utils.translation import gettext_lazy
+@@ -403,6 +405,28 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
+             payload1.as_bytes().endswith(b'\n\n<p>Firstname S=FCrname is a <strong>great</strong> guy.</p>')
+         )
+ 
++    def test_unicode_dns_name_in_message_id_with_non_utf8_encoding(self):
++        """
++        A non-ASCII system hostname shouldn't crash Message-ID generation when
++        the email's charset can't represent it (e.g. latin-1). It must be
++        IDNA-encoded (punycoded) to remain ASCII.
++        """
++        had_cached = hasattr(DNS_NAME, '_fqdn')
++        cached = getattr(DNS_NAME, '_fqdn', None)
++        try:
++            if had_cached:
++                del DNS_NAME._fqdn
++            with patch('django.core.mail.utils.socket.getfqdn', return_value='漢字'):
++                email = EmailMessage('subject', '', 'from@example.com', ['to@example.com'])
++                email.encoding = 'iso-8859-1'
++                message = email.message()
++            self.assertIn('xn--p8s937b', message['Message-ID'])
++        finally:
++            if hasattr(DNS_NAME, '_fqdn'):
++                del DNS_NAME._fqdn
++            if had_cached:
++                DNS_NAME._fqdn = cached
++
+     def test_attachments(self):
+         """Regression test for #9367"""
+         headers = {"Date": "Fri, 09 Nov 2001 01:08:47 -0000", "Message-ID": "foo"}

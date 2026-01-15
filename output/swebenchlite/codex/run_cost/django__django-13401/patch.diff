@@ -1,0 +1,94 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 28374272f4..cf43cf2b3d 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -516,16 +516,48 @@ class Field(RegisterLookupMixin):
+     def __eq__(self, other):
+         # Needed for @total_ordering
+         if isinstance(other, Field):
+-            return self.creation_counter == other.creation_counter
++            return (
++                self.creation_counter == other.creation_counter and
++                getattr(self, 'model', None) is getattr(other, 'model', None)
++            )
+         return NotImplemented
+ 
+     def __lt__(self, other):
+         # This is needed because bisect does not take a comparison function.
+         if isinstance(other, Field):
+-            return self.creation_counter < other.creation_counter
++            if self.creation_counter != other.creation_counter:
++                return self.creation_counter < other.creation_counter
++            self_model = getattr(self, 'model', None)
++            other_model = getattr(other, 'model', None)
++            if self_model is other_model:
++                return False
++            # Deterministic tie-breaker for inherited/copied fields that share
++            # the same creation_counter across different models.
++            self_label = (
++                getattr(getattr(self_model, '_meta', None), 'label_lower', None)
++                if self_model is not None else None
++            )
++            other_label = (
++                getattr(getattr(other_model, '_meta', None), 'label_lower', None)
++                if other_model is not None else None
++            )
++            if self_label is None and self_model is not None:
++                self_label = '%s.%s' % (self_model.__module__, self_model.__qualname__)
++            if other_label is None and other_model is not None:
++                other_label = '%s.%s' % (other_model.__module__, other_model.__qualname__)
++            self_label = self_label or ''
++            other_label = other_label or ''
++            if self_label != other_label:
++                return self_label < other_label
++            # Last resort: ensure a total ordering even for pathological label
++            # collisions (e.g. dynamically-created models).
++            return id(self_model) < id(other_model)
+         return NotImplemented
+ 
+     def __hash__(self):
++        # Keep this stable across the field's lifecycle. In particular, avoid
++        # depending on attributes like `model` which are set during class
++        # construction and could otherwise change a field's hash.
+         return hash(self.creation_counter)
+ 
+     def __deepcopy__(self, memodict):
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index b97c99d42d..eba0c05ea2 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -4,6 +4,7 @@ from django import forms
+ from django.core.exceptions import ValidationError
+ from django.db import models
+ from django.test import SimpleTestCase, TestCase
++from django.test.utils import isolate_apps
+ from django.utils.functional import lazy
+ 
+ from .models import (
+@@ -90,6 +91,26 @@ class BasicFieldTests(SimpleTestCase):
+         self.assertIsNotNone(f1)
+         self.assertNotIn(f2, (None, 1, ''))
+ 
++    @isolate_apps('model_fields')
++    def test_abstract_inherited_fields_compare_unequal_across_models(self):
++        class A(models.Model):
++            class Meta:
++                abstract = True
++
++            myfield = models.IntegerField()
++
++        class B(A):
++            pass
++
++        class C(A):
++            pass
++
++        b_field = B._meta.get_field('myfield')
++        c_field = C._meta.get_field('myfield')
++        self.assertEqual(b_field.creation_counter, c_field.creation_counter)
++        self.assertNotEqual(b_field, c_field)
++        self.assertEqual(len({b_field, c_field}), 2)
++
+     def test_field_instance_is_picklable(self):
+         """Field instances can be pickled."""
+         field = models.Field(max_length=100, default='a string')

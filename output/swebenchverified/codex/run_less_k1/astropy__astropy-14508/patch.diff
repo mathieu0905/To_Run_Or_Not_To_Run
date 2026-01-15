@@ -1,0 +1,67 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 118bfced8..35c749625 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -1299,7 +1299,25 @@ def _format_value(value):
+ 
+ def _format_float(value):
+     """Format a floating number to make sure it gets the decimal point."""
+-    value_str = f"{value:.16G}"
++    # Prefer Python's "shortest round-trippable" float formatting when it
++    # already fits in a FITS value field.  This avoids unnecessarily long
++    # strings like "0.009124999999999999" that can force truncation of
++    # HIERARCH card comments.
++    try:
++        if np.isfinite(value):
++            value_str = str(value).replace("e", "E")
++        else:
++            value_str = f"{value:.16G}"
++    except Exception:
++        # Fall back to the previous behavior for any float-like objects that
++        # don't support isfinite()/str() cleanly.
++        value_str = f"{value:.16G}"
++
++    # If the shortest representation doesn't fit, fall back to the historical
++    # fixed-precision formatting which is then trimmed below.
++    if len(value_str) > 20:
++        value_str = f"{value:.16G}"
++
+     if "." not in value_str and "E" not in value_str:
+         value_str += ".0"
+     elif "E" in value_str:
+diff --git a/astropy/io/fits/tests/test_header.py b/astropy/io/fits/tests/test_header.py
+index a8f4e1160..c925c30f6 100644
+--- a/astropy/io/fits/tests/test_header.py
++++ b/astropy/io/fits/tests/test_header.py
+@@ -642,6 +642,31 @@ class TestHeaderFunctions(FitsTestCase):
+         assert c.value == "calFileVersion"
+         assert c.comment == ""
+ 
++    def test_hierarch_float_does_not_force_comment_truncation(self):
++        """
++        Avoid unnecessarily long float formatting (e.g.
++        "0.009124999999999999") that can make an otherwise valid HIERARCH card
++        exceed 80 characters and truncate the comment.
++        """
++
++        with warnings.catch_warnings(record=True) as warning_list:
++            warnings.simplefilter("always")
++            c = fits.Card(
++                "HIERARCH ESO IFM CL RADIUS",
++                0.009125,
++                "[m] radius arround actuator to avoid",
++            )
++
++        # No "Card is too long, comment will be truncated." warning
++        assert not any(isinstance(w.message, VerifyWarning) for w in warning_list)
++        assert (
++            str(c)
++            == _pad(
++                "HIERARCH ESO IFM CL RADIUS = 0.009125 / "
++                "[m] radius arround actuator to avoid"
++            )
++        )
++
+     def test_hierarch_not_warn(self):
+         """Check that compressed image headers do not issue HIERARCH warnings."""
+         filename = fits.util.get_testdata_filepath("compressed_image.fits")

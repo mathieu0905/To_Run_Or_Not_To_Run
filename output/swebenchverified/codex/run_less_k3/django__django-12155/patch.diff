@@ -1,0 +1,49 @@
+diff --git a/django/contrib/admindocs/utils.py b/django/contrib/admindocs/utils.py
+index 4c0e7e2a56..dc38ac7965 100644
+--- a/django/contrib/admindocs/utils.py
++++ b/django/contrib/admindocs/utils.py
+@@ -34,7 +34,17 @@ def trim_docstring(docstring):
+         return ''
+     # Convert tabs to spaces and split into lines
+     lines = docstring.expandtabs().splitlines()
+-    indent = min(len(line) - len(line.lstrip()) for line in lines if line.lstrip())
++    # PEP 257: Ignore the first line when calculating indentation. Docstrings
++    # commonly start with a summary on the first line and indent the remaining
++    # lines to match the surrounding code. Including the first line would make
++    # the minimum indentation 0 and prevent proper de-indentation.
++    indent = None
++    for line in lines[1:]:
++        stripped = line.lstrip()
++        if stripped:
++            line_indent = len(line) - len(stripped)
++            indent = line_indent if indent is None else min(indent, line_indent)
++    indent = indent or 0
+     trimmed = [lines[0].lstrip()] + [line[indent:].rstrip() for line in lines[1:]]
+     return "\n".join(trimmed).strip()
+ 
+diff --git a/tests/admin_docs/test_utils.py b/tests/admin_docs/test_utils.py
+index 17ea912015..b9f2a8c6aa 100644
+--- a/tests/admin_docs/test_utils.py
++++ b/tests/admin_docs/test_utils.py
+@@ -44,6 +44,21 @@ class TestUtils(AdminDocsSimpleTestCase):
+         )
+         self.assertEqual(trim_docstring_output, trimmed_docstring)
+ 
++    def test_trim_docstring_first_line_not_empty(self):
++        docstring = (
++            "Summary on the first line.\n"
++            "    \n"
++            "    Body text with `interpreted text`.\n"
++        )
++        self.assertEqual(
++            trim_docstring(docstring),
++            "Summary on the first line.\n\nBody text with `interpreted text`.",
++        )
++        # Rendering should not treat indented body text as content for the
++        # ``default-role`` directive wrapper in parse_rst().
++        output = parse_rst(trim_docstring(docstring), "model")
++        self.assertNotIn('Error in "default-role" directive', output)
++
+     def test_parse_docstring(self):
+         title, description, metadata = parse_docstring(self.docstring)
+         docstring_title = (

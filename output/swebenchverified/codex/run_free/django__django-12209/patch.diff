@@ -1,0 +1,169 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index e3b14a41a0..c2f8b8eb91 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -398,11 +398,27 @@ class ModelState:
+     # explicit (non-auto) PKs. This impacts validation only; it has no effect
+     # on the actual save.
+     adding = True
++    # True if the primary key was explicitly set (e.g. via __init__ kwargs or
++    # assignment to instance.pk).
++    pk_set_explicitly = False
++    # True once Model.__init__ has finished. Used to distinguish pk defaults
++    # applied during __init__ from explicit pk assignment later.
++    init_done = False
+     fields_cache = ModelStateFieldsCacheDescriptor()
+ 
+ 
+ class Model(metaclass=ModelBase):
+ 
++    def __setattr__(self, name, value):
++        # Track explicit assignment to the pk field after initialization.
++        if (
++            name != 'pk' and
++            hasattr(self, '_state') and self._state.init_done and
++            name == self._meta.pk.attname
++        ):
++            self._state.pk_set_explicitly = True
++        super().__setattr__(name, value)
++
+     def __init__(self, *args, **kwargs):
+         # Alias some things as locals to avoid repeat global lookups
+         cls = self.__class__
+@@ -414,6 +430,9 @@ class Model(metaclass=ModelBase):
+ 
+         # Set up the storage for instance state
+         self._state = ModelState()
++        # Track if the primary key was explicitly set on this instance.
++        self._state.pk_set_explicitly = False
++        self._state.init_done = False
+ 
+         # There is a rather weird disparity here; if kwargs, it's set, then args
+         # overrides it. It should be one or the other; don't duplicate the work
+@@ -432,6 +451,8 @@ class Model(metaclass=ModelBase):
+             for val, field in zip(args, fields_iter):
+                 if val is _DEFERRED:
+                     continue
++                if field.primary_key:
++                    self._state.pk_set_explicitly = True
+                 _setattr(self, field.attname, val)
+         else:
+             # Slower, kwargs-ready version.
+@@ -439,6 +460,8 @@ class Model(metaclass=ModelBase):
+             for val, field in zip(args, fields_iter):
+                 if val is _DEFERRED:
+                     continue
++                if field.primary_key:
++                    self._state.pk_set_explicitly = True
+                 _setattr(self, field.attname, val)
+                 kwargs.pop(field.name, None)
+ 
+@@ -460,11 +483,15 @@ class Model(metaclass=ModelBase):
+                         try:
+                             # Object instance wasn't passed in -- must be an ID.
+                             val = kwargs.pop(field.attname)
++                            if field.primary_key:
++                                self._state.pk_set_explicitly = True
+                         except KeyError:
+                             val = field.get_default()
+                 else:
+                     try:
+                         val = kwargs.pop(field.attname)
++                        if field.primary_key:
++                            self._state.pk_set_explicitly = True
+                     except KeyError:
+                         # This is done with an exception rather than the
+                         # default argument on pop because we don't want
+@@ -500,6 +527,7 @@ class Model(metaclass=ModelBase):
+             for kwarg in kwargs:
+                 raise TypeError("%s() got an unexpected keyword argument '%s'" % (cls.__name__, kwarg))
+         super().__init__()
++        self._state.init_done = True
+         post_init.send(sender=cls, instance=self)
+ 
+     @classmethod
+@@ -569,6 +597,7 @@ class Model(metaclass=ModelBase):
+         return getattr(self, meta.pk.attname)
+ 
+     def _set_pk_val(self, value):
++        self._state.pk_set_explicitly = True
+         return setattr(self, self._meta.pk.attname, value)
+ 
+     pk = property(_get_pk_val, _set_pk_val)
+@@ -847,12 +876,14 @@ class Model(metaclass=ModelBase):
+         if not pk_set and (force_update or update_fields):
+             raise ValueError("Cannot force an update in save() with no primary key.")
+         updated = False
+-        # Skip an UPDATE when adding an instance and primary key has a default.
++        # Skip an UPDATE when adding an instance and the primary key was
++        # generated from its default value (i.e. it wasn't explicitly set).
+         if (
+             not force_insert and
+             self._state.adding and
+-            self._meta.pk.default and
+-            self._meta.pk.default is not NOT_PROVIDED
++            not self._state.pk_set_explicitly and
++            pk_set and
++            meta.pk.has_default()
+         ):
+             force_insert = True
+         # If possible, try an UPDATE. If that doesn't update anything, do an INSERT.
+diff --git a/tests/fixtures/tests.py b/tests/fixtures/tests.py
+index 02dd38e635..2f374e488a 100644
+--- a/tests/fixtures/tests.py
++++ b/tests/fixtures/tests.py
+@@ -330,6 +330,12 @@ class FixtureLoadingTests(DumpDataAssertMixin, TestCase):
+             format='xml', natural_foreign_keys=True
+         )
+ 
++    def test_loaddata_explicit_uuid_pk_with_default_can_be_loaded_multiple_times(self):
++        management.call_command('loaddata', 'uuid_pk_default.json', verbosity=0)
++        self.assertEqual(PrimaryKeyUUIDModel.objects.count(), 1)
++        management.call_command('loaddata', 'uuid_pk_default.json', verbosity=0)
++        self.assertEqual(PrimaryKeyUUIDModel.objects.count(), 1)
++
+     def test_dumpdata_with_excludes(self):
+         # Load fixture1 which has a site, two articles, and a category
+         Site.objects.all().delete()
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index 0fd5910339..15306ffbda 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -399,6 +399,11 @@ class PrimaryKeyUUIDModel(models.Model):
+     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+ 
+ 
++class UUIDPKDefaultModel(models.Model):
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
++    name = models.CharField(max_length=100, blank=True)
++
++
+ class RelatedToUUIDModel(models.Model):
+     uuid_fk = models.ForeignKey('PrimaryKeyUUIDModel', models.CASCADE)
+ 
+diff --git a/tests/model_fields/test_uuid.py b/tests/model_fields/test_uuid.py
+index c53df2c7af..12a7394fab 100644
+--- a/tests/model_fields/test_uuid.py
++++ b/tests/model_fields/test_uuid.py
+@@ -11,7 +11,7 @@ from django.test import (
+ 
+ from .models import (
+     NullableUUIDModel, PrimaryKeyUUIDModel, RelatedToUUIDModel, UUIDGrandchild,
+-    UUIDModel,
++    UUIDModel, UUIDPKDefaultModel,
+ )
+ 
+ 
+@@ -55,6 +55,12 @@ class TestSaveLoad(TestCase):
+         with self.assertRaisesMessage(exceptions.ValidationError, 'is not a valid UUID'):
+             UUIDModel.objects.create(field='not-a-uuid')
+ 
++    def test_save_with_explicit_pk_and_pk_default_does_update(self):
++        obj = UUIDPKDefaultModel.objects.create()
++        UUIDPKDefaultModel(pk=obj.pk, name='Test 1').save()
++        self.assertEqual(UUIDPKDefaultModel.objects.count(), 1)
++        self.assertEqual(UUIDPKDefaultModel.objects.get(pk=obj.pk).name, 'Test 1')
++
+ 
+ class TestMethods(SimpleTestCase):
+ 

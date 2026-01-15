@@ -1,0 +1,76 @@
+diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py
+index 2b306a579e..0cd3f4ec21 100644
+--- a/django/core/management/commands/shell.py
++++ b/django/core/management/commands/shell.py
+@@ -82,15 +82,23 @@ class Command(BaseCommand):
+         code.interact(local=imported_objects)
+ 
+     def handle(self, **options):
++        # For -c/STDIN execution, run the code in a dedicated namespace. When
++        # exec() is called inside a function without providing an explicit
++        # namespace, imports land in the function's locals, but functions
++        # defined by the executed code resolve globals from the module globals,
++        # which can lead to NameError (e.g. "import django" then a function
++        # referencing django).
++        namespace = {'__name__': '__main__'}
++
+         # Execute the command and exit.
+         if options['command']:
+-            exec(options['command'])
++            exec(options['command'], namespace)
+             return
+ 
+         # Execute stdin if it has anything to read and exit.
+         # Not supported on Windows due to select.select() limitations.
+         if sys.platform != 'win32' and not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0)[0]:
+-            exec(sys.stdin.read())
++            exec(sys.stdin.read(), namespace)
+             return
+ 
+         available_shells = [options['interface']] if options['interface'] else self.shells
+diff --git a/tests/shell/tests.py b/tests/shell/tests.py
+index f33a9ae701..62dffb2cbd 100644
+--- a/tests/shell/tests.py
++++ b/tests/shell/tests.py
+@@ -21,6 +21,20 @@ class ShellCommandTestCase(SimpleTestCase):
+             )
+         self.assertEqual(cm.records[0].getMessage(), __version__)
+ 
++    def test_command_option_with_function(self):
++        with self.assertLogs('test', 'INFO') as cm:
++            call_command(
++                'shell',
++                command=(
++                    'import django\n'
++                    'def f():\n'
++                    '    from logging import getLogger\n'
++                    '    getLogger("test").info(django.__version__)\n'
++                    'f()\n'
++                ),
++            )
++        self.assertEqual(cm.records[0].getMessage(), __version__)
++
+     @unittest.skipIf(sys.platform == 'win32', "Windows select() doesn't support file descriptors.")
+     @mock.patch('django.core.management.commands.shell.select')
+     def test_stdin_read(self, select):
+@@ -30,6 +44,20 @@ class ShellCommandTestCase(SimpleTestCase):
+             call_command('shell')
+         self.assertEqual(stdout.getvalue().strip(), '100')
+ 
++    @unittest.skipIf(sys.platform == 'win32', "Windows select() doesn't support file descriptors.")
++    @mock.patch('django.core.management.commands.shell.select')
++    def test_stdin_read_with_function(self, select):
++        with captured_stdin() as stdin, captured_stdout() as stdout:
++            stdin.write(
++                'import django\n'
++                'def f():\n'
++                '    print(django.__version__)\n'
++                'f()\n'
++            )
++            stdin.seek(0)
++            call_command('shell')
++        self.assertEqual(stdout.getvalue().strip(), __version__)
++
+     @mock.patch('django.core.management.commands.shell.select.select')  # [1]
+     @mock.patch.dict('sys.modules', {'IPython': None})
+     def test_shell_with_ipython_not_installed(self, select):

@@ -1,0 +1,136 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 880a2cc17b..99ba57bae5 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -2111,31 +2111,61 @@ class InlineModelAdmin(BaseModelAdmin):
+             queryset = queryset.none()
+         return queryset
+ 
++    def _has_parent_model_permission(self, request, action, obj=None):
++        """
++        For auto-created intermediate models (ManyToManyField without an
++        explicit through model), delegate editing permissions to the parent
++        object's ModelAdmin when available.
++        """
++        parent_admin = self.admin_site._registry.get(self.parent_model)
++        if parent_admin is not None:
++            if action == 'add':
++                return parent_admin.has_add_permission(request)
++            if action == 'change':
++                return parent_admin.has_change_permission(request, obj=obj)
++            raise ValueError('Unknown action: %r' % action)
++        # Fallback for unregistered parent models.
++        opts = self.parent_model._meta
++        perm = '%s.%s' % (opts.app_label, get_permission_codename(action, opts))
++        return request.user.has_perm(perm)
++
+     def has_add_permission(self, request, obj):
+         if self.opts.auto_created:
+             # We're checking the rights to an auto-created intermediate model,
+             # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # to be able to view the related model, and to have the right
++            # permissions on the parent object to edit its relationships.
++            parent_action = 'add' if obj is None else 'change'
++            return (
++                self.has_view_permission(request, obj) and
++                self._has_parent_model_permission(request, parent_action, obj=obj)
++            )
+         return super().has_add_permission(request)
+ 
+     def has_change_permission(self, request, obj=None):
+         if self.opts.auto_created:
+             # We're checking the rights to an auto-created intermediate model,
+             # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # to be able to view the related model, and to have the right
++            # permissions on the parent object to edit its relationships.
++            parent_action = 'add' if obj is None else 'change'
++            return (
++                self.has_view_permission(request, obj) and
++                self._has_parent_model_permission(request, parent_action, obj=obj)
++            )
+         return super().has_change_permission(request)
+ 
+     def has_delete_permission(self, request, obj=None):
+         if self.opts.auto_created:
+             # We're checking the rights to an auto-created intermediate model,
+             # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # to be able to view the related model, and to have the right
++            # permissions on the parent object to edit its relationships.
++            parent_action = 'add' if obj is None else 'change'
++            return (
++                self.has_view_permission(request, obj) and
++                self._has_parent_model_permission(request, parent_action, obj=obj)
++            )
+         return super().has_delete_permission(request, obj)
+ 
+     def has_view_permission(self, request, obj=None):
+diff --git a/tests/admin_inlines/tests.py b/tests/admin_inlines/tests.py
+index 5272d44f35..e7e01b6c46 100644
+--- a/tests/admin_inlines/tests.py
++++ b/tests/admin_inlines/tests.py
+@@ -805,6 +805,56 @@ class TestInlinePermissions(TestCase):
+         )
+ 
+ 
++@override_settings(ROOT_URLCONF='admin_inlines.urls')
++class TestAutoCreatedManyToManyInlineViewOnlyParent(TestCase):
++    """
++    Auto-created ManyToMany inlines should be read-only when the user only has
++    view permission on the parent object.
++    """
++
++    @classmethod
++    def setUpTestData(cls):
++        cls.user = User(username='view_only', is_staff=True, is_active=True)
++        cls.user.set_password('secret')
++        cls.user.save()
++
++        author_ct = ContentType.objects.get_for_model(Author)
++        book_ct = ContentType.objects.get_for_model(Book)
++        cls.user.user_permissions.add(
++            Permission.objects.get(codename='view_author', content_type=author_ct),
++            Permission.objects.get(codename='view_book', content_type=book_ct),
++        )
++
++        author = Author.objects.create(name='View only author')
++        book = Book.objects.create(name='View only book')
++        author.books.add(book)
++        cls.author_change_url = reverse('admin:admin_inlines_author_change', args=(author.pk,))
++
++    def setUp(self):
++        self.client.force_login(self.user)
++
++    def test_inline_is_not_editable(self):
++        response = self.client.get(self.author_change_url)
++        self.assertEqual(response.status_code, 200)
++        self.assertContains(response, '<h2>Author-book relationships</h2>')
++        # Only the existing relationship is shown (no extra forms to add).
++        self.assertContains(
++            response,
++            '<input type="hidden" id="id_Author_books-TOTAL_FORMS" value="1" '
++            'name="Author_books-TOTAL_FORMS">',
++            html=True,
++        )
++        # Adding new relations is disabled.
++        self.assertContains(
++            response,
++            '<input type="hidden" id="id_Author_books-MAX_NUM_FORMS" value="0" '
++            'name="Author_books-MAX_NUM_FORMS">',
++            html=True,
++        )
++        # Removing relations is disabled.
++        self.assertNotContains(response, 'id="id_Author_books-0-DELETE"')
++
++
+ @override_settings(ROOT_URLCONF='admin_inlines.urls')
+ class SeleniumTests(AdminSeleniumTestCase):
+ 

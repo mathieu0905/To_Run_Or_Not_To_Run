@@ -1,0 +1,62 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 4648daf395..0fcfadb9ca 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1077,10 +1077,23 @@ class Query(BaseExpression):
+         elif isinstance(value, (list, tuple)):
+             # The items of the iterable may be expressions and therefore need
+             # to be resolved independently.
+-            return type(value)(
++            resolved_values = [
+                 self.resolve_lookup_value(sub_value, can_reuse, allow_joins)
+                 for sub_value in value
+-            )
++            ]
++            if isinstance(value, tuple) and type(value) is not tuple:
++                # Some tuple subclasses (e.g. namedtuple) don't accept a single
++                # iterable argument, so fall back to splat expansion.
++                try:
++                    return type(value)(resolved_values)
++                except TypeError as e:
++                    # Only retry for argument mismatch errors; preserve other
++                    # TypeErrors raised by custom tuple subclasses.
++                    msg = str(e)
++                    if 'positional argument' in msg or 'positional arguments' in msg:
++                        return type(value)(*resolved_values)
++                    raise
++            return type(value)(resolved_values)
+         return value
+ 
+     def solve_lookup_type(self, lookup):
+diff --git a/tests/custom_lookups/tests.py b/tests/custom_lookups/tests.py
+index 14f95a241b..4ebe08dff9 100644
+--- a/tests/custom_lookups/tests.py
++++ b/tests/custom_lookups/tests.py
+@@ -1,5 +1,6 @@
+ import time
+ import unittest
++from collections import namedtuple
+ from datetime import date, datetime
+ 
+ from django.core.exceptions import FieldError
+@@ -281,6 +282,20 @@ class LookupTests(TestCase):
+             self.assertSequenceEqual(baseqs.filter(age__div3__gte=3), [])
+             self.assertSequenceEqual(baseqs.filter(age__div3__range=(1, 2)), [a1, a2, a4])
+ 
++    def test_namedtuple_range_lookup(self):
++        """
++        Tuple subclasses like namedtuple should be supported in __range lookups.
++        """
++        a1 = Author.objects.create(name='a1', age=1)
++        a2 = Author.objects.create(name='a2', age=2)
++        a3 = Author.objects.create(name='a3', age=3)
++        Author.objects.create(name='a4', age=4)
++        AgeRange = namedtuple('AgeRange', 'near far')
++        self.assertSequenceEqual(
++            Author.objects.filter(age__range=AgeRange(1, 3)).order_by('age'),
++            [a1, a2, a3],
++        )
++
+     def test_foreignobject_lookup_registration(self):
+         field = Article._meta.get_field('author')
+ 

@@ -1,0 +1,38 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index d9c9b0db04..37755e0b1d 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -734,6 +734,11 @@ class QuerySet:
+         collector = Collector(using=del_query.db)
+         collector.collect(del_query)
+         deleted, _rows_count = collector.delete()
++        # Ensure consistent return format when the queryset matches no rows.
++        # Fast deletes already include {model_label: 0}; mirror that behavior
++        # for collector-based deletes (e.g. models with related objects).
++        if deleted == 0:
++            _rows_count.setdefault(del_query.model._meta.label, 0)
+ 
+         # Clear the result cache, in case this QuerySet gets reused.
+         self._result_cache = None
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index d8424670c9..8f3bfa03fa 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -697,6 +697,17 @@ class FastDeleteTests(TestCase):
+                 (0, {'delete.User': 0})
+             )
+ 
++    def test_delete_empty_includes_model_label(self):
++        """
++        QuerySet.delete() should include the base model label even when no
++        rows match, regardless of whether the deletion is optimized as a fast
++        delete.
++        """
++        self.assertEqual(
++            Avatar.objects.filter(desc='missing').delete(),
++            (0, {'delete.Avatar': 0}),
++        )
++
+     def test_fast_delete_combined_relationships(self):
+         # The cascading fast-delete of SecondReferrer should be combined
+         # in a single DELETE WHERE referrer_id OR unique_field.

@@ -1,0 +1,45 @@
+diff --git a/django/core/checks/translation.py b/django/core/checks/translation.py
+index 138ed07ff8..b73d6c2f2d 100644
+--- a/django/core/checks/translation.py
++++ b/django/core/checks/translation.py
+@@ -1,4 +1,5 @@
+ from django.conf import settings
++from django.utils.translation import to_language
+ from django.utils.translation.trans_real import language_code_re
+ 
+ from . import Error, Tags, register
+@@ -55,7 +56,15 @@ def check_setting_languages_bidi(app_configs, **kwargs):
+ @register(Tags.translation)
+ def check_language_settings_consistent(app_configs, **kwargs):
+     """Error if language settings are not consistent with each other."""
+-    available_tags = {i for i, _ in settings.LANGUAGES} | {'en-us'}
+-    if settings.LANGUAGE_CODE not in available_tags:
+-        return [E004]
++    # Normalize for case-insensitive comparisons (language tags are case
++    # insensitive in practice, and Django settings often use lowercase).
++    available_tags = {to_language(i) for i, _ in settings.LANGUAGES} | {'en-us'}
++    language_code = to_language(settings.LANGUAGE_CODE)
++    if language_code not in available_tags:
++        # Allow specifying a sublanguage when the base language is available.
++        # E.g. if LANGUAGE_CODE='de-at' and 'de' is in LANGUAGES, Django will
++        # fall back to 'de' for translations.
++        base_language = language_code.split('-')[0]
++        if base_language not in available_tags:
++            return [E004]
+     return []
+diff --git a/tests/check_framework/test_translation.py b/tests/check_framework/test_translation.py
+index 4cd79d803f..a6b9a8cfc7 100644
+--- a/tests/check_framework/test_translation.py
++++ b/tests/check_framework/test_translation.py
+@@ -84,3 +84,11 @@ class TranslationCheckTests(SimpleTestCase):
+             self.assertEqual(check_language_settings_consistent(None), [
+                 Error(msg, id='translation.E004'),
+             ])
++
++    def test_sublanguage_language_code_uses_base_language(self):
++        """
++        A sublanguage in LANGUAGE_CODE is valid if its base language is in
++        LANGUAGES (Django will fall back to the base language).
++        """
++        with self.settings(LANGUAGE_CODE='de-at', LANGUAGES=[('de', 'German')]):
++            self.assertEqual(check_language_settings_consistent(None), [])

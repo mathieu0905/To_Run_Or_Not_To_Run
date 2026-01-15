@@ -1,0 +1,77 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 92fe4affb9..fdc40398dc 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -277,6 +277,8 @@ class Collector:
+             if self.can_fast_delete(instance):
+                 with transaction.mark_for_rollback_on_error():
+                     count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
++                # Match the normal deletion path by clearing the instance PK.
++                setattr(instance, model._meta.pk.attname, None)
+                 return count, {model._meta.label: count}
+ 
+         with transaction.atomic(using=self.using, savepoint=False):
+diff --git a/tests/delete/models.py b/tests/delete/models.py
+index 2fc5ebe217..d44935ea08 100644
+--- a/tests/delete/models.py
++++ b/tests/delete/models.py
+@@ -28,6 +28,15 @@ class RChild(R):
+     pass
+ 
+ 
++class NoDependencies(models.Model):
++    """
++    Model with no parent models and no relations pointing to it.
++
++    Used to exercise the optimized instance deletion path in
++    django.db.models.deletion.Collector.delete().
++    """
++
++
+ class A(models.Model):
+     name = models.CharField(max_length=30)
+ 
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 55eeb226ea..b20829c52b 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -1,4 +1,5 @@
+ from math import ceil
++from unittest import mock
+ 
+ from django.db import IntegrityError, connection, models
+ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+@@ -6,7 +7,8 @@ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+ 
+ from .models import (
+     MR, A, Avatar, Base, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
+-    M2MTo, MRNull, Parent, R, RChild, S, T, User, create_a, get_default_r,
++    M2MTo, MRNull, NoDependencies, Parent, R, RChild, S, T, User, create_a,
++    get_default_r,
+ )
+ 
+ 
+@@ -208,6 +210,23 @@ class DeletionTests(TestCase):
+ 
+         models.signals.pre_delete.disconnect(pre_delete)
+ 
++    def test_instance_delete_clears_pk_on_optimized_path(self):
++        obj = NoDependencies.objects.create()
++        from django.db.models import deletion
++
++        # Force the optimized Collector.delete() fast path (which bypasses the
++        # "update collected instances" block) while still letting Collector.collect()
++        # run normally for iterables like [obj].
++        with mock.patch.object(
++            deletion.Collector,
++            "can_fast_delete",
++            autospec=True,
++            side_effect=lambda self, objs, from_field=None: hasattr(objs, "_meta"),
++        ):
++            deleted, _ = obj.delete()
++        self.assertEqual(deleted, 1)
++        self.assertIsNone(obj.pk)
++
+     def test_deletion_order(self):
+         pre_delete_order = []
+         post_delete_order = []

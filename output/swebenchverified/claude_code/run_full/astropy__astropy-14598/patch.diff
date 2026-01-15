@@ -1,7 +1,16 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 1b3285ddc..bd48eba60 100644
+index 1b3285ddc..0efa7fd83 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
+@@ -64,7 +64,7 @@ class Card(_Verify):
+ 
+     # Used in cards using the CONTINUE convention which expect a string
+     # followed by an optional comment
+-    _strg = r"\'(?P<strg>([ -~]+?|\'\'|) *?)\'(?=$|/| )"
++    _strg = r"\'(?P<strg>(?:\'\'|[^\'])* *)\'(?=$|/| )"
+     _comm_field = r"(?P<comm_field>(?P<sepr>/ *)(?P<comm>(.|\n)*))"
+     _strg_comment_RE = re.compile(f"({_strg})? *{_comm_field}?")
+ 
 @@ -859,7 +859,7 @@ class Card(_Verify):
                      return kw, vc
  
@@ -11,3 +20,40 @@ index 1b3285ddc..bd48eba60 100644
                  if value and value[-1] == "&":
                      value = value[:-1]
                  values.append(value)
+@@ -1059,6 +1059,36 @@ class Card(_Verify):
+         # do the value string
+         value = self._value.replace("'", "''")
+         words = _words_group(value, value_length)
++
++        # Ensure we don't split in the middle of escaped quote pairs
++        # Each segment should end with an even number of quotes
++        i = 0
++        while i < len(words) - 1:
++            # Count trailing quotes in current word
++            trailing_quotes = 0
++            for j in range(len(words[i]) - 1, -1, -1):
++                if words[i][j] == "'":
++                    trailing_quotes += 1
++                else:
++                    break
++
++            # If odd number of trailing quotes, we split in the middle of a pair
++            # Move one quote to the next word and re-merge if needed
++            if trailing_quotes % 2 == 1:
++                # Move the trailing quote to the next word
++                words[i] = words[i][:-1]
++                words[i + 1] = "'" + words[i + 1]
++
++                # If the next word is now too long, we need to re-split
++                if len(words[i + 1]) > value_length:
++                    # Re-split the merged word
++                    overflow = words[i + 1][value_length:]
++                    words[i + 1] = words[i + 1][:value_length]
++                    # Insert the overflow as a new word
++                    words.insert(i + 2, overflow)
++
++            i += 1
++
+         for idx, word in enumerate(words):
+             if idx == 0:
+                 headstr = "{:{len}}= ".format(self.keyword, len=KEYWORD_LENGTH)

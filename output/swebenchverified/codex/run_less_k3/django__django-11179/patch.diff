@@ -1,0 +1,56 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 92fe4affb9..eaa2d2ffd5 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -277,6 +277,9 @@ class Collector:
+             if self.can_fast_delete(instance):
+                 with transaction.mark_for_rollback_on_error():
+                     count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
++                # Mirror the behavior of the general deletion path: after a
++                # successful delete(), clear the instance's PK.
++                setattr(instance, model._meta.pk.attname, None)
+                 return count, {model._meta.label: count}
+ 
+         with transaction.atomic(using=self.using, savepoint=False):
+diff --git a/tests/delete/models.py b/tests/delete/models.py
+index 2fc5ebe217..56a7c270bb 100644
+--- a/tests/delete/models.py
++++ b/tests/delete/models.py
+@@ -126,3 +126,11 @@ class Base(models.Model):
+ 
+ class RelToBase(models.Model):
+     base = models.ForeignKey(Base, models.DO_NOTHING)
++
++
++class Plain(models.Model):
++    """
++    Model with no relations. Deleting an instance should clear its PK even when
++    Collector.delete() takes the fast-path optimization.
++    """
++    pass
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 55eeb226ea..de07159bc5 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -6,7 +6,7 @@ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+ 
+ from .models import (
+     MR, A, Avatar, Base, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
+-    M2MTo, MRNull, Parent, R, RChild, S, T, User, create_a, get_default_r,
++    M2MTo, MRNull, Parent, Plain, R, RChild, S, T, User, create_a, get_default_r,
+ )
+ 
+ 
+@@ -139,6 +139,12 @@ class OnDeleteTests(TestCase):
+ 
+ 
+ class DeletionTests(TestCase):
++    def test_fast_delete_clears_pk(self):
++        obj = Plain.objects.create()
++        pk = obj.pk
++        obj.delete()
++        self.assertIsNone(obj.pk)
++        self.assertFalse(Plain.objects.filter(pk=pk).exists())
+ 
+     def test_m2m(self):
+         m = M.objects.create()

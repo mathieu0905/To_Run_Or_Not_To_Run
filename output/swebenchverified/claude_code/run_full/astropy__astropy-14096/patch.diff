@@ -1,14 +1,20 @@
 diff --git a/astropy/coordinates/sky_coordinate.py b/astropy/coordinates/sky_coordinate.py
-index ab475f7d0..1b045a1aa 100644
+index ab475f7d0..2bbe8d3eb 100644
 --- a/astropy/coordinates/sky_coordinate.py
 +++ b/astropy/coordinates/sky_coordinate.py
-@@ -894,6 +894,10 @@ class SkyCoord(ShapedLikeNDArray):
+@@ -894,6 +894,16 @@ class SkyCoord(ShapedLikeNDArray):
              if frame_cls is not None and self.frame.is_transformable_to(frame_cls):
                  return self.transform_to(attr)
  
-+        # Call __getattribute__ to get the correct error message if attr exists
-+        # (e.g., as a property) but raises an AttributeError internally.
-+        self.__getattribute__(attr)
++        # Check if this attribute exists in the class hierarchy (e.g., as a property)
++        # If it does, manually invoke the descriptor to preserve any AttributeError
++        # it raises, preventing misleading error messages in subclasses
++        for cls in type(self).__mro__:
++            if attr in cls.__dict__:
++                descriptor = cls.__dict__[attr]
++                if hasattr(descriptor, '__get__'):
++                    # It's a descriptor (property, method, etc.), invoke it
++                    return descriptor.__get__(self, type(self))
 +
          # Fail
          raise AttributeError(

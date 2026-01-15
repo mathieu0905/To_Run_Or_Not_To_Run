@@ -4,6 +4,17 @@
 
 set -e
 
+# 默认后台执行，-f 前台执行
+if [ "$1" != "-f" ] && [ "$1" != "--foreground" ]; then
+    SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+    LOG_FILE="$(cd "$(dirname "$0")" && pwd)/logs/run_claude_verified_$(date +%Y%m%d_%H%M%S).log"
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "后台运行中，日志: $LOG_FILE"
+    nohup bash "$SCRIPT_PATH" -f > "$LOG_FILE" 2>&1 &
+    echo "PID: $!"
+    exit 0
+fi
+
 # 切换到脚本所在目录
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
@@ -13,13 +24,13 @@ cd experiments
 
 # ========== 配置区域 ==========
 # 实验配置
-NUM_INSTANCES=30  # 取前 n 个实例
-WORKERS=10  # 每个配置内部的并发数
+NUM_INSTANCES=100  # 取前 n 个实例
+WORKERS=30  # 每个配置内部的并发数
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Verified"
 
 # Claude Code 配置
-export CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"  # 可选: opus, sonnet, haiku
+export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"  # 可选: opus, sonnet, haiku
 export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://uk.frp.one:60660}"
 
 # Codex 配置

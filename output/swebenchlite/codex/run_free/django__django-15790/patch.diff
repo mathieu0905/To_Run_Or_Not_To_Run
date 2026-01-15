@@ -1,0 +1,40 @@
+diff --git a/django/core/checks/templates.py b/django/core/checks/templates.py
+index 5214276987..562c95b453 100644
+--- a/django/core/checks/templates.py
++++ b/django/core/checks/templates.py
+@@ -61,6 +61,11 @@ def check_for_template_tags_with_the_same_name(app_configs, **kwargs):
+         libraries[module_name].append(module_path)
+ 
+     for library_name, items in libraries.items():
++        # A library may be listed multiple times (e.g. specified in TEMPLATES
++        # and also discovered via installed apps, or repeated across template
++        # engines). Only report an error if it maps to multiple *different*
++        # module paths.
++        items = list(dict.fromkeys(items))
+         if len(items) > 1:
+             errors.append(
+                 Error(
+diff --git a/tests/check_framework/test_templates.py b/tests/check_framework/test_templates.py
+index 352a017e55..7597ff8e3a 100644
+--- a/tests/check_framework/test_templates.py
++++ b/tests/check_framework/test_templates.py
+@@ -186,6 +186,19 @@ class CheckTemplateTagLibrariesWithSameName(SimpleTestCase):
+                 ],
+             )
+ 
++    @override_settings(
++        INSTALLED_APPS=["check_framework.template_test_apps.same_tags_app_1"]
++    )
++    def test_template_tags_with_same_library_name_and_same_module_name(self):
++        with self.settings(
++            TEMPLATES=[
++                self.get_settings(
++                    "same_tags", "same_tags_app_1.templatetags.same_tags"
++                ),
++            ]
++        ):
++            self.assertEqual(check_for_template_tags_with_the_same_name(None), [])
++
+     def test_template_tags_with_different_library_name(self):
+         with self.settings(
+             TEMPLATES=[

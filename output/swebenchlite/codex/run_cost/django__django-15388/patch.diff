@@ -1,0 +1,56 @@
+diff --git a/django/template/autoreload.py b/django/template/autoreload.py
+index cf1b20ba95..f22f70f19b 100644
+--- a/django/template/autoreload.py
++++ b/django/template/autoreload.py
+@@ -5,7 +5,10 @@ from django.template import engines
+ from django.template.backends.django import DjangoTemplates
+ from django.utils._os import to_path
+ from django.utils.autoreload import (
+-    autoreload_started, file_changed, is_django_path,
++    autoreload_started,
++    file_changed,
++    is_django_path,
++    iter_all_python_module_files,
+ )
+ 
+ 
+@@ -48,7 +51,14 @@ def watch_for_template_changes(sender, **kwargs):
+ 
+ @receiver(file_changed, dispatch_uid='template_loaders_file_changed')
+ def template_changed(sender, file_path, **kwargs):
++    # Template changes should reset loaders without restarting the server.
++    # However, template directories may overlap with Python source trees (e.g.
++    # BASE_DIR in TEMPLATES['DIRS']). Don't suppress the normal Python module
++    # reloader in that case.
++    normalized_file_path = Path(file_path).resolve().absolute()
++    if normalized_file_path in iter_all_python_module_files():
++        return
+     for template_dir in get_template_directories():
+-        if template_dir in file_path.parents:
++        if template_dir in normalized_file_path.parents:
+             reset_loaders()
+             return True
+diff --git a/tests/template_tests/test_autoreloader.py b/tests/template_tests/test_autoreloader.py
+index d6ece4cc6d..b3e55c6ecb 100644
+--- a/tests/template_tests/test_autoreloader.py
++++ b/tests/template_tests/test_autoreloader.py
+@@ -39,6 +39,19 @@ class TemplateReloadTests(SimpleTestCase):
+         self.assertIsNone(autoreload.template_changed(None, Path(__file__)))
+         mock_reset.assert_not_called()
+ 
++    @override_settings(
++        TEMPLATES=[{
++            'BACKEND': 'django.template.backends.django.DjangoTemplates',
++            # Include the test directory itself, similar to adding BASE_DIR in
++            # a project's settings. This must not disable Python module reloads.
++            'DIRS': [ROOT],
++        }]
++    )
++    @mock.patch('django.template.autoreload.reset_loaders')
++    def test_python_module_change_not_suppressed_by_template_dirs(self, mock_reset):
++        self.assertIsNone(autoreload.template_changed(None, Path(__file__)))
++        mock_reset.assert_not_called()
++
+     def test_watch_for_template_changes(self):
+         mock_reloader = mock.MagicMock()
+         autoreload.watch_for_template_changes(mock_reloader)

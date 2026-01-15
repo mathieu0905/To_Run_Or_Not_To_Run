@@ -11,3 +11,49 @@ index a308e2729..45bea3608 100644
  
      return np.hstack([cleft, cright])
  
+diff --git a/astropy/modeling/tests/test_separable.py b/astropy/modeling/tests/test_separable.py
+index 8dfe5c862..82308707b 100644
+--- a/astropy/modeling/tests/test_separable.py
++++ b/astropy/modeling/tests/test_separable.py
+@@ -148,3 +148,41 @@ def test_custom_model_separable():
+ 
+     assert not model_c().separable
+     assert np.all(separability_matrix(model_c()) == [True, True])
++
++
++def test_nested_compound_models():
++    """Test separability matrix for nested compound models."""
++    # Test case from issue: nested compound model on the right
++    cm = models.Linear1D(10) & models.Linear1D(5)
++    nested_right = models.Pix2Sky_TAN() & cm
++
++    expected = np.array([[True, True, False, False],
++                         [True, True, False, False],
++                         [False, False, True, False],
++                         [False, False, False, True]])
++
++    result = separability_matrix(nested_right)
++    assert_allclose(result, expected)
++
++    # Test nested compound model on the left
++    nested_left = cm & models.Pix2Sky_TAN()
++
++    expected_left = np.array([[True, False, False, False],
++                              [False, True, False, False],
++                              [False, False, True, True],
++                              [False, False, True, True]])
++
++    result_left = separability_matrix(nested_left)
++    assert_allclose(result_left, expected_left)
++
++    # Test deeply nested compound models
++    cm2 = models.Scale(2) & models.Scale(3)
++    deeply_nested = cm & cm2
++
++    expected_deep = np.array([[True, False, False, False],
++                              [False, True, False, False],
++                              [False, False, True, False],
++                              [False, False, False, True]])
++
++    result_deep = separability_matrix(deeply_nested)
++    assert_allclose(result_deep, expected_deep)

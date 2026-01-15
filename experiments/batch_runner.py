@@ -37,6 +37,17 @@ class BatchRunner:
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
         return checkpoint_dir / "checkpoint.json"
 
+    def _get_output_dir(self, agent_type: str, mode: str, k: int) -> Path:
+        """获取输出目录路径"""
+        mode_dir = f"{mode}_k{k}" if mode == "run_less" else mode
+        return OUTPUT_DIR / self.dataset_dir / agent_type / mode_dir
+
+    def _has_valid_patch(self, instance_id: str, agent_type: str, mode: str, k: int) -> bool:
+        """检查实例是否有有效的 patch 文件（存在且不为空）"""
+        output_dir = self._get_output_dir(agent_type, mode, k)
+        patch_file = output_dir / instance_id / "patch.diff"
+        return patch_file.exists() and patch_file.stat().st_size > 0
+
     def run_batch(
         self,
         instances: List[str],
@@ -61,12 +72,15 @@ class BatchRunner:
         # 获取当前配置的 checkpoint 文件
         self.checkpoint_file = self._get_checkpoint_file(agent_type, mode, k)
 
-        # 加载 checkpoint 以跳过已完成的实例
-        completed = self._load_checkpoint()
-        remaining = [i for i in instances if i not in completed]
+        # 跳过已有有效 patch 的实例（存在且不为空）
+        remaining = [
+            i for i in instances
+            if not self._has_valid_patch(i, agent_type, mode, k)
+        ]
+        completed = len(instances) - len(remaining)
 
         print(f"总实例数: {len(instances)}")
-        print(f"已完成: {len(completed)}")
+        print(f"已完成: {completed}")
         print(f"待运行: {len(remaining)}")
         print(f"并发数: {self.max_workers}")
         print(f"模式: {mode}" + (f" (k={k})" if mode == "run_less" else ""))

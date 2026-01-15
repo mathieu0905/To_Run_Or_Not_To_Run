@@ -1,0 +1,56 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index c2aea9c730..e0a6a86833 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -582,7 +582,15 @@ class ForeignObject(RelatedField):
+         if self.remote_field.parent_link:
+             kwargs['parent_link'] = self.remote_field.parent_link
+         if isinstance(self.remote_field.model, str):
+-            kwargs['to'] = self.remote_field.model.lower()
++            # Preserve the app label's case (it's case-sensitive) while
++            # normalizing the model name (it's case-insensitive).
++            if self.remote_field.model == RECURSIVE_RELATIONSHIP_CONSTANT:
++                kwargs['to'] = self.remote_field.model
++            elif '.' in self.remote_field.model:
++                app_label, model_name = self.remote_field.model.split('.', 1)
++                kwargs['to'] = '%s.%s' % (app_label, model_name.lower())
++            else:
++                kwargs['to'] = self.remote_field.model.lower()
+         else:
+             kwargs['to'] = self.remote_field.model._meta.label_lower
+         # If swappable is True, then see if we're actually pointing to the target
+diff --git a/tests/migrations/test_state.py b/tests/migrations/test_state.py
+index 40277bf506..2f7c5552fe 100644
+--- a/tests/migrations/test_state.py
++++ b/tests/migrations/test_state.py
+@@ -867,6 +867,30 @@ class StateTests(SimpleTestCase):
+         with self.assertRaisesMessage(ValueError, msg):
+             project_state.apps
+ 
++    def test_fk_string_reference_deconstruct_preserves_mixed_case_app_label(self):
++        fk = models.ForeignKey('DJ_RegLogin.Category', models.CASCADE)
++        _, _, args, kwargs = fk.deconstruct()
++        self.assertEqual(kwargs['to'], 'DJ_RegLogin.category')
++
++        # A roundtrip through deconstruct/reconstruct must keep the app label
++        # stable; otherwise rendering a ProjectState can crash with an
++        # unresolved lazy reference.
++        project_state = ProjectState()
++        project_state.add_model(ModelState(
++            'DJ_RegLogin',
++            'Category',
++            [('id', models.AutoField(primary_key=True))],
++        ))
++        project_state.add_model(ModelState(
++            'DJ_RegLogin',
++            'Content',
++            [
++                ('id', models.AutoField(primary_key=True)),
++                ('category', models.ForeignKey(*args, **kwargs)),
++            ],
++        ))
++        self.assertEqual(len(project_state.apps.get_models()), 2)
++
+     def test_real_apps(self):
+         """
+         Including real apps can resolve dangling FK errors.

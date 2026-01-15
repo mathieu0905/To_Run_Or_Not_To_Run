@@ -1,0 +1,106 @@
+diff --git a/django/utils/http.py b/django/utils/http.py
+index 572cfb4347..61556f2548 100644
+--- a/django/utils/http.py
++++ b/django/utils/http.py
+@@ -164,6 +164,22 @@ def parse_http_date(date):
+ 
+     Return an integer expressed in seconds since the epoch, in UTC.
+     """
++    def _parse_two_digit_year(year):
++        """
++        Convert a 2-digit year (or a value < 100) using RFC 7231's guidance:
++        interpret years that would be more than 50 years in the future as the
++        most recent year in the past with the same last two digits.
++        """
++        now_year = datetime.datetime.utcnow().year
++        century = now_year - (now_year % 100)
++        year += century
++        if year > now_year + 50:
++            year -= 100
++        elif year < now_year - 50:
++            # Prefer the closest year (handles e.g. 2099 + "00" -> 2100).
++            year += 100
++        return year
++
+     # email.utils.parsedate() does the job for RFC1123 dates; unfortunately
+     # RFC7231 makes it mandatory to support RFC850 dates too. So we roll
+     # our own RFC-compliant parsing.
+@@ -176,10 +192,7 @@ def parse_http_date(date):
+     try:
+         year = int(m.group('year'))
+         if year < 100:
+-            if year < 70:
+-                year += 2000
+-            else:
+-                year += 1900
++            year = _parse_two_digit_year(year)
+         month = MONTHS.index(m.group('mon').lower()) + 1
+         day = int(m.group('day'))
+         hour = int(m.group('hour'))
+diff --git a/tests/utils_tests/test_http.py b/tests/utils_tests/test_http.py
+index bc8bcfe977..29bd89233a 100644
+--- a/tests/utils_tests/test_http.py
++++ b/tests/utils_tests/test_http.py
+@@ -1,4 +1,6 @@
+ import unittest
++from unittest import mock
++import datetime as dt
+ from datetime import datetime
+ 
+ from django.test import SimpleTestCase, ignore_warnings
+@@ -317,7 +319,13 @@ class HttpDateProcessingTests(unittest.TestCase):
+         self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(1994, 11, 6, 8, 49, 37))
+ 
+     def test_parsing_rfc850(self):
+-        parsed = parse_http_date('Sunday, 06-Nov-94 08:49:37 GMT')
++        class FixedDatetime(dt.datetime):
++            @classmethod
++            def utcnow(cls):
++                return cls(2020, 1, 1)
++
++        with mock.patch('django.utils.http.datetime.datetime', FixedDatetime):
++            parsed = parse_http_date('Sunday, 06-Nov-94 08:49:37 GMT')
+         self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(1994, 11, 6, 8, 49, 37))
+ 
+     def test_parsing_asctime(self):
+@@ -325,9 +333,39 @@ class HttpDateProcessingTests(unittest.TestCase):
+         self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(1994, 11, 6, 8, 49, 37))
+ 
+     def test_parsing_year_less_than_70(self):
+-        parsed = parse_http_date('Sun Nov  6 08:49:37 0037')
++        class FixedDatetime(dt.datetime):
++            @classmethod
++            def utcnow(cls):
++                return cls(2020, 1, 1)
++
++        with mock.patch('django.utils.http.datetime.datetime', FixedDatetime):
++            parsed = parse_http_date('Sun Nov  6 08:49:37 0037')
+         self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(2037, 11, 6, 8, 49, 37))
+ 
++    def test_parsing_rfc850_two_digit_year_pivot(self):
++        class FixedDatetime(dt.datetime):
++            @classmethod
++            def utcnow(cls):
++                return cls(2020, 1, 1)
++
++        with mock.patch('django.utils.http.datetime.datetime', FixedDatetime):
++            parsed = parse_http_date('Sunday, 06-Nov-70 08:49:37 GMT')
++        self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(2070, 11, 6, 8, 49, 37))
++
++        with mock.patch('django.utils.http.datetime.datetime', FixedDatetime):
++            parsed = parse_http_date('Sunday, 06-Nov-71 08:49:37 GMT')
++        self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(1971, 11, 6, 8, 49, 37))
++
++    def test_parsing_rfc850_two_digit_year_century_boundary(self):
++        class FixedDatetime(dt.datetime):
++            @classmethod
++            def utcnow(cls):
++                return cls(2099, 1, 1)
++
++        with mock.patch('django.utils.http.datetime.datetime', FixedDatetime):
++            parsed = parse_http_date('Sunday, 06-Nov-00 08:49:37 GMT')
++        self.assertEqual(datetime.utcfromtimestamp(parsed), datetime(2100, 11, 6, 8, 49, 37))
++
+ 
+ class EscapeLeadingSlashesTests(unittest.TestCase):
+     def test(self):

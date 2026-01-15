@@ -1,0 +1,213 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index e3b14a41a0..6592d2277e 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -398,6 +398,10 @@ class ModelState:
+     # explicit (non-auto) PKs. This impacts validation only; it has no effect
+     # on the actual save.
+     adding = True
++    # True if the primary key was explicitly provided (e.g. via Model(pk=...),
++    # Model(id=...), or assignment to instance.pk). Used to distinguish an
++    # explicit PK from one populated by a field default during __init__.
++    pk_set = False
+     fields_cache = ModelStateFieldsCacheDescriptor()
+ 
+ 
+@@ -433,6 +437,8 @@ class Model(metaclass=ModelBase):
+                 if val is _DEFERRED:
+                     continue
+                 _setattr(self, field.attname, val)
++                if field.primary_key and val is not None:
++                    self._state.pk_set = True
+         else:
+             # Slower, kwargs-ready version.
+             fields_iter = iter(opts.fields)
+@@ -440,6 +446,8 @@ class Model(metaclass=ModelBase):
+                 if val is _DEFERRED:
+                     continue
+                 _setattr(self, field.attname, val)
++                if field.primary_key and val is not None:
++                    self._state.pk_set = True
+                 kwargs.pop(field.name, None)
+ 
+         # Now we're left with the unprocessed fields that *must* come from
+@@ -451,20 +459,24 @@ class Model(metaclass=ModelBase):
+             if field.attname not in kwargs and field.column is None:
+                 continue
+             if kwargs:
++                val_from_kwargs = False
+                 if isinstance(field.remote_field, ForeignObjectRel):
+                     try:
+                         # Assume object instance was passed in.
+                         rel_obj = kwargs.pop(field.name)
+                         is_related_object = True
++                        val_from_kwargs = True
+                     except KeyError:
+                         try:
+                             # Object instance wasn't passed in -- must be an ID.
+                             val = kwargs.pop(field.attname)
++                            val_from_kwargs = True
+                         except KeyError:
+                             val = field.get_default()
+                 else:
+                     try:
+                         val = kwargs.pop(field.attname)
++                        val_from_kwargs = True
+                     except KeyError:
+                         # This is done with an exception rather than the
+                         # default argument on pop because we don't want
+@@ -473,6 +485,7 @@ class Model(metaclass=ModelBase):
+                         val = field.get_default()
+             else:
+                 val = field.get_default()
++                val_from_kwargs = False
+ 
+             if is_related_object:
+                 # If we are passed a related instance, set it using the
+@@ -481,9 +494,13 @@ class Model(metaclass=ModelBase):
+                 # checked) by the RelatedObjectDescriptor.
+                 if rel_obj is not _DEFERRED:
+                     _setattr(self, field.name, rel_obj)
++                    if field.primary_key and val_from_kwargs and rel_obj is not None:
++                        self._state.pk_set = True
+             else:
+                 if val is not _DEFERRED:
+                     _setattr(self, field.attname, val)
++                    if field.primary_key and val_from_kwargs and val is not None:
++                        self._state.pk_set = True
+ 
+         if kwargs:
+             property_names = opts._property_names
+@@ -569,6 +586,7 @@ class Model(metaclass=ModelBase):
+         return getattr(self, meta.pk.attname)
+ 
+     def _set_pk_val(self, value):
++        self._state.pk_set = value is not None
+         return setattr(self, self._meta.pk.attname, value)
+ 
+     pk = property(_get_pk_val, _set_pk_val)
+@@ -848,11 +866,14 @@ class Model(metaclass=ModelBase):
+             raise ValueError("Cannot force an update in save() with no primary key.")
+         updated = False
+         # Skip an UPDATE when adding an instance and primary key has a default.
++        # Only do this when the primary key wasn't explicitly set; otherwise,
++        # allow the UPDATE to support patterns like creating an object with an
++        # explicit primary key that already exists (e.g. fixture loading).
+         if (
+             not force_insert and
+             self._state.adding and
+-            self._meta.pk.default and
+-            self._meta.pk.default is not NOT_PROVIDED
++            meta.pk.has_default() and
++            not self._state.pk_set
+         ):
+             force_insert = True
+         # If possible, try an UPDATE. If that doesn't update anything, do an INSERT.
+diff --git a/tests/model_fields/test_uuid.py b/tests/model_fields/test_uuid.py
+index c53df2c7af..7416cbcab9 100644
+--- a/tests/model_fields/test_uuid.py
++++ b/tests/model_fields/test_uuid.py
+@@ -8,6 +8,7 @@ from django.db.models.functions import Concat, Repeat
+ from django.test import (
+     SimpleTestCase, TestCase, TransactionTestCase, skipUnlessDBFeature,
+ )
++from django.test.utils import CaptureQueriesContext, isolate_apps
+ 
+ from .models import (
+     NullableUUIDModel, PrimaryKeyUUIDModel, RelatedToUUIDModel, UUIDGrandchild,
+@@ -56,6 +57,95 @@ class TestSaveLoad(TestCase):
+             UUIDModel.objects.create(field='not-a-uuid')
+ 
+ 
++class UUIDPrimaryKeyDefaultSaveTests(TransactionTestCase):
++    available_apps = ['model_fields']
++
++    @isolate_apps('model_fields')
++    def test_save_with_explicit_pk_uses_update(self):
++        """
++        Saving a new instance with an explicit primary key should still try an
++        UPDATE first, even when the primary key field has a default.
++        """
++        class Sample(models.Model):
++            id = models.UUIDField(primary_key=True, default=uuid.uuid4)
++            name = models.CharField(blank=True, max_length=100)
++
++            class Meta:
++                app_label = 'model_fields'
++
++        with connection.schema_editor() as editor:
++            editor.create_model(Sample)
++        try:
++            s0 = Sample.objects.create(name='Initial')
++            s1 = Sample(pk=s0.pk, name='Test 1')
++            with CaptureQueriesContext(connection) as ctx:
++                s1.save()
++            updates = [
++                q['sql'] for q in ctx
++                if q['sql'].lstrip().upper().startswith('UPDATE')
++            ]
++            inserts = [
++                q['sql'] for q in ctx
++                if q['sql'].lstrip().upper().startswith('INSERT')
++            ]
++            self.assertEqual(len(updates), 1)
++            self.assertEqual(inserts, [])
++            self.assertEqual(Sample.objects.count(), 1)
++            self.assertEqual(Sample.objects.get(pk=s0.pk).name, 'Test 1')
++
++            s2 = Sample(pk=s0.pk, name='Raw')
++            with CaptureQueriesContext(connection) as ctx:
++                s2.save_base(raw=True)
++            updates = [
++                q['sql'] for q in ctx
++                if q['sql'].lstrip().upper().startswith('UPDATE')
++            ]
++            inserts = [
++                q['sql'] for q in ctx
++                if q['sql'].lstrip().upper().startswith('INSERT')
++            ]
++            self.assertEqual(len(updates), 1)
++            self.assertEqual(inserts, [])
++            self.assertEqual(Sample.objects.get(pk=s0.pk).name, 'Raw')
++        finally:
++            with connection.schema_editor() as editor:
++                editor.delete_model(Sample)
++
++    @isolate_apps('model_fields')
++    def test_save_without_explicit_pk_still_uses_single_insert(self):
++        """
++        When adding an instance and the primary key is filled by a Python
++        default, saving should use a single INSERT (no pointless UPDATE first).
++        """
++        class Sample(models.Model):
++            id = models.UUIDField(primary_key=True, default=uuid.uuid4)
++            name = models.CharField(blank=True, max_length=100)
++
++            class Meta:
++                app_label = 'model_fields'
++
++        with connection.schema_editor() as editor:
++            editor.create_model(Sample)
++        try:
++            s1 = Sample(name='Test 1')
++            with CaptureQueriesContext(connection) as ctx:
++                s1.save()
++            updates = [
++                q['sql'] for q in ctx
++                if q['sql'].lstrip().upper().startswith('UPDATE')
++            ]
++            inserts = [
++                q['sql'] for q in ctx
++                if q['sql'].lstrip().upper().startswith('INSERT')
++            ]
++            self.assertEqual(updates, [])
++            self.assertEqual(len(inserts), 1)
++            self.assertEqual(Sample.objects.count(), 1)
++        finally:
++            with connection.schema_editor() as editor:
++                editor.delete_model(Sample)
++
++
+ class TestMethods(SimpleTestCase):
+ 
+     def test_deconstruct(self):

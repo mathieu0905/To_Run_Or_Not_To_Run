@@ -1,0 +1,131 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 84960d77e1..3f524396ee 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1050,12 +1050,12 @@ class Subquery(Expression):
+         return sql, sql_params
+ 
+     def get_group_by_cols(self, alias=None):
+-        if alias:
+-            return [Ref(alias, self)]
+-        external_cols = self.query.get_external_cols()
+-        if any(col.possibly_multivalued for col in external_cols):
+-            return [self]
+-        return external_cols
++        # Subqueries are scalar expressions; grouping must use the expression
++        # itself. Some backends (e.g. PostgreSQL) resolve GROUP BY names
++        # against FROM-clause columns before SELECT aliases, so using a SELECT
++        # alias (Ref) can be ambiguous when joined tables share the same
++        # column name.
++        return [self]
+ 
+ 
+ class Exists(Subquery):
+diff --git a/tests/queries/models.py b/tests/queries/models.py
+index e9eec5718d..32b3f21024 100644
+--- a/tests/queries/models.py
++++ b/tests/queries/models.py
+@@ -747,3 +747,37 @@ class ReturningModel(models.Model):
+ 
+ class NonIntegerPKReturningModel(models.Model):
+     created = CreatedField(editable=False, primary_key=True)
++
++
++class GroupBySubqueryA(models.Model):
++    bs = models.ManyToManyField(
++        'GroupBySubqueryB',
++        related_name='a',
++        through='GroupBySubqueryAB',
++    )
++
++
++class GroupBySubqueryB(models.Model):
++    pass
++
++
++class GroupBySubqueryAB(models.Model):
++    a = models.ForeignKey(GroupBySubqueryA, on_delete=models.CASCADE, related_name='ab_a')
++    b = models.ForeignKey(GroupBySubqueryB, on_delete=models.CASCADE, related_name='ab_b')
++    status = models.IntegerField()
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(fields=['a', 'b'], name='unique_a_b_for_group_by_subquery'),
++        ]
++
++
++class GroupBySubqueryC(models.Model):
++    a = models.ForeignKey(
++        GroupBySubqueryA,
++        null=True,
++        blank=True,
++        on_delete=models.SET_NULL,
++        related_name='c',
++    )
++    status = models.IntegerField()
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index e57cad79ef..3c3b4819bb 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -6,7 +6,7 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db import DEFAULT_DB_ALIAS, connection
+-from django.db.models import Count, Exists, F, OuterRef, Q
++from django.db.models import Count, Exists, F, OuterRef, Q, Subquery
+ from django.db.models.sql.constants import LOUTER
+ from django.db.models.sql.where import NothingNode, WhereNode
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+@@ -19,16 +19,17 @@ from .models import (
+     CustomPkTag, DateTimePK, Detail, DumbCategory, Eaten, Employment,
+     ExtraInfo, Fan, Food, Identifier, Individual, Item, Job,
+     JobResponsibilities, Join, LeafA, LeafB, LoopX, LoopZ, ManagedModel,
+-    Member, MixedCaseDbColumnCategoryItem, MixedCaseFieldCategoryItem, ModelA,
+-    ModelB, ModelC, ModelD, MyObject, NamedCategory, Node, Note, NullableName,
+-    Number, ObjectA, ObjectB, ObjectC, OneToOneCategory, Order, OrderItem,
+-    Page, Paragraph, Person, Plaything, PointerA, Program, ProxyCategory,
+-    ProxyObjectA, ProxyObjectB, Ranking, Related, RelatedIndividual,
+-    RelatedObject, Report, ReportComment, ReservedName, Responsibility, School,
+-    SharedConnection, SimpleCategory, SingleObject, SpecialCategory, Staff,
+-    StaffUser, Student, Tag, Task, Teacher, Ticket21203Child,
+-    Ticket21203Parent, Ticket23605A, Ticket23605B, Ticket23605C, TvChef, Valid,
+-    X,
++    Member, MixedCaseDbColumnCategoryItem, MixedCaseFieldCategoryItem,
++    GroupBySubqueryA, GroupBySubqueryAB, GroupBySubqueryB, GroupBySubqueryC,
++    ModelA, ModelB, ModelC, ModelD, MyObject, NamedCategory, Node, Note,
++    NullableName, Number, ObjectA, ObjectB, ObjectC, OneToOneCategory, Order,
++    OrderItem, Page, Paragraph, Person, Plaything, PointerA, Program,
++    ProxyCategory, ProxyObjectA, ProxyObjectB, Ranking, Related,
++    RelatedIndividual, RelatedObject, Report, ReportComment, ReservedName,
++    Responsibility, School, SharedConnection, SimpleCategory, SingleObject,
++    SpecialCategory, Staff, StaffUser, Student, Tag, Task, Teacher,
++    Ticket21203Child, Ticket21203Parent, Ticket23605A, Ticket23605B,
++    Ticket23605C, TvChef, Valid, X,
+ )
+ 
+ 
+@@ -3556,6 +3557,24 @@ class ValuesSubqueryTests(TestCase):
+         # with id == status.
+         self.assertSequenceEqual(Order.objects.filter(items__in=OrderItem.objects.values_list('status')), [o1])
+ 
++    @unittest.skipUnless(connection.vendor == 'postgresql', "PostgreSQL specific GROUP BY resolution.")
++    def test_group_by_subquery_annotation_does_not_use_ambiguous_alias(self):
++        a = GroupBySubqueryA.objects.create()
++        b = GroupBySubqueryB.objects.create()
++        GroupBySubqueryAB.objects.create(a=a, b=b, status=1)
++        # Add another joined table with a "status" column to trigger ambiguity
++        # when GROUP BY uses a bare column name.
++        GroupBySubqueryC.objects.create(a=a, status=0)
++
++        ab_query = GroupBySubqueryAB.objects.filter(a=OuterRef('pk'), b=b).values('status')[:1]
++        filter_conditions = Q(pk=a.pk) | Q(ab_a__b=b)
++        qs = GroupBySubqueryA.objects.filter(filter_conditions).annotate(
++            status=Subquery(ab_query),
++            c_count=Count('c'),
++        )
++        result = qs.values('status').annotate(total_count=Count('status')).order_by()
++        self.assertEqual(list(result), [{'status': 1, 'total_count': 1}])
++
+ 
+ class DoubleInSubqueryTests(TestCase):
+     def test_double_subquery_in(self):

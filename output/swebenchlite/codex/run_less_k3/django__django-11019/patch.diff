@@ -1,0 +1,229 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..d1cafad319 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -4,6 +4,7 @@ HTML Widget classes
+ 
+ import copy
+ import datetime
++import heapq
+ import re
+ import warnings
+ from itertools import chain
+@@ -59,22 +60,23 @@ class Media:
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
+-                for medium in css.keys() | obj.keys()
+-            }
+-        return css
++        # Merge each medium independently across all CSS lists. Using all lists
++        # at once avoids establishing ordering constraints between assets that
++        # never appeared together in a single Media definition.
++        css_lists = list(filter(None, self._css_lists))
++        if not css_lists:
++            return {}
++        media = set().union(*(css.keys() for css in css_lists))
++        return {
++            medium: self.merge_lists([css.get(medium, []) for css in css_lists])
++            for medium in media
++        }
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Merge all lists at once so that later constraints can be satisfied
++        # without treating earlier arbitrary ordering as a hard dependency.
++        return self.merge_lists(self._js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -149,6 +151,131 @@ class Media:
+                 last_insert_index = index
+         return combined_list
+ 
++    @staticmethod
++    def merge_lists(lists):
++        """
++        Merge many lists while preserving the relative order within each list.
++
++        Unlike repeated pairwise merges, this doesn't establish an ordering
++        constraint between two assets unless they appeared together (in some
++        order) in at least one list. This avoids spurious MediaOrderConflictWarning
++        when merging 3+ media objects.
++        """
++        lists = [list(l) for l in lists if l]
++        if not lists:
++            return []
++        if len(lists) == 1:
++            # Return a copy to avoid leaking caller mutations.
++            return list(lists[0])
++
++        def dedupe(seq):
++            out = []
++            for item in seq:
++                if item not in out:
++                    out.append(item)
++            return out
++
++        # Establish a deterministic base ordering using first appearance across
++        # all lists (in the order they were combined).
++        nodes = []
++        for seq in lists:
++            for item in dedupe(seq):
++                if item not in nodes:
++                    nodes.append(item)
++
++        if len(nodes) == 1:
++            return nodes[:]
++
++        # Build constraints graph from within-list consecutive pairs.
++        edges = [set() for _ in nodes]
++        indegree = [0 for _ in nodes]
++
++        for seq in lists:
++            seq = dedupe(seq)
++            idx_seq = [nodes.index(item) for item in seq]
++            for a, b in zip(idx_seq, idx_seq[1:]):
++                if a == b or b in edges[a]:
++                    continue
++                edges[a].add(b)
++                indegree[b] += 1
++
++        # Kahn topological sort with stable tie-breaking by first appearance.
++        heap = []
++        push_count = 0
++        for i, deg in enumerate(indegree):
++            if deg == 0:
++                heapq.heappush(heap, (i, push_count, i))
++                push_count += 1
++
++        order = []
++        indegree_work = indegree[:]
++        while heap:
++            _, _, node = heapq.heappop(heap)
++            order.append(node)
++            for succ in edges[node]:
++                indegree_work[succ] -= 1
++                if indegree_work[succ] == 0:
++                    heapq.heappush(heap, (succ, push_count, succ))
++                    push_count += 1
++
++        if len(order) == len(nodes):
++            return [nodes[i] for i in order]
++
++        # Cyclic constraints: warn and return a best-effort deterministic order.
++        def strongly_connected_components():
++            # Tarjan's algorithm.
++            index = 0
++            stack = []
++            on_stack = [False] * len(nodes)
++            index_by_node = [-1] * len(nodes)
++            lowlink = [0] * len(nodes)
++            sccs = []
++
++            def visit(v):
++                nonlocal index
++                index_by_node[v] = index
++                lowlink[v] = index
++                index += 1
++                stack.append(v)
++                on_stack[v] = True
++
++                for w in edges[v]:
++                    if index_by_node[w] == -1:
++                        visit(w)
++                        lowlink[v] = min(lowlink[v], lowlink[w])
++                    elif on_stack[w]:
++                        lowlink[v] = min(lowlink[v], index_by_node[w])
++
++                if lowlink[v] == index_by_node[v]:
++                    scc = []
++                    while True:
++                        w = stack.pop()
++                        on_stack[w] = False
++                        scc.append(w)
++                        if w == v:
++                            break
++                    sccs.append(scc)
++
++            for v in range(len(nodes)):
++                if index_by_node[v] == -1:
++                    visit(v)
++            return sccs
++
++        for scc in strongly_connected_components():
++            if len(scc) <= 1:
++                continue
++            scc = sorted(scc)
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n%s\n%s'
++                % (nodes[scc[0]], nodes[scc[1]]),
++                MediaOrderConflictWarning,
++            )
++
++        ordered_set = set(order)
++        remaining = [i for i in range(len(nodes)) if i not in ordered_set]
++        order.extend(remaining)
++        return [nodes[i] for i in order]
++
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 8cb484a15e..8269615788 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -1,4 +1,8 @@
++import warnings
++
++from django import forms
+ from django.forms import CharField, Form, Media, MultiWidget, TextInput
++from django.forms.widgets import MediaOrderConflictWarning
+ from django.template import Context, Template
+ from django.test import SimpleTestCase, override_settings
+ 
+@@ -558,6 +562,34 @@ class FormsMediaTestCase(SimpleTestCase):
+         merged = form_media + inline_media
+         self.assertEqual(merged._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js'])
+ 
++    def test_merge_js_three_way_avoids_unnecessary_conflict_warning(self):
++        """
++        Merging 3+ media objects shouldn't establish ordering constraints between
++        independent assets, which can lead to spurious MediaOrderConflictWarning.
++        """
++        class ColorPicker(forms.Widget):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(forms.Widget):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(forms.Widget):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(forms.Form):
++            background_color = forms.CharField(widget=ColorPicker())
++            intro = forms.CharField(widget=SimpleTextWidget())
++            body = forms.CharField(widget=FancyTextWidget())
++
++        with warnings.catch_warnings(record=True) as caught:
++            warnings.simplefilter('always', MediaOrderConflictWarning)
++            js = MyForm().media._js
++        self.assertEqual(js, ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++        self.assertEqual([w for w in caught if issubclass(w.category, MediaOrderConflictWarning)], [])
++
+     def test_merge_css_three_way(self):
+         widget1 = Media(css={'screen': ['a.css']})
+         widget2 = Media(css={'screen': ['b.css']})

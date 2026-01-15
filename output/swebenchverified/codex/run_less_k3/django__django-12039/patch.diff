@@ -1,0 +1,147 @@
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index 44e49806f8..fb7ee6956d 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -35,7 +35,9 @@ class Reference:
+         return '<%s %r>' % (self.__class__.__name__, str(self))
+ 
+     def __str__(self):
+-        raise NotImplementedError('Subclasses must define how they should be converted to string.')
++        raise NotImplementedError(
++            'Subclasses must define how they should be converted to string.'
++        )
+ 
+ 
+ class Table(Reference):
+@@ -83,12 +85,22 @@ class Columns(TableColumns):
+ 
+     def __str__(self):
+         def col_str(column, idx):
++            col = self.quote_name(column)
+             try:
+-                return self.quote_name(column) + self.col_suffixes[idx]
++                suffix = self.col_suffixes[idx]
+             except IndexError:
+-                return self.quote_name(column)
++                suffix = ''
++            if suffix:
++                # Suffixes are stored without leading whitespace (e.g. "DESC").
++                # Ensure the generated SQL is properly spaced.
++                if not suffix.startswith(' '):
++                    col += ' '
++                col += suffix
++            return col
+ 
+-        return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))
++        return ', '.join(
++            col_str(column, idx) for idx, column in enumerate(self.columns)
++        )
+ 
+ 
+ class IndexName(TableColumns):
+@@ -112,27 +124,40 @@ class IndexColumns(Columns):
+         def col_str(column, idx):
+             # Index.__init__() guarantees that self.opclasses is the same
+             # length as self.columns.
+-            col = '{} {}'.format(self.quote_name(column), self.opclasses[idx])
++            opclass = self.opclasses[idx]
++            col = ' '.join(part for part in (self.quote_name(column), opclass) if part)
+             try:
+-                col = '{} {}'.format(col, self.col_suffixes[idx])
++                suffix = self.col_suffixes[idx]
+             except IndexError:
+-                pass
++                suffix = ''
++            if suffix:
++                if not suffix.startswith(' '):
++                    col += ' '
++                col += suffix
+             return col
+ 
+-        return ', '.join(col_str(column, idx) for idx, column in enumerate(self.columns))
++        return ', '.join(
++            col_str(column, idx) for idx, column in enumerate(self.columns)
++        )
+ 
+ 
+ class ForeignKeyName(TableColumns):
+     """Hold a reference to a foreign key name."""
+ 
+-    def __init__(self, from_table, from_columns, to_table, to_columns, suffix_template, create_fk_name):
++    def __init__(
++        self, from_table, from_columns, to_table, to_columns, suffix_template,
++        create_fk_name
++    ):
+         self.to_reference = TableColumns(to_table, to_columns)
+         self.suffix_template = suffix_template
+         self.create_fk_name = create_fk_name
+         super().__init__(from_table, from_columns,)
+ 
+     def references_table(self, table):
+-        return super().references_table(table) or self.to_reference.references_table(table)
++        return (
++            super().references_table(table) or
++            self.to_reference.references_table(table)
++        )
+ 
+     def references_column(self, table, column):
+         return (
+@@ -164,6 +189,7 @@ class Statement(Reference):
+     that might have to be adjusted if they're referencing a table or column
+     that is removed
+     """
++
+     def __init__(self, template, **parts):
+         self.template = template
+         self.parts = parts
+@@ -192,3 +218,4 @@ class Statement(Reference):
+ 
+     def __str__(self):
+         return self.template % self.parts
++
+diff --git a/tests/backends/test_ddl_references.py b/tests/backends/test_ddl_references.py
+index d96ebcb57f..7e2edf6190 100644
+--- a/tests/backends/test_ddl_references.py
++++ b/tests/backends/test_ddl_references.py
+@@ -1,5 +1,5 @@
+ from django.db.backends.ddl_references import (
+-    Columns, ForeignKeyName, IndexName, Statement, Table,
++    Columns, ForeignKeyName, IndexColumns, IndexName, Statement, Table,
+ )
+ from django.test import SimpleTestCase
+ 
+@@ -56,6 +56,34 @@ class ColumnsTests(TableTests):
+     def test_str(self):
+         self.assertEqual(str(self.reference), 'FIRST_COLUMN, SECOND_COLUMN')
+ 
++    def test_str_col_suffixes_are_spaced(self):
++        quote = lambda column: '"%s"' % column
++        reference = Columns('table', ['name'], quote, col_suffixes=['DESC'])
++        self.assertEqual(str(reference), '"name" DESC')
++
++    def test_str_empty_col_suffixes_dont_add_whitespace(self):
++        quote = lambda column: '"%s"' % column
++        reference = Columns('table', ['name'], quote, col_suffixes=[''])
++        self.assertEqual(str(reference), '"name"')
++
++
++class IndexColumnsTests(SimpleTestCase):
++    def test_str_empty_col_suffixes_dont_add_whitespace(self):
++        quote = lambda column: '"%s"' % column
++        reference = IndexColumns(
++            'table', ['name'], quote,
++            col_suffixes=[''], opclasses=['text_pattern_ops'],
++        )
++        self.assertEqual(str(reference), '"name" text_pattern_ops')
++
++    def test_str_col_suffixes_are_spaced(self):
++        quote = lambda column: '"%s"' % column
++        reference = IndexColumns(
++            'table', ['name'], quote,
++            col_suffixes=['DESC'], opclasses=['text_pattern_ops'],
++        )
++        self.assertEqual(str(reference), '"name" text_pattern_ops DESC')
++
+ 
+ class IndexNameTests(ColumnsTests):
+     def setUp(self):

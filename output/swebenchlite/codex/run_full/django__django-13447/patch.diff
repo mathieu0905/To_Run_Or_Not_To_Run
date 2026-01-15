@@ -1,0 +1,72 @@
+diff --git a/django/contrib/admin/sites.py b/django/contrib/admin/sites.py
+index 837dabfea8..a93864a19c 100644
+--- a/django/contrib/admin/sites.py
++++ b/django/contrib/admin/sites.py
+@@ -430,6 +430,13 @@ class AdminSite:
+                     return HttpResponsePermanentRedirect(path)
+         raise Http404
+ 
++    def build_app_dict(self, request, label=None):
++        """
++        Build the app dictionary. The optional `label` parameter filters models
++        of a specific app.
++        """
++        return self._build_app_dict(request, label)
++
+     def _build_app_dict(self, request, label=None):
+         """
+         Build the app dictionary. The optional `label` parameter filters models
+@@ -461,6 +468,7 @@ class AdminSite:
+ 
+             info = (app_label, model._meta.model_name)
+             model_dict = {
++                'model': model,
+                 'name': capfirst(model._meta.verbose_name_plural),
+                 'object_name': model._meta.object_name,
+                 'perms': perms,
+@@ -503,7 +511,7 @@ class AdminSite:
+         Return a sorted list of all the installed apps that have been
+         registered in this site.
+         """
+-        app_dict = self._build_app_dict(request)
++        app_dict = self.build_app_dict(request)
+ 
+         # Sort the apps alphabetically.
+         app_list = sorted(app_dict.values(), key=lambda x: x['name'].lower())
+@@ -534,7 +542,7 @@ class AdminSite:
+         return TemplateResponse(request, self.index_template or 'admin/index.html', context)
+ 
+     def app_index(self, request, app_label, extra_context=None):
+-        app_dict = self._build_app_dict(request, app_label)
++        app_dict = self.build_app_dict(request, app_label)
+         if not app_dict:
+             raise Http404('The requested admin page does not exist.')
+         # Sort the models alphabetically within each app.
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index b1658941ee..0e4ff186a7 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -2410,6 +2410,23 @@ class AdminViewPermissionsTest(TestCase):
+         response = self.client.get(reverse('admin:app_list', args=('admin_views',)))
+         self.assertEqual(response.status_code, 200)
+ 
++    def test_app_list_model_dict_includes_model_class(self):
++        self.client.force_login(self.superuser)
++        response = self.client.get(self.index_url)
++        app_list = response.context['app_list']
++        admin_views_app = next(app for app in app_list if app['app_label'] == 'admin_views')
++        article_model = next(
++            model for model in admin_views_app['models']
++            if model['object_name'] == 'Article'
++        )
++        self.assertIs(article_model['model'], Article)
++        app_dict = site.build_app_dict(response.wsgi_request)
++        article_model_from_dict = next(
++            model for model in app_dict['admin_views']['models']
++            if model['object_name'] == 'Article'
++        )
++        self.assertIs(article_model_from_dict['model'], Article)
++
+     def test_shortcut_view_only_available_to_staff(self):
+         """
+         Only admin users should be able to use the admin shortcut view.

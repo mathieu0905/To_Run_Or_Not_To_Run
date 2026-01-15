@@ -1,0 +1,152 @@
+diff --git a/django/contrib/admin/checks.py b/django/contrib/admin/checks.py
+index f82c20c2f1..8479665f5e 100644
+--- a/django/contrib/admin/checks.py
++++ b/django/contrib/admin/checks.py
+@@ -1,3 +1,4 @@
++import inspect
+ from itertools import chain
+ 
+ from django.apps import apps
+@@ -720,33 +721,36 @@ class ModelAdminChecks(BaseModelAdminChecks):
+             return []
+         elif hasattr(obj, item):
+             return []
+-        elif hasattr(obj.model, item):
++        try:
++            field = obj.model._meta.get_field(item)
++        except FieldDoesNotExist:
++            # Don't use hasattr()/getattr() on the model class as that may
++            # trigger descriptors that only work on instances.
+             try:
+-                field = obj.model._meta.get_field(item)
+-            except FieldDoesNotExist:
+-                return []
+-            else:
+-                if isinstance(field, models.ManyToManyField):
+-                    return [
+-                        checks.Error(
+-                            "The value of '%s' must not be a ManyToManyField." % label,
+-                            obj=obj.__class__,
+-                            id='admin.E109',
+-                        )
+-                    ]
+-                return []
++                inspect.getattr_static(obj.model, item)
++            except AttributeError:
++                return [
++                    checks.Error(
++                        "The value of '%s' refers to '%s', which is not a callable, "
++                        "an attribute of '%s', or an attribute or method on '%s.%s'." % (
++                            label, item, obj.__class__.__name__,
++                            obj.model._meta.app_label, obj.model._meta.object_name,
++                        ),
++                        obj=obj.__class__,
++                        id='admin.E108',
++                    )
++                ]
++            return []
+         else:
+-            return [
+-                checks.Error(
+-                    "The value of '%s' refers to '%s', which is not a callable, "
+-                    "an attribute of '%s', or an attribute or method on '%s.%s'." % (
+-                        label, item, obj.__class__.__name__,
+-                        obj.model._meta.app_label, obj.model._meta.object_name,
+-                    ),
+-                    obj=obj.__class__,
+-                    id='admin.E108',
+-                )
+-            ]
++            if isinstance(field, models.ManyToManyField):
++                return [
++                    checks.Error(
++                        "The value of '%s' must not be a ManyToManyField." % label,
++                        obj=obj.__class__,
++                        id='admin.E109',
++                    )
++                ]
++            return []
+ 
+     def _check_list_display_links(self, obj):
+         """ Check that list_display_links is a unique subset of list_display.
+diff --git a/tests/modeladmin/models.py b/tests/modeladmin/models.py
+index c0d3c772c9..2d9b67a844 100644
+--- a/tests/modeladmin/models.py
++++ b/tests/modeladmin/models.py
+@@ -2,6 +2,34 @@ from django.contrib.auth.models import User
+ from django.db import models
+ 
+ 
++class RaisesErrorOnClassAccessDescriptor:
++    """
++    A descriptor that raises an exception when accessed on the model class.
++
++    This emulates third-party fields/descriptors that are only usable through
++    model instances (e.g. they expect a non-None instance in __get__()).
++    """
++    def __init__(self, field):
++        self.field = field
++
++    def __get__(self, instance, owner=None):
++        if instance is None:
++            raise RuntimeError('Descriptor may only be accessed via an instance.')
++        return instance.__dict__.get(self.field.attname)
++
++    def __set__(self, instance, value):
++        instance.__dict__[self.field.attname] = value
++
++
++class RaisesErrorOnClassAccessField(models.IntegerField):
++    """
++    A field whose descriptor raises when accessed on the model class.
++    """
++    def contribute_to_class(self, cls, name, private_only=False, **kwargs):
++        super().contribute_to_class(cls, name, private_only=private_only, **kwargs)
++        setattr(cls, self.attname, RaisesErrorOnClassAccessDescriptor(self))
++
++
+ class Band(models.Model):
+     name = models.CharField(max_length=100)
+     bio = models.TextField()
+@@ -52,3 +80,11 @@ class ValidationTestModel(models.Model):
+ 
+ class ValidationTestInlineModel(models.Model):
+     parent = models.ForeignKey(ValidationTestModel, models.CASCADE)
++
++
++class ListDisplayValidationModel(models.Model):
++    """
++    Used for regression testing list_display validation.
++    """
++    normal = models.IntegerField(default=0)
++    instance_only = RaisesErrorOnClassAccessField(default=0)
+diff --git a/tests/modeladmin/test_checks.py b/tests/modeladmin/test_checks.py
+index a1b7001f68..14c3dcb416 100644
+--- a/tests/modeladmin/test_checks.py
++++ b/tests/modeladmin/test_checks.py
+@@ -9,7 +9,7 @@ from django.forms.models import BaseModelFormSet
+ from django.test import SimpleTestCase
+ 
+ from .models import (
+-    Band, Song, User, ValidationTestInlineModel, ValidationTestModel,
++    Band, ListDisplayValidationModel, Song, User, ValidationTestInlineModel, ValidationTestModel,
+ )
+ 
+ 
+@@ -509,6 +509,16 @@ class ListDisplayTests(CheckTestCase):
+ 
+         self.assertIsValid(TestModelAdmin, ValidationTestModel)
+ 
++    def test_field_that_raises_on_class_access_is_valid(self):
++        """
++        Model fields may have descriptors that only work on instances. Admin
++        list_display validation shouldn't raise admin.E108 for such fields.
++        """
++        class TestModelAdmin(ModelAdmin):
++            list_display = ('normal', 'instance_only')
++
++        self.assertIsValid(TestModelAdmin, ListDisplayValidationModel)
++
+ 
+ class ListDisplayLinksCheckTests(CheckTestCase):
+ 

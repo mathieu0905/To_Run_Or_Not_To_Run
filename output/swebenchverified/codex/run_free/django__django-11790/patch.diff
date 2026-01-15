@@ -1,0 +1,66 @@
+diff --git a/django/contrib/auth/forms.py b/django/contrib/auth/forms.py
+index a0cfed0995..d3ee6d0ad5 100644
+--- a/django/contrib/auth/forms.py
++++ b/django/contrib/auth/forms.py
+@@ -10,6 +10,7 @@ from django.contrib.auth.hashers import (
+ from django.contrib.auth.models import User
+ from django.contrib.auth.tokens import default_token_generator
+ from django.contrib.sites.shortcuts import get_current_site
++from django.core import validators
+ from django.core.mail import EmailMultiAlternatives
+ from django.template import loader
+ from django.utils.encoding import force_bytes
+@@ -191,7 +192,20 @@ class AuthenticationForm(forms.Form):
+ 
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+-        self.fields['username'].max_length = self.username_field.max_length or 254
++        max_length = getattr(self.username_field, 'max_length', None) or 254
++        username_field = self.fields['username']
++        username_field.max_length = max_length
++        # Field.widget_attrs() is only applied at Field initialization time, so
++        # explicitly set maxlength after updating max_length.
++        if isinstance(username_field, forms.CharField):
++            # Keep validation consistent with the dynamic max_length.
++            username_field.validators = [
++                v for v in username_field.validators
++                if not isinstance(v, validators.MaxLengthValidator)
++            ]
++            username_field.validators.append(validators.MaxLengthValidator(int(max_length)))
++            if not username_field.widget.is_hidden:
++                username_field.widget.attrs['maxlength'] = str(max_length)
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+diff --git a/tests/auth_tests/test_forms.py b/tests/auth_tests/test_forms.py
+index 7085dcfa11..91def60681 100644
+--- a/tests/auth_tests/test_forms.py
++++ b/tests/auth_tests/test_forms.py
+@@ -412,6 +412,11 @@ class AuthenticationFormTest(TestDataMixin, TestCase):
+         self.assertTrue(form.is_valid())
+         self.assertEqual(form.non_field_errors(), [])
+ 
++    def test_username_field_maxlength_attribute_is_set(self):
++        form = AuthenticationForm()
++        max_length = User._meta.get_field(User.USERNAME_FIELD).max_length
++        self.assertEqual(form.fields['username'].widget.attrs['maxlength'], str(max_length))
++
+     @override_settings(AUTH_USER_MODEL='auth_tests.CustomEmailField')
+     def test_username_field_max_length_matches_user_model(self):
+         self.assertEqual(CustomEmailField._meta.get_field('username').max_length, 255)
+@@ -423,6 +428,7 @@ class AuthenticationFormTest(TestDataMixin, TestCase):
+         CustomEmailField.objects.create_user(**data)
+         form = AuthenticationForm(None, data)
+         self.assertEqual(form.fields['username'].max_length, 255)
++        self.assertEqual(form.fields['username'].widget.attrs['maxlength'], '255')
+         self.assertEqual(form.errors, {})
+ 
+     @override_settings(AUTH_USER_MODEL='auth_tests.IntegerUsernameUser')
+@@ -435,6 +441,7 @@ class AuthenticationFormTest(TestDataMixin, TestCase):
+         IntegerUsernameUser.objects.create_user(**data)
+         form = AuthenticationForm(None, data)
+         self.assertEqual(form.fields['username'].max_length, 254)
++        self.assertEqual(form.fields['username'].widget.attrs['maxlength'], '254')
+         self.assertEqual(form.errors, {})
+ 
+     def test_username_field_label(self):

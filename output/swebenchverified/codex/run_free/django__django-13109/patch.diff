@@ -1,0 +1,80 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index d517d7269b..57c4433709 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -914,7 +914,9 @@ class ForeignKey(ForeignObject):
+             return
+ 
+         using = router.db_for_read(self.remote_field.model, instance=model_instance)
+-        qs = self.remote_field.model._default_manager.using(using).filter(
++        # Use the base manager to ensure validation doesn't unintentionally
++        # exclude objects filtered out by the default manager.
++        qs = self.remote_field.model._base_manager.using(using).filter(
+             **{self.remote_field.field_name: value}
+         )
+         qs = qs.complex_filter(self.get_limit_choices_to())
+diff --git a/tests/model_forms/models.py b/tests/model_forms/models.py
+index 05c6d71a4a..ef372f53af 100644
+--- a/tests/model_forms/models.py
++++ b/tests/model_forms/models.py
+@@ -463,3 +463,20 @@ class Award(models.Model):
+ 
+ class NullableUniqueCharFieldModel(models.Model):
+     codename = models.CharField(max_length=50, blank=True, null=True, unique=True)
++
++
++class NonArchivedManager(models.Manager):
++    def get_queryset(self):
++        return super().get_queryset().filter(archived=False)
++
++
++class FilteredArticle(models.Model):
++    title = models.CharField(max_length=100)
++    archived = models.BooleanField(default=False)
++
++    # Don't include archived articles by default.
++    objects = NonArchivedManager()
++
++
++class FavoriteFilteredArticle(models.Model):
++    article = models.ForeignKey(FilteredArticle, models.CASCADE)
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index cb8d7c3f84..d60602133f 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -26,7 +26,7 @@ from .models import (
+     NullableUniqueCharFieldModel, Person, Photo, Post, Price, Product,
+     Publication, PublicationDefaults, StrictAssignmentAll,
+     StrictAssignmentFieldSpecific, Student, StumpJoke, TextFile, Triple,
+-    Writer, WriterProfile, test_images,
++    Writer, WriterProfile, test_images, FilteredArticle, FavoriteFilteredArticle,
+ )
+ 
+ if test_images:
+@@ -2972,3 +2972,26 @@ class ModelToDictTests(TestCase):
+         # If data were a QuerySet, it would be reevaluated here and give "red"
+         # instead of the original value.
+         self.assertEqual(data, [blue])
++
++
++class ForeignKeyValidationBaseManagerTests(TestCase):
++    def test_foreign_key_validation_uses_base_manager(self):
++        """
++        ForeignKey validation shouldn't be affected by default managers that
++        filter out related objects.
++        """
++        archived = FilteredArticle._base_manager.create(title='Archived', archived=True)
++        self.assertFalse(FilteredArticle.objects.filter(pk=archived.pk).exists())
++
++        class FavoriteFilteredArticleForm(forms.ModelForm):
++            class Meta:
++                model = FavoriteFilteredArticle
++                fields = '__all__'
++
++            def __init__(self, *args, **kwargs):
++                super().__init__(*args, **kwargs)
++                # Allow selecting archived articles in this form.
++                self.fields['article'].queryset = FilteredArticle._base_manager.all()
++
++        form = FavoriteFilteredArticleForm(data={'article': str(archived.pk)})
++        self.assertTrue(form.is_valid(), form.errors)

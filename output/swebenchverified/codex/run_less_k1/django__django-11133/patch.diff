@@ -1,0 +1,86 @@
+diff --git a/django/http/response.py b/django/http/response.py
+index 6a84e193ba..f2a825ed9b 100644
+--- a/django/http/response.py
++++ b/django/http/response.py
+@@ -229,7 +229,9 @@ class HttpResponseBase:
+         # Handle string types -- we can't rely on force_bytes here because:
+         # - Python attempts str conversion first
+         # - when self._charset != 'utf-8' it re-encodes the content
+-        if isinstance(value, bytes):
++        # Treat "bytes-like" objects (e.g. memoryview from PostgreSQL's
++        # BinaryField) as binary content, not as iterables of integers.
++        if isinstance(value, (bytes, bytearray, memoryview)):
+             return bytes(value)
+         if isinstance(value, str):
+             return bytes(value.encode(self.charset))
+@@ -309,7 +311,7 @@ class HttpResponse(HttpResponseBase):
+     @content.setter
+     def content(self, value):
+         # Consume iterators upon assignment to allow repeated iteration.
+-        if hasattr(value, '__iter__') and not isinstance(value, (bytes, str)):
++        if hasattr(value, '__iter__') and not isinstance(value, (bytes, str, bytearray, memoryview)):
+             content = b''.join(self.make_bytes(chunk) for chunk in value)
+             if hasattr(value, 'close'):
+                 try:
+@@ -374,6 +376,11 @@ class StreamingHttpResponse(HttpResponseBase):
+         self._set_streaming_content(value)
+ 
+     def _set_streaming_content(self, value):
++        # "bytes-like" values are binary content, not an iterable of chunks.
++        # Without this, passing bytes/bytearray/memoryview would iterate as
++        # integers and produce unexpected output.
++        if isinstance(value, (bytes, bytearray, memoryview)):
++            value = (value,)
+         # Ensure we can never iterate on "value" more than once.
+         self._iterator = iter(value)
+         if hasattr(value, 'close'):
+diff --git a/tests/httpwrappers/tests.py b/tests/httpwrappers/tests.py
+index e6c6297898..4fed2ccb40 100644
+--- a/tests/httpwrappers/tests.py
++++ b/tests/httpwrappers/tests.py
+@@ -366,6 +366,21 @@ class HttpResponseTests(unittest.TestCase):
+         r.content = 12345
+         self.assertEqual(r.content, b'12345')
+ 
++    def test_bytes_like_content(self):
++        r = HttpResponse(bytearray(b"My Content"))
++        self.assertEqual(r.content, b'My Content')
++
++        r = HttpResponse(memoryview(b"My Content"))
++        self.assertEqual(r.content, b'My Content')
++
++        r = HttpResponse()
++        r.content = bytearray(b"My Content")
++        self.assertEqual(r.content, b'My Content')
++
++        r = HttpResponse()
++        r.content = memoryview(b"My Content")
++        self.assertEqual(r.content, b'My Content')
++
+     def test_iter_content(self):
+         r = HttpResponse(['abc', 'def', 'ghi'])
+         self.assertEqual(r.content, b'abcdefghi')
+@@ -379,6 +394,9 @@ class HttpResponseTests(unittest.TestCase):
+         r.content = [1, 2, 3]
+         self.assertEqual(r.content, b'123')
+ 
++        r = HttpResponse([memoryview(b'abc'), memoryview(b'def')])
++        self.assertEqual(r.content, b'abcdef')
++
+         # test odd inputs
+         r = HttpResponse()
+         r.content = ['1', '2', 3, '\u079e']
+@@ -625,6 +643,13 @@ class StreamingHttpResponseTests(SimpleTestCase):
+         r = StreamingHttpResponse(iter(['hello', 'world']))
+         self.assertEqual(r.getvalue(), b'helloworld')
+ 
++    def test_bytes_like_streaming_content(self):
++        r = StreamingHttpResponse(bytearray(b'hello'))
++        self.assertEqual(list(r), [b'hello'])
++
++        r = StreamingHttpResponse(memoryview(b'hello'))
++        self.assertEqual(list(r), [b'hello'])
++
+ 
+ class FileCloseTests(SimpleTestCase):
+ 

@@ -1,0 +1,82 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index d517d7269b..8ba1af9db1 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -914,7 +914,10 @@ class ForeignKey(ForeignObject):
+             return
+ 
+         using = router.db_for_read(self.remote_field.model, instance=model_instance)
+-        qs = self.remote_field.model._default_manager.using(using).filter(
++        # Use the base manager (typically unfiltered) for validation so that
++        # ForeignKey fields can point at objects excluded by the default
++        # manager (e.g. soft-deleted or archived records).
++        qs = self.remote_field.model._base_manager.using(using).filter(
+             **{self.remote_field.field_name: value}
+         )
+         qs = qs.complex_filter(self.get_limit_choices_to())
+diff --git a/tests/model_forms/models.py b/tests/model_forms/models.py
+index 05c6d71a4a..fffb29c79c 100644
+--- a/tests/model_forms/models.py
++++ b/tests/model_forms/models.py
+@@ -463,3 +463,19 @@ class Award(models.Model):
+ 
+ class NullableUniqueCharFieldModel(models.Model):
+     codename = models.CharField(max_length=50, blank=True, null=True, unique=True)
++
++
++class ArchivedArticleManager(models.Manager):
++    def get_queryset(self):
++        return super().get_queryset().filter(archived=False)
++
++
++class ArchivedArticle(models.Model):
++    title = models.CharField(max_length=100)
++    archived = models.BooleanField(default=False)
++    # Don't include archived articles by default.
++    objects = ArchivedArticleManager()
++
++
++class FavoriteArchivedArticle(models.Model):
++    article = models.ForeignKey(ArchivedArticle, models.CASCADE)
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index cb8d7c3f84..e3649f1d11 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -18,11 +18,11 @@ from django.template import Context, Template
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+ 
+ from .models import (
+-    Article, ArticleStatus, Author, Author1, Award, BetterWriter, BigInt, Book,
++    ArchivedArticle, Article, ArticleStatus, Author, Author1, Award, BetterWriter, BigInt, Book,
+     Category, Character, Colour, ColourfulItem, CustomErrorMessage, CustomFF,
+     CustomFieldForExclusionModel, DateTimePost, DerivedBook, DerivedPost,
+     Document, ExplicitPK, FilePathModel, FlexibleDatePost, Homepage,
+-    ImprovedArticle, ImprovedArticleWithParentLink, Inventory,
++    FavoriteArchivedArticle, ImprovedArticle, ImprovedArticleWithParentLink, Inventory,
+     NullableUniqueCharFieldModel, Person, Photo, Post, Price, Product,
+     Publication, PublicationDefaults, StrictAssignmentAll,
+     StrictAssignmentFieldSpecific, Student, StumpJoke, TextFile, Triple,
+@@ -199,6 +199,23 @@ class ModelFormBaseTest(TestCase):
+         form = EmptyPersonForm()
+         self.assertEqual(len(form.fields), 0)
+ 
++    def test_foreignkey_validate_uses_base_manager(self):
++        class FavoriteArchivedArticleForm(forms.ModelForm):
++            class Meta:
++                model = FavoriteArchivedArticle
++                fields = '__all__'
++
++            def __init__(self, *args, **kwargs):
++                super().__init__(*args, **kwargs)
++                self.fields['article'].queryset = ArchivedArticle._base_manager.all()
++
++        archived = ArchivedArticle._base_manager.create(title="Archived", archived=True)
++        self.assertIs(ArchivedArticle.objects.filter(pk=archived.pk).exists(), False)
++        self.assertIs(ArchivedArticle._base_manager.filter(pk=archived.pk).exists(), True)
++
++        form = FavoriteArchivedArticleForm(data={'article': archived.pk})
++        self.assertTrue(form.is_valid(), form.errors.as_json())
++
+     def test_empty_fields_to_construct_instance(self):
+         """
+         No fields should be set on a model instance if construct_instance receives fields=().

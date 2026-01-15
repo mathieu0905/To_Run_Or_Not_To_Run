@@ -1,0 +1,50 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index 794e0faae7..92349cd0c5 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -1209,7 +1209,8 @@ class QuerySet:
+         if ignore_conflicts and not connections[self.db].features.supports_ignore_conflicts:
+             raise NotSupportedError('This database backend does not support ignoring conflicts.')
+         ops = connections[self.db].ops
+-        batch_size = (batch_size or max(ops.bulk_batch_size(fields, objs), 1))
++        max_batch_size = max(ops.bulk_batch_size(fields, objs), 1)
++        batch_size = min(batch_size, max_batch_size) if batch_size else max_batch_size
+         inserted_rows = []
+         bulk_return = connections[self.db].features.can_return_rows_from_bulk_insert
+         for item in [objs[i:i + batch_size] for i in range(0, len(objs), batch_size)]:
+diff --git a/tests/bulk_create/tests.py b/tests/bulk_create/tests.py
+index 47aa7afcdc..2e2d5ff4e8 100644
+--- a/tests/bulk_create/tests.py
++++ b/tests/bulk_create/tests.py
+@@ -1,4 +1,5 @@
+ from operator import attrgetter
++from unittest.mock import patch
+ 
+ from django.db import IntegrityError, NotSupportedError, connection
+ from django.db.models import FileField, Value
+@@ -6,6 +7,7 @@ from django.db.models.functions import Lower
+ from django.test import (
+     TestCase, override_settings, skipIfDBFeature, skipUnlessDBFeature,
+ )
++from django.test.utils import CaptureQueriesContext
+ 
+ from .models import (
+     Country, NoFields, NullableFields, Pizzeria, ProxyCountry,
+@@ -201,6 +203,17 @@ class BulkCreateTests(TestCase):
+         TwoFields.objects.bulk_create(objs, batch_size=num_objs)
+         self.assertEqual(TwoFields.objects.count(), num_objs)
+ 
++    @skipUnlessDBFeature('has_bulk_insert')
++    def test_batch_size_capped_by_max_batch_size(self):
++        # bulk_create() should not allow batch_size to exceed what the backend
++        # can handle (e.g. due to parameter limits).
++        objs = [TwoFields(f1=i, f2=i) for i in range(2)]
++        with patch.object(connection.ops, 'bulk_batch_size', return_value=1):
++            with CaptureQueriesContext(connection) as queries:
++                TwoFields.objects.bulk_create(objs, batch_size=100)
++        self.assertEqual(TwoFields.objects.count(), 2)
++        self.assertEqual(len(queries), 2)
++
+     def test_empty_model(self):
+         NoFields.objects.bulk_create([NoFields() for i in range(2)])
+         self.assertEqual(NoFields.objects.count(), 2)

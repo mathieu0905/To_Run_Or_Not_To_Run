@@ -1,0 +1,68 @@
+diff --git a/django/contrib/contenttypes/fields.py b/django/contrib/contenttypes/fields.py
+index ed98ecb48c..5c4bd3ed99 100644
+--- a/django/contrib/contenttypes/fields.py
++++ b/django/contrib/contenttypes/fields.py
+@@ -202,7 +202,9 @@ class GenericForeignKey(FieldCacheMixin):
+             else:
+                 model = self.get_content_type(id=ct_id,
+                                               using=obj._state.db).model_class()
+-                return (model._meta.pk.get_prep_value(getattr(obj, self.fk_field)),
++                # Match the related object's Python-level primary key type.
++                # For example, UUIDField doesn't coerce values in get_prep_value().
++                return (model._meta.pk.to_python(getattr(obj, self.fk_field)),
+                         model)
+ 
+         return (
+diff --git a/tests/contenttypes_tests/models.py b/tests/contenttypes_tests/models.py
+index eeab6296ee..82f49ca476 100644
+--- a/tests/contenttypes_tests/models.py
++++ b/tests/contenttypes_tests/models.py
+@@ -1,3 +1,4 @@
++import uuid
+ from urllib.parse import quote
+ 
+ from django.contrib.contenttypes.fields import (
+@@ -136,3 +137,13 @@ class ModelWithM2MToSite(models.Model):
+ 
+     def get_absolute_url(self):
+         return '/title/%s/' % quote(self.title)
++
++
++class UUIDModel(models.Model):
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
++
++
++class GFKToUUIDModel(models.Model):
++    content_type = models.ForeignKey(ContentType, models.CASCADE, db_index=True)
++    object_id = models.CharField(max_length=255, db_index=True)
++    content_object = GenericForeignKey()
+diff --git a/tests/contenttypes_tests/test_fields.py b/tests/contenttypes_tests/test_fields.py
+index ce5e244df5..e55867d0cd 100644
+--- a/tests/contenttypes_tests/test_fields.py
++++ b/tests/contenttypes_tests/test_fields.py
+@@ -5,7 +5,7 @@ from django.db import models
+ from django.test import SimpleTestCase, TestCase
+ from django.test.utils import isolate_apps
+ 
+-from .models import Answer, Question
++from .models import Answer, GFKToUUIDModel, Question, UUIDModel
+ 
+ 
+ @isolate_apps('contenttypes_tests')
+@@ -33,3 +33,16 @@ class GenericRelationTests(TestCase):
+         answer2 = Answer.objects.create(question=question)
+         result = json.loads(Question.answer_set.field.value_to_string(question))
+         self.assertCountEqual(result, [answer1.pk, answer2.pk])
++
++
++class GenericForeignKeyPrefetchTests(TestCase):
++    def test_prefetch_related_with_uuid_primary_key(self):
++        """
++        Prefetching a GenericForeignKey must resolve objects whose primary key
++        is a UUIDField even when the GFK's object_id is stored as a string.
++        """
++        target = UUIDModel.objects.create()
++        source = GFKToUUIDModel.objects.create(content_object=target)
++
++        fetched = GFKToUUIDModel.objects.prefetch_related('content_object').get(pk=source.pk)
++        self.assertEqual(fetched.content_object, target)

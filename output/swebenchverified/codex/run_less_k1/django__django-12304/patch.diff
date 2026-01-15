@@ -1,0 +1,43 @@
+diff --git a/django/db/models/enums.py b/django/db/models/enums.py
+index f48143ddaf..347fee40e3 100644
+--- a/django/db/models/enums.py
++++ b/django/db/models/enums.py
+@@ -31,6 +31,10 @@ class ChoicesMeta(enum.EnumMeta):
+         # that is passed in as "self" as the value to use when looking up the
+         # label in the choices.
+         cls.label = property(lambda self: cls._value2label_map_.get(self.value))
++        # Enum classes are callable (e.g. ``MyChoices(value)``). Django templates
++        # call callables with no arguments during variable resolution, which
++        # breaks lookups like ``{{ MyChoices.MEMBER }}``. Prevent implicit calls.
++        cls.do_not_call_in_templates = True
+         return enum.unique(cls)
+ 
+     def __contains__(cls, member):
+diff --git a/tests/template_tests/test_callables.py b/tests/template_tests/test_callables.py
+index b72b122deb..2e7864afe9 100644
+--- a/tests/template_tests/test_callables.py
++++ b/tests/template_tests/test_callables.py
+@@ -1,5 +1,6 @@
+ from unittest import TestCase
+ 
++from django.db.models import TextChoices
+ from django.template import Context, Engine
+ 
+ 
+@@ -123,3 +124,16 @@ class CallableVariablesTests(TestCase):
+         # Double-check that the object was really never called during the
+         # template rendering.
+         self.assertEqual(my_doodad.num_calls, 0)
++
++    def test_model_choices_are_not_called_in_templates(self):
++        class YearInSchool(TextChoices):
++            FRESHMAN = 'FR', 'Freshman'
++            SENIOR = 'SR', 'Senior'
++
++        class Student:
++            year_in_school = YearInSchool.FRESHMAN
++
++        t = self.engine.from_string(
++            '{% if student.year_in_school == YearInSchool.FRESHMAN %}yes{% else %}no{% endif %}'
++        )
++        self.assertEqual(t.render(Context({'student': Student(), 'YearInSchool': YearInSchool})), 'yes')

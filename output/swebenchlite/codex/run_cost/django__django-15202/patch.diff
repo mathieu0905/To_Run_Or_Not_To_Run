@@ -1,0 +1,46 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+index 72fbe15551..a2f294c938 100644
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -127,7 +127,14 @@ class URLValidator(RegexValidator):
+                 raise
+         else:
+             # Now verify IPv6 in the netloc part
+-            host_match = re.search(r'^\[(.+)\](?::\d{1,5})?$', urlsplit(value).netloc)
++            try:
++                split_url = urlsplit(value)
++            except ValueError:
++                # urllib.parse.urlsplit() may raise ValueError for some
++                # misformatted URLs (e.g. "Invalid IPv6 URL"). Validators
++                # must raise ValidationError instead.
++                raise ValidationError(self.message, code=self.code, params={'value': value})
++            host_match = re.search(r'^\[(.+)\](?::\d{1,5})?$', split_url.netloc)
+             if host_match:
+                 potential_ip = host_match[1]
+                 try:
+@@ -139,7 +146,11 @@ class URLValidator(RegexValidator):
+         # section 3.1. It's defined to be 255 bytes or less, but this includes
+         # one byte for the length of the name and one byte for the trailing dot
+         # that's used to indicate absolute names in DNS.
+-        if len(urlsplit(value).hostname) > 253:
++        try:
++            hostname = urlsplit(value).hostname
++        except ValueError:
++            raise ValidationError(self.message, code=self.code, params={'value': value})
++        if hostname and len(hostname) > 253:
+             raise ValidationError(self.message, code=self.code, params={'value': value})
+ 
+ 
+diff --git a/tests/validators/tests.py b/tests/validators/tests.py
+index 78063a58cc..b2efa692e6 100644
+--- a/tests/validators/tests.py
++++ b/tests/validators/tests.py
+@@ -228,6 +228,8 @@ INVALID_URLS = [
+     'aaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaa',
+     'https://test.[com',
+     'http://@example.com',
++    # urllib.parse.urlsplit() raises ValueError: Invalid IPv6 URL (unmatched ']').
++    'http://]@example.com',
+     'http://:@example.com',
+     'http://:bar@example.com',
+     'http://foo@bar@example.com',

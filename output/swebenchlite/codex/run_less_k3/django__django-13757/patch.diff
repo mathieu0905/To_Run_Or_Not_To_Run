@@ -1,0 +1,51 @@
+diff --git a/django/db/models/fields/json.py b/django/db/models/fields/json.py
+index 29c6ff0926..fb675160b6 100644
+--- a/django/db/models/fields/json.py
++++ b/django/db/models/fields/json.py
+@@ -366,14 +366,23 @@ class CaseInsensitiveMixin:
+ class KeyTransformIsNull(lookups.IsNull):
+     # key__isnull=False is the same as has_key='key'
+     def as_oracle(self, compiler, connection):
+-        if not self.rhs:
+-            return HasKey(self.lhs.lhs, self.lhs.key_name).as_oracle(compiler, connection)
+-        return super().as_sql(compiler, connection)
++        has_key_expr = HasKey(self.lhs.lhs, self.lhs.key_name)
++        has_key_sql, has_key_params = has_key_expr.as_oracle(compiler, connection)
++        # On Oracle, JSON_VALUE()/JSON_QUERY() return SQL NULL for both missing
++        # keys and JSON null, so `key__isnull=True` must be implemented using a
++        # key-existence check instead of `lhs IS NULL`.
++        if self.rhs:
++            return 'NOT (%s)' % has_key_sql, has_key_params
++        return has_key_sql, has_key_params
+ 
+     def as_sqlite(self, compiler, connection):
+-        if not self.rhs:
+-            return HasKey(self.lhs.lhs, self.lhs.key_name).as_sqlite(compiler, connection)
+-        return super().as_sql(compiler, connection)
++        has_key_expr = HasKey(self.lhs.lhs, self.lhs.key_name)
++        has_key_sql, has_key_params = has_key_expr.as_sqlite(compiler, connection)
++        # On SQLite, JSON_EXTRACT() returns SQL NULL for both missing keys and
++        # JSON null, so implement `key__isnull=True` as "key does not exist".
++        if self.rhs:
++            return 'NOT (%s)' % has_key_sql, has_key_params
++        return has_key_sql, has_key_params
+ 
+ 
+ class KeyTransformIn(lookups.In):
+diff --git a/tests/model_fields/test_jsonfield.py b/tests/model_fields/test_jsonfield.py
+index f71efcff61..14219dbebc 100644
+--- a/tests/model_fields/test_jsonfield.py
++++ b/tests/model_fields/test_jsonfield.py
+@@ -586,6 +586,12 @@ class TestQuerying(TestCase):
+             NullableJSONModel.objects.filter(value__a__isnull=True),
+             self.objs[:3] + self.objs[5:],
+         )
++        # key__isnull=True should only match objects that don't have the key,
++        # not objects that have the key with a JSON null value.
++        self.assertSequenceEqual(
++            NullableJSONModel.objects.filter(value__j__isnull=True),
++            self.objs[:4] + self.objs[5:],
++        )
+         self.assertSequenceEqual(
+             NullableJSONModel.objects.filter(value__a__isnull=False),
+             [self.objs[3], self.objs[4]],

@@ -1,0 +1,94 @@
+diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+index 61f88401ab..9417d95812 100644
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -393,7 +393,11 @@ class BaseDatabaseSchemaEditor:
+         news = {tuple(fields) for fields in new_index_together}
+         # Deleted indexes
+         for fields in olds.difference(news):
+-            self._delete_composed_index(model, fields, {'index': True}, self.sql_delete_index)
++            # Unique constraints may be introspected as indexes too, so ensure
++            # we only target the non-unique index created for index_together.
++            self._delete_composed_index(
++                model, fields, {'index': True, 'unique': False}, self.sql_delete_index
++            )
+         # Created indexes
+         for field_names in news.difference(olds):
+             fields = [model._meta.get_field(field) for field in field_names]
+diff --git a/tests/schema/models.py b/tests/schema/models.py
+index 6d4465807a..765085a192 100644
+--- a/tests/schema/models.py
++++ b/tests/schema/models.py
+@@ -80,6 +80,16 @@ class AuthorWithUniqueNameAndBirthday(models.Model):
+         unique_together = [['name', 'birthday']]
+ 
+ 
++class AuthorWithUniqueAndIndexNameAndBirthday(models.Model):
++    name = models.CharField(max_length=255)
++    birthday = models.DateField()
++
++    class Meta:
++        apps = new_apps
++        unique_together = [['name', 'birthday']]
++        index_together = [['name', 'birthday']]
++
++
+ class Book(models.Model):
+     author = models.ForeignKey(Author, models.CASCADE)
+     title = models.CharField(max_length=100, db_index=True)
+diff --git a/tests/schema/tests.py b/tests/schema/tests.py
+index 9aa1e239ac..8b65be927e 100644
+--- a/tests/schema/tests.py
++++ b/tests/schema/tests.py
+@@ -29,7 +29,8 @@ from .models import (
+     Author, AuthorCharFieldWithIndex, AuthorTextFieldWithIndex,
+     AuthorWithDefaultHeight, AuthorWithEvenLongerName, AuthorWithIndexedName,
+     AuthorWithIndexedNameAndBirthday, AuthorWithUniqueName,
+-    AuthorWithUniqueNameAndBirthday, Book, BookForeignObj, BookWeak,
++    AuthorWithUniqueAndIndexNameAndBirthday, AuthorWithUniqueNameAndBirthday,
++    Book, BookForeignObj, BookWeak,
+     BookWithLongName, BookWithO2O, BookWithoutAuthor, BookWithSlug, IntegerPK,
+     Node, Note, NoteRename, Tag, TagIndexed, TagM2MTest, TagUniqueRename,
+     Thing, UniqueTest, new_apps,
+@@ -2245,6 +2246,41 @@ class SchemaTests(TransactionTestCase):
+             AuthorWithIndexedNameAndBirthday._meta.indexes = []
+             editor.remove_index(AuthorWithIndexedNameAndBirthday, index)
+ 
++    @skipUnlessDBFeature('allows_multiple_constraints_on_same_fields')
++    def test_remove_index_together_with_unique_together(self):
++        """
++        Removing index_together must not crash when a unique_together exists on
++        the same fields. It must remove the non-unique index and keep the unique
++        constraint.
++        """
++        with connection.schema_editor() as editor:
++            editor.create_model(AuthorWithUniqueAndIndexNameAndBirthday)
++        try:
++            table = AuthorWithUniqueAndIndexNameAndBirthday._meta.db_table
++            constraints = self.get_constraints(table)
++            matching = [
++                details for details in constraints.values()
++                if details['columns'] == ['name', 'birthday']
++            ]
++            self.assertIs(any(details['unique'] for details in matching), True)
++            self.assertIs(any(details['index'] and not details['unique'] for details in matching), True)
++
++            # Remove index_together only.
++            index_together = AuthorWithUniqueAndIndexNameAndBirthday._meta.index_together
++            with connection.schema_editor() as editor:
++                editor.alter_index_together(AuthorWithUniqueAndIndexNameAndBirthday, index_together, [])
++
++            constraints = self.get_constraints(table)
++            matching = [
++                details for details in constraints.values()
++                if details['columns'] == ['name', 'birthday']
++            ]
++            self.assertIs(any(details['unique'] for details in matching), True)
++            self.assertIs(any(details['index'] and not details['unique'] for details in matching), False)
++        finally:
++            with connection.schema_editor() as editor:
++                editor.delete_model(AuthorWithUniqueAndIndexNameAndBirthday)
++
+     @isolate_apps('schema')
+     def test_db_table(self):
+         """

@@ -1,0 +1,50 @@
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 9344979c56..4812f3fe1f 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -462,6 +462,18 @@ class IsNull(BuiltinLookup):
+     lookup_name = 'isnull'
+     prepare_rhs = False
+ 
++    def get_prep_lookup(self):
++        # The __isnull lookup is defined only for boolean values. Historically,
++        # non-bool truthy/falsey values were accepted, but they can lead to
++        # confusing behavior (e.g. failing to promote joins). Keep None handling
++        # delegated to Query.build_lookup() to preserve its error message and to
++        # allow custom lookups that explicitly opt into None via can_use_none_as_rhs.
++        if self.rhs is None:
++            return self.rhs
++        if self.rhs is not True and self.rhs is not False:
++            raise ValueError('The __isnull lookup expects a boolean value.')
++        return self.rhs
++
+     def as_sql(self, compiler, connection):
+         sql, params = compiler.compile(self.lhs)
+         if self.rhs:
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index 1958b995b2..db1d717d88 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -5,7 +5,7 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import FieldError
+ from django.db import connection
+-from django.db.models import Max
++from django.db.models import Max, Value
+ from django.db.models.expressions import Exists, OuterRef
+ from django.db.models.functions import Substr
+ from django.test import TestCase, skipUnlessDBFeature
+@@ -880,6 +880,13 @@ class LookupTests(TestCase):
+         self.assertTrue(Season.objects.filter(nulled_text_field__nulled__exact=None))
+         self.assertTrue(Season.objects.filter(nulled_text_field__nulled=None))
+ 
++    def test_isnull_non_boolean_value(self):
++        msg = 'The __isnull lookup expects a boolean value.'
++        for value in [1, 0, '1', '0', object(), Value(False)]:
++            with self.subTest(value=value):
++                with self.assertRaisesMessage(ValueError, msg):
++                    Season.objects.filter(nulled_text_field__isnull=value)
++
+     def test_exact_sliced_queryset_limit_one(self):
+         self.assertCountEqual(
+             Article.objects.filter(author=Author.objects.all()[:1]),

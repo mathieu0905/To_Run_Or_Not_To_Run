@@ -1,0 +1,59 @@
+diff --git a/django/utils/decorators.py b/django/utils/decorators.py
+index 5c9a5d01c7..5fd6206675 100644
+--- a/django/utils/decorators.py
++++ b/django/utils/decorators.py
+@@ -1,6 +1,6 @@
+ "Functions that help with dynamically creating decorators for views."
+ 
+-from functools import partial, update_wrapper, wraps
++from functools import update_wrapper, wraps
+ 
+ 
+ class classonlymethod(classmethod):
+@@ -35,9 +35,14 @@ def _multi_decorate(decorators, method):
+     def _wrapper(self, *args, **kwargs):
+         # bound_method has the signature that 'decorator' expects i.e. no
+         # 'self' argument, but it's a closure over self so it can call
+-        # 'func'. Also, wrap method.__get__() in a function because new
++        # 'method'. Also, wrap the bound method in a function because new
+         # attributes can't be set on bound method objects, only on functions.
+-        bound_method = partial(method.__get__(self, type(self)))
++        bound = method.__get__(self, type(self))
++
++        @wraps(method)
++        def bound_method(*args, **kwargs):
++            return bound(*args, **kwargs)
++
+         for dec in decorators:
+             bound_method = dec(bound_method)
+         return bound_method(*args, **kwargs)
+diff --git a/tests/decorators/tests.py b/tests/decorators/tests.py
+index 46b01c1852..52dd7f8731 100644
+--- a/tests/decorators/tests.py
++++ b/tests/decorators/tests.py
+@@ -271,6 +271,25 @@ class MethodDecoratorTests(SimpleTestCase):
+                 self.assertEqual(Test.method.__doc__, 'A method')
+                 self.assertEqual(Test.method.__name__, 'method')
+ 
++    def test_wrapped_function_attributes_available(self):
++        """
++        method_decorator() shouldn't pass a functools.partial to decorators, as
++        it doesn't provide function attributes like __name__.
++        """
++        def logger(func):
++            @wraps(func)
++            def inner(*args, **kwargs):
++                result = func(*args, **kwargs)
++                return f'{func.__name__}:{result}'
++            return inner
++
++        class Test:
++            @method_decorator(logger)
++            def hello_world(self):
++                return 'hello'
++
++        self.assertEqual(Test().hello_world(), 'hello_world:hello')
++
+     def test_new_attribute(self):
+         """A decorator that sets a new attribute on the method."""
+         def decorate(func):

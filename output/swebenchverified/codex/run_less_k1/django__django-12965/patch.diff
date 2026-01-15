@@ -1,0 +1,51 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 29e33c075f..0755b3c6f3 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -1423,6 +1423,13 @@ class SQLDeleteCompiler(SQLCompiler):
+         Create the SQL for this query. Return the SQL string and list of
+         parameters.
+         """
++        # A queryset with no filtering conditions always deletes all rows from
++        # the base table. Avoid wrapping it in a subquery even if the query
++        # contains additional aliases (e.g. from annotations) as that can be
++        # significantly slower on MySQL/MariaDB and prevents use with
++        # LOCK TABLES.
++        if not self.query.where:
++            return self._as_sql(self.query)
+         if self.single_alias:
+             return self._as_sql(self.query)
+         innerq = self.query.clone()
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index c32ebba83f..143d104e32 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -4,6 +4,7 @@ from django.db import connection, models
+ from django.db.models import ProtectedError, RestrictedError
+ from django.db.models.deletion import Collector
+ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
++from django.db.models.sql.subqueries import DeleteQuery
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+ 
+ from .models import (
+@@ -703,3 +704,20 @@ class FastDeleteTests(TestCase):
+         referer = Referrer.objects.create(origin=origin, unique_field=42)
+         with self.assertNumQueries(2):
+             referer.delete()
++
++
++class DeleteCompilerTests(TestCase):
++    def test_delete_all_avoids_pk_in_subquery(self):
++        """
++        Querysets with no filtering conditions should compile to a simple
++        "DELETE FROM <table>" even if the query contains extra aliases (e.g.
++        from annotations). This avoids performance issues on MySQL/MariaDB.
++        """
++        qs = M.objects.annotate(num=models.Count('m2m'))
++        query = qs.query.clone()
++        query.__class__ = DeleteQuery
++        sql, params = query.get_compiler(connection.alias).as_sql()
++        self.assertTrue(sql.startswith('DELETE FROM '))
++        self.assertNotIn('IN (SELECT', sql)
++        self.assertNotIn('WHERE', sql)
++        self.assertEqual(params, ())

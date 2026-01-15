@@ -1,0 +1,36 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index 07d6ffd4ca..d61f092ba7 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -919,6 +919,14 @@ class QuerySet:
+     def none(self):
+         """Return an empty QuerySet."""
+         clone = self._chain()
++        # A "combined" query (union()/intersection()/difference()) is compiled
++        # using its constituent queries, ignoring the outer query's WHERE
++        # clause. Ensure .none() always returns an actually empty QuerySet by
++        # clearing the combinator state before setting the query empty.
++        if clone.query.combinator:
++            clone.query.combined_queries = ()
++            clone.query.combinator = None
++            clone.query.combinator_all = False
+         clone.query.set_empty()
+         return clone
+ 
+diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
+index 9c6fd474ca..8ddc21591f 100644
+--- a/tests/queries/test_qs_combinators.py
++++ b/tests/queries/test_qs_combinators.py
+@@ -22,6 +22,12 @@ class QuerySetSetOperationTests(TestCase):
+         qs3 = Number.objects.filter(num=5)
+         self.assertNumbersEqual(qs1.union(qs2, qs3), [0, 1, 5, 8, 9], ordered=False)
+ 
++    def test_none_on_combined_query(self):
++        qs1 = Number.objects.filter(num__lte=1)
++        qs2 = Number.objects.filter(num__gte=8)
++        combined = qs1.union(qs2)
++        self.assertEqual(list(combined.none()), [])
++
+     @skipUnlessDBFeature('supports_select_intersection')
+     def test_simple_intersection(self):
+         qs1 = Number.objects.filter(num__lte=5)

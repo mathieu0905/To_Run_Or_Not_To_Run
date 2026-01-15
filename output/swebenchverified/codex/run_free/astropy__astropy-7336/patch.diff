@@ -1,0 +1,57 @@
+diff --git a/astropy/units/decorators.py b/astropy/units/decorators.py
+index 8bece5a85..f20ccd8f3 100644
+--- a/astropy/units/decorators.py
++++ b/astropy/units/decorators.py
+@@ -220,11 +220,26 @@ class QuantityInput:
+             # Call the original function with any equivalencies in force.
+             with add_enabled_equivalencies(self.equivalencies):
+                 return_ = wrapped_function(*func_args, **func_kwargs)
+-            if wrapped_signature.return_annotation is not inspect.Signature.empty:
+-                return return_.to(wrapped_signature.return_annotation)
+-            else:
++
++            return_annotation = wrapped_signature.return_annotation
++            if return_annotation is inspect.Signature.empty:
+                 return return_
+ 
++            # Support type-hinted constructors (and other functions) annotated
++            # with ``-> None`` / ``-> type(None)``: there is no unit to convert to.
++            if return_annotation is None or return_annotation is type(None):
++                if return_ is None:
++                    return None
++                raise TypeError("Function '{0}' is annotated to return None but "
++                                "returned a value.".format(wrapped_function.__name__))
++
++            if return_ is None:
++                raise TypeError("Function '{0}' returned None but is annotated "
++                                "to return a quantity convertible to '{1}'."
++                                .format(wrapped_function.__name__, return_annotation))
++
++            return return_.to(return_annotation)
++
+         return wrapper
+ 
+ 
+diff --git a/astropy/units/tests/py3_test_quantity_annotations.py b/astropy/units/tests/py3_test_quantity_annotations.py
+index 4956b0ec1..69cdc6a12 100644
+--- a/astropy/units/tests/py3_test_quantity_annotations.py
++++ b/astropy/units/tests/py3_test_quantity_annotations.py
+@@ -285,3 +285,18 @@ def test_return_annotation():
+     assert solarx.unit is u.deg
+     """
+     return src
++
++
++@py3only
++def test_return_annotation_none():
++    src = """
++    class PoC(object):
++
++        @u.quantity_input
++        def __init__(self, voltage: u.V) -> None:
++            self.voltage = voltage
++
++    poc = PoC(1.*u.V)
++    assert poc.voltage.unit is u.V
++    """
++    return src

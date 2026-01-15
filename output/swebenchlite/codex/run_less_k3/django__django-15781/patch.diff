@@ -1,0 +1,84 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index d37d43d5c5..bba6a6bf0e 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -5,8 +5,9 @@ be executed through ``django-admin`` or ``manage.py``).
+ import argparse
+ import os
+ import sys
+-from argparse import ArgumentParser, HelpFormatter
++from argparse import ArgumentParser, RawDescriptionHelpFormatter
+ from io import TextIOBase
++from inspect import cleandoc
+ 
+ import django
+ from django.core import checks
+@@ -102,7 +103,7 @@ def no_translations(handle_func):
+     return wrapper
+ 
+ 
+-class DjangoHelpFormatter(HelpFormatter):
++class DjangoHelpFormatter(RawDescriptionHelpFormatter):
+     """
+     Customized formatter so that command-specific arguments appear in the
+     --help output before arguments common to all commands.
+@@ -244,6 +245,8 @@ class BaseCommand:
+ 
+     # Metadata about this command.
+     help = ""
++    # The ArgumentParser help formatter to use for this command.
++    formatter_class = DjangoHelpFormatter
+ 
+     # Configuration shortcuts that alter various logic.
+     _called_from_command_line = False
+@@ -281,6 +284,18 @@ class BaseCommand:
+         """
+         return django.get_version()
+ 
++    def get_help_text(self):
++        """
++        Return the help text used as the ArgumentParser description.
++
++        Multi-line help is typically written as a triple-quoted string; use
++        inspect.cleandoc() so authors can indent it naturally in source code.
++        """
++        if not self.help:
++            return None
++        text = cleandoc(self.help)
++        return text or None
++
+     def create_parser(self, prog_name, subcommand, **kwargs):
+         """
+         Create and return the ``ArgumentParser`` which will be used to
+@@ -288,8 +303,8 @@ class BaseCommand:
+         """
+         parser = CommandParser(
+             prog="%s %s" % (os.path.basename(prog_name), subcommand),
+-            description=self.help or None,
+-            formatter_class=DjangoHelpFormatter,
++            description=self.get_help_text(),
++            formatter_class=self.formatter_class,
+             missing_args_message=getattr(self, "missing_args_message", None),
+             called_from_command_line=getattr(self, "_called_from_command_line", None),
+             **kwargs,
+diff --git a/tests/admin_scripts/tests.py b/tests/admin_scripts/tests.py
+index 9d2ca839d5..892c6aba59 100644
+--- a/tests/admin_scripts/tests.py
++++ b/tests/admin_scripts/tests.py
+@@ -1862,6 +1862,16 @@ class CommandTypes(AdminScriptTestCase):
+             out, "Checks the entire Django project for potential problems."
+         )
+ 
++    def test_multiline_help_is_not_wrapped(self):
++        out, err = self.run_manage(["multiline_help_command", "--help"])
++        self.assertNoOutput(err)
++        self.assertOutput(
++            out,
++            "\nImport a contract from tzkt.\nExample usage:\n"
++            "    ./manage.py multiline_help_command 'Tezos Mainnet' "
++            "KT1HTDtMBRCKoNHjfWEEvXneGQpCfPAt6BRe\n",
++        )
++
+     def test_help_default_options_with_custom_arguments(self):
+         args = ["base_command", "--help"]
+         out, err = self.run_manage(args)

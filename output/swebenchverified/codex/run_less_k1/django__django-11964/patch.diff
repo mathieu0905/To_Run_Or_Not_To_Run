@@ -1,0 +1,46 @@
+diff --git a/django/db/models/enums.py b/django/db/models/enums.py
+index bbe362a6ab..06f7087eec 100644
+--- a/django/db/models/enums.py
++++ b/django/db/models/enums.py
+@@ -65,11 +65,20 @@ class Choices(enum.Enum, metaclass=ChoicesMeta):
+ 
+ class IntegerChoices(int, Choices):
+     """Class for creating enumerated integer choices."""
+-    pass
++
++    def __str__(self):
++        # Enum.__str__ returns "Class.member", but for model field values the
++        # underlying primitive is typically what's expected.
++        return str(self.value)
+ 
+ 
+ class TextChoices(str, Choices):
+     """Class for creating enumerated string choices."""
+ 
++    def __str__(self):
++        # Enum.__str__ returns "Class.member", but for model field values the
++        # underlying primitive is typically what's expected.
++        return str(self.value)
++
+     def _generate_next_value_(name, start, count, last_values):
+         return name
+diff --git a/tests/model_enums/tests.py b/tests/model_enums/tests.py
+index 6b4bd6e7fd..9c17bc21d5 100644
+--- a/tests/model_enums/tests.py
++++ b/tests/model_enums/tests.py
+@@ -57,6 +57,7 @@ class ChoicesTests(SimpleTestCase):
+         self.assertIsInstance(Suit.DIAMOND, Suit)
+         self.assertIsInstance(Suit.DIAMOND.label, Promise)
+         self.assertIsInstance(Suit.DIAMOND.value, int)
++        self.assertEqual(str(Suit.DIAMOND), '1')
+ 
+     def test_integerchoices_auto_label(self):
+         self.assertEqual(Vehicle.CAR.label, 'Carriage')
+@@ -98,6 +99,7 @@ class ChoicesTests(SimpleTestCase):
+         self.assertIsInstance(YearInSchool.FRESHMAN, YearInSchool)
+         self.assertIsInstance(YearInSchool.FRESHMAN.label, Promise)
+         self.assertIsInstance(YearInSchool.FRESHMAN.value, str)
++        self.assertEqual(str(YearInSchool.FRESHMAN), 'FR')
+ 
+     def test_textchoices_auto_label(self):
+         self.assertEqual(Gender.MALE.label, 'Male')

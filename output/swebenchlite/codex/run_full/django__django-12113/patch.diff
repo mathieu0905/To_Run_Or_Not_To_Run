@@ -1,0 +1,70 @@
+diff --git a/django/db/backends/sqlite3/creation.py b/django/db/backends/sqlite3/creation.py
+index d97052f52d..cd6837ae81 100644
+--- a/django/db/backends/sqlite3/creation.py
++++ b/django/db/backends/sqlite3/creation.py
+@@ -90,12 +90,11 @@ class DatabaseCreation(BaseDatabaseCreation):
+         """
+         Return a tuple that uniquely identifies a test database.
+ 
+-        This takes into account the special cases of ":memory:" and "" for
+-        SQLite since the databases will be distinct despite having the same
+-        TEST NAME. See https://www.sqlite.org/inmemorydb.html
++        Use the effective test database name/URI.
++
++        In particular, when TEST['NAME'] is set, it's possible for multiple
++        database aliases to have the same non-test NAME (e.g. the empty string
++        used by Django's own test suite settings). The test database must then
++        be deduplicated (or not) based on TEST['NAME'], not NAME.
+         """
+-        test_database_name = self._get_test_db_name()
+-        sig = [self.connection.settings_dict['NAME']]
+-        if self.is_in_memory_db(test_database_name):
+-            sig.append(self.connection.alias)
+-        return tuple(sig)
++        return (self._get_test_db_name(),)
+diff --git a/tests/test_runner/tests.py b/tests/test_runner/tests.py
+index 85e4e75720..881af7faa1 100644
+--- a/tests/test_runner/tests.py
++++ b/tests/test_runner/tests.py
+@@ -14,7 +14,7 @@ from django.core.management.base import SystemCheckError
+ from django.test import TransactionTestCase, skipUnlessDBFeature, testcases
+ from django.test.runner import DiscoverRunner
+ from django.test.testcases import connections_support_transactions
+-from django.test.utils import dependency_ordered
++from django.test.utils import dependency_ordered, get_unique_databases_and_mirrors
+ 
+ from .models import B, Person, Through
+ 
+@@ -313,6 +313,32 @@ class SetupDatabasesTests(unittest.TestCase):
+     def setUp(self):
+         self.runner_instance = DiscoverRunner(verbosity=0)
+ 
++    def test_sqlite_distinct_test_names_arent_mirrored(self):
++        """
++        SQLite database aliases with different TEST['NAME'] must not be treated
++        as mirrors of the same test database.
++        """
++        tested_connections = db.ConnectionHandler({
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': '',
++                'TEST': {'NAME': 'test_default.sqlite3'},
++            },
++            'other': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': '',
++                'TEST': {'NAME': 'test_other.sqlite3'},
++            },
++        })
++        with mock.patch('django.test.utils.connections', new=tested_connections):
++            test_databases, mirrored_aliases = get_unique_databases_and_mirrors()
++        self.assertEqual(mirrored_aliases, {})
++        self.assertEqual(len(test_databases), 2)
++        self.assertEqual(
++            {frozenset(aliases) for _, aliases in test_databases.values()},
++            {frozenset({'default'}), frozenset({'other'})},
++        )
++
+     def test_setup_aliased_databases(self):
+         tested_connections = db.ConnectionHandler({
+             'default': {

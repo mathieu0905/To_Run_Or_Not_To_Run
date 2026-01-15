@@ -1,0 +1,60 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index 0c3a981290..53e35e770a 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -95,7 +95,7 @@ class DjangoHelpFormatter(HelpFormatter):
+     """
+     show_last = {
+         '--version', '--verbosity', '--traceback', '--settings', '--pythonpath',
+-        '--no-color', '--force-color',
++        '--no-color', '--force-color', '--skip-checks',
+     }
+ 
+     def _reordered_actions(self, actions):
+@@ -278,6 +278,10 @@ class BaseCommand:
+             help='A directory to add to the Python path, e.g. "/home/djangoprojects/myproject".',
+         )
+         parser.add_argument('--traceback', action='store_true', help='Raise on CommandError exceptions')
++        parser.add_argument(
++            '--skip-checks', action='store_true', default=False,
++            help='Skip system checks.',
++        )
+         parser.add_argument(
+             '--no-color', action='store_true',
+             help="Don't colorize the command output.",
+diff --git a/tests/user_commands/tests.py b/tests/user_commands/tests.py
+index 2d1f8f834d..e05e0a4a5f 100644
+--- a/tests/user_commands/tests.py
++++ b/tests/user_commands/tests.py
+@@ -13,7 +13,7 @@ from django.core.management.utils import (
+ )
+ from django.db import connection
+ from django.test import SimpleTestCase, override_settings
+-from django.test.utils import captured_stderr, extend_sys_path
++from django.test.utils import captured_stderr, captured_stdout, extend_sys_path
+ from django.utils import translation
+ 
+ from .management.commands import dance
+@@ -66,6 +66,22 @@ class CommandTests(SimpleTestCase):
+             dance.Command.requires_system_checks = True
+         self.assertIn("CommandError", stderr.getvalue())
+ 
++    def test_skip_checks_option(self):
++        """
++        --skip-checks skips system checks when running a command from the
++        command line.
++        """
++        msg = "system checks were run"
++        with mock.patch.object(dance.Command, 'check', side_effect=CommandError(msg)):
++            with captured_stderr() as stderr, self.assertRaises(SystemExit):
++                management.ManagementUtility(['manage.py', 'dance']).execute()
++        self.assertIn("CommandError: %s" % msg, stderr.getvalue())
++
++        with mock.patch.object(dance.Command, 'check', side_effect=CommandError(msg)):
++            with captured_stdout() as stdout:
++                management.ManagementUtility(['manage.py', 'dance', '--skip-checks']).execute()
++        self.assertIn("I don't feel like dancing", stdout.getvalue())
++
+     def test_no_translations_deactivate_translations(self):
+         """
+         When the Command handle method is decorated with @no_translations,

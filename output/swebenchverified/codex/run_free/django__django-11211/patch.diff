@@ -1,0 +1,82 @@
+diff --git a/django/contrib/contenttypes/fields.py b/django/contrib/contenttypes/fields.py
+index ed98ecb48c..e2ce41a42f 100644
+--- a/django/contrib/contenttypes/fields.py
++++ b/django/contrib/contenttypes/fields.py
+@@ -2,7 +2,7 @@ from collections import defaultdict
+ 
+ from django.contrib.contenttypes.models import ContentType
+ from django.core import checks
+-from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
++from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
+ from django.db import DEFAULT_DB_ALIAS, models, router, transaction
+ from django.db.models import DO_NOTHING
+ from django.db.models.base import ModelBase, make_foreign_order_accessors
+@@ -202,8 +202,13 @@ class GenericForeignKey(FieldCacheMixin):
+             else:
+                 model = self.get_content_type(id=ct_id,
+                                               using=obj._state.db).model_class()
+-                return (model._meta.pk.get_prep_value(getattr(obj, self.fk_field)),
+-                        model)
++                # Match the related object's pk Python type (e.g. UUIDField
++                # returns uuid.UUID instances) so the in-Python join works.
++                try:
++                    fk_val = model._meta.pk.to_python(getattr(obj, self.fk_field))
++                except (ValidationError, TypeError, ValueError):
++                    return None
++                return (fk_val, model)
+ 
+         return (
+             ret_val,
+diff --git a/tests/prefetch_related/models.py b/tests/prefetch_related/models.py
+index 091d600475..f834c9aca6 100644
+--- a/tests/prefetch_related/models.py
++++ b/tests/prefetch_related/models.py
+@@ -196,6 +196,20 @@ class Comment(models.Model):
+         ordering = ['id']
+ 
+ 
++class UUIDTaggedItem(models.Model):
++    """
++    GenericForeignKey pointing to a UUID primary key via a CharField.
++
++    This mirrors the common pattern where the object ID is stored as text.
++    """
++    content_type = models.ForeignKey(ContentType, models.CASCADE)
++    object_id = models.CharField(max_length=36)
++    content_object = GenericForeignKey('content_type', 'object_id')
++
++    class Meta:
++        ordering = ['id']
++
++
+ # Models for lookup ordering tests
+ 
+ class House(models.Model):
+diff --git a/tests/prefetch_related/test_uuid.py b/tests/prefetch_related/test_uuid.py
+index 11a2474f4a..9030a0e2d4 100644
+--- a/tests/prefetch_related/test_uuid.py
++++ b/tests/prefetch_related/test_uuid.py
+@@ -1,6 +1,6 @@
+ from django.test import TestCase
+ 
+-from .models import Flea, House, Person, Pet, Room
++from .models import Flea, House, Person, Pet, Room, UUIDTaggedItem
+ 
+ 
+ class UUIDPrefetchRelated(TestCase):
+@@ -53,6 +53,15 @@ class UUIDPrefetchRelated(TestCase):
+             [pet.id]
+         )
+ 
++    def test_prefetch_related_gfk_to_uuid_pk(self):
++        pet = Pet.objects.create(name='Fifi')
++        UUIDTaggedItem.objects.create(content_object=pet)
++
++        with self.assertNumQueries(2):
++            tagged = UUIDTaggedItem.objects.prefetch_related('content_object').get()
++        with self.assertNumQueries(0):
++            self.assertEqual(pet.pk, tagged.content_object.pk)
++
+ 
+ class UUIDPrefetchRelatedLookups(TestCase):
+ 

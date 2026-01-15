@@ -1,0 +1,94 @@
+diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
+index de3fb01d1..1f6b299ad 100644
+--- a/astropy/utils/misc.py
++++ b/astropy/utils/misc.py
+@@ -528,14 +528,55 @@ class InheritDocstrings(type):
+                 not key.startswith('_'))
+ 
+         for key, val in dct.items():
+-            if (inspect.isfunction(val) and
+-                is_public_member(key) and
+-                val.__doc__ is None):
+-                for base in cls.__mro__[1:]:
+-                    super_method = getattr(base, key, None)
+-                    if super_method is not None:
+-                        val.__doc__ = super_method.__doc__
+-                        break
++            if not is_public_member(key):
++                continue
++
++            # Determine whether this is a member whose docstring we can inherit
++            # and how to set that docstring.
++            if inspect.isfunction(val):
++                if val.__doc__ is not None:
++                    continue
++
++                def set_doc(doc, _val=val):
++                    _val.__doc__ = doc
++
++            elif isinstance(val, (classmethod, staticmethod)):
++                func = val.__func__
++                if func.__doc__ is not None:
++                    continue
++
++                def set_doc(doc, _func=func):
++                    _func.__doc__ = doc
++
++            elif isinstance(val, property):
++                if val.__doc__ is not None:
++                    continue
++
++                def set_doc(doc, _val=val, _key=key):
++                    # property instances do not reliably allow assigning to
++                    # __doc__; re-create the property with the inherited doc.
++                    setattr(cls, _key, property(_val.fget, _val.fset, _val.fdel, doc))
++
++            else:
++                continue
++
++            for base in cls.__mro__[1:]:
++                super_member = getattr(base, key, None)
++                if super_member is None:
++                    continue
++
++                if inspect.isfunction(super_member):
++                    super_doc = super_member.__doc__
++                elif isinstance(super_member, (classmethod, staticmethod)):
++                    super_doc = super_member.__func__.__doc__
++                elif isinstance(super_member, property):
++                    super_doc = super_member.__doc__
++                else:
++                    super_doc = getattr(super_member, '__doc__', None)
++
++                if super_doc is not None:
++                    set_doc(super_doc)
++                    break
+ 
+         super().__init__(name, bases, dct)
+ 
+diff --git a/astropy/utils/tests/test_misc.py b/astropy/utils/tests/test_misc.py
+index 4f632e8d1..98c6aff77 100644
+--- a/astropy/utils/tests/test_misc.py
++++ b/astropy/utils/tests/test_misc.py
+@@ -89,6 +89,21 @@ def test_inherit_docstrings():
+         assert Subclass.__call__.__doc__ == "FOO"
+ 
+ 
++def test_inherit_docstrings_property():
++    class Base(metaclass=misc.InheritDocstrings):
++        @property
++        def foo(self):
++            "FOO"
++            return 1
++
++    class Subclass(Base):
++        @property
++        def foo(self):
++            return 2
++
++    assert Subclass.foo.__doc__ == "FOO"
++
++
+ def test_set_locale():
+     # First, test if the required locales are available
+     current = locale.setlocale(locale.LC_ALL)

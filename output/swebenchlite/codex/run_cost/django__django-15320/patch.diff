@@ -1,0 +1,42 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 6f26dff0e0..4346dbd81a 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1178,8 +1178,17 @@ class Subquery(BaseExpression, Combinable):
+         connection.ops.check_expression_support(self)
+         template_params = {**self.extra, **extra_context}
+         query = query or self.query
++        # Query.as_sql() only wraps SQL in parentheses when query.subquery is
++        # set. When Subquery.as_sql() is called directly (i.e. without the
++        # usual resolve_expression() path), that flag may be unset, resulting
++        # in broken slicing and invalid SQL.
++        if not getattr(query, 'subquery', False) and hasattr(query, 'clone'):
++            query = query.clone()
++            query.subquery = True
+         subquery_sql, sql_params = query.as_sql(compiler, connection)
+-        template_params['subquery'] = subquery_sql[1:-1]
++        if subquery_sql.startswith('(') and subquery_sql.endswith(')'):
++            subquery_sql = subquery_sql[1:-1]
++        template_params['subquery'] = subquery_sql
+ 
+         template = template or template_params.get('template', self.template)
+         sql = template % template_params
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index 06c9ad597a..b288c8e265 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -446,6 +446,14 @@ class BasicExpressionsTests(TestCase):
+         queryset = Company.objects.values('pk')
+         self.assertIsInstance(Exists(queryset).output_field, BooleanField)
+ 
++    def test_subquery_as_sql_does_not_truncate_sql(self):
++        subquery = Subquery(Company.objects.all())
++        compiler = subquery.query.get_compiler(connection=connection)
++        sql, params = subquery.as_sql(compiler, connection)
++        self.assertTrue(sql.startswith('(SELECT'))
++        self.assertEqual(sql, '(%s)' % subquery.query.as_sql(compiler, connection)[0])
++        self.assertEqual(params, ())
++
+     def test_subquery(self):
+         Company.objects.filter(name='Example Inc.').update(
+             point_of_contact=Employee.objects.get(firstname='Joe', lastname='Smith'),

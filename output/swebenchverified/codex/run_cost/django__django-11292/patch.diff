@@ -1,0 +1,50 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index 0c3a981290..209c61ea31 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -95,7 +95,7 @@ class DjangoHelpFormatter(HelpFormatter):
+     """
+     show_last = {
+         '--version', '--verbosity', '--traceback', '--settings', '--pythonpath',
+-        '--no-color', '--force-color',
++        '--no-color', '--force-color', '--skip-checks',
+     }
+ 
+     def _reordered_actions(self, actions):
+@@ -278,6 +278,10 @@ class BaseCommand:
+             help='A directory to add to the Python path, e.g. "/home/djangoprojects/myproject".',
+         )
+         parser.add_argument('--traceback', action='store_true', help='Raise on CommandError exceptions')
++        parser.add_argument(
++            '--skip-checks', action='store_true',
++            help='Skip system checks.',
++        )
+         parser.add_argument(
+             '--no-color', action='store_true',
+             help="Don't colorize the command output.",
+diff --git a/tests/user_commands/tests.py b/tests/user_commands/tests.py
+index 2d1f8f834d..6bcaea3e0d 100644
+--- a/tests/user_commands/tests.py
++++ b/tests/user_commands/tests.py
+@@ -253,6 +253,21 @@ class CommandRunTests(AdminScriptTestCase):
+         self.assertNoOutput(err)
+         self.assertEqual(out.strip(), 'Set foo')
+ 
++    def test_skip_checks(self):
++        self.write_settings('settings.py', apps=[
++            'django.contrib.auth',
++            'django.contrib.contenttypes',
++            'skip_checks_app',
++            'user_commands',
++        ])
++        out, err = self.run_manage(['dance'])
++        self.assertNoOutput(out)
++        self.assertOutput(err, 'skip_checks_app.E001')
++
++        out, err = self.run_manage(['dance', '--skip-checks'])
++        self.assertNotInOutput(err, 'skip_checks_app.E001')
++        self.assertOutput(out, "I don't feel like dancing")
++
+ 
+ class UtilsTests(SimpleTestCase):
+ 

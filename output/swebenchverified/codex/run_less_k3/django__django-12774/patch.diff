@@ -1,0 +1,77 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index d9c9b0db04..5f40ae7c39 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -689,8 +689,19 @@ class QuerySet:
+         """
+         assert not self.query.is_sliced, \
+             "Cannot use 'limit' or 'offset' with in_bulk"
+-        if field_name != 'pk' and not self.model._meta.get_field(field_name).unique:
+-            raise ValueError("in_bulk()'s field_name must be a unique field but %r isn't." % field_name)
++        if field_name != 'pk':
++            field = self.model._meta.get_field(field_name)
++            if not field.unique:
++                # Allow single-field, unconditional UniqueConstraints.
++                has_total_unique_constraint = any(
++                    constraint.fields == (field_name,)
++                    for constraint in self.model._meta.total_unique_constraints
++                )
++                if not has_total_unique_constraint:
++                    raise ValueError(
++                        "in_bulk()'s field_name must be a unique field but %r isn't."
++                        % field_name
++                    )
+         if id_list is not None:
+             if not id_list:
+                 return {}
+diff --git a/tests/lookup/models.py b/tests/lookup/models.py
+index fbc9fa606f..1c89215546 100644
+--- a/tests/lookup/models.py
++++ b/tests/lookup/models.py
+@@ -37,6 +37,15 @@ class Article(models.Model):
+         return self.headline
+ 
+ 
++class ArticleWithSlugUniqueConstraint(models.Model):
++    slug = models.SlugField(max_length=255)
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(fields=['slug'], name='lookup_article_slug_unq'),
++        ]
++
++
+ class Tag(models.Model):
+     articles = models.ManyToManyField(Article)
+     name = models.CharField(max_length=100)
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index baefdf9701..423577e546 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -11,7 +11,8 @@ from django.test import TestCase, skipUnlessDBFeature
+ from django.utils.deprecation import RemovedInDjango40Warning
+ 
+ from .models import (
+-    Article, Author, Freebie, Game, IsNullWithNoneAsRHS, Player, Season, Tag,
++    Article, ArticleWithSlugUniqueConstraint, Author, Freebie, Game,
++    IsNullWithNoneAsRHS, Player, Season, Tag,
+ )
+ 
+ 
+@@ -194,6 +195,16 @@ class LookupTests(TestCase):
+         with self.assertRaisesMessage(ValueError, msg):
+             Article.objects.in_bulk([self.au1], field_name='author')
+ 
++    def test_in_bulk_with_total_unique_constraint_field(self):
++        a1 = ArticleWithSlugUniqueConstraint.objects.create(slug='a1')
++        a2 = ArticleWithSlugUniqueConstraint.objects.create(slug='a2')
++        self.assertEqual(
++            ArticleWithSlugUniqueConstraint.objects.in_bulk(
++                ['a1', 'a2'], field_name='slug',
++            ),
++            {'a1': a1, 'a2': a2},
++        )
++
+     def test_values(self):
+         # values() returns a list of dictionaries instead of object instances --
+         # and you can specify which fields you want to retrieve.

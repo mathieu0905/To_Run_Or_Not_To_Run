@@ -1,0 +1,91 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index a156c5e881..987fe05c05 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -8,6 +8,7 @@ from django.db import NotSupportedError, connection
+ from django.db.models import fields
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.query_utils import Q
++from django.utils.duration import duration_microseconds
+ from django.utils.deconstruct import deconstructible
+ from django.utils.functional import cached_property
+ from django.utils.hashable import make_hashable
+@@ -479,7 +480,24 @@ class CombinedExpression(SQLiteNumericMixin, Expression):
+ 
+ 
+ class DurationExpression(CombinedExpression):
+-    def compile(self, side, compiler, connection):
++    def _is_duration_field(self, side):
++        try:
++            output_field = side.output_field
++        except (AttributeError, FieldError):
++            return False
++        return output_field.get_internal_type() == 'DurationField'
++
++    def compile(self, side, compiler, connection, duration_only=False):
++        if duration_only:
++            # On backends without a native DurationField, durations are stored
++            # as an integer number of microseconds. When both sides of the
++            # expression are durations, perform integer arithmetic rather than
++            # coercing either side into backend-specific date/datetime interval
++            # representations.
++            if isinstance(side, DurationValue):
++                return '%s', [duration_microseconds(side.value)]
++            return compiler.compile(side)
++
+         if not isinstance(side, DurationValue):
+             try:
+                 output = side.output_field
+@@ -493,17 +511,26 @@ class DurationExpression(CombinedExpression):
+ 
+     def as_sql(self, compiler, connection):
+         connection.ops.check_expression_support(self)
++        duration_only = (
++            not connection.features.has_native_duration_field and
++            self.connector in (self.ADD, self.SUB) and
++            self._is_duration_field(self.lhs) and
++            self._is_duration_field(self.rhs)
++        )
+         expressions = []
+         expression_params = []
+-        sql, params = self.compile(self.lhs, compiler, connection)
++        sql, params = self.compile(self.lhs, compiler, connection, duration_only=duration_only)
+         expressions.append(sql)
+         expression_params.extend(params)
+-        sql, params = self.compile(self.rhs, compiler, connection)
++        sql, params = self.compile(self.rhs, compiler, connection, duration_only=duration_only)
+         expressions.append(sql)
+         expression_params.extend(params)
+         # order of precedence
+         expression_wrapper = '(%s)'
+-        sql = connection.ops.combine_duration_expression(self.connector, expressions)
++        if duration_only:
++            sql = connection.ops.combine_expression(self.connector, expressions)
++        else:
++            sql = connection.ops.combine_duration_expression(self.connector, expressions)
+         return expression_wrapper % sql, expression_params
+ 
+ 
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index 459a87797d..13f450a4af 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -1468,6 +1468,18 @@ class FTimeDeltaTests(TestCase):
+         ))
+         self.assertIsNone(queryset.first().shifted)
+ 
++    def test_duration_expressions(self):
++        delta = datetime.timedelta(days=1)
++        qs = Experiment.objects.annotate(
++            duration_add=F('estimated_time') + delta,
++            duration_radd=delta + F('estimated_time'),
++            duration_sub=F('estimated_time') - delta,
++        )
++        for e in qs:
++            self.assertEqual(e.duration_add, e.estimated_time + delta)
++            self.assertEqual(e.duration_radd, e.estimated_time + delta)
++            self.assertEqual(e.duration_sub, e.estimated_time - delta)
++
+     @skipUnlessDBFeature('supports_temporal_subtraction')
+     def test_date_subtraction(self):
+         queryset = Experiment.objects.annotate(

@@ -1,0 +1,45 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index 5dcf923c12..ff84d02675 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -1171,6 +1171,11 @@ class ModelChoiceIteratorValue:
+             other = other.value
+         return self.value == other
+ 
++    def __hash__(self):
++        # Match the wrapped value's hash so ModelChoiceIteratorValue can be used
++        # interchangeably with the raw choice value in dict/set lookups.
++        return hash(self.value)
++
+ 
+ class ModelChoiceIterator:
+     def __init__(self, field):
+diff --git a/tests/model_forms/test_modelchoicefield.py b/tests/model_forms/test_modelchoicefield.py
+index 2a0c05d803..724c0f937b 100644
+--- a/tests/model_forms/test_modelchoicefield.py
++++ b/tests/model_forms/test_modelchoicefield.py
+@@ -2,7 +2,7 @@ import datetime
+ 
+ from django import forms
+ from django.core.exceptions import ValidationError
+-from django.forms.models import ModelChoiceIterator
++from django.forms.models import ModelChoiceIterator, ModelChoiceIteratorValue
+ from django.forms.widgets import CheckboxSelectMultiple
+ from django.template import Context, Template
+ from django.test import TestCase
+@@ -68,6 +68,15 @@ class ModelChoiceFieldTests(TestCase):
+         self.assertEqual(f.clean(self.c1.slug), self.c1)
+         self.assertEqual(f.clean(self.c1), self.c1)
+ 
++    def test_choice_value_is_hashable(self):
++        f = forms.ModelChoiceField(Category.objects.all())
++        value, _label = list(f.choices)[1]
++        self.assertIsInstance(value, ModelChoiceIteratorValue)
++        self.assertEqual(hash(value), hash(value.value))
++        show_fields = {self.c1.pk: ['first_name', 'last_name']}
++        self.assertIn(value, show_fields)
++        self.assertEqual(show_fields[value], ['first_name', 'last_name'])
++
+     def test_choices(self):
+         f = forms.ModelChoiceField(Category.objects.filter(pk=self.c1.id), required=False)
+         self.assertIsNone(f.clean(''))

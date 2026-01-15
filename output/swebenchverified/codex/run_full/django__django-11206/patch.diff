@@ -1,0 +1,64 @@
+diff --git a/django/utils/numberformat.py b/django/utils/numberformat.py
+index 88b35fc435..543b5e313e 100644
+--- a/django/utils/numberformat.py
++++ b/django/utils/numberformat.py
+@@ -27,20 +27,33 @@ def format(number, decimal_sep, decimal_pos=None, grouping=0, thousand_sep='',
+     # sign
+     sign = ''
+     if isinstance(number, Decimal):
++        # If a fixed number of decimal places is requested and the number is
++        # too small to appear in that many places (i.e. it would be truncated
++        # to 0), avoid switching to scientific notation for very small Decimals
++        # that would otherwise hit the scientific-notation cutoff below.
++        if (
++            decimal_pos is not None and
++            decimal_pos >= 0 and
++            number.is_finite() and
++            number != 0 and
++            number.adjusted() < -decimal_pos
++        ):
++            str_number = '-0' if number.is_signed() else '0'
+         # Format values with more than 200 digits (an arbitrary cutoff) using
+         # scientific notation to avoid high memory usage in {:f}'.format().
+-        _, digits, exponent = number.as_tuple()
+-        if abs(exponent) + len(digits) > 200:
+-            number = '{:e}'.format(number)
+-            coefficient, exponent = number.split('e')
+-            # Format the coefficient.
+-            coefficient = format(
+-                coefficient, decimal_sep, decimal_pos, grouping,
+-                thousand_sep, force_grouping, use_l10n,
+-            )
+-            return '{}e{}'.format(coefficient, exponent)
+         else:
+-            str_number = '{:f}'.format(number)
++            _, digits, exponent = number.as_tuple()
++            if abs(exponent) + len(digits) > 200:
++                number = '{:e}'.format(number)
++                coefficient, exponent = number.split('e')
++                # Format the coefficient.
++                coefficient = format(
++                    coefficient, decimal_sep, decimal_pos, grouping,
++                    thousand_sep, force_grouping, use_l10n,
++                )
++                return '{}e{}'.format(coefficient, exponent)
++            else:
++                str_number = '{:f}'.format(number)
+     else:
+         str_number = str(number)
+     if str_number[0] == '-':
+diff --git a/tests/utils_tests/test_numberformat.py b/tests/utils_tests/test_numberformat.py
+index 3d656025ab..8f88dbe337 100644
+--- a/tests/utils_tests/test_numberformat.py
++++ b/tests/utils_tests/test_numberformat.py
+@@ -93,8 +93,9 @@ class TestNumberFormat(SimpleTestCase):
+             ('1e-9', 8, '0.00000000'),
+             ('1e-10', 8, '0.00000000'),
+             ('1e-11', 8, '0.00000000'),
++            ('1e-200', 2, '0.00'),
+             ('1' + ('0' * 300), 3, '1.000e+300'),
+-            ('0.{}1234'.format('0' * 299), 3, '1.234e-300'),
++            ('0.{}1234'.format('0' * 299), 3, '0.000'),
+         ]
+         for value, decimal_pos, expected_value in tests:
+             with self.subTest(value=value):

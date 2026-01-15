@@ -1,0 +1,120 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 118bfced8..0d7393dc0 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -1299,31 +1299,60 @@ def _format_value(value):
+ 
+ def _format_float(value):
+     """Format a floating number to make sure it gets the decimal point."""
+-    value_str = f"{value:.16G}"
+-    if "." not in value_str and "E" not in value_str:
++    def _normalize_exponent(s):
++        """Normalize exponent formatting (uppercase E, 2-digit zero padding)."""
++        if "E" in s:
++            # On some Windows builds of Python (and possibly other platforms?)
++            # the exponent is zero-padded out to, it seems, three digits.
++            # Normalize the format to pad only to two digits.
++            significand, exponent = s.split("E")
++            if exponent and exponent[0] in ("+", "-"):
++                sign = exponent[0]
++                exponent = exponent[1:]
++            else:
++                sign = ""
++            s = f"{significand}E{sign}{int(exponent):02d}"
++        return s
++
++    # Prefer Python's shortest-roundtrip representation; it is typically
++    # smaller than fixed-precision formatting and avoids unnecessary expansion
++    # (e.g. 0.009125 -> 0.009124999999999999 with "%.16G").
++    try:
++        value_str = repr(value)
++    except Exception:
++        value_str = f"{value:.16G}"
++
++    value_str = value_str.upper()
++    value_str = _normalize_exponent(value_str)
++
++    # Ensure a decimal point for finite values written without an exponent.
++    if np.isfinite(value) and "." not in value_str and "E" not in value_str:
+         value_str += ".0"
+-    elif "E" in value_str:
+-        # On some Windows builds of Python (and possibly other platforms?) the
+-        # exponent is zero-padded out to, it seems, three digits.  Normalize
+-        # the format to pad only to two digits.
+-        significand, exponent = value_str.split("E")
+-        if exponent[0] in ("+", "-"):
+-            sign = exponent[0]
+-            exponent = exponent[1:]
+-        else:
+-            sign = ""
+-        value_str = f"{significand}E{sign}{int(exponent):02d}"
+ 
+     # Limit the value string to at most 20 characters.
+     str_len = len(value_str)
+ 
+     if str_len > 20:
+-        idx = value_str.find("E")
+-
+-        if idx < 0:
+-            value_str = value_str[:20]
+-        else:
+-            value_str = value_str[: 20 - (str_len - idx)] + value_str[idx:]
++        # Try formatting with reduced precision first (rounding) rather than
++        # truncating the string.
++        if np.isfinite(value):
++            for precision in range(16, 0, -1):
++                candidate = format(value, f".{precision}G").upper()
++                candidate = _normalize_exponent(candidate)
++                if "." not in candidate and "E" not in candidate:
++                    candidate += ".0"
++                if len(candidate) <= 20:
++                    value_str = candidate
++                    break
++
++        # Fall back to truncation if we still cannot fit.
++        str_len = len(value_str)
++        if str_len > 20:
++            idx = value_str.find("E")
++            if idx < 0:
++                value_str = value_str[:20]
++            else:
++                value_str = value_str[: 20 - (str_len - idx)] + value_str[idx:]
+ 
+     return value_str
+ 
+diff --git a/astropy/io/fits/tests/test_header.py b/astropy/io/fits/tests/test_header.py
+index a8f4e1160..3a512f5f8 100644
+--- a/astropy/io/fits/tests/test_header.py
++++ b/astropy/io/fits/tests/test_header.py
+@@ -2371,6 +2371,31 @@ class TestHeaderFunctions(FitsTestCase):
+             c.verify("fix")
+         assert str(c) == _pad("HIERARCH ESO DET CHIP PXSPACE = 5E6")
+ 
++    def test_hierarch_float_does_not_expand_and_truncate_comment(self):
++        """
++        Regression test for gh-15808.
++
++        Creating a card should not expand a float value representation
++        unnecessarily (which can force valid comments to be truncated).
++        """
++        with warnings.catch_warnings(record=True) as w:
++            warnings.simplefilter("always", VerifyWarning)
++            c = fits.Card(
++                "HIERARCH ESO IFM CL RADIUS",
++                0.009125,
++                "[m] radius arround actuator to avoid",
++            )
++            s = str(c)
++
++        assert not any(issubclass(ww.category, VerifyWarning) for ww in w)
++        assert (
++            s
++            == _pad(
++                "HIERARCH ESO IFM CL RADIUS = 0.009125 / "
++                "[m] radius arround actuator to avoid"
++            )
++        )
++
+     def test_assign_inf_nan(self):
+         """
+         Regression test for https://github.com/spacetelescope/PyFITS/issues/11

@@ -1,0 +1,99 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index ee45bb941e..de20fe64eb 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -763,8 +763,30 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            setattr(cls, 'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self))
++            display_method_name = 'get_%s_display' % self.name
++
++            def is_auto_display_method(attr):
++                return (
++                    isinstance(attr, partialmethod) and
++                    attr.func == cls._get_FIELD_display and
++                    'field' in (attr.keywords or {})
++                )
++
++            # Don't clobber an explicitly declared get_FOO_display(), but do
++            # replace inherited auto-generated versions so that the method is
++            # bound to this field instance (e.g. when inheriting from an
++            # abstract base model).
++            existing_attr = cls.__dict__.get(display_method_name)
++            if existing_attr is None:
++                for base in cls.__mro__[1:]:
++                    if display_method_name in base.__dict__:
++                        existing_attr = base.__dict__[display_method_name]
++                        break
++            if existing_attr is None or is_auto_display_method(existing_attr):
++                setattr(
++                    cls, display_method_name,
++                    partialmethod(cls._get_FIELD_display, field=self),
++                )
+ 
+     def get_filter_kwargs_for_object(self, obj):
+         """
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index 98b32d0c1e..191251e13d 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -76,6 +76,27 @@ class Choiceful(models.Model):
+     empty_choices_text = models.TextField(choices=())
+ 
+ 
++class ChoiceDisplayOverride(models.Model):
++    c = models.IntegerField(choices=[(1, 'First')], null=True)
++
++    def get_c_display(self):
++        return 'custom'
++
++
++class AbstractChoiceDisplayOverride(models.Model):
++    c = models.IntegerField(choices=[(1, 'First')], null=True)
++
++    class Meta:
++        abstract = True
++
++    def get_c_display(self):
++        return 'custom'
++
++
++class ConcreteChoiceDisplayOverride(AbstractChoiceDisplayOverride):
++    pass
++
++
+ class BigD(models.Model):
+     d = models.DecimalField(max_digits=32, decimal_places=30)
+ 
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index 0d6e930b06..594a43e1f0 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -7,8 +7,8 @@ from django.test import SimpleTestCase, TestCase
+ from django.utils.functional import lazy
+ 
+ from .models import (
+-    Bar, Choiceful, Foo, RenamedField, VerboseNameField, Whiz, WhizDelayed,
+-    WhizIter, WhizIterEmpty,
++    Bar, ChoiceDisplayOverride, Choiceful, ConcreteChoiceDisplayOverride, Foo,
++    RenamedField, VerboseNameField, Whiz, WhizDelayed, WhizIter, WhizIterEmpty,
+ )
+ 
+ 
+@@ -186,6 +186,14 @@ class GetFieldDisplayTests(SimpleTestCase):
+         self.assertIsNone(WhizIterEmpty(c=None).c)         # Blank value
+         self.assertEqual(WhizIterEmpty(c='').c, '')        # Empty value
+ 
++    def test_get_FIELD_display_can_be_overridden(self):
++        instance = ChoiceDisplayOverride(c=1)
++        self.assertEqual(instance.get_c_display(), 'custom')
++
++    def test_get_FIELD_display_override_inherited_from_abstract_base(self):
++        instance = ConcreteChoiceDisplayOverride(c=1)
++        self.assertEqual(instance.get_c_display(), 'custom')
++
+ 
+ class GetChoicesTests(SimpleTestCase):
+ 

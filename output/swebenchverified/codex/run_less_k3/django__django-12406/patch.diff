@@ -1,0 +1,86 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index dafc11f995..a2639d0322 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -13,7 +13,7 @@ from django.forms.forms import BaseForm, DeclarativeFieldsMetaclass
+ from django.forms.formsets import BaseFormSet, formset_factory
+ from django.forms.utils import ErrorList
+ from django.forms.widgets import (
+-    HiddenInput, MultipleHiddenInput, SelectMultiple,
++    HiddenInput, MultipleHiddenInput, RadioSelect, SelectMultiple,
+ )
+ from django.utils.text import capfirst, get_text_list
+ from django.utils.translation import gettext, gettext_lazy as _
+@@ -1145,8 +1145,19 @@ class ModelChoiceIterator:
+         self.field = field
+         self.queryset = field.queryset
+ 
++    def _include_empty_choice(self):
++        """
++        Don't include the empty choice for required ModelChoiceFields rendered
++        with RadioSelect. Radio groups already have an "unselected" state, and
++        an explicit blank option looks like a valid choice.
++        """
++        return (
++            self.field.empty_label is not None and
++            not (self.field.required and isinstance(self.field.widget, RadioSelect))
++        )
++
+     def __iter__(self):
+-        if self.field.empty_label is not None:
++        if self._include_empty_choice():
+             yield ("", self.field.empty_label)
+         queryset = self.queryset
+         # Can't use iterator() when queryset uses prefetch_related()
+@@ -1159,10 +1170,10 @@ class ModelChoiceIterator:
+         # count() adds a query but uses less memory since the QuerySet results
+         # won't be cached. In most cases, the choices will only be iterated on,
+         # and __len__() won't be called.
+-        return self.queryset.count() + (1 if self.field.empty_label is not None else 0)
++        return self.queryset.count() + (1 if self._include_empty_choice() else 0)
+ 
+     def __bool__(self):
+-        return self.field.empty_label is not None or self.queryset.exists()
++        return self._include_empty_choice() or self.queryset.exists()
+ 
+     def choice(self, obj):
+         return (
+diff --git a/tests/model_forms/test_modelchoicefield.py b/tests/model_forms/test_modelchoicefield.py
+index 4a2ef30b90..2faa1990c4 100644
+--- a/tests/model_forms/test_modelchoicefield.py
++++ b/tests/model_forms/test_modelchoicefield.py
+@@ -7,7 +7,7 @@ from django.forms.widgets import CheckboxSelectMultiple
+ from django.template import Context, Template
+ from django.test import TestCase
+ 
+-from .models import Article, Author, Book, Category, Writer
++from .models import Article, Author, Award, Book, Category, Character, Writer
+ 
+ 
+ class ModelChoiceFieldTests(TestCase):
+@@ -184,6 +184,25 @@ class ModelChoiceFieldTests(TestCase):
+         with self.assertNumQueries(1):
+             template.render(Context({'field': field}))
+ 
++    def test_required_radiouselect_no_empty_choice(self):
++        character = Character.objects.create(
++            username='test',
++            last_action=datetime.datetime(2020, 1, 1),
++        )
++
++        class AwardForm(forms.ModelForm):
++            class Meta:
++                model = Award
++                fields = ['character']
++                widgets = {'character': forms.RadioSelect}
++
++        form = AwardForm()
++        self.assertNotEqual(list(form.fields['character'].choices)[0][0], '')
++        html = str(form['character'])
++        self.assertIn(f'value=\"{character.pk}\"', html)
++        self.assertNotIn('value=\"\"', html)
++        self.assertNotIn('checked', html)
++
+     def test_disabled_modelchoicefield(self):
+         class ModelChoiceForm(forms.ModelForm):
+             author = forms.ModelChoiceField(Author.objects.all(), disabled=True)

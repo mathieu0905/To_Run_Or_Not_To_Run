@@ -1,0 +1,50 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 29e33c075f..dd3132c89f 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -1407,6 +1407,15 @@ class SQLInsertCompiler(SQLCompiler):
+ class SQLDeleteCompiler(SQLCompiler):
+     @cached_property
+     def single_alias(self):
++        # Ensure the base table is present in the alias_map. Query.base_table is
++        # derived from alias_map, which starts empty until get_initial_alias()
++        # is called. Without this, deleting from an otherwise unfiltered query
++        # (e.g. Model.objects.all().delete()) can be incorrectly treated as a
++        # multi-table delete and forced into a self-referencing subquery.
++        self.query.get_initial_alias()
++        # base_table is a cached_property on Query; clear it so any prior
++        # access (before get_initial_alias()) can't pin it to None.
++        self.query.__dict__.pop('base_table', None)
+         return sum(self.query.alias_refcount[t] > 0 for t in self.query.alias_map) == 1
+ 
+     def _as_sql(self, query):
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index c32ebba83f..ea806bc616 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -1,7 +1,7 @@
+ from math import ceil
+ 
+ from django.db import connection, models
+-from django.db.models import ProtectedError, RestrictedError
++from django.db.models import ProtectedError, RestrictedError, sql
+ from django.db.models.deletion import Collector
+ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+@@ -605,6 +605,16 @@ class DeletionTests(TestCase):
+ 
+ 
+ class FastDeleteTests(TestCase):
++    def test_fast_delete_all_uses_simple_delete_sql(self):
++        qs = Avatar.objects.all()
++        query = qs.query.clone()
++        query.__class__ = sql.DeleteQuery
++        delete_sql, params = query.get_compiler(qs.db).as_sql()
++        self.assertEqual(
++            delete_sql,
++            'DELETE FROM %s' % connection.ops.quote_name(Avatar._meta.db_table),
++        )
++        self.assertEqual(params, ())
+ 
+     def test_fast_delete_fk(self):
+         u = User.objects.create(

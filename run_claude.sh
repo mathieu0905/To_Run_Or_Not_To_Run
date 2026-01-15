@@ -4,6 +4,17 @@
 
 set -e
 
+# 默认后台执行，-f 前台执行
+if [ "$1" != "-f" ] && [ "$1" != "--foreground" ]; then
+    SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+    LOG_FILE="$(cd "$(dirname "$0")" && pwd)/logs/run_claude_$(date +%Y%m%d_%H%M%S).log"
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "后台运行中，日志: $LOG_FILE"
+    nohup bash "$SCRIPT_PATH" -f > "$LOG_FILE" 2>&1 &
+    echo "PID: $!"
+    exit 0
+fi
+
 # 切换到脚本所在目录
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
@@ -13,13 +24,13 @@ cd experiments
 
 # ========== 配置区域 ==========
 # 实验配置
-NUM_INSTANCES=300  # 取前 n 个实例
+NUM_INSTANCES=100  # 取前 n 个实例
 WORKERS=30  # 每个配置内部的并发数
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Lite"
 
 # Claude Code 配置
-export CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"  # 可选: opus, sonnet, haiku
+export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"  # 可选: opus, sonnet, haiku
 export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://uk.frp.one:60660}"
 
 # Codex 配置
@@ -76,7 +87,7 @@ AGENTS=("claude_code")
 # 格式: "mode k_value"
 CONFIGS=(
     "run_free 0"
-    # "run_less 1"
+    "run_less 1"
     # "run_less 2"
     "run_less 3"
     "run_cost 0"

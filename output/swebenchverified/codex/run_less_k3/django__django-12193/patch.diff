@@ -1,0 +1,59 @@
+diff --git a/django/contrib/postgres/forms/array.py b/django/contrib/postgres/forms/array.py
+index 2e19cd574a..15412d8c6b 100644
+--- a/django/contrib/postgres/forms/array.py
++++ b/django/contrib/postgres/forms/array.py
+@@ -137,15 +137,19 @@ class SplitArrayWidget(forms.Widget):
+             self.widget.is_localized = self.is_localized
+         value = value or []
+         context['widget']['subwidgets'] = []
+-        final_attrs = self.build_attrs(attrs)
+-        id_ = final_attrs.get('id')
++        base_attrs = self.build_attrs(attrs)
++        id_ = base_attrs.get('id')
+         for i in range(max(len(value), self.size)):
+             try:
+                 widget_value = value[i]
+             except IndexError:
+                 widget_value = None
++            # Each subwidget must get its own attrs dict. Some widgets (e.g.
++            # CheckboxInput) mutate the passed attrs in get_context(), which
++            # would otherwise leak state (like "checked") to later subwidgets.
++            final_attrs = base_attrs.copy()
+             if id_:
+-                final_attrs = {**final_attrs, 'id': '%s_%s' % (id_, i)}
++                final_attrs['id'] = '%s_%s' % (id_, i)
+             context['widget']['subwidgets'].append(
+                 self.widget.get_context(name + '_%s' % i, widget_value, final_attrs)['widget']
+             )
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 6fe220bea7..73f21ed503 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -521,9 +521,11 @@ class CheckboxInput(Input):
+         return str(value)
+ 
+     def get_context(self, name, value, attrs):
++        # Don't mutate attrs in-place. A single attrs dict can be reused when
++        # rendering multiple subwidgets (e.g. in SplitArrayWidget), so leaking
++        # "checked" would incorrectly mark later inputs as checked.
+         if self.check_test(value):
+-            if attrs is None:
+-                attrs = {}
++            attrs = {} if attrs is None else attrs.copy()
+             attrs['checked'] = True
+         return super().get_context(name, value, attrs)
+ 
+diff --git a/tests/forms_tests/widget_tests/test_checkboxinput.py b/tests/forms_tests/widget_tests/test_checkboxinput.py
+index 6483b7f211..d45c66e846 100644
+--- a/tests/forms_tests/widget_tests/test_checkboxinput.py
++++ b/tests/forms_tests/widget_tests/test_checkboxinput.py
+@@ -89,3 +89,9 @@ class CheckboxInputTest(WidgetTest):
+     def test_value_omitted_from_data(self):
+         self.assertIs(self.widget.value_omitted_from_data({'field': 'value'}, {}, 'field'), False)
+         self.assertIs(self.widget.value_omitted_from_data({}, {}, 'field'), False)
++
++    def test_get_context_does_not_mutate_attrs(self):
++        attrs = {'class': 'foo'}
++        context = self.widget.get_context('is_cool', True, attrs)
++        self.assertEqual(attrs, {'class': 'foo'})
++        self.assertEqual(context['widget']['attrs'], {'class': 'foo', 'checked': True})

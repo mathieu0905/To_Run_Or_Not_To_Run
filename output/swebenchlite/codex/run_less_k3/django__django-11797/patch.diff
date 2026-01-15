@@ -1,0 +1,70 @@
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 105dc93251..acd1ea2f3e 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -262,9 +262,25 @@ class Exact(FieldGetDbPrepValueMixin, BuiltinLookup):
+         from django.db.models.sql.query import Query
+         if isinstance(self.rhs, Query):
+             if self.rhs.has_limit_one():
+-                # The subquery must select only the pk.
+-                self.rhs.clear_select_clause()
+-                self.rhs.add_fields(['pk'])
++                # If the inner query doesn't explicitly select anything (e.g.
++                # Model.objects.all()[:1]), make it select only the pk. If it
++                # already selects a single field (including annotations),
++                # preserve it to avoid altering semantics such as GROUP BY.
++                if not self.rhs.has_select_fields:
++                    self.rhs.clear_select_clause()
++                    self.rhs.add_fields(['pk'])
++                else:
++                    # Exact subqueries must return a single column.
++                    selected_field_count = (
++                        len(self.rhs.select) +
++                        len(self.rhs.annotation_select) +
++                        len(self.rhs.extra_select)
++                    )
++                    if selected_field_count != 1:
++                        raise ValueError(
++                            'The QuerySet value for an exact lookup must have '
++                            'a single selected field.'
++                        )
+             else:
+                 raise ValueError(
+                     'The QuerySet value for an exact lookup must be limited to '
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index a603824c0d..6765f1fa51 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -5,6 +5,7 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import FieldError
+ from django.db import connection
++from django.db.models import Max
+ from django.db.models.expressions import Exists, OuterRef
+ from django.db.models.functions import Substr
+ from django.test import TestCase, skipUnlessDBFeature
+@@ -891,6 +892,24 @@ class LookupTests(TestCase):
+             [self.a5, self.a6, self.a7]
+         )
+ 
++    def test_exact_sliced_queryset_preserves_selected_expressions(self):
++        inner_qs = Author.objects.filter(alias__isnull=True).values('name').annotate(
++            m=Max('id'),
++        ).values('m')[:1]
++        sql = str(Author.objects.filter(id=inner_qs).query)
++        self.assertIn('MAX', sql)
++        self.assertIn('GROUP BY', sql)
++
++        # Extract the GROUP BY clause from the subquery.
++        group_by = sql.split('GROUP BY', 1)[1]
++        for token in ('LIMIT', 'FETCH', ')'):
++            idx = group_by.find(token)
++            if idx != -1:
++                group_by = group_by[:idx]
++                break
++        self.assertIn(connection.ops.quote_name('name'), group_by)
++        self.assertNotIn(connection.ops.quote_name('id'), group_by)
++
+     def test_exact_sliced_queryset_not_limited_to_one(self):
+         msg = (
+             'The QuerySet value for an exact lookup must be limited to one '

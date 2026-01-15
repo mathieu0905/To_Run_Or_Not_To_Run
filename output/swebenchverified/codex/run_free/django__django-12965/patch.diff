@@ -1,0 +1,49 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 29e33c075f..99a950aa58 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -1423,6 +1423,16 @@ class SQLDeleteCompiler(SQLCompiler):
+         Create the SQL for this query. Return the SQL string and list of
+         parameters.
+         """
++        # When deleting without any filtering conditions, use a simple single
++        # table DELETE statement. This avoids generating a self-referencing
++        # subquery (e.g. "WHERE pk IN (SELECT pk FROM ...)", which can be much
++        # slower on some MySQL/MariaDB versions and conflicts with LOCK TABLES).
++        if not self.query.where:
++            # Ensure the base table is initialized (Query.base_table is a
++            # cached_property populated from alias_map).
++            self.query.get_initial_alias()
++            self.query.__dict__.pop('base_table', None)
++            return self._as_sql(self.query)
+         if self.single_alias:
+             return self._as_sql(self.query)
+         innerq = self.query.clone()
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index c32ebba83f..1de21edbe3 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -5,6 +5,7 @@ from django.db.models import ProtectedError, RestrictedError
+ from django.db.models.deletion import Collector
+ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
++from django.test.utils import CaptureQueriesContext
+ 
+ from .models import (
+     B1, B2, B3, MR, A, Avatar, B, Base, Child, DeleteBottom, DeleteTop,
+@@ -684,6 +685,15 @@ class FastDeleteTests(TestCase):
+         self.assertNumQueries(2, a.delete)
+         self.assertEqual(User.objects.count(), 0)
+ 
++    def test_fast_delete_all_uses_simple_delete_sql(self):
++        User.objects.bulk_create([User(), User()])
++        with CaptureQueriesContext(connection) as ctx:
++            User.objects.all().delete()
++        self.assertEqual(len(ctx), 1)
++        sql = ctx.captured_queries[0]['sql'].upper()
++        self.assertIn('DELETE FROM', sql)
++        self.assertNotIn(' IN (SELECT', sql)
++
+     def test_fast_delete_empty_no_update_can_self_select(self):
+         """
+         #25932 - Fast deleting on backends that don't have the

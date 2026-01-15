@@ -1,0 +1,44 @@
+diff --git a/django/db/models/enums.py b/django/db/models/enums.py
+index f48143ddaf..5bf7c8c4c1 100644
+--- a/django/db/models/enums.py
++++ b/django/db/models/enums.py
+@@ -69,6 +69,13 @@ class Choices(enum.Enum, metaclass=ChoicesMeta):
+         return str(self.value)
+ 
+ 
++# Django templates automatically call callables with no arguments during
++# variable resolution. Enum classes are callable (EnumMeta.__call__), but
++# calling them requires a value. Set this attribute after class creation so it
++# doesn't become an enum member.
++Choices.do_not_call_in_templates = True
++
++
+ class IntegerChoices(int, Choices):
+     """Class for creating enumerated integer choices."""
+     pass
+diff --git a/tests/template_tests/test_callables.py b/tests/template_tests/test_callables.py
+index b72b122deb..462f558d68 100644
+--- a/tests/template_tests/test_callables.py
++++ b/tests/template_tests/test_callables.py
+@@ -1,5 +1,6 @@
+ from unittest import TestCase
+ 
++from django.db.models import TextChoices
+ from django.template import Context, Engine
+ 
+ 
+@@ -123,3 +124,14 @@ class CallableVariablesTests(TestCase):
+         # Double-check that the object was really never called during the
+         # template rendering.
+         self.assertEqual(my_doodad.num_calls, 0)
++
++    def test_enum_choices_not_called(self):
++
++        class YearInSchool(TextChoices):
++            FRESHMAN = "FR", "Freshman"
++
++        c = Context({"year": "FR", "YearInSchool": YearInSchool})
++        t = self.engine.from_string(
++            "{% if year == YearInSchool.FRESHMAN %}yes{% else %}no{% endif %}"
++        )
++        self.assertEqual(t.render(c), "yes")

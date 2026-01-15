@@ -1,0 +1,65 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 92213a4e67..bfaa30f62c 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -704,6 +704,13 @@ class SQLCompiler:
+         The 'name' is of the form 'field1__field2__...__fieldN'.
+         """
+         name, order = get_order_dir(name, default_order)
++        # 'pk' is a special alias for the primary key field and must order by
++        # its underlying column. This matters for models whose primary key is
++        # a relation (e.g. multi-table inheritance parent links); treating it
++        # as a relation would incorrectly expand to the related model's
++        # default ordering.
++        if name == 'pk':
++            name = opts.pk.attname
+         descending = order == 'DESC'
+         pieces = name.split(LOOKUP_SEP)
+         field, targets, alias, joins, path, opts, transform_function = self._setup_joins(pieces, opts, alias)
+diff --git a/tests/ordering/models.py b/tests/ordering/models.py
+index f5a237fe45..194ba065bf 100644
+--- a/tests/ordering/models.py
++++ b/tests/ordering/models.py
+@@ -57,6 +57,15 @@ class ChildArticle(Article):
+     pass
+ 
+ 
++class InheritedPKOrderingParent(models.Model):
++    class Meta:
++        ordering = ["-pk"]
++
++
++class InheritedPKOrderingChild(InheritedPKOrderingParent):
++    pass
++
++
+ class Reference(models.Model):
+     article = models.ForeignKey(OrderedByAuthorArticle, models.CASCADE)
+ 
+diff --git a/tests/ordering/tests.py b/tests/ordering/tests.py
+index a9cc729c45..ee8d251fc7 100644
+--- a/tests/ordering/tests.py
++++ b/tests/ordering/tests.py
+@@ -8,7 +8,10 @@ from django.db.models import (
+ from django.db.models.functions import Upper
+ from django.test import TestCase
+ 
+-from .models import Article, Author, ChildArticle, OrderedByFArticle, Reference
++from .models import (
++    Article, Author, ChildArticle, InheritedPKOrderingChild, OrderedByFArticle,
++    Reference,
++)
+ 
+ 
+ class OrderingTests(TestCase):
+@@ -480,3 +483,10 @@ class OrderingTests(TestCase):
+         ca4 = ChildArticle.objects.create(headline='h1', pub_date=datetime(2005, 7, 28))
+         articles = ChildArticle.objects.order_by('article_ptr')
+         self.assertSequenceEqual(articles, [ca4, ca2, ca1, ca3])
++
++    def test_inherited_default_ordering_by_pk_desc(self):
++        c1 = InheritedPKOrderingChild.objects.create()
++        c2 = InheritedPKOrderingChild.objects.create()
++        pks = list(InheritedPKOrderingChild.objects.values_list("pk", flat=True))
++        self.assertEqual(pks, sorted(pks, reverse=True))
++        self.assertSequenceEqual(list(InheritedPKOrderingChild.objects.all()), [c2, c1])

@@ -1,0 +1,141 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 3a462f1c4c..9bbece102b 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -76,6 +76,39 @@ class Collector:
+         # database tables; proxy models are represented here by their concrete
+         # parent.
+         self.dependencies = {}  # {model: {models}}
++        self._required_fields_cache = {}
++
++    def _required_fields(self, model):
++        """
++        Return the field names required to delete instances of `model`.
++
++        When collecting related objects for deletion, only a small subset of
++        fields is required:
++        - the primary key (for batching updates/deletes and for signals),
++        - any non-PK target fields referenced by other models' foreign keys
++          (i.e. ForeignKey(to_field=...)).
++
++        Loading only these fields avoids unnecessary decoding/conversion work
++        and can prevent backend-level errors when unrelated columns contain
++        invalid data.
++        """
++        cached = self._required_fields_cache.get(model)
++        if cached is not None:
++            return cached
++
++        opts = model._meta
++        fields = {'pk'}
++        for related in get_candidate_relations_to_delete(opts):
++            field = related.field
++            if field.remote_field.on_delete == DO_NOTHING:
++                continue
++            # remote_field.field_name is set to the target model's PK name by
++            # default, or to the ForeignKey(to_field=...) when specified.
++            target_name = field.remote_field.field_name
++            if target_name and target_name != opts.pk.name:
++                fields.add(target_name)
++        self._required_fields_cache[model] = fields
++        return fields
+ 
+     def add(self, objs, source=None, nullable=False, reverse_dependency=False):
+         """
+@@ -188,6 +221,9 @@ class Collector:
+         if self.can_fast_delete(objs):
+             self.fast_deletes.append(objs)
+             return
++        # If collecting from a QuerySet, avoid fetching unnecessary fields.
++        if hasattr(objs, 'model') and hasattr(objs, 'only'):
++            objs = objs.only(*self._required_fields(objs.model))
+         new_objs = self.add(objs, source, nullable,
+                             reverse_dependency=reverse_dependency)
+         if not new_objs:
+@@ -232,9 +268,13 @@ class Collector:
+         """
+         Get a QuerySet of objects related to `objs` via the relation `related`.
+         """
+-        return related.related_model._base_manager.using(self.using).filter(
++        qs = related.related_model._base_manager.using(self.using).filter(
+             **{"%s__in" % related.field.name: objs}
+         )
++        # related_objects() QuerySets are evaluated for truthiness in collect()
++        # before on_delete handlers run, so ensure only required fields are
++        # selected to avoid fetching unrelated columns.
++        return qs.only(*self._required_fields(qs.model))
+ 
+     def instances_with_model(self):
+         for model, instances in self.data.items():
+diff --git a/tests/delete/models.py b/tests/delete/models.py
+index 2fc5ebe217..689c42864a 100644
+--- a/tests/delete/models.py
++++ b/tests/delete/models.py
+@@ -126,3 +126,12 @@ class Base(models.Model):
+ 
+ class RelToBase(models.Model):
+     base = models.ForeignKey(Base, models.DO_NOTHING)
++
++
++class ParentWithText(models.Model):
++    pass
++
++
++class ChildWithText(models.Model):
++    parent = models.ForeignKey(ParentWithText, models.CASCADE)
++    junk = models.TextField()
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index ed47d0667d..156e5ba0a0 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -4,10 +4,12 @@ from django.db import IntegrityError, connection, models
+ from django.db.models.deletion import Collector
+ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
++from django.test.utils import CaptureQueriesContext
+ 
+ from .models import (
+-    MR, A, Avatar, Base, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
+-    M2MTo, MRNull, Parent, R, RChild, S, T, User, create_a, get_default_r,
++    MR, A, Avatar, Base, Child, ChildWithText, HiddenUser, HiddenUserProfile,
++    M, M2MFrom, M2MTo, MRNull, Parent, ParentWithText, R, RChild, S, T, User,
++    create_a, get_default_r,
+ )
+ 
+ 
+@@ -183,6 +185,35 @@ class DeletionTests(TestCase):
+         self.assertNumQueries(5, s.delete)
+         self.assertFalse(S.objects.exists())
+ 
++    def test_delete_only_fetches_required_fields(self):
++        """
++        Deleting cascaded related objects shouldn't fetch unrelated columns.
++
++        This matters for both performance and robustness, e.g. when a backend
++        would fail decoding a non-required text column while collecting objects
++        for deletion.
++        """
++        parent = ParentWithText.objects.create()
++        ChildWithText.objects.create(parent=parent, junk='x')
++
++        def noop(sender, **kwargs):
++            pass
++
++        models.signals.pre_delete.connect(noop, sender=ChildWithText)
++        try:
++            table = ChildWithText._meta.db_table.lower()
++            with CaptureQueriesContext(connection) as ctx:
++                parent.delete()
++            child_selects = [
++                q['sql'] for q in ctx.captured_queries
++                if q['sql'].lower().startswith('select') and table in q['sql'].lower()
++            ]
++            self.assertTrue(child_selects, msg="Expected a SELECT on %s." % table)
++            for sql in child_selects:
++                self.assertNotIn('junk', sql.lower())
++        finally:
++            models.signals.pre_delete.disconnect(noop, sender=ChildWithText)
++
+     def test_instance_update(self):
+         deleted = []
+         related_setnull_sets = []

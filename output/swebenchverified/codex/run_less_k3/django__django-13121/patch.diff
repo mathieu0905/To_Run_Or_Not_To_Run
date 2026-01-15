@@ -1,0 +1,72 @@
+diff --git a/django/db/backends/mysql/operations.py b/django/db/backends/mysql/operations.py
+index af8cfd86b5..6e07c01835 100644
+--- a/django/db/backends/mysql/operations.py
++++ b/django/db/backends/mysql/operations.py
+@@ -1,3 +1,4 @@
++import re
+ import uuid
+ 
+ from django.conf import settings
+@@ -153,6 +154,26 @@ class DatabaseOperations(BaseDatabaseOperations):
+     def format_for_duration_arithmetic(self, sql):
+         return 'INTERVAL %s MICROSECOND' % sql
+ 
++    _interval_microsecond_re = re.compile(r'(?is)\\Ainterval\\s+(?P<expr>.*)\\s+microsecond\\s*\\Z')
++
++    def combine_duration_expression(self, connector, sub_expressions):
++        """
++        MySQL/MariaDB only support INTERVAL expressions as part of date/time
++        arithmetic (e.g. `datetime + INTERVAL ... MICROSECOND`). When both
++        sides are durations stored as microseconds, combine them using plain
++        numeric arithmetic so that the result is a microsecond count suitable
++        for DurationField conversion.
++        """
++        if connector not in ['+', '-']:
++            return super().combine_duration_expression(connector, sub_expressions)
++        interval_exprs = []
++        for expr in sub_expressions:
++            m = self._interval_microsecond_re.match(expr.strip())
++            if not m:
++                return super().combine_duration_expression(connector, sub_expressions)
++            interval_exprs.append(m.group('expr').strip())
++        return self.combine_expression(connector, interval_exprs)
++
+     def force_no_ordering(self):
+         """
+         "ORDER BY NULL" prevents MySQL from implicitly ordering by grouped
+diff --git a/django/db/backends/sqlite3/base.py b/django/db/backends/sqlite3/base.py
+index 31e8a55a43..267d722f0e 100644
+--- a/django/db/backends/sqlite3/base.py
++++ b/django/db/backends/sqlite3/base.py
+@@ -559,8 +559,13 @@ def _sqlite_format_dtdelta(conn, lhs, rhs):
+             out = real_lhs - real_rhs
+     except (ValueError, TypeError):
+         return None
++    # When the result is a duration, return it as microseconds (an integer)
++    # to match DurationField's storage format on SQLite. Datetimes/dates are
++    # returned as strings to match SQLite's date/time representation.
++    if isinstance(out, datetime.timedelta):
++        return duration_microseconds(out)
+     # typecast_timestamp returns a date or a datetime without timezone.
+-    # It will be formatted as "%Y-%m-%d" or "%Y-%m-%d %H:%M:%S[.%f]"
++    # It will be formatted as "%Y-%m-%d" or "%Y-%m-%d %H:%M:%S[.%f]".
+     return str(out)
+ 
+ 
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index 459a87797d..e5f1cb1152 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -1468,6 +1468,12 @@ class FTimeDeltaTests(TestCase):
+         ))
+         self.assertIsNone(queryset.first().shifted)
+ 
++    def test_duration_expressions(self):
++        delta = datetime.timedelta(days=1)
++        queryset = Experiment.objects.annotate(duration=F('estimated_time') + delta).order_by('name')
++        for e in queryset:
++            self.assertEqual(e.duration, e.estimated_time + delta)
++
+     @skipUnlessDBFeature('supports_temporal_subtraction')
+     def test_date_subtraction(self):
+         queryset = Experiment.objects.annotate(

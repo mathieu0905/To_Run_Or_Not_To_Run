@@ -1,0 +1,87 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 2428218696..4f5fa316c4 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -933,10 +933,20 @@ class Model(metaclass=ModelBase):
+                         "%s() prohibited to prevent data loss due to unsaved "
+                         "related object '%s'." % (operation_name, field.name)
+                     )
+-                elif getattr(self, field.attname) is None:
+-                    # Use pk from related object if it has been saved after
+-                    # an assignment.
+-                    setattr(self, field.attname, obj.pk)
++                else:
++                    # If the related object's primary key (or the referenced
++                    # to_field) was empty when assigned (e.g. a CharField
++                    # primary key defaults to an empty string), and then later
++                    # set and saved, keep the FK value in sync on save.
++                    related_value = getattr(obj, field.target_field.attname)
++                    fk_value = getattr(self, field.attname)
++                    if (
++                        fk_value in field.target_field.empty_values and
++                        related_value not in field.target_field.empty_values
++                    ):
++                        # Update the raw FK value without disturbing the
++                        # already-cached related object.
++                        self.__dict__[field.attname] = related_value
+                 # If the relationship's pk/to_field was changed, clear the
+                 # cached relationship.
+                 if getattr(obj, field.target_field.attname) != getattr(self, field.attname):
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index 9e8baeb565..8c13c5e32b 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -171,6 +171,14 @@ class FkToChar(models.Model):
+     out = models.ForeignKey(PrimaryKeyCharModel, models.CASCADE)
+ 
+ 
++class FkToCharUnsavedAssignment(models.Model):
++    """
++    Model with an FK to a CharField primary key without a DB constraint so the
++    FK value can be asserted even on backends with immediate FK checks.
++    """
++    out = models.ForeignKey(PrimaryKeyCharModel, models.CASCADE, db_constraint=False)
++
++
+ class RenamedField(models.Model):
+     modelname = models.IntegerField(name="fieldname", choices=((1, 'One'),))
+ 
+diff --git a/tests/model_fields/test_foreignkey.py b/tests/model_fields/test_foreignkey.py
+index d30cca9b5c..5f2cd49d7a 100644
+--- a/tests/model_fields/test_foreignkey.py
++++ b/tests/model_fields/test_foreignkey.py
+@@ -3,11 +3,11 @@ from decimal import Decimal
+ from django.apps import apps
+ from django.core import checks
+ from django.core.exceptions import FieldError
+-from django.db import models
++from django.db import models, transaction
+ from django.test import TestCase, skipIfDBFeature
+ from django.test.utils import isolate_apps
+ 
+-from .models import Bar, FkToChar, Foo, PrimaryKeyCharModel
++from .models import Bar, FkToChar, FkToCharUnsavedAssignment, Foo, PrimaryKeyCharModel
+ 
+ 
+ class ForeignKeyTests(TestCase):
+@@ -147,3 +147,20 @@ class ForeignKeyTests(TestCase):
+         )
+         with self.assertRaisesMessage(FieldError, msg):
+             Related._meta.get_field('child').related_fields
++
++    def test_fk_sync_when_related_object_pk_assigned_after_relation_set(self):
++        """
++        If a related object has an empty-string primary key at assignment time
++        (e.g. a CharField primary key) and the PK is later set and saved, the
++        foreign key value should be updated on save.
++        """
++        with transaction.atomic():
++            obj = FkToCharUnsavedAssignment()
++            obj.out = PrimaryKeyCharModel()
++            obj.out.string = "foo"
++            obj.out.save()
++            out_obj = obj.out
++            obj.save()
++
++        self.assertTrue(FkToCharUnsavedAssignment.objects.filter(out=out_obj).exists())
++        self.assertEqual(FkToCharUnsavedAssignment.objects.get(pk=obj.pk).out_id, "foo")

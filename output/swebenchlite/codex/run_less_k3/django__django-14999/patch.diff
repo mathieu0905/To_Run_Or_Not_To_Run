@@ -1,0 +1,98 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index 982816be3a..420c5aa435 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -320,31 +320,44 @@ class RenameModel(ModelOperation):
+         new_model = to_state.apps.get_model(app_label, self.new_name)
+         if self.allow_migrate_model(schema_editor.connection.alias, new_model):
+             old_model = from_state.apps.get_model(app_label, self.old_name)
++            old_db_table = old_model._meta.db_table
++            new_db_table = new_model._meta.db_table
++            db_table_renamed = not (
++                old_db_table == new_db_table or (
++                    schema_editor.connection.features.ignores_table_name_case and
++                    old_db_table.lower() == new_db_table.lower()
++                )
++            )
+             # Move the main table
+             schema_editor.alter_db_table(
+                 new_model,
+-                old_model._meta.db_table,
+-                new_model._meta.db_table,
++                old_db_table,
++                new_db_table,
+             )
+-            # Alter the fields pointing to us
+-            for related_object in old_model._meta.related_objects:
+-                if related_object.related_model == old_model:
+-                    model = new_model
+-                    related_key = (app_label, self.new_name_lower)
+-                else:
+-                    model = related_object.related_model
+-                    related_key = (
+-                        related_object.related_model._meta.app_label,
+-                        related_object.related_model._meta.model_name,
++            # Alter the fields pointing to us, but only if the underlying table
++            # name changes. When db_table is set and the table name is stable,
++            # the database schema doesn't need updating, but calling alter_field()
++            # can still drop/recreate constraints (e.g. on PostgreSQL) or rebuild
++            # tables (e.g. on SQLite).
++            if db_table_renamed:
++                for related_object in old_model._meta.related_objects:
++                    if related_object.related_model == old_model:
++                        model = new_model
++                        related_key = (app_label, self.new_name_lower)
++                    else:
++                        model = related_object.related_model
++                        related_key = (
++                            related_object.related_model._meta.app_label,
++                            related_object.related_model._meta.model_name,
++                        )
++                    to_field = to_state.apps.get_model(
++                        *related_key
++                    )._meta.get_field(related_object.field.name)
++                    schema_editor.alter_field(
++                        model,
++                        related_object.field,
++                        to_field,
+                     )
+-                to_field = to_state.apps.get_model(
+-                    *related_key
+-                )._meta.get_field(related_object.field.name)
+-                schema_editor.alter_field(
+-                    model,
+-                    related_object.field,
+-                    to_field,
+-                )
+             # Rename M2M fields whose name is based on this model's name.
+             fields = zip(old_model._meta.local_many_to_many, new_model._meta.local_many_to_many)
+             for (old_field, new_field) in fields:
+diff --git a/tests/migrations/test_operations.py b/tests/migrations/test_operations.py
+index 11961a1f40..b31272730b 100644
+--- a/tests/migrations/test_operations.py
++++ b/tests/migrations/test_operations.py
+@@ -671,6 +671,24 @@ class OperationTests(OperationTestBase):
+         self.assertNotIn(('migrations', 'bar'), state.models)
+         self.assertIn(('migrations', 'foo'), state.models)
+ 
++    def test_rename_model_with_db_table_is_noop(self):
++        app_label = "test_rnmo_db_table"
++        pony_db_table = f"{app_label}_pony_table"
++        project_state = self.set_up_test_model(app_label, related_model=True, db_table=pony_db_table)
++        operation = migrations.RenameModel("Pony", "Horse")
++        new_state = project_state.clone()
++        operation.state_forwards(app_label, new_state)
++
++        # When db_table is set, renaming the model doesn't change the table
++        # name. The database operation must therefore be a noop (no SQL).
++        with connection.schema_editor(collect_sql=True) as editor:
++            operation.database_forwards(app_label, editor, project_state, new_state)
++        self.assertEqual(editor.collected_sql, [])
++
++        with connection.schema_editor(collect_sql=True) as editor:
++            operation.database_backwards(app_label, editor, new_state, project_state)
++        self.assertEqual(editor.collected_sql, [])
++
+     def test_rename_model_with_self_referential_fk(self):
+         """
+         Tests the RenameModel operation on model with self referential FK.

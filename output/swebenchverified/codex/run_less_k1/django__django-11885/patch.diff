@@ -1,0 +1,126 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index ae82d26340..8e03ff577f 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -70,6 +70,10 @@ class Collector:
+         # fast_deletes is a list of queryset-likes that can be deleted without
+         # fetching the objects into memory.
+         self.fast_deletes = []
++        # Track fast deletes that can be merged into a single DELETE query.
++        # Keyed by (model, batch_pk_tuple) so per-batch deletes remain bounded
++        # by bulk_batch_size.
++        self._fast_deletes_by_key = {}  # {key: (index, queryset)}
+ 
+         # Tracks deletion-order dependency for databases without transactions
+         # or ability to defer constraint checks. Only concrete model classes
+@@ -78,6 +82,34 @@ class Collector:
+         # parent.
+         self.dependencies = {}  # {model: {models}}
+ 
++    def _add_fast_delete(self, qs, *, key=None):
++        """
++        Add a queryset to the fast delete list, combining with an existing one
++        when possible.
++
++        Combining is intentionally limited to per-batch related-object deletes
++        (keyed by model + batch primary keys) to avoid constructing oversized
++        WHERE clauses that defeat batching and may exceed backend limits.
++        """
++        if key is None:
++            self.fast_deletes.append(qs)
++            return
++        existing = self._fast_deletes_by_key.get(key)
++        if existing is None:
++            index = len(self.fast_deletes)
++            self.fast_deletes.append(qs)
++            self._fast_deletes_by_key[key] = (index, qs)
++            return
++        index, existing_qs = existing
++        try:
++            combined = existing_qs | qs
++        except Exception:
++            # If QuerySet OR-combination isn't supported, keep separate deletes.
++            self.fast_deletes.append(qs)
++            return
++        self.fast_deletes[index] = combined
++        self._fast_deletes_by_key[key] = (index, combined)
++
+     def add(self, objs, source=None, nullable=False, reverse_dependency=False):
+         """
+         Add 'objs' to the collection of objects to be deleted.  If the call is
+@@ -191,7 +223,7 @@ class Collector:
+         If 'keep_parents' is True, data of parent model's will be not deleted.
+         """
+         if self.can_fast_delete(objs):
+-            self.fast_deletes.append(objs)
++            self._add_fast_delete(objs)
+             return
+         new_objs = self.add(objs, source, nullable,
+                             reverse_dependency=reverse_dependency)
+@@ -225,7 +257,9 @@ class Collector:
+                 for batch in batches:
+                     sub_objs = self.related_objects(related, batch)
+                     if self.can_fast_delete(sub_objs, from_field=field):
+-                        self.fast_deletes.append(sub_objs)
++                        batch_pks = tuple(sorted(obj.pk for obj in batch))
++                        key = (sub_objs.model, batch_pks)
++                        self._add_fast_delete(sub_objs, key=key)
+                     else:
+                         related_model = related.related_model
+                         # Non-referenced fields can be deferred if no signal
+diff --git a/tests/delete/models.py b/tests/delete/models.py
+index e2ddce0588..ace004c116 100644
+--- a/tests/delete/models.py
++++ b/tests/delete/models.py
+@@ -116,6 +116,10 @@ class M2MFrom(models.Model):
+     m2m = models.ManyToManyField(M2MTo)
+ 
+ 
++class Person(models.Model):
++    friends = models.ManyToManyField("self")
++
++
+ class Parent(models.Model):
+     pass
+ 
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 505fd843d7..beb53a2666 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -8,7 +8,7 @@ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+ from .models import (
+     MR, A, Avatar, Base, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
+     M2MTo, MRNull, Origin, Parent, R, RChild, RChildChild, Referrer, S, T,
+-    User, create_a, get_default_r,
++    SecondReferrer, User, create_a, get_default_r, Person,
+ )
+ 
+ 
+@@ -180,6 +180,27 @@ class DeletionTests(TestCase):
+         self.assertFalse(not MRNull.objects.exists())
+         self.assertFalse(m.m2m_through_null.exists())
+ 
++    def test_fast_delete_combines_or_for_self_referential_m2m(self):
++        p1 = Person.objects.create()
++        p2 = Person.objects.create()
++        p1.friends.add(p2)
++        # One DELETE for the implicit through table (combined OR across both
++        # FKs) and one DELETE for the Person instance.
++        with self.assertNumQueries(2):
++            p1.delete()
++        through = Person._meta.get_field("friends").remote_field.through
++        self.assertFalse(through.objects.exists())
++
++    def test_fast_delete_combines_or_for_multiple_fks(self):
++        origin = Origin.objects.create()
++        referrer = Referrer.objects.create(origin=origin, unique_field=1, large_field="")
++        SecondReferrer.objects.create(referrer=referrer, other_referrer=referrer)
++        # One DELETE for SecondReferrer (combined OR across both FKs) and one
++        # DELETE for Referrer.
++        with self.assertNumQueries(2):
++            referrer.delete()
++        self.assertFalse(SecondReferrer.objects.exists())
++
+     def test_bulk(self):
+         s = S.objects.create(r=R.objects.create())
+         for i in range(2 * GET_ITERATOR_CHUNK_SIZE):

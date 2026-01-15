@@ -1,0 +1,69 @@
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+index 189fb4fa44..63d0b735c1 100644
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -6,6 +6,7 @@ large and/or so that they can be used by other modules without getting into
+ circular import difficulties.
+ """
+ import copy
++import enum
+ import functools
+ import inspect
+ from collections import namedtuple
+@@ -119,6 +120,19 @@ class DeferredAttribute:
+     def __init__(self, field):
+         self.field = field
+ 
++    def __set__(self, instance, value):
++        """
++        Coerce enum values to their underlying value on assignment.
++
++        TextChoices/IntegerChoices members are Enum members (and may be
++        subclasses of str/int). Leaving them as-is on model instances can lead
++        to surprising stringification (Enum.__str__ yields 'Enum.MEMBER')
++        and inconsistencies between newly-created and database-fetched values.
++        """
++        if isinstance(value, enum.Enum):
++            value = value.value
++        instance.__dict__[self.field.attname] = value
++
+     def __get__(self, instance, cls=None):
+         """
+         Retrieve and caches the value from the datastore on the first lookup.
+diff --git a/tests/model_fields/test_charfield.py b/tests/model_fields/test_charfield.py
+index cf3ce0c4c5..284aac2f11 100644
+--- a/tests/model_fields/test_charfield.py
++++ b/tests/model_fields/test_charfield.py
+@@ -34,6 +34,10 @@ class TestCharField(TestCase):
+             F = 'Festival!'
+ 
+         p1 = Post.objects.create(title=Event.C, body=Event.F)
++        # Enum members (e.g. TextChoices) should behave like their underlying
++        # value on model instances, including stringification.
++        self.assertEqual(str(p1.title), 'Carnival!')
++        self.assertEqual(str(p1.body), 'Festival!')
+         p1.refresh_from_db()
+         self.assertEqual(p1.title, 'Carnival!')
+         self.assertEqual(p1.body, 'Festival!')
+diff --git a/tests/model_fields/test_integerfield.py b/tests/model_fields/test_integerfield.py
+index 606d71057a..c438889686 100644
+--- a/tests/model_fields/test_integerfield.py
++++ b/tests/model_fields/test_integerfield.py
+@@ -132,6 +132,17 @@ class IntegerFieldTests(TestCase):
+         instance = self.model.objects.get()
+         self.assertIsInstance(instance.value, int)
+ 
++    def test_assignment_from_choice_enum(self):
++        class Number(models.IntegerChoices):
++            ONE = 1
++
++        obj = self.model.objects.create(value=Number.ONE)
++        self.assertIsInstance(obj.value, int)
++        self.assertEqual(str(obj.value), '1')
++        obj = self.model.objects.get(pk=obj.pk)
++        self.assertIsInstance(obj.value, int)
++        self.assertEqual(str(obj.value), '1')
++
+     def test_coercing(self):
+         self.model.objects.create(value='10')
+         instance = self.model.objects.get(value='10')

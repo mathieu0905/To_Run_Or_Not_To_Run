@@ -1,0 +1,58 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index 0c3a981290..2d8af253ce 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -95,7 +95,7 @@ class DjangoHelpFormatter(HelpFormatter):
+     """
+     show_last = {
+         '--version', '--verbosity', '--traceback', '--settings', '--pythonpath',
+-        '--no-color', '--force-color',
++        '--no-color', '--force-color', '--skip-checks',
+     }
+ 
+     def _reordered_actions(self, actions):
+@@ -278,6 +278,11 @@ class BaseCommand:
+             help='A directory to add to the Python path, e.g. "/home/djangoprojects/myproject".',
+         )
+         parser.add_argument('--traceback', action='store_true', help='Raise on CommandError exceptions')
++        parser.add_argument(
++            '--skip-checks',
++            action='store_true',
++            help='Skip system checks.',
++        )
+         parser.add_argument(
+             '--no-color', action='store_true',
+             help="Don't colorize the command output.",
+diff --git a/tests/user_commands/tests.py b/tests/user_commands/tests.py
+index 2d1f8f834d..da2e5156ae 100644
+--- a/tests/user_commands/tests.py
++++ b/tests/user_commands/tests.py
+@@ -253,6 +253,28 @@ class CommandRunTests(AdminScriptTestCase):
+         self.assertNoOutput(err)
+         self.assertEqual(out.strip(), 'Set foo')
+ 
++    def test_skip_checks_option(self):
++        self.write_settings('settings.py', apps=[
++            'django.contrib.auth',
++            'django.contrib.contenttypes',
++            'user_commands.apps.UserCommandsConfig',
++        ])
++        out, err = self.run_manage(['dance'], 'settings')
++        self.assertNoOutput(out)
++        self.assertOutput(err, 'SystemCheckError:')
++        self.assertOutput(err, 'Custom system check error.')
++        self.assertOutput(err, 'user_commands.E001')
++
++        out, err = self.run_manage(['dance', '--skip-checks'], 'settings')
++        self.assertOutput(out, "I don't feel like dancing Rock'n'Roll.")
++        self.assertNoOutput(err)
++
++    def test_skip_checks_option_in_help(self):
++        self.write_settings('settings.py', apps=['user_commands'])
++        out, err = self.run_manage(['dance', '--help'], 'settings')
++        self.assertOutput(out, '--skip-checks')
++        self.assertNoOutput(err)
++
+ 
+ class UtilsTests(SimpleTestCase):
+ 

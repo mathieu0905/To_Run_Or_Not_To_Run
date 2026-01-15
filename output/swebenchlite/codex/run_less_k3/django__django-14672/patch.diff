@@ -1,0 +1,53 @@
+diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py
+index ccc2223a5f..3b5bdfb818 100644
+--- a/django/db/models/fields/reverse_related.py
++++ b/django/db/models/fields/reverse_related.py
+@@ -310,7 +310,8 @@ class ManyToManyRel(ForeignObjectRel):
+     def identity(self):
+         return super().identity + (
+             self.through,
+-            self.through_fields,
++            # through_fields may be a list, but identity must be hashable.
++            make_hashable(self.through_fields),
+             self.db_constraint,
+         )
+ 
+diff --git a/tests/check_framework/test_model_checks.py b/tests/check_framework/test_model_checks.py
+index 3a626038fd..b87208b8ef 100644
+--- a/tests/check_framework/test_model_checks.py
++++ b/tests/check_framework/test_model_checks.py
+@@ -132,6 +132,34 @@ class DuplicateDBTableTests(SimpleTestCase):
+         self.assertEqual(Model._meta.db_table, ProxyModel._meta.db_table)
+         self.assertEqual(checks.run_checks(app_configs=self.apps.get_app_configs()), [])
+ 
++    def test_m2m_rel_with_list_through_fields_is_hashable(self):
++        """
++        ManyToManyRel.identity must be hashable, even if through_fields is a list.
++        Regression test for TypeError: unhashable type: 'list' during checks.
++        """
++        class Parent(models.Model):
++            name = models.CharField(max_length=256)
++
++        class ProxyParent(Parent):
++            class Meta:
++                proxy = True
++
++        class Child(models.Model):
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
++            many_to_many_field = models.ManyToManyField(
++                to=Parent,
++                through='ManyToManyModel',
++                through_fields=['child', 'parent'],
++                related_name='something',
++            )
++
++        class ManyToManyModel(models.Model):
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='+')
++            child = models.ForeignKey(Child, on_delete=models.CASCADE, related_name='+')
++            second_child = models.ForeignKey(Child, on_delete=models.CASCADE, null=True)
++
++        self.assertEqual(checks.run_checks(app_configs=self.apps.get_app_configs()), [])
++
+ 
+ @isolate_apps('check_framework', attr_name='apps')
+ @override_system_checks([checks.model_checks.check_all_models])

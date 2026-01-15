@@ -13,9 +13,9 @@ from agent_caller import AgentCaller, AgentTrace
 from prompt_builder import PromptBuilder
 
 
-PROJ_ROOT = Path(__file__).parent.parent
-OUTPUT_DIR = PROJ_ROOT / "output"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+# Where we persist prompts/traces/results. Tests patch this constant.
+RESULTS_DIR = Path(__file__).parent / "results"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass
@@ -89,14 +89,11 @@ def run_experiment(
     print(f"Loading instance: {instance_id}")
     instance = get_instance_info(instance_id, dataset_name)
 
-    # 确定数据集目录名称
-    dataset_dir = "swebenchlite" if "Lite" in dataset_name else "swebenchverified"
+    # 构建模式标识（run_less 需要包含 k 值）
+    mode_suffix = f"{mode}_k{k}" if mode == "run_less" else mode
 
-    # 构建模式目录名（run_less 需要包含 k 值）
-    mode_dir = f"{mode}_k{k}" if mode == "run_less" else mode
-
-    # 创建输出目录：output/{dataset}/{agent}/{mode_dir}/{instance_id}/
-    instance_output_dir = OUTPUT_DIR / dataset_dir / agent_type / mode_dir / instance_id
+    # 结果输出目录（避免不同实验互相覆盖）
+    instance_output_dir = RESULTS_DIR / instance_id / agent_type / mode_suffix
     instance_output_dir.mkdir(parents=True, exist_ok=True)
 
     # 2. 构建 prompt
@@ -117,10 +114,17 @@ def run_experiment(
     if trace.error:
         print(f"Agent error: {trace.error}")
 
-    # 4. 读取 git diff 生成的补丁（由 agent_caller 在容器内执行 git diff 生成）
+    # 4. Prefer git-diff patch emitted by agent runner (docker mode); otherwise fall back to parsing
+    # diff from the agent output, and finally to raw output (for simple/integration tasks).
+    patch = ""
     patch_file = instance_output_dir / "patch.diff"
-    patch = patch_file.read_text(encoding='utf-8')
-    print(f"Patch loaded from git diff: {patch_file}")
+    if patch_file.exists():
+        patch = patch_file.read_text(encoding="utf-8").strip()
+        print(f"Patch loaded from git diff: {patch_file}")
+    if not patch:
+        patch = extract_patch(trace.output).strip()
+    if not patch:
+        patch = (trace.output or "").strip()
 
     # 5. 构建结果
     result = ExperimentResult(
@@ -141,16 +145,12 @@ def run_experiment(
 
 def save_result(result: ExperimentResult, dataset_name: str = "princeton-nlp/SWE-bench_Lite"):
     """保存实验结果到 JSON 文件"""
-    # 确定数据集目录名称
-    dataset_dir = "swebenchlite" if "Lite" in dataset_name else "swebenchverified"
-
-    # 构建输出目录路径
-    instance_output_dir = OUTPUT_DIR / dataset_dir / result.instance_id
-    instance_output_dir.mkdir(parents=True, exist_ok=True)
-
-    # 保存结果 JSON
+    # Tests expect a flat file in RESULTS_DIR named:
+    #   {instance_id}_{mode}_result.json
+    #   {instance_id}_run_less_k{k}_result.json
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     mode_suffix = f"{result.mode}_k{result.k}" if result.mode == "run_less" else result.mode
-    result_file = instance_output_dir / f"result_{mode_suffix}.json"
+    result_file = RESULTS_DIR / f"{result.instance_id}_{mode_suffix}_result.json"
 
     with open(result_file, 'w', encoding='utf-8') as f:
         json.dump(asdict(result), f, indent=2, ensure_ascii=False)

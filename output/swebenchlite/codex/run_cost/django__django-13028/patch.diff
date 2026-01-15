@@ -1,0 +1,70 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index ce18098fd2..6671a7ba7b 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1124,7 +1124,13 @@ class Query(BaseExpression):
+ 
+     def check_filterable(self, expression):
+         """Raise an error if expression cannot be used in a WHERE clause."""
+-        if not getattr(expression, 'filterable', True):
++        # Only Django expressions (and related objects) implement the
++        # "filterable" contract. Model instances may legitimately have a field
++        # named "filterable" and must not be rejected when used as RHS values.
++        if (
++            hasattr(expression, 'resolve_expression') or
++            hasattr(expression, 'get_source_expressions')
++        ) and not getattr(expression, 'filterable', True):
+             raise NotSupportedError(
+                 expression.__class__.__name__ + ' is disallowed in the filter '
+                 'clause.'
+diff --git a/tests/queries/models.py b/tests/queries/models.py
+index 247d4b7671..43fe1f4b48 100644
+--- a/tests/queries/models.py
++++ b/tests/queries/models.py
+@@ -745,3 +745,19 @@ class JSONFieldNullable(models.Model):
+ 
+     class Meta:
+         required_db_features = {'supports_json_field'}
++
++
++class FilterableModel(models.Model):
++    """
++    A model with a field named "filterable".
++
++    Instances of this model may be used as RHS values in queryset filters (e.g.
++    FK lookups). The ORM must not confuse the model field with expression-level
++    "filterable" support.
++    """
++    name = models.CharField(max_length=10)
++    filterable = models.BooleanField(default=False)
++
++
++class FilterableReference(models.Model):
++    target = models.ForeignKey(FilterableModel, models.CASCADE)
+diff --git a/tests/queries/test_query.py b/tests/queries/test_query.py
+index 523fa607f0..c2e2d3bf68 100644
+--- a/tests/queries/test_query.py
++++ b/tests/queries/test_query.py
+@@ -11,7 +11,7 @@ from django.db.models.sql.where import OR
+ from django.test import SimpleTestCase
+ from django.test.utils import register_lookup
+ 
+-from .models import Author, Item, ObjectC, Ranking
++from .models import Author, FilterableModel, FilterableReference, Item, ObjectC, Ranking
+ 
+ 
+ class TestQuery(SimpleTestCase):
+@@ -116,6 +116,13 @@ class TestQuery(SimpleTestCase):
+         self.assertIsNone(b_isnull.lhs.alias)
+         self.assertEqual(b_isnull.lhs.target, ObjectC._meta.get_field('objectb'))
+ 
++    def test_check_filterable_ignores_model_field_named_filterable(self):
++        # Regression test for a crash when RHS values have an attribute named
++        # "filterable" (e.g. a model field) set to False.
++        rhs = FilterableModel(pk=1, name='a', filterable=False)
++        query = Query(FilterableReference)
++        query.build_where(Q(target=rhs))
++
+     def test_clone_select_related(self):
+         query = Query(Item)
+         query.add_select_related(['creator'])

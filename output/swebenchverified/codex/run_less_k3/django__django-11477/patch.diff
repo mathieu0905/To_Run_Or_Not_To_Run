@@ -1,0 +1,59 @@
+diff --git a/django/urls/base.py b/django/urls/base.py
+index 0e1c3d909c..98cb187dc5 100644
+--- a/django/urls/base.py
++++ b/django/urls/base.py
+@@ -172,7 +172,25 @@ def translate_url(url, lang_code):
+         to_be_reversed = "%s:%s" % (match.namespace, match.url_name) if match.namespace else match.url_name
+         with override(lang_code):
+             try:
+-                url = reverse(to_be_reversed, args=match.args, kwargs=match.kwargs)
++                # ResolverMatch.kwargs includes entries for named groups even
++                # when the group didn't participate in the match (value=None).
++                # Passing those through to reverse() forces the optional part
++                # of the URL to be included as the string "None".
++                if match.kwargs:
++                    kwargs = {k: v for k, v in match.kwargs.items() if v is not None}
++                    args = ()
++                else:
++                    kwargs = {}
++                    args = match.args
++                    # Optional (positional) capturing groups are represented as
++                    # trailing Nones. Strip them so reverse() can pick the
++                    # shorter pattern.
++                    if args and args[-1] is None:
++                        args = list(args)
++                        while args and args[-1] is None:
++                            args.pop()
++                        args = tuple(args)
++                url = reverse(to_be_reversed, args=args, kwargs=kwargs)
+             except NoReverseMatch:
+                 pass
+             else:
+diff --git a/tests/i18n/patterns/tests.py b/tests/i18n/patterns/tests.py
+index 6ed2c4ffeb..6dec36293f 100644
+--- a/tests/i18n/patterns/tests.py
++++ b/tests/i18n/patterns/tests.py
+@@ -153,6 +153,10 @@ class URLTranslationTests(URLTestCaseBase):
+         with translation.override('en'):
+             self.assertEqual(translate_url('/en/nonexistent/', 'nl'), '/en/nonexistent/')
+             self.assertEqual(translate_url('/en/users/', 'nl'), '/nl/gebruikers/')
++            # Optional named group absent from the matched URL shouldn't be
++            # treated as a provided argument when reversing.
++            self.assertEqual(translate_url('/en/optional/', 'nl'), '/nl/optional/')
++            self.assertEqual(translate_url('/en/optional/test/', 'nl'), '/nl/optional/test/')
+             # Namespaced URL
+             self.assertEqual(translate_url('/en/account/register/', 'nl'), '/nl/profiel/registreren/')
+             # path() URL pattern
+diff --git a/tests/i18n/patterns/urls/default.py b/tests/i18n/patterns/urls/default.py
+index b0c2f2585e..04793f3200 100644
+--- a/tests/i18n/patterns/urls/default.py
++++ b/tests/i18n/patterns/urls/default.py
+@@ -16,5 +16,8 @@ urlpatterns += i18n_patterns(
+     path('prefixed/', view, name='prefixed'),
+     path('prefixed.xml', view, name='prefixed_xml'),
+     re_path(_(r'^users/$'), view, name='users'),
++    # Optional named group to ensure translate_url() doesn't include "None"
++    # when the group isn't present in the matched URL.
++    re_path(r'^optional(?:/(?P<arg>[^/]+))?/$', view, name='optional'),
+     re_path(_(r'^account/'), include('i18n.patterns.urls.namespace', namespace='account')),
+ )

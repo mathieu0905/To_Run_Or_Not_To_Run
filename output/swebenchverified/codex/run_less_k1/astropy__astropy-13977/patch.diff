@@ -1,0 +1,72 @@
+diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
+index b98abfafb..9f4f8b791 100644
+--- a/astropy/units/quantity.py
++++ b/astropy/units/quantity.py
+@@ -666,8 +666,22 @@ class Quantity(np.ndarray):
+         # Same for inputs, but here also convert if necessary.
+         arrays = []
+         for input_, converter in zip(inputs, converters):
++            original = input_
+             input_ = getattr(input_, "value", input_)
+-            arrays.append(converter(input_) if converter else input_)
++            if converter:
++                try:
++                    input_ = converter(input_)
++                except (TypeError, ValueError):
++                    # If we cannot interpret the input as a scalar/ndarray for
++                    # unit conversion, but it implements __array_ufunc__,
++                    # defer to it by returning NotImplemented so that NumPy's
++                    # dispatch can try the other operand's implementation.
++                    if not isinstance(original, (Quantity, np.ndarray)) and hasattr(
++                        original, "__array_ufunc__"
++                    ):
++                        return NotImplemented
++                    raise
++            arrays.append(input_)
+ 
+         # Call our superclass's __array_ufunc__
+         result = super().__array_ufunc__(function, method, *arrays, **kwargs)
+diff --git a/astropy/units/tests/test_quantity.py b/astropy/units/tests/test_quantity.py
+index b07d4de1d..7c407b3dc 100644
+--- a/astropy/units/tests/test_quantity.py
++++ b/astropy/units/tests/test_quantity.py
+@@ -514,6 +514,39 @@ class TestQuantityOperations:
+         with pytest.raises(TypeError):
+             q1 + u.meter
+ 
++    def test_duck_array_defers_on_failed_unit_conversion(self):
++        import dataclasses
++
++        from numpy.lib.mixins import NDArrayOperatorsMixin
++
++        @dataclasses.dataclass
++        class DuckArray(NDArrayOperatorsMixin):
++            ndarray: u.Quantity
++
++            @property
++            def unit(self):
++                return self.ndarray.unit
++
++            def __array_ufunc__(self, function, method, *inputs, **kwargs):
++                inputs = [
++                    inp.ndarray if isinstance(inp, DuckArray) else inp for inp in inputs
++                ]
++                for inp in inputs:
++                    if isinstance(inp, np.ndarray):
++                        result = inp.__array_ufunc__(
++                            function, method, *inputs, **kwargs
++                        )
++                        if result is not NotImplemented:
++                            return DuckArray(result)
++                return NotImplemented
++
++        q = 1 * u.m
++        d = DuckArray(1 * u.mm)
++        result = q + d
++        assert isinstance(result, DuckArray)
++        assert result.ndarray.unit == u.m
++        assert_allclose(result.ndarray.value, 1.001)
++
+     def test_dimensionless_operations(self):
+         # test conversion to dimensionless
+         dq = 3.0 * u.m / u.km

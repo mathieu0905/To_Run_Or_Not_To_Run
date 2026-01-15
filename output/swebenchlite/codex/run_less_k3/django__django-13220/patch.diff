@@ -1,0 +1,107 @@
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..98323b5ce6 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,60 @@ class ValidationError(Exception):
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    @staticmethod
++    def _freeze_for_eq(value):
++        """
++        Return a recursively comparable representation of value.
++
++        The output contains only tuples/strings so it can be sorted and compared
++        regardless of input ordering (e.g. dicts).
++        """
++        if value is None:
++            return ('none',)
++        if isinstance(value, dict):
++            return (
++                'dict',
++                tuple(sorted(
++                    (str(k), ValidationError._freeze_for_eq(v))
++                    for k, v in value.items()
++                )),
++            )
++        if isinstance(value, (list, tuple)):
++            return ('list', tuple(ValidationError._freeze_for_eq(v) for v in value))
++        if isinstance(value, (set, frozenset)):
++            return ('set', tuple(sorted(ValidationError._freeze_for_eq(v) for v in value)))
++        # Fall back to string-based representation for arbitrary objects.
++        return (type(value).__name__, str(value))
++
++    @classmethod
++    def _error_item_for_eq(cls, error):
++        """
++        Return a comparable representation of a leaf ValidationError.
++
++        Keep message formatting consistent with ValidationError.__iter__().
++        """
++        message = error.message
++        if error.params:
++            message %= error.params
++        return (
++            str(message),
++            cls._freeze_for_eq(error.code),
++            cls._freeze_for_eq(error.params),
++        )
++
++    def _comparable_for_eq(self):
++        if hasattr(self, 'error_dict'):
++            items = []
++            for field, errors in self.error_dict.items():
++                items.append((str(field), tuple(sorted(self._error_item_for_eq(e) for e in errors))))
++            return ('dict', tuple(sorted(items)))
++        return ('list', tuple(sorted(self._error_item_for_eq(e) for e in self.error_list)))
++
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return NotImplemented
++        return self._comparable_for_eq() == other._comparable_for_eq()
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+diff --git a/tests/validators/tests.py b/tests/validators/tests.py
+index d6d013c026..c132432c67 100644
+--- a/tests/validators/tests.py
++++ b/tests/validators/tests.py
+@@ -344,6 +344,37 @@ class TestValidators(SimpleTestCase):
+         self.assertEqual(str(v), "{'first': ['First Problem']}")
+         self.assertEqual(repr(v), "ValidationError({'first': ['First Problem']})")
+ 
++    def test_validation_error_equality_single_message(self):
++        self.assertEqual(ValidationError('Not Valid'), ValidationError('Not Valid'))
++        self.assertNotEqual(ValidationError('Not Valid'), ValidationError('Also Not Valid'))
++
++    def test_validation_error_equality_list_order_independent(self):
++        self.assertEqual(
++            ValidationError(['First Problem', 'Second Problem']),
++            ValidationError(['Second Problem', 'First Problem']),
++        )
++        # Duplicates are significant but ordering isn't.
++        self.assertEqual(
++            ValidationError(['First Problem', 'First Problem', 'Second Problem']),
++            ValidationError(['Second Problem', 'First Problem', 'First Problem']),
++        )
++
++    def test_validation_error_equality_dict_order_independent(self):
++        self.assertEqual(
++            ValidationError({'first': ['First Problem', 'Second Problem'], 'second': ['Third Problem']}),
++            ValidationError({'second': ['Third Problem'], 'first': ['Second Problem', 'First Problem']}),
++        )
++
++    def test_validation_error_equality_includes_codes(self):
++        self.assertEqual(
++            ValidationError([ValidationError('Not Valid', code='invalid'), ValidationError('Also Not Valid')]),
++            ValidationError([ValidationError('Also Not Valid'), ValidationError('Not Valid', code='invalid')]),
++        )
++        self.assertNotEqual(
++            ValidationError(ValidationError('Not Valid', code='invalid')),
++            ValidationError(ValidationError('Not Valid', code='different')),
++        )
++
+     def test_regex_validator_flags(self):
+         msg = 'If the flags are set, regex must be a regular expression string.'
+         with self.assertRaisesMessage(TypeError, msg):

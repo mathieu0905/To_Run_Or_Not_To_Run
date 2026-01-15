@@ -1,13 +1,53 @@
 diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
-index de3fb01d1..cceaeb957 100644
+index de3fb01d1..0821a7fa4 100644
 --- a/astropy/utils/misc.py
 +++ b/astropy/utils/misc.py
-@@ -528,7 +528,7 @@ class InheritDocstrings(type):
+@@ -528,8 +528,8 @@ class InheritDocstrings(type):
                  not key.startswith('_'))
  
          for key, val in dct.items():
 -            if (inspect.isfunction(val) and
-+            if ((inspect.isfunction(val) or isinstance(val, property)) and
-                 is_public_member(key) and
+-                is_public_member(key) and
++            if (is_public_member(key) and
++                (inspect.isfunction(val) or isinstance(val, property)) and
                  val.__doc__ is None):
                  for base in cls.__mro__[1:]:
+                     super_method = getattr(base, key, None)
+diff --git a/astropy/utils/tests/test_misc.py b/astropy/utils/tests/test_misc.py
+index 4f632e8d1..211a96d98 100644
+--- a/astropy/utils/tests/test_misc.py
++++ b/astropy/utils/tests/test_misc.py
+@@ -89,6 +89,33 @@ def test_inherit_docstrings():
+         assert Subclass.__call__.__doc__ == "FOO"
+ 
+ 
++def test_inherit_docstrings_for_properties():
++    """Test that properties inherit docstrings correctly."""
++    class Base(metaclass=misc.InheritDocstrings):
++        @property
++        def my_property(self):
++            """Base property docstring."""
++            return 42
++
++    class Derived(Base):
++        @property
++        def my_property(self):
++            # No docstring - should inherit from Base
++            return 100
++
++    # Test property docstring inheritance
++    assert Derived.my_property.__doc__ == "Base property docstring."
++
++    # Test that explicit docstrings are not overridden
++    class DerivedWithDoc(Base):
++        @property
++        def my_property(self):
++            """Derived property docstring."""
++            return 200
++
++    assert DerivedWithDoc.my_property.__doc__ == "Derived property docstring."
++
++
+ def test_set_locale():
+     # First, test if the required locales are available
+     current = locale.setlocale(locale.LC_ALL)

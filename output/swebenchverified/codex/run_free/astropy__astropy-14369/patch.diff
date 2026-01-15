@@ -1,0 +1,121 @@
+diff --git a/astropy/units/format/cds.py b/astropy/units/format/cds.py
+index 307e987ed..255f30c60 100644
+--- a/astropy/units/format/cds.py
++++ b/astropy/units/format/cds.py
+@@ -295,6 +295,14 @@ class CDS(Base):
+         if not isinstance(s, str):
+             s = s.decode("ascii")
+ 
++        # The CDS format (and related MRT/CDS tables) commonly use chained
++        # divisions like ``J/m/s/kpc2`` to mean left-associative division:
++        # ``((J/m)/s)/kpc2 == J/(m.s.kpc2)``.  The historical CDS grammar we use
++        # is effectively right-associative for '/', which changes the meaning
++        # for unparenthesized chains.  Normalize those chains by inserting
++        # parentheses so the existing grammar yields the intended unit.
++        s = cls._rewrite_chained_divisions(s)
++
+         # This is a short circuit for the case where the string
+         # is just a single unit name
+         try:
+@@ -308,6 +316,86 @@ class CDS(Base):
+                 else:
+                     raise ValueError("Syntax error")
+ 
++    @classmethod
++    def _rewrite_chained_divisions(cls, s):
++        """
++        Rewrite unparenthesized chained divisions to be left-associative.
++
++        Examples
++        --------
++        ``J/m/s`` -> ``J/(m.s)``
++        ``/s/kpc2`` -> ``/(s.kpc2)``
++
++        This preserves any explicit grouping via parentheses or brackets.
++        """
++
++        def find_matching_delim(value, start):
++            pairs = {"(": ")", "[": "]"}
++            stack = []
++            for idx in range(start, len(value)):
++                ch = value[idx]
++                if ch in pairs:
++                    stack.append(ch)
++                elif ch in ")]":
++                    if not stack:
++                        return None
++                    opener = stack.pop()
++                    if pairs.get(opener) != ch:
++                        return None
++                    if not stack:
++                        return idx
++            return None
++
++        # First, recursively rewrite inside any (...) and [...] groups so chained
++        # divisions are normalized at every nesting level.
++        out = []
++        i = 0
++        while i < len(s):
++            ch = s[i]
++            if ch in "([":
++                j = find_matching_delim(s, i)
++                if j is None:
++                    # Unbalanced/mismatched delimiters: defer to the parser for
++                    # the final syntax error.
++                    return s
++                inner = cls._rewrite_chained_divisions(s[i + 1 : j])
++                out.append(ch + inner + (")" if ch == "(" else "]"))
++                i = j + 1
++            else:
++                out.append(ch)
++                i += 1
++        s = "".join(out)
++
++        # Now rewrite at the current nesting level: split on '/' that are not
++        # inside (...) or [...].
++        parts = []
++        last = 0
++        depth = 0
++        for idx, ch in enumerate(s):
++            if ch in "([":
++                depth += 1
++            elif ch in ")]":
++                depth = max(depth - 1, 0)
++            elif ch == "/" and depth == 0:
++                parts.append(s[last:idx])
++                last = idx + 1
++        parts.append(s[last:])
++
++        # Only rewrite if there is a chained division at this level.
++        if len(parts) <= 2:
++            return s
++
++        # If any term is empty, leave it alone so the parser raises an error.
++        if any(p == "" for p in parts[1:]):
++            return s
++
++        numerator = parts[0]
++        denom = ".".join(parts[1:])
++        if numerator:
++            return f"{numerator}/({denom})"
++        else:
++            return f"/({denom})"
++
+     @staticmethod
+     def _get_unit_name(unit):
+         return unit.get_format_name("cds")
+diff --git a/astropy/units/tests/test_format.py b/astropy/units/tests/test_format.py
+index cad23e91b..341bce728 100644
+--- a/astropy/units/tests/test_format.py
++++ b/astropy/units/tests/test_format.py
+@@ -60,6 +60,10 @@ def test_unit_grammar_fail(string):
+         (["mW/m2"], u.Unit(u.erg / u.cm**2 / u.s)),
+         (["mW/(m2)"], u.Unit(u.erg / u.cm**2 / u.s)),
+         (["km/s", "km.s-1"], u.km / u.s),
++        (["J/m/s"], u.J / (u.m * u.s)),
++        (["/s/kpc2"], (u.s * u.kpc**2) ** -1),
++        (["10+3J/m/s/kpc2"], 1e3 * u.J / (u.m * u.s * u.kpc**2)),
++        (["10-7J/s/kpc2"], 1e-7 * u.J / (u.s * u.kpc**2)),
+         (["10pix/nm"], u.Unit(10 * u.pix / u.nm)),
+         (["1.5x10+11m"], u.Unit(1.5e11 * u.m)),
+         (["1.5×10+11m"], u.Unit(1.5e11 * u.m)),

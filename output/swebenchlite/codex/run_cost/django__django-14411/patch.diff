@@ -1,0 +1,46 @@
+diff --git a/django/contrib/auth/forms.py b/django/contrib/auth/forms.py
+index 20d8922799..fbf7d5e730 100644
+--- a/django/contrib/auth/forms.py
++++ b/django/contrib/auth/forms.py
+@@ -34,6 +34,13 @@ class ReadOnlyPasswordHashWidget(forms.Widget):
+     template_name = 'auth/widgets/read_only_password_hash.html'
+     read_only = True
+ 
++    def id_for_label(self, id_):
++        """
++        This widget is rendered as non-labelable text (a <div>), so the <label>
++        for this field must not include a "for" attribute.
++        """
++        return None
++
+     def get_context(self, name, value, attrs):
+         context = super().get_context(name, value, attrs)
+         summary = []
+diff --git a/tests/auth_tests/test_forms.py b/tests/auth_tests/test_forms.py
+index 7a731bedc8..7b693f91c8 100644
+--- a/tests/auth_tests/test_forms.py
++++ b/tests/auth_tests/test_forms.py
+@@ -2,6 +2,7 @@ import datetime
+ import re
+ from unittest import mock
+ 
++from django import forms
+ from django.contrib.auth.forms import (
+     AdminPasswordChangeForm, AuthenticationForm, PasswordChangeForm,
+     PasswordResetForm, ReadOnlyPasswordHashField, ReadOnlyPasswordHashWidget,
+@@ -1020,6 +1021,15 @@ class ReadOnlyPasswordHashTest(SimpleTestCase):
+             """
+         )
+ 
++    def test_label_tag_has_no_for_attribute(self):
++        class PasswordForm(forms.Form):
++            password = ReadOnlyPasswordHashField(label="Password")
++
++        form = PasswordForm()
++        label = form["password"].label_tag()
++        self.assertIn("<label", label)
++        self.assertNotIn('for="id_password"', label)
++
+     def test_readonly_field_has_changed(self):
+         field = ReadOnlyPasswordHashField()
+         self.assertIs(field.disabled, True)

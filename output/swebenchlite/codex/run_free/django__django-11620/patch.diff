@@ -1,0 +1,79 @@
+diff --git a/django/views/debug.py b/django/views/debug.py
+index cb3e8c7ec1..08bc43cf0e 100644
+--- a/django/views/debug.py
++++ b/django/views/debug.py
+@@ -5,7 +5,7 @@ import types
+ from pathlib import Path
+ 
+ from django.conf import settings
+-from django.http import HttpResponse, HttpResponseNotFound
++from django.http import Http404, HttpResponse, HttpResponseNotFound
+ from django.template import Context, Engine, TemplateDoesNotExist
+ from django.template.defaultfilters import pprint
+ from django.urls import Resolver404, resolve
+@@ -483,7 +483,7 @@ def technical_404_response(request, exception):
+     caller = ''
+     try:
+         resolver_match = resolve(request.path)
+-    except Resolver404:
++    except Http404:
+         pass
+     else:
+         obj = resolver_match.func
+diff --git a/tests/view_tests/tests/test_debug.py b/tests/view_tests/tests/test_debug.py
+index 46589c82ba..6f1ac1f34a 100644
+--- a/tests/view_tests/tests/test_debug.py
++++ b/tests/view_tests/tests/test_debug.py
+@@ -282,6 +282,10 @@ class NonDjangoTemplatesDebugViewTests(SimpleTestCase):
+         response = self.client.get('/raises404/')
+         self.assertEqual(response.status_code, 404)
+ 
++    def test_404_from_path_converter_http404(self):
++        response = self.client.get('/converter-404/1/')
++        self.assertContains(response, 'Object does not exist', status_code=404)
++
+     def test_template_not_found_error(self):
+         # Raises a TemplateDoesNotExist exception and shows the debug view.
+         url = reverse('raises_template_does_not_exist', kwargs={"path": "notfound.html"})
+diff --git a/tests/view_tests/urls.py b/tests/view_tests/urls.py
+index 34415b06e0..27b53c3aa3 100644
+--- a/tests/view_tests/urls.py
++++ b/tests/view_tests/urls.py
+@@ -2,7 +2,8 @@ import os
+ from functools import partial
+ 
+ from django.conf.urls.i18n import i18n_patterns
+-from django.urls import include, path, re_path
++from django.http import Http404
++from django.urls import include, path, re_path, register_converter
+ from django.utils.translation import gettext_lazy as _
+ from django.views import defaults, i18n, static
+ 
+@@ -12,6 +13,19 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
+ media_dir = os.path.join(base_dir, 'media')
+ locale_dir = os.path.join(base_dir, 'locale')
+ 
++
++class Http404Converter:
++    regex = '[0-9]+'
++
++    def to_python(self, value):
++        raise Http404('Object does not exist')
++
++    def to_url(self, value):
++        return str(value)
++
++
++register_converter(Http404Converter, 'raise404')
++
+ urlpatterns = [
+     path('', views.index_page),
+ 
+@@ -29,6 +43,7 @@ urlpatterns = [
+ 
+     path('technical404/', views.technical404, name='my404'),
+     path('classbased404/', views.Http404View.as_view()),
++    path('converter-404/<raise404:pk>/', views.index_page),
+ 
+     # i18n views
+     path('i18n/', include('django.conf.urls.i18n')),

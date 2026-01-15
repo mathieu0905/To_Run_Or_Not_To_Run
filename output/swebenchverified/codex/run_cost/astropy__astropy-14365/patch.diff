@@ -1,0 +1,41 @@
+diff --git a/astropy/io/ascii/qdp.py b/astropy/io/ascii/qdp.py
+index 83a4f004a..38f03e719 100644
+--- a/astropy/io/ascii/qdp.py
++++ b/astropy/io/ascii/qdp.py
+@@ -60,7 +60,10 @@ def _line_type(line, delimiter=None):
+     ValueError: Unrecognized QDP line...
+     """
+     _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+-    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
++    # QDP is case-insensitive for commands, so match READ SERR / READ TERR
++    # regardless of capitalization, while keeping the rest of the patterns
++    # (e.g. "NO") case-sensitive.
++    _command_re = r"(?i:READ\s+[ts]err)(\s+[0-9]+)+"
+ 
+     sep = delimiter
+     if delimiter is None:
+diff --git a/astropy/io/ascii/tests/test_qdp.py b/astropy/io/ascii/tests/test_qdp.py
+index ef24e6f6a..d2c4d13b4 100644
+--- a/astropy/io/ascii/tests/test_qdp.py
++++ b/astropy/io/ascii/tests/test_qdp.py
+@@ -139,6 +139,20 @@ def test_read_example():
+         assert np.allclose(col1, col2, equal_nan=True)
+ 
+ 
++def test_read_lowercase_commands(tmp_path):
++    # QDP commands are case-insensitive; lower-case commands should parse.
++    example_qdp = "read serr 1 2\n1 0.5 1 0.5\n"
++    path = tmp_path / "lowercase.qdp"
++    path.write_text(example_qdp)
++
++    t = Table.read(path, format="ascii.qdp", table_id=0, names=["a", "b"])
++    assert t.colnames == ["a", "a_err", "b", "b_err"]
++    assert np.allclose(t["a"], [1])
++    assert np.allclose(t["a_err"], [0.5])
++    assert np.allclose(t["b"], [1])
++    assert np.allclose(t["b_err"], [0.5])
++
++
+ def test_roundtrip_example(tmp_path):
+     example_qdp = """
+         ! Initial comment line 1

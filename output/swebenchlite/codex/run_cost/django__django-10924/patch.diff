@@ -1,0 +1,73 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 0c64748ccd..d34dcd9b56 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -2,6 +2,7 @@ import collections.abc
+ import copy
+ import datetime
+ import decimal
++import os
+ import operator
+ import uuid
+ import warnings
+@@ -1668,6 +1669,15 @@ class FilePathField(Field):
+         kwargs.setdefault('max_length', 100)
+         super().__init__(verbose_name, name, **kwargs)
+ 
++    def _get_path(self):
++        """
++        FilePathField's path can be a callable to defer evaluation (e.g. use
++        settings at runtime instead of hardcoding a machine-specific path into
++        migrations).
++        """
++        path = self.path() if callable(self.path) else self.path
++        return os.fspath(path)
++
+     def check(self, **kwargs):
+         return [
+             *super().check(**kwargs),
+@@ -1709,7 +1719,7 @@ class FilePathField(Field):
+ 
+     def formfield(self, **kwargs):
+         return super().formfield(**{
+-            'path': self.path,
++            'path': self._get_path(),
+             'match': self.match,
+             'recursive': self.recursive,
+             'form_class': forms.FilePathField,
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index a977256525..d4cef7e42d 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -1078,6 +1078,9 @@ class MultiValueField(Field):
+ class FilePathField(ChoiceField):
+     def __init__(self, path, *, match=None, recursive=False, allow_files=True,
+                  allow_folders=False, **kwargs):
++        if callable(path):
++            path = path()
++        path = os.fspath(path)
+         self.path, self.match, self.recursive = path, match, recursive
+         self.allow_files, self.allow_folders = allow_files, allow_folders
+         super().__init__(choices=(), **kwargs)
+diff --git a/tests/forms_tests/field_tests/test_filepathfield.py b/tests/forms_tests/field_tests/test_filepathfield.py
+index 44f6aff521..058d0868d3 100644
+--- a/tests/forms_tests/field_tests/test_filepathfield.py
++++ b/tests/forms_tests/field_tests/test_filepathfield.py
+@@ -48,6 +48,17 @@ class FilePathFieldTest(SimpleTestCase):
+         ] + self.expected_choices[:4]
+         self.assertChoices(f, expected)
+ 
++    def test_path_callable(self):
++        called = []
++
++        def get_path():
++            called.append(True)
++            return self.path
++
++        f = FilePathField(path=get_path, match=r'^.*?\.py$')
++        self.assertTrue(called)
++        self.assertChoices(f, self.expected_choices[:4])
++
+     def test_clean(self):
+         f = FilePathField(path=self.path)
+         msg = "'Select a valid choice. a.py is not one of the available choices.'"

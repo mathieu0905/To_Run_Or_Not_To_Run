@@ -1,0 +1,84 @@
+diff --git a/django/db/backends/base/creation.py b/django/db/backends/base/creation.py
+index 503f7f56fd..d168a2211c 100644
+--- a/django/db/backends/base/creation.py
++++ b/django/db/backends/base/creation.py
+@@ -58,7 +58,19 @@ class BaseDatabaseCreation:
+         settings.DATABASES[self.connection.alias]["NAME"] = test_database_name
+         self.connection.settings_dict["NAME"] = test_database_name
+ 
+-        if self.connection.settings_dict['TEST']['MIGRATE']:
++        # Always create the schema for the test database.
++        #
++        # If TEST['MIGRATE'] is False, disable migrations for all apps while
++        # running migrate with --run-syncdb to create the tables directly from
++        # models, without applying migrations.
++        migrate = self.connection.settings_dict['TEST']['MIGRATE']
++        old_migration_modules = settings.MIGRATION_MODULES
++        if not migrate:
++            migration_modules = dict(old_migration_modules)
++            for app_config in apps.get_app_configs():
++                migration_modules[app_config.label] = None
++            settings.MIGRATION_MODULES = migration_modules
++        try:
+             # We report migrate messages at one level lower than that
+             # requested. This ensures we don't get flooded with messages during
+             # testing (unless you really ask to be flooded).
+@@ -69,6 +81,9 @@ class BaseDatabaseCreation:
+                 database=self.connection.alias,
+                 run_syncdb=True,
+             )
++        finally:
++            if not migrate:
++                settings.MIGRATION_MODULES = old_migration_modules
+ 
+         # We then serialize the current state of the database into a string
+         # and store it on the connection. This slightly horrific process is so people
+diff --git a/tests/backends/base/test_creation.py b/tests/backends/base/test_creation.py
+index 01215a9a5b..b8a8aca6fc 100644
+--- a/tests/backends/base/test_creation.py
++++ b/tests/backends/base/test_creation.py
+@@ -1,6 +1,8 @@
+ import copy
+ from unittest import mock
+ 
++from django.apps import apps
++from django.conf import settings
+ from django.db import DEFAULT_DB_ALIAS, connection, connections
+ from django.db.backends.base.creation import (
+     TEST_DATABASE_PREFIX, BaseDatabaseCreation,
+@@ -57,10 +59,20 @@ class TestDbCreationTests(SimpleTestCase):
+         test_connection.settings_dict['TEST']['MIGRATE'] = False
+         creation = test_connection.creation_class(test_connection)
+         old_database_name = test_connection.settings_dict['NAME']
++        old_migration_modules = settings.MIGRATION_MODULES
++
++        def migrate_handle(*args, **kwargs):
++            # With MIGRATE=False, migrations are disabled for all apps while
++            # running migrate --run-syncdb.
++            for app_config in apps.get_app_configs():
++                self.assertIsNone(settings.MIGRATION_MODULES.get(app_config.label))
++
++        mocked_migrate.side_effect = migrate_handle
+         try:
+             with mock.patch.object(creation, '_create_test_db'):
+                 creation.create_test_db(verbosity=0, autoclobber=True, serialize=False)
+-            mocked_migrate.assert_not_called()
++            mocked_migrate.assert_called_once()
++            self.assertIs(settings.MIGRATION_MODULES, old_migration_modules)
+         finally:
+             with mock.patch.object(creation, '_destroy_test_db'):
+                 creation.destroy_test_db(old_database_name, verbosity=0)
+@@ -70,6 +82,13 @@ class TestDbCreationTests(SimpleTestCase):
+         test_connection.settings_dict['TEST']['MIGRATE'] = True
+         creation = test_connection.creation_class(test_connection)
+         old_database_name = test_connection.settings_dict['NAME']
++        old_migration_modules = settings.MIGRATION_MODULES
++
++        def migrate_handle(*args, **kwargs):
++            # With MIGRATE=True, migrations aren't disabled.
++            self.assertIs(settings.MIGRATION_MODULES, old_migration_modules)
++
++        mocked_migrate.side_effect = migrate_handle
+         try:
+             with mock.patch.object(creation, '_create_test_db'):
+                 creation.create_test_db(verbosity=0, autoclobber=True, serialize=False)

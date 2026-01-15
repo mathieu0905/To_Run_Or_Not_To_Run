@@ -1,17 +1,21 @@
 diff --git a/astropy/utils/introspection.py b/astropy/utils/introspection.py
-index 3e784f9fc..eb95a086a 100644
+index 3e784f9fc..9c1e3a0ce 100644
 --- a/astropy/utils/introspection.py
 +++ b/astropy/utils/introspection.py
-@@ -6,7 +6,7 @@
+@@ -6,7 +6,11 @@
  import inspect
  import types
  import importlib
 -from distutils.version import LooseVersion
-+from pkg_resources import parse_version
++
++try:
++    from packaging.version import parse as parse_version
++except ImportError:
++    from pkg_resources import parse_version
  
  
  __all__ = ['resolve_name', 'minversion', 'find_current_module',
-@@ -140,9 +140,9 @@ def minversion(module, version, inclusive=True, version_path='__version__'):
+@@ -140,9 +144,9 @@ def minversion(module, version, inclusive=True, version_path='__version__'):
          have_version = resolve_name(module.__name__, version_path)
  
      if inclusive:

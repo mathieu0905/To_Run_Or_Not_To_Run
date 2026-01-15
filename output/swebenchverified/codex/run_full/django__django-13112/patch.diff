@@ -1,0 +1,47 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index c2aea9c730..1e15a3307a 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -582,7 +582,20 @@ class ForeignObject(RelatedField):
+         if self.remote_field.parent_link:
+             kwargs['parent_link'] = self.remote_field.parent_link
+         if isinstance(self.remote_field.model, str):
+-            kwargs['to'] = self.remote_field.model.lower()
++            # Don't lowercase the entire "app_label.ModelName" because app
++            # labels are case-sensitive.
++            to_model = self.remote_field.model
++            to = str(to_model)
++            if to != RECURSIVE_RELATIONSHIP_CONSTANT and '.' in to:
++                app_label, model_name = to.split('.', 1)
++                to = '%s.%s' % (app_label, model_name.lower())
++            elif to != RECURSIVE_RELATIONSHIP_CONSTANT:
++                # Bare model name.
++                to = to.lower()
++            # Preserve SettingsReference's `setting_name` when present.
++            if isinstance(to_model, SettingsReference):
++                to = SettingsReference(to, to_model.setting_name)
++            kwargs['to'] = to
+         else:
+             kwargs['to'] = self.remote_field.model._meta.label_lower
+         # If swappable is True, then see if we're actually pointing to the target
+diff --git a/tests/migrations/test_autodetector.py b/tests/migrations/test_autodetector.py
+index 236af43834..fa5e48ab05 100644
+--- a/tests/migrations/test_autodetector.py
++++ b/tests/migrations/test_autodetector.py
+@@ -1037,6 +1037,16 @@ class AutodetectorTests(TestCase):
+             {'to': 'app.foo', 'on_delete': models.CASCADE, 'db_column': 'foo_id'},
+         ))
+ 
++    def test_foreign_key_deconstruct_mixed_case_app_label(self):
++        """
++        ForeignObject.deconstruct() shouldn't lowercase app labels when a
++        related model is specified as a string.
++        """
++        field = models.ForeignKey('DJ_RegLogin.Category', models.CASCADE)
++        field.set_attributes_from_name('category')
++        *_, kwargs = field.deconstruct()
++        self.assertEqual(kwargs['to'], 'DJ_RegLogin.category')
++
+     def test_rename_model(self):
+         """Tests autodetection of renamed models."""
+         changes = self.get_changes(

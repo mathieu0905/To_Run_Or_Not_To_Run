@@ -1,0 +1,60 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+index 92394a7eae..344b5b6d66 100644
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -78,6 +78,16 @@ class URLValidator(RegexValidator):
+     ipv4_re = r'(?:25[0-5]|2[0-4]\d|[0-1]?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}'
+     ipv6_re = r'\[[0-9a-f:\.]+\]'  # (simple regex, validated later)
+ 
++    # URL userinfo patterns (username:password@).
++    #
++    # RFC 1738 sec. 3.1: within the user and password fields, any ":", "@",
++    # or "/" must be percent-encoded. Limiting userinfo also prevents "@"
++    # appearing later in the URL (e.g. in a query string) from being treated
++    # as the end of authentication data.
++    userinfo_safe_chars = r"[a-z0-9\-._~!$&'()*+,;=]"
++    user_re = r'(?:' + userinfo_safe_chars + r'|%[0-9a-f]{2})+'
++    password_re = r'(?:' + userinfo_safe_chars + r'|%[0-9a-f]{2})*'
++
+     # Host patterns
+     hostname_re = r'[a-z' + ul + r'0-9](?:[a-z' + ul + r'0-9-]{0,61}[a-z' + ul + r'0-9])?'
+     # Max length for domain name labels is 63 characters per RFC 1034 sec. 3.1
+@@ -94,7 +104,7 @@ class URLValidator(RegexValidator):
+ 
+     regex = _lazy_re_compile(
+         r'^(?:[a-z0-9\.\-\+]*)://'  # scheme is validated separately
+-        r'(?:\S+(?::\S*)?@)?'  # user:pass authentication
++        r'(?:' + user_re + r'(?::' + password_re + r')?@)?'  # user:pass authentication
+         r'(?:' + ipv4_re + '|' + ipv6_re + '|' + host_re + ')'
+         r'(?::\d{2,5})?'  # port
+         r'(?:[/?#][^\s]*)?'  # resource path
+diff --git a/tests/validators/invalid_urls.txt b/tests/validators/invalid_urls.txt
+index 04a0b5fb1b..39bb06851c 100644
+--- a/tests/validators/invalid_urls.txt
++++ b/tests/validators/invalid_urls.txt
+@@ -57,3 +57,8 @@ http://example.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.
+ http://example.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaa
+ https://test.[com
++http://foo/bar@example.com
++http://foo@bar@example.com
++http://foo:ba:r@example.com
++http://foo:bar/baz@example.com
++http://?m=foo@example.com
+diff --git a/tests/validators/valid_urls.txt b/tests/validators/valid_urls.txt
+index 4bc8c03059..9c6275f4b2 100644
+--- a/tests/validators/valid_urls.txt
++++ b/tests/validators/valid_urls.txt
+@@ -48,7 +48,11 @@ http://foo.bar/?q=Test%20URL-encoded%20stuff
+ http://مثال.إختبار
+ http://例子.测试
+ http://उदाहरण.परीक्षा
+-http://-.~_!$&'()*+,;=:%40:80%2f::::::@example.com
++http://foo%2Fbar@example.com
++http://foo%40bar@example.com
++http://foo:ba%3Ar@example.com
++http://foo:bar%2Fbaz@example.com
++http://-.~_!$&'()*+,;=:%40%3A80%2f%3A%3A%3A%3A%3A%3A@example.com
+ http://xn--7sbb4ac0ad0be6cf.xn--p1ai
+ http://1337.net
+ http://a.b-c.de

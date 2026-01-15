@@ -1,0 +1,97 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 844c01e95e..53cb4040b4 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -804,9 +804,25 @@ class Model(metaclass=ModelBase):
+         inserted = False
+         for parent, field in meta.parents.items():
+             # Make sure the link fields are synced between parent and self.
+-            if (field and getattr(self, parent._meta.pk.attname) is None and
+-                    getattr(self, field.attname) is not None):
+-                setattr(self, parent._meta.pk.attname, getattr(self, field.attname))
++            if (
++                field and
++                getattr(self, parent._meta.pk.attname) is None and
++                getattr(self, field.attname) is not None
++            ):
++                # When creating a new instance, the parent link can be set
++                # directly (e.g. parent_ptr_id=...) without setting the
++                # corresponding inherited PK attribute. In that case, sync the
++                # parent's PK from the link field.
++                #
++                # For an existing instance, setting the inherited PK to None is
++                # a common way to "clone" the object on save(). In multi-table
++                # inheritance, the parent link is the child's PK; keep it in
++                # sync by clearing the link too, rather than restoring the old
++                # PK value from it.
++                if self._state.adding:
++                    setattr(self, parent._meta.pk.attname, getattr(self, field.attname))
++                else:
++                    setattr(self, field.attname, None)
+             parent_inserted = self._save_parents(cls=parent, using=using, update_fields=update_fields)
+             updated = self._save_table(
+                 cls=parent, using=using, update_fields=update_fields,
+diff --git a/tests/model_inheritance_regress/models.py b/tests/model_inheritance_regress/models.py
+index 5e4c928dc9..3134df6b95 100644
+--- a/tests/model_inheritance_regress/models.py
++++ b/tests/model_inheritance_regress/models.py
+@@ -220,6 +220,22 @@ class Profile(User):
+     extra = models.CharField(max_length=30, blank=True)
+ 
+ 
++class ResetPKItem(models.Model):
++    """
++    Base model for testing primary key resets with multi-table inheritance.
++    """
++    uid = models.AutoField(primary_key=True)
++    f = models.BooleanField(default=False)
++
++    def reset(self):
++        self.uid = None
++        self.f = False
++
++
++class ResetPKDerived(ResetPKItem):
++    pass
++
++
+ # Check concrete + concrete -> concrete -> concrete
+ class Politician(models.Model):
+     politician_id = models.AutoField(primary_key=True)
+diff --git a/tests/model_inheritance_regress/tests.py b/tests/model_inheritance_regress/tests.py
+index b0156ff9ac..d873d6c6ff 100644
+--- a/tests/model_inheritance_regress/tests.py
++++ b/tests/model_inheritance_regress/tests.py
+@@ -13,7 +13,8 @@ from .models import (
+     DerivedM, InternalCertificationAudit, ItalianRestaurant, M2MChild,
+     MessyBachelorParty, ParkingLot, ParkingLot3, ParkingLot4A, ParkingLot4B,
+     Person, Place, Profile, QualityControl, Restaurant, SelfRefChild,
+-    SelfRefParent, Senator, Supplier, TrainStation, User, Wholesaler,
++    ResetPKDerived, ResetPKItem, SelfRefParent, Senator, Supplier,
++    TrainStation, User, Wholesaler,
+ )
+ 
+ 
+@@ -181,6 +182,22 @@ class ModelInheritanceTest(TestCase):
+         self.assertEqual(r.id, orig_id)
+         self.assertEqual(r.id, r.place_ptr_id)
+ 
++    def test_reset_parent_primary_key_on_child_creates_new_rows(self):
++        """
++        Resetting an inherited primary key on a multi-table inherited model
++        should create new rows rather than overwriting the existing instance.
++        """
++        derived = ResetPKDerived.objects.create(f=True)
++        original_pk = derived.pk
++
++        base = ResetPKItem.objects.get(pk=original_pk)
++        obj = base.resetpkderived
++        obj.reset()  # Sets the parent's PK field (uid) to None.
++        obj.save()
++
++        # The original row is unchanged.
++        self.assertTrue(ResetPKItem.objects.get(pk=original_pk).f)
++
+     def test_issue_7488(self):
+         # Regression test for #7488. This looks a little crazy, but it's the
+         # equivalent of what the admin interface has to do for the edit-inline

@@ -1,0 +1,226 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 8d37c457ce..f7a53d5d08 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -796,6 +796,21 @@ class Col(Expression):
+         return (self.output_field.get_db_converters(connection) +
+                 self.target.get_db_converters(connection))
+ 
++    def get_lookup(self, lookup_name):
++        """
++        Prefer lookups from the underlying target field.
++
++        For related fields, Col.target is the relation field (e.g. ForeignKey)
++        while Col.output_field is typically the underlying target field
++        (e.g. AutoField/UUIDField). Related lookups (e.g. normalization of model
++        instances to primary keys) are implemented on the relation field.
++        """
++        if getattr(self.target, 'is_relation', False):
++            lookup = self.target.get_lookup(lookup_name)
++            if lookup:
++                return lookup
++        return super().get_lookup(lookup_name)
++
+ 
+ class Ref(Expression):
+     """
+@@ -1037,6 +1052,52 @@ class Subquery(Expression):
+     def _resolve_output_field(self):
+         return self.query.output_field
+ 
++    def get_lookup(self, lookup):
++        """
++        Prefer lookups from the underlying related field (if any).
++
++        A subquery that selects a related field column (e.g. ForeignKey) uses
++        the target field as its output_field. Related lookups (e.g. normalizing
++        model instances to primary keys) are implemented on the relation field,
++        so use its lookup classes when possible.
++        """
++        def find_related_field(expr):
++            target = getattr(expr, 'target', None)
++            if target is not None and getattr(target, 'is_relation', False):
++                return target
++            query = getattr(expr, 'query', None)
++            if query is not None and hasattr(query, 'select'):
++                if len(query.select) == 1:
++                    found = find_related_field(query.select[0])
++                    if found:
++                        return found
++                elif len(query.annotation_select) == 1:
++                    found = find_related_field(next(iter(query.annotation_select.values())))
++                    if found:
++                        return found
++            get_source_expressions = getattr(expr, 'get_source_expressions', None)
++            if get_source_expressions:
++                for subexpr in get_source_expressions():
++                    if subexpr is None:
++                        continue
++                    found = find_related_field(subexpr)
++                    if found:
++                        return found
++            return None
++
++        expr = None
++        if len(self.query.select) == 1:
++            expr = self.query.select[0]
++        elif len(self.query.annotation_select) == 1:
++            expr = next(iter(self.query.annotation_select.values()))
++        if expr is not None:
++            related_field = find_related_field(expr)
++            if related_field is not None:
++                lookup_class = related_field.get_lookup(lookup)
++                if lookup_class:
++                    return lookup_class
++        return super().get_lookup(lookup)
++
+     def copy(self):
+         clone = super().copy()
+         clone.query = clone.query.clone()
+diff --git a/django/db/models/fields/related_lookups.py b/django/db/models/fields/related_lookups.py
+index c20e220141..2d39e2588a 100644
+--- a/django/db/models/fields/related_lookups.py
++++ b/django/db/models/fields/related_lookups.py
+@@ -22,12 +22,47 @@ class MultiColSource:
+     def get_lookup(self, lookup):
+         return self.output_field.get_lookup(lookup)
+ 
++def _relation_field_for_lookup(lhs):
++    """
++    Return the related field used for lookup semantics.
++
++    In many places, Col(target=ForeignKey(...), output_field=AutoField(...)) is
++    used to represent a related column. In that case, lookup behavior (e.g.
++    normalizing model instances) must use the relation field (lhs.target),
++    rather than lhs.output_field (the underlying target field).
++    """
++    def find_related_field(expr):
++        target = getattr(expr, 'target', None)
++        if target is not None and getattr(target, 'is_relation', False):
++            return target
++        query = getattr(expr, 'query', None)
++        if query is not None and hasattr(query, 'select'):
++            if len(query.select) == 1:
++                found = find_related_field(query.select[0])
++                if found:
++                    return found
++            elif len(query.annotation_select) == 1:
++                found = find_related_field(next(iter(query.annotation_select.values())))
++                if found:
++                    return found
++        get_source_expressions = getattr(expr, 'get_source_expressions', None)
++        if get_source_expressions:
++            for subexpr in get_source_expressions():
++                if subexpr is None:
++                    continue
++                found = find_related_field(subexpr)
++                if found:
++                    return found
++        return None
++
++    return find_related_field(lhs) or lhs.output_field
++
+ 
+ def get_normalized_value(value, lhs):
+     from django.db.models import Model
+     if isinstance(value, Model):
+         value_list = []
+-        sources = lhs.output_field.get_path_info()[-1].target_fields
++        sources = _relation_field_for_lookup(lhs).get_path_info()[-1].target_fields
+         for source in sources:
+             while not isinstance(value, source.model) and source.remote_field:
+                 source = source.remote_field.model._meta.get_field(source.remote_field.field_name)
+@@ -52,10 +87,11 @@ class RelatedIn(In):
+             # ForeignKey to IntegerField given value 'abc'. The ForeignKey itself
+             # doesn't have validation for non-integers, so we must run validation
+             # using the target field.
+-            if hasattr(self.lhs.output_field, 'get_path_info'):
++            relation_field = _relation_field_for_lookup(self.lhs)
++            if hasattr(relation_field, 'get_path_info'):
+                 # Run the target field's get_prep_value. We can safely assume there is
+                 # only one as we don't get to the direct value branch otherwise.
+-                target_field = self.lhs.output_field.get_path_info()[-1].target_fields[-1]
++                target_field = relation_field.get_path_info()[-1].target_fields[-1]
+                 self.rhs = [target_field.get_prep_value(v) for v in self.rhs]
+         return super().get_prep_lookup()
+ 
+@@ -84,17 +120,18 @@ class RelatedIn(In):
+                     AND)
+             return root_constraint.as_sql(compiler, connection)
+         else:
++            relation_field = _relation_field_for_lookup(self.lhs)
+             if (not getattr(self.rhs, 'has_select_fields', True) and
+-                    not getattr(self.lhs.field.target_field, 'primary_key', False)):
++                    not getattr(relation_field.target_field, 'primary_key', False)):
+                 self.rhs.clear_select_clause()
+-                if (getattr(self.lhs.output_field, 'primary_key', False) and
+-                        self.lhs.output_field.model == self.rhs.model):
++                if (getattr(relation_field, 'primary_key', False) and
++                        relation_field.model == self.rhs.model):
+                     # A case like Restaurant.objects.filter(place__in=restaurant_qs),
+                     # where place is a OneToOneField and the primary key of
+                     # Restaurant.
+-                    target_field = self.lhs.field.name
++                    target_field = relation_field.name
+                 else:
+-                    target_field = self.lhs.field.target_field.name
++                    target_field = relation_field.target_field.name
+                 self.rhs.add_fields([target_field], True)
+             return super().as_sql(compiler, connection)
+ 
+@@ -108,10 +145,11 @@ class RelatedLookupMixin:
+             # ForeignKey to IntegerField given value 'abc'. The ForeignKey itself
+             # doesn't have validation for non-integers, so we must run validation
+             # using the target field.
+-            if self.prepare_rhs and hasattr(self.lhs.output_field, 'get_path_info'):
++            relation_field = _relation_field_for_lookup(self.lhs)
++            if self.prepare_rhs and hasattr(relation_field, 'get_path_info'):
+                 # Get the target field. We can safely assume there is only one
+                 # as we don't get to the direct value branch otherwise.
+-                target_field = self.lhs.output_field.get_path_info()[-1].target_fields[-1]
++                target_field = relation_field.get_path_info()[-1].target_fields[-1]
+                 self.rhs = target_field.get_prep_value(self.rhs)
+ 
+         return super().get_prep_lookup()
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index 0fac4642f7..e451e71733 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -21,6 +21,7 @@ from django.db.models.sql import constants
+ from django.db.models.sql.datastructures import Join
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+ from django.test.utils import Approximate, isolate_apps
++from django.utils.functional import SimpleLazyObject
+ 
+ from .models import (
+     UUID, UUIDPK, Company, Employee, Experiment, Number, RemoteEmployee,
+@@ -576,6 +577,29 @@ class BasicExpressionsTests(TestCase):
+         # This exercises the double OuterRef form with AutoField as pk.
+         self.assertCountEqual(outer, [first, second])
+ 
++    def test_simplelazyobject_with_nested_subquery_annotation(self):
++        """
++        Regression test for comparing related-column subqueries to lazy objects.
++
++        A Subquery() selecting a ForeignKey column uses the target field as its
++        output_field. Related-field lookup semantics (e.g. normalizing model
++        instances to their primary keys) must still apply.
++        """
++        poc = Employee.objects.create(firstname='Jane', lastname='Doe', salary=10)
++        Company.objects.filter(pk=self.example_inc.pk).update(point_of_contact=poc)
++
++        # Subquery selecting a FK column, with an explicit order/limit to ensure
++        # a single deterministic row.
++        ceo_subquery = Company.objects.order_by('pk').values('ceo')[:1]
++        owner_user = (
++            Company.objects.filter(point_of_contact=OuterRef('pk'))
++            .annotate(owner_user=Subquery(ceo_subquery))
++            .values('owner_user')[:1]
++        )
++        lazy_owner = SimpleLazyObject(lambda: self.example_inc.ceo)
++        qs = Employee.objects.annotate(owner_user=Subquery(owner_user)).filter(owner_user=lazy_owner)
++        self.assertSequenceEqual(list(qs), [poc])
++
+     def test_annotations_within_subquery(self):
+         Company.objects.filter(num_employees__lt=50).update(ceo=Employee.objects.get(firstname='Frank'))
+         inner = Company.objects.filter(

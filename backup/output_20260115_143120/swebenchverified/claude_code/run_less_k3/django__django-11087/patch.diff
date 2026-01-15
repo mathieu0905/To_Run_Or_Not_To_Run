@@ -1,0 +1,23 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 3a462f1c4c..3d49debbac 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -232,9 +232,17 @@ class Collector:
+         """
+         Get a QuerySet of objects related to `objs` via the relation `related`.
+         """
+-        return related.related_model._base_manager.using(self.using).filter(
++        qs = related.related_model._base_manager.using(self.using).filter(
+             **{"%s__in" % related.field.name: objs}
+         )
++        # If the model has signal listeners or is not auto-created, we need
++        # all fields for signal handlers. Otherwise, only fetch the pk.
++        model = related.related_model
++        if (model._meta.auto_created or not (
++                signals.pre_delete.has_listeners(model) or
++                signals.post_delete.has_listeners(model))):
++            qs = qs.only('pk')
++        return qs
+ 
+     def instances_with_model(self):
+         for model, instances in self.data.items():

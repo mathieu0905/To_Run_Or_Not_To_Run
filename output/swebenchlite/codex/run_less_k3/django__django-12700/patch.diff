@@ -1,0 +1,80 @@
+diff --git a/django/views/debug.py b/django/views/debug.py
+index e6b7d4d821..78bf50ec13 100644
+--- a/django/views/debug.py
++++ b/django/views/debug.py
+@@ -2,6 +2,7 @@ import functools
+ import re
+ import sys
+ import types
++from collections.abc import Mapping
+ from pathlib import Path
+ 
+ from django.conf import settings
+@@ -83,13 +84,22 @@ class SafeExceptionReporterFilter:
+     def cleanse_setting(self, key, value):
+         """
+         Cleanse an individual setting key/value of sensitive content. If the
+-        value is a dictionary, recursively cleanse the keys in that dictionary.
++        value is a dictionary or other iterable, recursively cleanse any
++        dictionaries found.
+         """
+         try:
+             if self.hidden_settings.search(key):
+                 cleansed = self.cleansed_substitute
+-            elif isinstance(value, dict):
++            elif isinstance(value, Mapping):
+                 cleansed = {k: self.cleanse_setting(k, v) for k, v in value.items()}
++            elif isinstance(value, (list, tuple)):
++                cleansed = [self.cleanse_setting(key, v) for v in value]
++                if isinstance(value, tuple):
++                    cleansed = tuple(cleansed)
++            elif isinstance(value, (set, frozenset)):
++                cleansed = {self.cleanse_setting(key, v) for v in value}
++                if isinstance(value, frozenset):
++                    cleansed = frozenset(cleansed)
+             else:
+                 cleansed = value
+         except TypeError:
+diff --git a/tests/view_tests/tests/test_debug.py b/tests/view_tests/tests/test_debug.py
+index 8c64bc343e..47cf84534c 100644
+--- a/tests/view_tests/tests/test_debug.py
++++ b/tests/view_tests/tests/test_debug.py
+@@ -1249,6 +1249,38 @@ class ExceptionReporterFilterTests(ExceptionReportTestMixin, LoggingCaptureMixin
+             {'login': 'cooper', 'password': reporter_filter.cleansed_substitute},
+         )
+ 
++    def test_cleanse_setting_recurses_in_list(self):
++        reporter_filter = SafeExceptionReporterFilter()
++        initial = [{'login': 'cooper', 'password': 'secret'}]
++        self.assertEqual(
++            reporter_filter.cleanse_setting('SETTING_NAME', initial),
++            [{'login': 'cooper', 'password': reporter_filter.cleansed_substitute}],
++        )
++
++    def test_cleanse_setting_recurses_in_nested_lists(self):
++        reporter_filter = SafeExceptionReporterFilter()
++        initial = [
++            [{'login': 'cooper', 'password': 'secret'}],
++            [{'login': 'cooper', 'token': 'secret'}],
++        ]
++        self.assertEqual(
++            reporter_filter.cleanse_setting('SETTING_NAME', initial),
++            [
++                [{'login': 'cooper', 'password': reporter_filter.cleansed_substitute}],
++                [{'login': 'cooper', 'token': reporter_filter.cleansed_substitute}],
++            ],
++        )
++
++    def test_cleanse_setting_recurses_in_tuple(self):
++        reporter_filter = SafeExceptionReporterFilter()
++        initial = ({'login': 'cooper', 'password': 'secret'},)
++        cleansed = reporter_filter.cleanse_setting('SETTING_NAME', initial)
++        self.assertIsInstance(cleansed, tuple)
++        self.assertEqual(
++            cleansed,
++            ({'login': 'cooper', 'password': reporter_filter.cleansed_substitute},),
++        )
++
+     def test_request_meta_filtering(self):
+         request = self.rf.get('/', HTTP_SECRET_HEADER='super_secret')
+         reporter_filter = SafeExceptionReporterFilter()

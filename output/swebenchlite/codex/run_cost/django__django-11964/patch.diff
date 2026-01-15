@@ -1,0 +1,141 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 0a5e5ff673..7040ba583b 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -21,6 +21,7 @@ from django.db.models import (
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.constraints import CheckConstraint, UniqueConstraint
+ from django.db.models.deletion import CASCADE, Collector
++from django.db.models.enums import Choices
+ from django.db.models.fields.related import (
+     ForeignObjectRel, OneToOneField, lazy_related_operation, resolve_relation,
+ )
+@@ -407,6 +408,7 @@ class Model(metaclass=ModelBase):
+         cls = self.__class__
+         opts = self._meta
+         _setattr = setattr
++        _Choices = Choices
+         _DEFERRED = DEFERRED
+ 
+         pre_init.send(sender=cls, args=args, kwargs=kwargs)
+@@ -431,6 +433,8 @@ class Model(metaclass=ModelBase):
+             for val, field in zip(args, fields_iter):
+                 if val is _DEFERRED:
+                     continue
++                if isinstance(val, _Choices):
++                    val = val.value
+                 _setattr(self, field.attname, val)
+         else:
+             # Slower, kwargs-ready version.
+@@ -438,6 +442,8 @@ class Model(metaclass=ModelBase):
+             for val, field in zip(args, fields_iter):
+                 if val is _DEFERRED:
+                     continue
++                if isinstance(val, _Choices):
++                    val = val.value
+                 _setattr(self, field.attname, val)
+                 kwargs.pop(field.name, None)
+ 
+@@ -482,6 +488,8 @@ class Model(metaclass=ModelBase):
+                     _setattr(self, field.name, rel_obj)
+             else:
+                 if val is not _DEFERRED:
++                    if isinstance(val, _Choices):
++                        val = val.value
+                     _setattr(self, field.attname, val)
+ 
+         if kwargs:
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index d610dc86f0..71905dd79b 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -13,6 +13,7 @@ from django.apps import apps
+ from django.conf import settings
+ from django.core import checks, exceptions, validators
+ from django.db import connection, connections, router
++from django.db.models.enums import Choices
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.query_utils import DeferredAttribute, RegisterLookupMixin
+ from django.utils import timezone
+@@ -786,7 +787,14 @@ class Field(RegisterLookupMixin):
+ 
+     def pre_save(self, model_instance, add):
+         """Return field's value just before saving."""
+-        return getattr(model_instance, self.attname)
++        value = getattr(model_instance, self.attname)
++        if isinstance(value, Choices):
++            # Normalize Django's Choices enum members (e.g. TextChoices,
++            # IntegerChoices) to their underlying values so model instances
++            # have consistent plain-Python types before/after a DB round-trip.
++            value = value.value
++            setattr(model_instance, self.attname, value)
++        return value
+ 
+     def get_prep_value(self, value):
+         """Perform preliminary non-db specific value checks and conversions."""
+diff --git a/tests/model_fields/test_charfield.py b/tests/model_fields/test_charfield.py
+index cf3ce0c4c5..fbb2ce9379 100644
+--- a/tests/model_fields/test_charfield.py
++++ b/tests/model_fields/test_charfield.py
+@@ -34,6 +34,10 @@ class TestCharField(TestCase):
+             F = 'Festival!'
+ 
+         p1 = Post.objects.create(title=Event.C, body=Event.F)
++        self.assertIs(type(p1.title), str)
++        self.assertIs(type(p1.body), str)
++        self.assertEqual(str(p1.title), 'Carnival!')
++        self.assertEqual(str(p1.body), 'Festival!')
+         p1.refresh_from_db()
+         self.assertEqual(p1.title, 'Carnival!')
+         self.assertEqual(p1.body, 'Festival!')
+diff --git a/tests/model_fields/test_integerfield.py b/tests/model_fields/test_integerfield.py
+index 606d71057a..f555b860a9 100644
+--- a/tests/model_fields/test_integerfield.py
++++ b/tests/model_fields/test_integerfield.py
+@@ -3,7 +3,8 @@ import unittest
+ from django.core import validators
+ from django.core.exceptions import ValidationError
+ from django.db import IntegrityError, connection, models
+-from django.test import SimpleTestCase, TestCase
++from django.test import SimpleTestCase, TestCase, TransactionTestCase
++from django.test.utils import isolate_apps
+ 
+ from .models import (
+     BigIntegerModel, IntegerModel, PositiveIntegerModel,
+@@ -231,3 +232,36 @@ class ValidationTests(SimpleTestCase):
+             f.clean('A', None)
+         with self.assertRaises(ValidationError):
+             f.clean('3', None)
++
++
++class IntegerChoicesAssignmentTests(TransactionTestCase):
++    available_apps = ['model_fields']
++
++    @isolate_apps('model_fields')
++    def test_assignment_from_integerchoices_enum(self):
++        class Suit(models.IntegerChoices):
++            DIAMOND = 1
++            SPADE = 2
++
++        class ChoiceModel(models.Model):
++            value = models.IntegerField(choices=Suit.choices)
++
++            class Meta:
++                app_label = 'model_fields'
++
++        with connection.schema_editor() as editor:
++            editor.create_model(ChoiceModel)
++        try:
++            obj = ChoiceModel.objects.create(value=Suit.DIAMOND)
++            self.assertIs(type(obj.value), int)
++            self.assertEqual(obj.value, 1)
++            obj.value = Suit.SPADE
++            obj.save()
++            self.assertIs(type(obj.value), int)
++            self.assertEqual(obj.value, 2)
++            obj = ChoiceModel.objects.get(pk=obj.pk)
++            self.assertIs(type(obj.value), int)
++            self.assertEqual(obj.value, 2)
++        finally:
++            with connection.schema_editor() as editor:
++                editor.delete_model(ChoiceModel)

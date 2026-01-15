@@ -1,0 +1,51 @@
+diff --git a/django/urls/base.py b/django/urls/base.py
+index 0e1c3d909c..eb7f3bcf9c 100644
+--- a/django/urls/base.py
++++ b/django/urls/base.py
+@@ -172,7 +172,19 @@ def translate_url(url, lang_code):
+         to_be_reversed = "%s:%s" % (match.namespace, match.url_name) if match.namespace else match.url_name
+         with override(lang_code):
+             try:
+-                url = reverse(to_be_reversed, args=match.args, kwargs=match.kwargs)
++                # ResolverMatch.kwargs (and args) may contain None values for
++                # optional regex groups that weren't captured. Those shouldn't
++                # be passed to reverse(), otherwise they get coerced to the
++                # string "None" and produce incorrect URLs.
++                kwargs = match.kwargs
++                args = match.args
++                if kwargs:
++                    kwargs = {k: v for k, v in kwargs.items() if v is not None}
++                elif args:
++                    args = list(args)
++                    while args and args[-1] is None:
++                        args.pop()
++                url = reverse(to_be_reversed, args=args, kwargs=kwargs)
+             except NoReverseMatch:
+                 pass
+             else:
+diff --git a/tests/i18n/patterns/tests.py b/tests/i18n/patterns/tests.py
+index 6ed2c4ffeb..b2595c19a3 100644
+--- a/tests/i18n/patterns/tests.py
++++ b/tests/i18n/patterns/tests.py
+@@ -153,6 +153,8 @@ class URLTranslationTests(URLTestCaseBase):
+         with translation.override('en'):
+             self.assertEqual(translate_url('/en/nonexistent/', 'nl'), '/en/nonexistent/')
+             self.assertEqual(translate_url('/en/users/', 'nl'), '/nl/gebruikers/')
++            self.assertEqual(translate_url('/en/optional/', 'nl'), '/nl/optional/')
++            self.assertEqual(translate_url('/en/optional/foo/', 'nl'), '/nl/optional/foo/')
+             # Namespaced URL
+             self.assertEqual(translate_url('/en/account/register/', 'nl'), '/nl/profiel/registreren/')
+             # path() URL pattern
+diff --git a/tests/i18n/patterns/urls/default.py b/tests/i18n/patterns/urls/default.py
+index b0c2f2585e..9c8fd63d35 100644
+--- a/tests/i18n/patterns/urls/default.py
++++ b/tests/i18n/patterns/urls/default.py
+@@ -16,5 +16,8 @@ urlpatterns += i18n_patterns(
+     path('prefixed/', view, name='prefixed'),
+     path('prefixed.xml', view, name='prefixed_xml'),
+     re_path(_(r'^users/$'), view, name='users'),
++    # Optional named group used by tests for translate_url(). When the group
++    # isn't present, ResolverMatch.kwargs contains {'slug': None}.
++    re_path(r'^optional/(?:(?P<slug>[\w-]+)/)?$', view, name='optional'),
+     re_path(_(r'^account/'), include('i18n.patterns.urls.namespace', namespace='account')),
+ )

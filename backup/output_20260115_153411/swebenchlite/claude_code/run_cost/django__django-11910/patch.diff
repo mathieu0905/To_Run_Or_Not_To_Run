@@ -1,0 +1,22 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 1c40161c7f..91ea76c3a8 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -823,6 +823,17 @@ class MigrationAutodetector:
+                         old_rel_to = old_field_dec[2]['to']
+                         if old_rel_to in self.renamed_models_rel:
+                             old_field_dec[2]['to'] = self.renamed_models_rel[old_rel_to]
++                        # Handle to_field renames.
++                        old_to_field = old_field_dec[2].get('to_field')
++                        if old_to_field:
++                            remote_model = field.remote_field.model
++                            to_field_rename_key = (
++                                remote_model._meta.app_label,
++                                remote_model._meta.model_name,
++                                field.remote_field.field_name,
++                            )
++                            if to_field_rename_key in self.renamed_fields:
++                                old_field_dec[2]['to_field'] = field.remote_field.field_name
+                     old_field.set_attributes_from_name(rem_field_name)
+                     old_db_column = old_field.get_attname_column()[1]
+                     if (old_field_dec == field_dec or (

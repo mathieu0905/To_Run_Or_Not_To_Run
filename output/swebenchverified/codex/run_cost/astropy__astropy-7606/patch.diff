@@ -1,0 +1,41 @@
+diff --git a/astropy/units/core.py b/astropy/units/core.py
+index e9bd986d3..310f49408 100644
+--- a/astropy/units/core.py
++++ b/astropy/units/core.py
+@@ -1710,7 +1710,19 @@ class UnrecognizedUnit(IrreducibleUnit):
+         _unrecognized_operator
+ 
+     def __eq__(self, other):
+-        other = Unit(other, parse_strict='silent')
++        if self is other:
++            return True
++
++        # Match UnitBase.__eq__ behavior: comparisons against invalid inputs
++        # (e.g., None) should be False rather than raising.
++        try:
++            other = Unit(other, parse_strict='silent')
++        except (ValueError, UnitsError, TypeError):
++            return False
++
++        if not isinstance(other, UnitBase):
++            return NotImplemented
++
+         return isinstance(other, UnrecognizedUnit) and self.name == other.name
+ 
+     def __ne__(self, other):
+diff --git a/astropy/units/tests/test_units.py b/astropy/units/tests/test_units.py
+index 000c12d22..3f7f7c91a 100644
+--- a/astropy/units/tests/test_units.py
++++ b/astropy/units/tests/test_units.py
+@@ -185,6 +185,11 @@ def test_unknown_unit3():
+     assert unit != unit3
+     assert not unit.is_equivalent(unit3)
+ 
++    # Regression test: equality comparisons against None should be False,
++    # not raise (gh- issue: UnrecognizedUnit __eq__ used to call Unit(None)).
++    assert (unit == None) is False
++    assert unit != None
++
+     with pytest.raises(ValueError):
+         unit._get_converter(unit3)
+ 

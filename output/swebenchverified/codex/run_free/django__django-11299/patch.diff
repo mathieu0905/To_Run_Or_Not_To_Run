@@ -1,0 +1,56 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index b99f03cd88..ba8fd98be0 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1338,7 +1338,7 @@ class Query(BaseExpression):
+             if isinstance(child, Node):
+                 child_clause, needed_inner = self._add_q(
+                     child, used_aliases, branch_negated,
+-                    current_negated, allow_joins, split_subq)
++                    current_negated, allow_joins, split_subq, simple_col=simple_col)
+                 joinpromoter.add_votes(needed_inner)
+             else:
+                 child_clause, needed_inner = self.build_filter(
+diff --git a/tests/schema/tests.py b/tests/schema/tests.py
+index 0533b32859..8d0c1da830 100644
+--- a/tests/schema/tests.py
++++ b/tests/schema/tests.py
+@@ -1618,6 +1618,38 @@ class SchemaTests(TransactionTestCase):
+             Author._meta.constraints = []
+             editor.remove_constraint(Author, constraint)
+ 
++    @skipUnlessDBFeature('supports_table_check_constraints')
++    @isolate_apps('schema')
++    def test_add_check_constraint_with_or_and(self):
++        """
++        Adding a check constraint with a combination of OR/AND conditions must
++        not qualify columns with the table name.
++
++        SQLite remakes the table when adding check constraints; qualified
++        column references would keep pointing at the temporary "new__..." table
++        after renaming, resulting in a malformed schema.
++        """
++        class TestConstraint(Model):
++            field_1 = IntegerField(blank=True, null=True)
++            flag = BooleanField()
++
++            class Meta:
++                app_label = 'schema'
++
++        self.isolated_local_models = [TestConstraint]
++        with connection.schema_editor() as editor:
++            editor.create_model(TestConstraint)
++        constraint = CheckConstraint(
++            check=Q(flag__exact=True, field_1__isnull=False) | Q(flag__exact=False),
++            name='field1_flag_check',
++        )
++        TestConstraint._meta.constraints = [constraint]
++        with connection.schema_editor() as editor:
++            editor.add_constraint(TestConstraint, constraint)
++        constraints = self.get_constraints(TestConstraint._meta.db_table)
++        self.assertIn(constraint.name, constraints)
++        self.assertTrue(constraints[constraint.name]['check'])
++
+     def test_unique(self):
+         """
+         Tests removing and adding unique constraints to a single column.

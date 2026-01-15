@@ -1,0 +1,40 @@
+diff --git a/django/core/management/templates.py b/django/core/management/templates.py
+index 8dc6068286..d66bb5d797 100644
+--- a/django/core/management/templates.py
++++ b/django/core/management/templates.py
+@@ -74,7 +74,10 @@ class TemplateCommand(BaseCommand):
+                 raise CommandError(e)
+         else:
+             if app_or_project == 'app':
+-                self.validate_name(os.path.basename(target), 'directory')
++                # os.path.basename() returns an empty string for paths ending
++                # with a path separator (e.g. "myapp/"). Normalize first so
++                # bash tab-completion trailing slashes don't break validation.
++                self.validate_name(os.path.basename(os.path.normpath(target)), 'directory')
+             top_dir = os.path.abspath(os.path.expanduser(target))
+             if not os.path.exists(top_dir):
+                 raise CommandError("Destination directory '%s' does not "
+diff --git a/tests/admin_scripts/tests.py b/tests/admin_scripts/tests.py
+index fd94d4919f..dcd938b3ce 100644
+--- a/tests/admin_scripts/tests.py
++++ b/tests/admin_scripts/tests.py
+@@ -2167,7 +2167,18 @@ class StartApp(AdminScriptTestCase):
+                     "CommandError: '{}' is not a valid app name. Please make "
+                     "sure the name is a valid identifier.".format(bad_name)
+                 )
+-                self.assertFalse(os.path.exists(testproject_dir))
++        self.assertFalse(os.path.exists(testproject_dir))
++
++    def test_target_with_trailing_slash(self):
++        os.makedirs(os.path.join(self.test_dir, 'apps', 'trailing_slash_app'))
++        out, err = self.run_django_admin(
++            ['startapp', 'trailing_slash_app', 'apps/trailing_slash_app/']
++        )
++        self.assertNoOutput(out)
++        self.assertNoOutput(err)
++        self.assertTrue(
++            os.path.exists(os.path.join(self.test_dir, 'apps', 'trailing_slash_app', 'apps.py'))
++        )
+ 
+     def test_importable_name(self):
+         """

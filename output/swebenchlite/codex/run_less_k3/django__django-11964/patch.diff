@@ -1,0 +1,108 @@
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+index 189fb4fa44..ac01324a65 100644
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -6,6 +6,7 @@ large and/or so that they can be used by other modules without getting into
+ circular import difficulties.
+ """
+ import copy
++import enum
+ import functools
+ import inspect
+ from collections import namedtuple
+@@ -119,6 +120,18 @@ class DeferredAttribute:
+     def __init__(self, field):
+         self.field = field
+ 
++    def __set__(self, instance, value):
++        """
++        Set the value in the instance dict.
++
++        Coerce enum.Enum members to their underlying value to avoid storing
++        the Enum instance on the model. This keeps the in-memory value's type
++        consistent with values loaded from the database.
++        """
++        if isinstance(value, enum.Enum):
++            value = value.value
++        instance.__dict__[self.field.attname] = value
++
+     def __get__(self, instance, cls=None):
+         """
+         Retrieve and caches the value from the datastore on the first lookup.
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index 98b32d0c1e..0e4eb3ac7d 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -130,6 +130,19 @@ class Post(models.Model):
+     body = models.TextField()
+ 
+ 
++class EnumChoicesModel(models.Model):
++    class Text(models.TextChoices):
++        FIRST = 'first', 'First'
++        SECOND = 'second', 'Second'
++
++    class Integer(models.IntegerChoices):
++        ONE = 1, 'One'
++        TWO = 2, 'Two'
++
++    text = models.CharField(max_length=10, choices=Text.choices)
++    integer = models.IntegerField(choices=Integer.choices)
++
++
+ class NullBooleanModel(models.Model):
+     nbfield = models.BooleanField(null=True, blank=True)
+     nbfield_old = models.NullBooleanField()
+diff --git a/tests/model_fields/test_charfield.py b/tests/model_fields/test_charfield.py
+index cf3ce0c4c5..c24a45ff8a 100644
+--- a/tests/model_fields/test_charfield.py
++++ b/tests/model_fields/test_charfield.py
+@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
+ from django.db import connection, models
+ from django.test import SimpleTestCase, TestCase
+ 
+-from .models import Post
++from .models import EnumChoicesModel, Post
+ 
+ 
+ class TestCharField(TestCase):
+@@ -43,6 +43,12 @@ class TestCharField(TestCase):
+         self.assertEqual(p1, p2)
+         self.assertEqual(p2.title, Event.C)
+ 
++    def test_textchoices_coerced_to_value_on_assignment(self):
++        obj = EnumChoicesModel.objects.create(text=EnumChoicesModel.Text.FIRST, integer=EnumChoicesModel.Integer.ONE)
++        self.assertIs(type(obj.text), str)
++        self.assertEqual(obj.text, 'first')
++        self.assertEqual(str(obj.text), 'first')
++
+ 
+ class ValidationTests(SimpleTestCase):
+ 
+diff --git a/tests/model_fields/test_integerfield.py b/tests/model_fields/test_integerfield.py
+index 606d71057a..fe08d64651 100644
+--- a/tests/model_fields/test_integerfield.py
++++ b/tests/model_fields/test_integerfield.py
+@@ -8,6 +8,7 @@ from django.test import SimpleTestCase, TestCase
+ from .models import (
+     BigIntegerModel, IntegerModel, PositiveIntegerModel,
+     PositiveSmallIntegerModel, SmallIntegerModel,
++    EnumChoicesModel,
+ )
+ 
+ 
+@@ -182,6 +183,14 @@ class PositiveIntegerFieldTests(IntegerFieldTests):
+             p.save()
+ 
+ 
++class EnumChoicesIntegerFieldTests(TestCase):
++    def test_integerchoices_coerced_to_value_on_assignment(self):
++        obj = EnumChoicesModel.objects.create(text=EnumChoicesModel.Text.FIRST, integer=EnumChoicesModel.Integer.ONE)
++        self.assertIs(type(obj.integer), int)
++        self.assertEqual(obj.integer, 1)
++        self.assertEqual(str(obj.integer), '1')
++
++
+ class ValidationTests(SimpleTestCase):
+ 
+     class Choices(models.IntegerChoices):

@@ -1,0 +1,29 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index d157c291ef..09d4782e76 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -83,7 +83,8 @@ def model_to_dict(instance, fields=None, exclude=None):
+     for f in chain(opts.concrete_fields, opts.private_fields, opts.many_to_many):
+         if not getattr(f, 'editable', False):
+             continue
+-        if fields and f.name not in fields:
++        # Treat an empty list of fields as "no fields requested".
++        if fields is not None and f.name not in fields:
+             continue
+         if exclude and f.name in exclude:
+             continue
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index f4f3169bc1..a502679cfe 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -1820,6 +1820,10 @@ class ModelOneToOneFieldTests(TestCase):
+         bw2 = form.save()
+         self.assertEqual(bw2.score, 12)
+ 
++    def test_model_to_dict_empty_fields(self):
++        bw = BetterWriter.objects.create(name='Joe Better', score=10)
++        self.assertEqual(model_to_dict(bw, fields=[]), {})
++
+     def test_onetoonefield(self):
+         class WriterProfileForm(forms.ModelForm):
+             class Meta:

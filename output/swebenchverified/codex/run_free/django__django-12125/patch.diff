@@ -1,0 +1,125 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 7d226955d5..c82a1a5e12 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -4,8 +4,10 @@ import datetime
+ import decimal
+ import enum
+ import functools
++import importlib.util
+ import math
+ import re
++import sys
+ import types
+ import uuid
+ 
+@@ -90,13 +92,40 @@ class DeconstructableSerializer(BaseSerializer):
+ 
+     @staticmethod
+     def _serialize_path(path):
+-        module, name = path.rsplit(".", 1)
++        # deconstruct() paths may include nested classes (e.g. "pkg.mod.Outer.Inner").
++        # In that case, only the real module should be imported.
++        bits = path.split(".")
++        module = None
++        attrs = None
++        # The right-most segment is an attribute (class/function name), not a
++        # module, so start one step left.
++        for i in range(len(bits) - 1, 0, -1):
++            candidate = ".".join(bits[:i])
++            # Prefer a cheap lookup for already-imported modules. If the module
++            # isn't loaded yet, fall back to spec discovery (no execution) so
++            # that re-exported symbols keep working.
++            if candidate in sys.modules:
++                module = candidate
++                attrs = bits[i:]
++                break
++            try:
++                if importlib.util.find_spec(candidate) is not None:
++                    module = candidate
++                    attrs = bits[i:]
++                    break
++            except (ImportError, ValueError):
++                # Invalid module path segment, keep searching shorter prefixes.
++                continue
++        if module is None:
++            module, name = path.rsplit(".", 1)
++            attrs = [name]
++
+         if module == "django.db.models":
+             imports = {"from django.db import models"}
+-            name = "models.%s" % name
++            name = "models.%s" % ".".join(attrs)
+         else:
+             imports = {"import %s" % module}
+-            name = path
++            name = "%s.%s" % (module, ".".join(attrs))
+         return name, imports
+ 
+     def serialize(self):
+@@ -143,7 +172,12 @@ class FunctionTypeSerializer(BaseSerializer):
+         if getattr(self.value, "__self__", None) and isinstance(self.value.__self__, type):
+             klass = self.value.__self__
+             module = klass.__module__
+-            return "%s.%s.%s" % (module, klass.__name__, self.value.__name__), {"import %s" % module}
++            if '<' in klass.__qualname__:  # Qualname can include <locals>
++                raise ValueError("Cannot serialize function %r: Not at top level" % self.value)
++            return (
++                "%s.%s.%s" % (module, klass.__qualname__, self.value.__name__),
++                {"import %s" % module},
++            )
+         # Further error checking
+         if self.value.__name__ == '<lambda>':
+             raise ValueError("Cannot serialize function: lambda")
+@@ -269,7 +303,10 @@ class TypeSerializer(BaseSerializer):
+             if module == builtins.__name__:
+                 return self.value.__name__, set()
+             else:
+-                return "%s.%s" % (module, self.value.__name__), {"import %s" % module}
++                qualname = getattr(self.value, "__qualname__", self.value.__name__)
++                if '<' in qualname:  # Qualname can include <locals>
++                    raise ValueError("Cannot serialize type %r: Not at top level" % self.value)
++                return "%s.%s" % (module, qualname), {"import %s" % module}
+ 
+ 
+ class UUIDSerializer(BaseSerializer):
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index ca924f35ec..01a5d99d46 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -41,6 +41,11 @@ class TestModel1:
+     thing = models.FileField(upload_to=upload_to)
+ 
+ 
++class Outer:
++    class Inner(models.CharField):
++        pass
++
++
+ class TextEnum(enum.Enum):
+     A = 'a-value'
+     B = 'value-b'
+@@ -301,6 +306,23 @@ class WriterTests(SimpleTestCase):
+         )
+         self.assertSerializedEqual(self.NestedEnum.A)
+ 
++        self.assertSerializedResultEqual(
++            self.NestedEnum,
++            (
++                "migrations.test_writer.WriterTests.NestedEnum",
++                {'import migrations.test_writer'},
++            ),
++        )
++        self.assertSerializedEqual(self.NestedEnum)
++
++        self.assertSerializedResultEqual(
++            Outer.Inner(max_length=20),
++            (
++                "migrations.test_writer.Outer.Inner(max_length=20)",
++                {'import migrations.test_writer'},
++            ),
++        )
++
+         field = models.CharField(default=TextEnum.B, choices=[(m.value, m) for m in TextEnum])
+         string = MigrationWriter.serialize(field)[0]
+         self.assertEqual(

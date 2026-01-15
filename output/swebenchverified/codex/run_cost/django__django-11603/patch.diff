@@ -1,0 +1,54 @@
+diff --git a/django/db/models/aggregates.py b/django/db/models/aggregates.py
+index da4ff928aa..8b10829eb8 100644
+--- a/django/db/models/aggregates.py
++++ b/django/db/models/aggregates.py
+@@ -99,6 +99,7 @@ class Aggregate(Func):
+ class Avg(FixDurationInputMixin, NumericOutputFieldMixin, Aggregate):
+     function = 'AVG'
+     name = 'Avg'
++    allow_distinct = True
+ 
+ 
+ class Count(Aggregate):
+@@ -142,6 +143,7 @@ class StdDev(NumericOutputFieldMixin, Aggregate):
+ class Sum(FixDurationInputMixin, Aggregate):
+     function = 'SUM'
+     name = 'Sum'
++    allow_distinct = True
+ 
+ 
+ class Variance(NumericOutputFieldMixin, Aggregate):
+diff --git a/tests/aggregation/tests.py b/tests/aggregation/tests.py
+index bd6ecf699c..6e68c078db 100644
+--- a/tests/aggregation/tests.py
++++ b/tests/aggregation/tests.py
+@@ -120,6 +120,14 @@ class AggregateTestCase(TestCase):
+         vals = Author.objects.aggregate(Sum("age"), Avg("age"))
+         self.assertEqual(vals, {"age__sum": 337, "age__avg": Approximate(37.4, places=1)})
+ 
++    def test_distinct_aggregates(self):
++        vals = Book.objects.aggregate(
++            avg_rating=Avg('rating', distinct=True),
++            sum_awards=Sum('publisher__num_awards', distinct=True),
++        )
++        self.assertEqual(vals['avg_rating'], Approximate(4.125, places=3))
++        self.assertEqual(vals['sum_awards'], 20)
++
+     def test_filter_aggregate(self):
+         vals = Author.objects.filter(age__gt=29).aggregate(Sum("age"))
+         self.assertEqual(vals, {'age__sum': 254})
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index f5d1553dfb..702699ed76 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -1584,8 +1584,10 @@ class ReprTests(SimpleTestCase):
+         self.assertEqual(repr(Variance('a', sample=True)), "Variance(F(a), sample=True)")
+ 
+     def test_distinct_aggregates(self):
++        self.assertEqual(repr(Avg('a', distinct=True)), "Avg(F(a), distinct=True)")
+         self.assertEqual(repr(Count('a', distinct=True)), "Count(F(a), distinct=True)")
+         self.assertEqual(repr(Count('*', distinct=True)), "Count('*', distinct=True)")
++        self.assertEqual(repr(Sum('a', distinct=True)), "Sum(F(a), distinct=True)")
+ 
+     def test_filtered_aggregates(self):
+         filter = Q(a=1)

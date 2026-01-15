@@ -1,0 +1,57 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index ee45bb941e..5f45dccdeb 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -763,8 +763,16 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            setattr(cls, 'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self))
++            # Respect user-defined get_FOO_display() on the model class.
++            # Don't use hasattr() so we still override an inherited generated
++            # method when a subclass redefines the field.
++            display_method_name = 'get_%s_display' % self.name
++            if display_method_name not in cls.__dict__:
++                setattr(
++                    cls,
++                    display_method_name,
++                    partialmethod(cls._get_FIELD_display, field=self),
++                )
+ 
+     def get_filter_kwargs_for_object(self, obj):
+         """
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index 0d6e930b06..f12a7d9bb1 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -4,6 +4,7 @@ from django import forms
+ from django.core.exceptions import ValidationError
+ from django.db import models
+ from django.test import SimpleTestCase, TestCase
++from django.test.utils import isolate_apps
+ from django.utils.functional import lazy
+ 
+ from .models import (
+@@ -186,6 +187,21 @@ class GetFieldDisplayTests(SimpleTestCase):
+         self.assertIsNone(WhizIterEmpty(c=None).c)         # Blank value
+         self.assertEqual(WhizIterEmpty(c='').c, '')        # Empty value
+ 
++    @isolate_apps('model_fields')
++    def test_override_get_FIELD_display(self):
++        class FooBar(models.Model):
++            foo_bar = models.IntegerField(choices=[(1, 'foo'), (2, 'bar')])
++
++            def __str__(self):
++                return self.get_foo_bar_display()
++
++            def get_foo_bar_display(self):
++                return "something"
++
++        instance = FooBar(foo_bar=1)
++        self.assertEqual(instance.get_foo_bar_display(), "something")
++        self.assertEqual(str(instance), "something")
++
+ 
+ class GetChoicesTests(SimpleTestCase):
+ 

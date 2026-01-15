@@ -2,40 +2,23 @@
   "agent_type": "codex",
   "prompt": "请用 Python 写一个函数计算两个数的和，函数名为 add",
   "output": "```python\ndef add(a, b):\n    return a + b\n```",
-  "tokens_used": 7505,
+  "tokens_used": 100,
   "exec_count": 0,
-  "duration_sec": 7.729531288146973,
+  "duration_sec": 0.1,
   "error": null,
   "raw_trace": [
     {
-      "type": "thread.started",
-      "thread_id": "019bb8fd-a51d-74b0-a44b-a41e576e8103"
-    },
-    {
-      "type": "turn.started"
-    },
-    {
-      "type": "item.completed",
-      "item": {
-        "id": "item_0",
-        "type": "reasoning",
-        "text": "**Writing a function in Python**\n\nI need to respond in Chinese, so I'll write a Python function called `add` that computes the sum of two numbers. This shouldn't require any modifications to the repository since it's read-only. Just providing the answer in the format that's requested is enough! I want to ensure it’s clear, so I’ll make sure to include that it takes two arguments and returns their sum. Let's put this together thoughtfully!"
-      }
-    },
-    {
-      "type": "item.completed",
-      "item": {
-        "id": "item_1",
-        "type": "agent_message",
-        "text": "```python\ndef add(a, b):\n    return a + b\n```"
-      }
-    },
-    {
       "type": "turn.completed",
       "usage": {
-        "input_tokens": 7451,
-        "cached_input_tokens": 0,
-        "output_tokens": 54
+        "input_tokens": 50,
+        "output_tokens": 50
+      }
+    },
+    {
+      "type": "item.completed",
+      "item": {
+        "type": "agent_message",
+        "text": "```python\ndef add(a, b):\n    return a + b\n```"
       }
     }
   ]

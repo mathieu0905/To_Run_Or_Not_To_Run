@@ -1,0 +1,83 @@
+diff --git a/django/views/debug.py b/django/views/debug.py
+index cb3e8c7ec1..1ab6556bf2 100644
+--- a/django/views/debug.py
++++ b/django/views/debug.py
+@@ -5,7 +5,7 @@ import types
+ from pathlib import Path
+ 
+ from django.conf import settings
+-from django.http import HttpResponse, HttpResponseNotFound
++from django.http import Http404, HttpResponse, HttpResponseNotFound
+ from django.template import Context, Engine, TemplateDoesNotExist
+ from django.template.defaultfilters import pprint
+ from django.urls import Resolver404, resolve
+@@ -483,7 +483,9 @@ def technical_404_response(request, exception):
+     caller = ''
+     try:
+         resolver_match = resolve(request.path)
+-    except Resolver404:
++    except (Resolver404, Http404):
++        # URL resolution may raise Http404, e.g. from a path converter's
++        # to_python() method. The technical 404 page should still render.
+         pass
+     else:
+         obj = resolver_match.func
+diff --git a/tests/view_tests/tests/test_debug.py b/tests/view_tests/tests/test_debug.py
+index 46589c82ba..f2c11c0325 100644
+--- a/tests/view_tests/tests/test_debug.py
++++ b/tests/view_tests/tests/test_debug.py
+@@ -108,6 +108,12 @@ class DebugViewTests(SimpleTestCase):
+         self.assertEqual(response.status_code, 404)
+         self.assertContains(response, "<code>not-in-urls</code>, didn't match", status_code=404)
+ 
++    def test_404_from_converter_to_python(self):
++        response = self.client.get('/converter-http404/1/')
++        self.assertEqual(response.status_code, 404)
++        self.assertContains(response, 'No such object.', status_code=404)
++        self.assertNotContains(response, 'Django tried these URL patterns', status_code=404)
++
+     def test_404_not_in_urls(self):
+         response = self.client.get('/not-in-urls')
+         self.assertNotContains(response, "Raised by:", status_code=404)
+diff --git a/tests/view_tests/urls.py b/tests/view_tests/urls.py
+index 34415b06e0..6a1a0d4e38 100644
+--- a/tests/view_tests/urls.py
++++ b/tests/view_tests/urls.py
+@@ -2,7 +2,8 @@ import os
+ from functools import partial
+ 
+ from django.conf.urls.i18n import i18n_patterns
+-from django.urls import include, path, re_path
++from django.http import Http404
++from django.urls import include, path, re_path, register_converter
+ from django.utils.translation import gettext_lazy as _
+ from django.views import defaults, i18n, static
+ 
+@@ -51,6 +52,21 @@ urlpatterns = [
+     re_path(r'^site_media/(?P<path>.*)$', static.serve, {'document_root': media_dir, 'show_indexes': True}),
+ ]
+ 
++
++class Http404Converter:
++    regex = '[0-9]+'
++
++    def to_python(self, value):
++        # Used by tests for the technical 404 debug page when URL resolution
++        # itself raises Http404.
++        raise Http404('No such object.')
++
++    def to_url(self, value):
++        return str(value)
++
++
++register_converter(Http404Converter, 'http404')
++
+ urlpatterns += i18n_patterns(
+     re_path(_(r'^translated/$'), views.index_page, name='i18n_prefixed'),
+ )
+@@ -67,4 +83,5 @@ urlpatterns += [
+     # Patterns to test the technical 404.
+     re_path(r'^regex-post/(?P<pk>[0-9]+)/$', views.index_page, name='regex-post'),
+     path('path-post/<int:pk>/', views.index_page, name='path-post'),
++    path('converter-http404/<http404:pk>/', views.index_page, name='converter-http404'),
+ ]

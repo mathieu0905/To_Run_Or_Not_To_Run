@@ -1,0 +1,46 @@
+diff --git a/django/urls/base.py b/django/urls/base.py
+index 0e1c3d909c..6da850829f 100644
+--- a/django/urls/base.py
++++ b/django/urls/base.py
+@@ -172,7 +172,14 @@ def translate_url(url, lang_code):
+         to_be_reversed = "%s:%s" % (match.namespace, match.url_name) if match.namespace else match.url_name
+         with override(lang_code):
+             try:
+-                url = reverse(to_be_reversed, args=match.args, kwargs=match.kwargs)
++                # RegexPattern.match() uses match.groupdict(), which includes
++                # keys for unmatched optional named groups with a value of
++                # None. Passing those through to reverse() forces Django to
++                # pick a reverse possibility that includes the parameter and
++                # renders "None" into the URL instead of omitting the optional
++                # group.
++                kwargs = {k: v for k, v in match.kwargs.items() if v is not None}
++                url = reverse(to_be_reversed, args=match.args, kwargs=kwargs)
+             except NoReverseMatch:
+                 pass
+             else:
+diff --git a/tests/i18n/patterns/tests.py b/tests/i18n/patterns/tests.py
+index 6ed2c4ffeb..eb7fe958b6 100644
+--- a/tests/i18n/patterns/tests.py
++++ b/tests/i18n/patterns/tests.py
+@@ -157,6 +157,10 @@ class URLTranslationTests(URLTestCaseBase):
+             self.assertEqual(translate_url('/en/account/register/', 'nl'), '/nl/profiel/registreren/')
+             # path() URL pattern
+             self.assertEqual(translate_url('/en/account/register-as-path/', 'nl'), '/nl/profiel/registreren-als-pad/')
++            # Optional named group omitted in the URL should stay omitted after
++            # translation (avoid rendering "None" into the URL).
++            self.assertEqual(translate_url('/en/optional/', 'nl'), '/nl/optional/')
++            self.assertEqual(translate_url('/en/optional/yeah/', 'nl'), '/nl/optional/yeah/')
+             self.assertEqual(translation.get_language(), 'en')
+ 
+         with translation.override('nl'):
+diff --git a/tests/i18n/patterns/urls/default.py b/tests/i18n/patterns/urls/default.py
+index b0c2f2585e..d46c70a527 100644
+--- a/tests/i18n/patterns/urls/default.py
++++ b/tests/i18n/patterns/urls/default.py
+@@ -16,5 +16,6 @@ urlpatterns += i18n_patterns(
+     path('prefixed/', view, name='prefixed'),
+     path('prefixed.xml', view, name='prefixed_xml'),
+     re_path(_(r'^users/$'), view, name='users'),
++    re_path(r'^optional(?:/(?P<arg>[\w-]+))?/$', view, name='optional'),
+     re_path(_(r'^account/'), include('i18n.patterns.urls.namespace', namespace='account')),
+ )

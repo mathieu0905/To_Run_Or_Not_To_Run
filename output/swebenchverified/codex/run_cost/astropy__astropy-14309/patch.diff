@@ -1,0 +1,18 @@
+diff --git a/astropy/io/fits/connect.py b/astropy/io/fits/connect.py
+index 4b6150f4a..0c3657728 100644
+--- a/astropy/io/fits/connect.py
++++ b/astropy/io/fits/connect.py
+@@ -69,6 +69,13 @@ def is_fits(origin, filepath, fileobj, *args, **kwargs):
+             (".fits", ".fits.gz", ".fit", ".fit.gz", ".fts", ".fts.gz")
+         ):
+             return True
++    # If we get here, `fileobj` was not provided and `filepath` did not look like
++    # a FITS filename. Some callers (e.g. `identify_format`) can legitimately
++    # invoke identifiers with no additional positional arguments, so guard
++    # against empty `args`.
++    if not args:
++        return False
++
+     return isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))
+ 
+ 

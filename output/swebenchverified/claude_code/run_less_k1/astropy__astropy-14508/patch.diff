@@ -1,23 +1,28 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 118bfced8..e23913cec 100644
+index 118bfced8..0010e4587 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
-@@ -1299,7 +1299,17 @@ def _format_value(value):
+@@ -1299,6 +1299,23 @@ def _format_value(value):
  
  def _format_float(value):
      """Format a floating number to make sure it gets the decimal point."""
--    value_str = f"{value:.16G}"
-+    # Try Python's default str() first - it's often shorter and more readable
++    # Try using Python's str() first for a more compact representation
 +    value_str = str(value)
 +
-+    # Check if str() representation is usable (has decimal point or E, and fits in 20 chars)
-+    if len(value_str) > 20 or ("." not in value_str and "E" not in value_str and "e" not in value_str):
-+        # Fall back to the original .16G format
-+        value_str = f"{value:.16G}"
-+    else:
-+        # Normalize lowercase 'e' to uppercase 'E' for FITS standard
-+        value_str = value_str.replace("e", "E")
++    # Check if str() gives us a valid representation that fits in 20 chars
++    if len(value_str) <= 20 and ("." in value_str or "e" in value_str.lower()):
++        # Normalize scientific notation if present
++        if "e" in value_str.lower():
++            significand, exponent = value_str.upper().split("E")
++            if exponent[0] in ("+", "-"):
++                sign = exponent[0]
++                exponent = exponent[1:]
++            else:
++                sign = ""
++            value_str = f"{significand}E{sign}{int(exponent):02d}"
++        return value_str
 +
++    # Fall back to the original formatting if str() doesn't work
+     value_str = f"{value:.16G}"
      if "." not in value_str and "E" not in value_str:
          value_str += ".0"
-     elif "E" in value_str:

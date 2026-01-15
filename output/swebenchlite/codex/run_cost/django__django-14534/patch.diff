@@ -1,0 +1,49 @@
+diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py
+index 2ff8b0ee26..ae1d3d5b2f 100644
+--- a/django/forms/boundfield.py
++++ b/django/forms/boundfield.py
+@@ -277,6 +277,11 @@ class BoundWidget:
+ 
+     @property
+     def id_for_label(self):
++        # ChoiceWidget.create_option() may have already set an explicit ID
++        # (e.g. when a form's auto_id uses a custom format). Prefer that.
++        id_ = self.data.get('attrs', {}).get('id')
++        if id_:
++            return id_
+         return 'id_%s_%s' % (self.data['name'], self.data['index'])
+ 
+     @property
+diff --git a/tests/forms_tests/tests/test_forms.py b/tests/forms_tests/tests/test_forms.py
+index f3ee64ceda..09851946e0 100644
+--- a/tests/forms_tests/tests/test_forms.py
++++ b/tests/forms_tests/tests/test_forms.py
+@@ -714,6 +714,28 @@ Java</label></li>
+             'value="paul" id="id_name_1" required> Paul</label>'
+         )
+ 
++    def test_form_with_iterable_boundfield_custom_auto_id(self):
++        class BeatleForm(Form):
++            name = ChoiceField(
++                choices=[('john', 'John'), ('paul', 'Paul')],
++                widget=RadioSelect,
++            )
++
++        fields = list(BeatleForm(auto_id='%s_id')['name'])
++        self.assertEqual(fields[0].id_for_label, 'name_id_0')
++        self.assertEqual(fields[1].id_for_label, 'name_id_1')
++
++    def test_form_with_iterable_boundfield_custom_auto_id_checkboxselectmultiple(self):
++        class SongForm(Form):
++            composers = MultipleChoiceField(
++                choices=[('J', 'John Lennon'), ('P', 'Paul McCartney')],
++                widget=CheckboxSelectMultiple,
++            )
++
++        fields = list(SongForm(auto_id='%s_id')['composers'])
++        self.assertEqual(fields[0].id_for_label, 'composers_id_0')
++        self.assertEqual(fields[1].id_for_label, 'composers_id_1')
++
+     def test_iterable_boundfield_select(self):
+         class BeatleForm(Form):
+             name = ChoiceField(choices=[('john', 'John'), ('paul', 'Paul'), ('george', 'George'), ('ringo', 'Ringo')])

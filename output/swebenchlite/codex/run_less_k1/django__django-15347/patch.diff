@@ -1,0 +1,33 @@
+diff --git a/django/contrib/messages/storage/cookie.py b/django/contrib/messages/storage/cookie.py
+index 1d390c71dd..34ae2ce025 100644
+--- a/django/contrib/messages/storage/cookie.py
++++ b/django/contrib/messages/storage/cookie.py
+@@ -19,7 +19,9 @@ class MessageEncoder(json.JSONEncoder):
+             # Using 0/1 here instead of False/True to produce more compact json
+             is_safedata = 1 if isinstance(obj.message, SafeData) else 0
+             message = [self.message_key, is_safedata, obj.level, obj.message]
+-            if obj.extra_tags:
++            # Preserve empty strings. extra_tags is optional, but it may be a
++            # legitimate empty string (e.g. the default in the public API).
++            if obj.extra_tags is not None:
+                 message.append(obj.extra_tags)
+             return message
+         return super().default(obj)
+diff --git a/tests/messages_tests/test_cookie.py b/tests/messages_tests/test_cookie.py
+index 53cf693f61..6fd6a6791b 100644
+--- a/tests/messages_tests/test_cookie.py
++++ b/tests/messages_tests/test_cookie.py
+@@ -163,6 +163,13 @@ class CookieTests(BaseTests, SimpleTestCase):
+         decoded_messages = json.loads(value, cls=MessageDecoder)
+         self.assertEqual(messages, decoded_messages)
+ 
++    def test_extra_tags_empty_string_preserved(self):
++        original_message = Message(constants.INFO, "Here is a message", extra_tags="")
++        encoded_message = MessageEncoder().encode(original_message)
++        decoded_message = MessageDecoder().decode(encoded_message)
++        self.assertEqual(original_message.extra_tags, "")
++        self.assertEqual(decoded_message.extra_tags, "")
++
+     def test_safedata(self):
+         """
+         A message containing SafeData is keeping its safe status when

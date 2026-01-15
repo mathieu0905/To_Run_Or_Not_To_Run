@@ -1,0 +1,114 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 9fe0c9a656..a44b7794ad 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -40,7 +40,7 @@ from django.db.models.sql.where import (
+     AND, OR, ExtraWhere, NothingNode, WhereNode,
+ )
+ from django.utils.deprecation import RemovedInDjango40Warning
+-from django.utils.functional import cached_property
++from django.utils.functional import LazyObject, cached_property, empty
+ from django.utils.tree import Node
+ 
+ __all__ = ['Query', 'RawQuery']
+@@ -1060,6 +1060,12 @@ class Query(BaseExpression):
+         return sql, params
+ 
+     def resolve_lookup_value(self, value, can_reuse, allow_joins):
++        # Unwrap lazy objects (e.g. SimpleLazyObject) so that lookups can
++        # normalize model instances and field types correctly.
++        if isinstance(value, LazyObject):
++            if value._wrapped is empty:
++                value._setup()
++            value = value._wrapped
+         if hasattr(value, 'resolve_expression'):
+             value = value.resolve_expression(
+                 self, reuse=can_reuse, allow_joins=allow_joins,
+@@ -1552,9 +1558,6 @@ class Query(BaseExpression):
+         # directly, compute transforms here and create a partial that converts
+         # fields to the appropriate wrapped version.
+ 
+-        def final_transformer(field, alias):
+-            return field.get_col(alias)
+-
+         # Try resolving all the names as fields first. If there's an error,
+         # treat trailing names as lookups until a field can be resolved.
+         last_field_exception = None
+@@ -1575,6 +1578,11 @@ class Query(BaseExpression):
+                 # resolved into fields.
+                 transforms = names[pivot:]
+                 break
++        # Use final_field as output_field so lookups (e.g. related lookups) can
++        # apply the correct RHS normalization even when the selected database
++        # column is a target field (e.g. a FK's underlying pk column).
++        def final_transformer(field, alias):
++            return self._get_col(field, final_field, alias)
+         for name in transforms:
+             def transform(field, alias, *, name, previous):
+                 try:
+diff --git a/tests/annotations/models.py b/tests/annotations/models.py
+index cd3d6ddb87..6ac378d7e7 100644
+--- a/tests/annotations/models.py
++++ b/tests/annotations/models.py
+@@ -1,3 +1,4 @@
++from django.conf import settings
+ from django.db import models
+ 
+ 
+@@ -84,3 +85,15 @@ class Ticket(models.Model):
+ 
+     def __str__(self):
+         return '{} - {}'.format(self.active_at, self.duration)
++
++
++class LazySubqueryA(models.Model):
++    pass
++
++
++class LazySubqueryB(models.Model):
++    a = models.ForeignKey(LazySubqueryA, on_delete=models.CASCADE)
++
++
++class LazySubqueryC(models.Model):
++    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+diff --git a/tests/annotations/tests.py b/tests/annotations/tests.py
+index db4413564c..50ec3f1cb4 100644
+--- a/tests/annotations/tests.py
++++ b/tests/annotations/tests.py
+@@ -1,6 +1,7 @@
+ import datetime
+ from decimal import Decimal
+ 
++from django.contrib.auth.models import User
+ from django.core.exceptions import FieldDoesNotExist, FieldError
+ from django.db.models import (
+     BooleanField, CharField, Count, DateTimeField, ExpressionWrapper, F, Func,
+@@ -9,9 +10,11 @@ from django.db.models import (
+ from django.db.models.expressions import RawSQL
+ from django.db.models.functions import Length, Lower
+ from django.test import TestCase, skipUnlessDBFeature
++from django.utils.functional import SimpleLazyObject
+ 
+ from .models import (
+     Author, Book, Company, DepartmentStore, Employee, Publisher, Store, Ticket,
++    LazySubqueryA, LazySubqueryB, LazySubqueryC,
+ )
+ 
+ 
+@@ -619,3 +622,16 @@ class NonAggregateAnnotationTestCase(TestCase):
+             total_books=Subquery(long_books_qs, output_field=IntegerField()),
+         ).values('name')
+         self.assertCountEqual(publisher_books_qs, [{'name': 'Sams'}, {'name': 'Morgan Kaufmann'}])
++
++    def test_annotation_filter_with_nested_subquery_and_simplelazyobject(self):
++        owner_user = (
++            LazySubqueryB.objects.filter(a=OuterRef('pk'))
++            .annotate(owner_user=Subquery(LazySubqueryC.objects.values('owner')[:1]))
++            .values('owner_user')
++        )
++        user = SimpleLazyObject(lambda: User.objects.create_user('nested_subquery_user'))
++        list(
++            LazySubqueryA.objects.annotate(owner_user=Subquery(owner_user)).filter(
++                owner_user=user,
++            )
++        )

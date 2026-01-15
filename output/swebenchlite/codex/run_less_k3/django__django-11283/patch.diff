@@ -1,0 +1,115 @@
+diff --git a/django/contrib/auth/migrations/0011_update_proxy_permissions.py b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+index 0e66649695..529d871103 100644
+--- a/django/contrib/auth/migrations/0011_update_proxy_permissions.py
++++ b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+@@ -24,10 +24,28 @@ def update_proxy_model_permissions(apps, schema_editor, reverse=False):
+         proxy_content_type = ContentType.objects.get_for_model(Model, for_concrete_model=False)
+         old_content_type = proxy_content_type if reverse else concrete_content_type
+         new_content_type = concrete_content_type if reverse else proxy_content_type
+-        Permission.objects.filter(
++        permissions = Permission.objects.filter(
+             permissions_query,
+             content_type=old_content_type,
+-        ).update(content_type=new_content_type)
++        )
++        # Update may fail when the target content type already has a permission
++        # with the same codename (e.g., when a model was removed and later
++        # reintroduced as a proxy). To keep existing relations to the old
++        # permissions, merge duplicates into them before changing content_type.
++        for permission in permissions:
++            duplicates = Permission.objects.filter(
++                content_type=new_content_type,
++                codename=permission.codename,
++            ).exclude(pk=permission.pk)
++            for duplicate in duplicates:
++                # Group.permissions always exists; user_set may not if a custom
++                # user model doesn't define user_permissions.
++                for rel in ('group_set', 'user_set'):
++                    if hasattr(permission, rel) and hasattr(duplicate, rel):
++                        getattr(permission, rel).add(*getattr(duplicate, rel).all())
++                duplicate.delete()
++            permission.content_type = new_content_type
++            permission.save(update_fields=['content_type'])
+ 
+ 
+ def revert_proxy_model_permissions(apps, schema_editor):
+diff --git a/tests/auth_tests/test_migrations.py b/tests/auth_tests/test_migrations.py
+index 5ff2f6b4b3..6548dcf316 100644
+--- a/tests/auth_tests/test_migrations.py
++++ b/tests/auth_tests/test_migrations.py
+@@ -1,7 +1,7 @@
+ from importlib import import_module
+ 
+ from django.apps import apps
+-from django.contrib.auth.models import Permission, User
++from django.contrib.auth.models import Group, Permission, User
+ from django.contrib.contenttypes.models import ContentType
+ from django.test import TestCase
+ 
+@@ -152,3 +152,66 @@ class ProxyModelWithSameAppLabelTests(TestCase):
+         user = User._default_manager.get(pk=user.pk)
+         for permission in [self.default_permission, self.custom_permission]:
+             self.assertTrue(user.has_perm('auth_tests.' + permission.codename))
++
++
++class ProxyModelPermissionsWithConflictsTests(TestCase):
++    available_apps = [
++        'auth_tests',
++        'django.contrib.auth',
++        'django.contrib.contenttypes',
++    ]
++
++    def setUp(self):
++        Permission.objects.all().delete()
++        self.concrete_content_type = ContentType.objects.get_for_model(Proxy)
++        self.proxy_content_type = ContentType.objects.get_for_model(Proxy, for_concrete_model=False)
++
++    def test_update_proxy_model_permissions_handles_conflicts(self):
++        """
++        Migration auth.0011 must handle duplicate permissions for the target
++        content type (e.g., when a model was removed and later reintroduced as
++        a proxy).
++        """
++        # Permission as it existed before Django 2.2: tied to the concrete
++        # model's content type.
++        old_default_permission = Permission.objects.create(
++            content_type=self.concrete_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++        old_custom_permission = Permission.objects.create(
++            content_type=self.concrete_content_type,
++            codename='display_proxys',
++            name='May display proxys information',
++        )
++        # Conflicting permissions already exist for the proxy content type.
++        new_default_permission = Permission.objects.create(
++            content_type=self.proxy_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++        new_custom_permission = Permission.objects.create(
++            content_type=self.proxy_content_type,
++            codename='display_proxys',
++            name='May display proxys information',
++        )
++        user = User.objects.create()
++        user.user_permissions.add(old_default_permission)
++        group = Group.objects.create(name='editors')
++        group.permissions.add(new_custom_permission)
++
++        update_proxy_permissions.update_proxy_model_permissions(apps, None)
++
++        # The updated permissions exist for the proxy content type.
++        default_perm = Permission.objects.get(
++            content_type=self.proxy_content_type,
++            codename='add_proxy',
++        )
++        custom_perm = Permission.objects.get(
++            content_type=self.proxy_content_type,
++            codename='display_proxys',
++        )
++        # Relationships from both old and new permissions are preserved.
++        user = User._default_manager.get(pk=user.pk)
++        self.assertTrue(user.has_perm('auth_tests.add_proxy'))
++        self.assertTrue(group.permissions.filter(pk=custom_perm.pk).exists())

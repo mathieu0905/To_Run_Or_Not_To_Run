@@ -1,0 +1,79 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index ea51912e8b..bf6ad9accc 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1073,7 +1073,9 @@ class Query(BaseExpression):
+                         ))
+                 else:
+                     resolved_values.append(sub_value)
+-            value = tuple(resolved_values)
++            # Preserve the input iterable type. Some field types (e.g.
++            # pickle-based fields) depend on the RHS type for exact matches.
++            value = tuple(resolved_values) if isinstance(value, tuple) else resolved_values
+         return value
+ 
+     def solve_lookup_type(self, lookup):
+diff --git a/tests/lookup/models.py b/tests/lookup/models.py
+index fbc9fa606f..37ba425696 100644
+--- a/tests/lookup/models.py
++++ b/tests/lookup/models.py
+@@ -4,6 +4,8 @@ The lookup API
+ This demonstrates features of the database API.
+ """
+ 
++import pickle
++
+ from django.db import models
+ from django.db.models.lookups import IsNull
+ 
+@@ -108,3 +110,25 @@ class Freebie(models.Model):
+         to_fields=['id', 'product'],
+         on_delete=models.CASCADE,
+     )
++
++
++class PickledObjectField(models.BinaryField):
++    """
++    Store arbitrary Python objects by pickling them.
++
++    This is intentionally sensitive to the input type: lists and tuples pickle
++    differently, so exact lookups must preserve the RHS type.
++    """
++
++    def get_prep_value(self, value):
++        if value is None:
++            return None
++        if isinstance(value, memoryview):
++            value = bytes(value)
++        if isinstance(value, (bytes, bytearray)):
++            return bytes(value)
++        return pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
++
++
++class PickledDataModel(models.Model):
++    data = PickledObjectField()
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index e6334fece1..123111b23d 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -12,7 +12,8 @@ from django.test import TestCase, skipUnlessDBFeature
+ from django.utils.deprecation import RemovedInDjango40Warning
+ 
+ from .models import (
+-    Article, Author, Freebie, Game, IsNullWithNoneAsRHS, Player, Season, Tag,
++    Article, Author, Freebie, Game, IsNullWithNoneAsRHS, PickledDataModel,
++    Player, Season, Tag,
+ )
+ 
+ 
+@@ -190,6 +191,10 @@ class LookupTests(TestCase):
+             }
+         )
+ 
++    def test_exact_lookup_preserves_list_rhs_type(self):
++        obj = PickledDataModel.objects.create(data=[1, 2, 3])
++        self.assertEqual(PickledDataModel.objects.get(data=[1, 2, 3]).pk, obj.pk)
++
+     def test_in_bulk_non_unique_field(self):
+         msg = "in_bulk()'s field_name must be a unique field but 'author' isn't."
+         with self.assertRaisesMessage(ValueError, msg):

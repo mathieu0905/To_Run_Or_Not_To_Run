@@ -1,0 +1,95 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index d9c9b0db04..4cc009fdde 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -689,8 +689,18 @@ class QuerySet:
+         """
+         assert not self.query.is_sliced, \
+             "Cannot use 'limit' or 'offset' with in_bulk"
+-        if field_name != 'pk' and not self.model._meta.get_field(field_name).unique:
+-            raise ValueError("in_bulk()'s field_name must be a unique field but %r isn't." % field_name)
++        if field_name != 'pk':
++            opts = self.model._meta
++            # `field.unique` doesn't cover unique constraints declared in
++            # `Meta.constraints` (e.g. UniqueConstraint(fields=[...])).
++            is_unique = opts.get_field(field_name).unique or any(
++                constraint.fields == (field_name,)
++                for constraint in opts.total_unique_constraints
++            )
++            if not is_unique:
++                raise ValueError(
++                    "in_bulk()'s field_name must be a unique field but %r isn't." % field_name
++                )
+         if id_list is not None:
+             if not id_list:
+                 return {}
+diff --git a/tests/lookup/models.py b/tests/lookup/models.py
+index fbc9fa606f..6c19363d16 100644
+--- a/tests/lookup/models.py
++++ b/tests/lookup/models.py
+@@ -37,6 +37,31 @@ class Article(models.Model):
+         return self.headline
+ 
+ 
++class UniqueConstraintSlug(models.Model):
++    slug = models.SlugField(max_length=50)
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(
++                fields=['slug'],
++                name='lookup_uniqueconstraintslug_slug_uniq',
++            ),
++        ]
++
++
++class UniqueConstraintSlugSite(models.Model):
++    slug = models.SlugField(max_length=50)
++    site = models.PositiveIntegerField()
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(
++                fields=['slug', 'site'],
++                name='lookup_uniqueconstraintslugsite_slug_site_uniq',
++            ),
++        ]
++
++
+ class Tag(models.Model):
+     articles = models.ManyToManyField(Article)
+     name = models.CharField(max_length=100)
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index baefdf9701..255d5c484f 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -12,6 +12,7 @@ from django.utils.deprecation import RemovedInDjango40Warning
+ 
+ from .models import (
+     Article, Author, Freebie, Game, IsNullWithNoneAsRHS, Player, Season, Tag,
++    UniqueConstraintSlug, UniqueConstraintSlugSite,
+ )
+ 
+ 
+@@ -189,6 +190,21 @@ class LookupTests(TestCase):
+             }
+         )
+ 
++    def test_in_bulk_with_total_unique_constraint_field(self):
++        obj1 = UniqueConstraintSlug.objects.create(slug='u1')
++        obj2 = UniqueConstraintSlug.objects.create(slug='u2')
++        self.assertEqual(
++            UniqueConstraintSlug.objects.in_bulk([obj1.slug, obj2.slug], field_name='slug'),
++            {obj1.slug: obj1, obj2.slug: obj2},
++        )
++
++    def test_in_bulk_with_multi_field_unique_constraint(self):
++        obj1 = UniqueConstraintSlugSite.objects.create(slug='same', site=1)
++        UniqueConstraintSlugSite.objects.create(slug='same', site=2)
++        msg = "in_bulk()'s field_name must be a unique field but 'slug' isn't."
++        with self.assertRaisesMessage(ValueError, msg):
++            UniqueConstraintSlugSite.objects.in_bulk([obj1.slug], field_name='slug')
++
+     def test_in_bulk_non_unique_field(self):
+         msg = "in_bulk()'s field_name must be a unique field but 'author' isn't."
+         with self.assertRaisesMessage(ValueError, msg):

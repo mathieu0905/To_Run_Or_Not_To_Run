@@ -1,0 +1,55 @@
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 2d4610aac4..6a0c540f2f 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -159,7 +159,10 @@ class RegexPattern(CheckURLMixin):
+             # non-named groups. Otherwise, pass all non-named arguments as
+             # positional arguments.
+             kwargs = {k: v for k, v in match.groupdict().items() if v is not None}
+-            args = () if kwargs else match.groups()
++            # Don't pass any positional arguments when the pattern defines named
++            # groups, even if none of them were matched (e.g. optional named
++            # groups). This avoids leaking nested capturing groups into args.
++            args = () if self.regex.groupindex else match.groups()
+             return path[match.end():], args, kwargs
+         return None
+ 
+diff --git a/tests/urlpatterns/path_urls.py b/tests/urlpatterns/path_urls.py
+index b40801b39d..9f7c3a6cfb 100644
+--- a/tests/urlpatterns/path_urls.py
++++ b/tests/urlpatterns/path_urls.py
+@@ -12,6 +12,7 @@ urlpatterns = [
+     path('included_urls/', include('urlpatterns.included_urls')),
+     re_path(r'^regex/(?P<pk>[0-9]+)/$', views.empty_view, name='regex'),
+     re_path(r'^regex_optional/(?P<arg1>\d+)/(?:(?P<arg2>\d+)/)?', views.empty_view, name='regex_optional'),
++    re_path(r'^module/(?P<format>(html|json|xml))?/?$', views.empty_view, name='modules'),
+     path('', include('urlpatterns.more_urls')),
+     path('<lang>/<path:url>/', views.empty_view, name='lang-and-path'),
+ ]
+diff --git a/tests/urlpatterns/tests.py b/tests/urlpatterns/tests.py
+index 92c4e6399e..18a176e6f6 100644
+--- a/tests/urlpatterns/tests.py
++++ b/tests/urlpatterns/tests.py
+@@ -68,6 +68,22 @@ class SimplifiedURLTests(SimpleTestCase):
+                     r'^regex_optional/(?P<arg1>\d+)/(?:(?P<arg2>\d+)/)?',
+                 )
+ 
++    def test_re_path_with_optional_named_group_nested_capture(self):
++        """
++        Named groups should always be passed as kwargs (if not None), even when
++        optional groups don't match. Positional args from nested capturing
++        groups must be ignored.
++        """
++        match = resolve('/module/')
++        self.assertEqual(match.url_name, 'modules')
++        self.assertEqual(match.args, ())
++        self.assertEqual(match.kwargs, {})
++
++        match = resolve('/module/json/')
++        self.assertEqual(match.url_name, 'modules')
++        self.assertEqual(match.args, ())
++        self.assertEqual(match.kwargs, {'format': 'json'})
++
+     def test_path_lookup_with_inclusion(self):
+         match = resolve('/included_urls/extra/something/')
+         self.assertEqual(match.url_name, 'inner-extra')

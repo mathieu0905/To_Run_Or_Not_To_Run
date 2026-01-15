@@ -1,0 +1,84 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 7ca0d68fae..8a3822c373 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -202,6 +202,32 @@ def get_child_arguments():
+     return args
+ 
+ 
++def get_main_script():
++    """
++    Return the absolute path to the main script that started the current
++    process, if it exists.
++
++    When Django is started with ``python manage.py runserver``, ``manage.py`` is
++    executed as ``__main__`` and isn't imported as a module. As a result it
++    won't appear in :func:`iter_all_python_module_files`, so it must be watched
++    explicitly by the autoreloader.
++    """
++    main_module = sys.modules.get('__main__')
++    filename = getattr(main_module, '__file__', None) if main_module else None
++    if not filename and sys.argv:
++        filename = sys.argv[0]
++    if not filename:
++        return None
++    path = Path(filename)
++    # Don't attempt to watch things like "django-admin" which may not be a file
++    # on disk (or may be outside of the current environment).
++    try:
++        path = path.resolve().absolute()
++    except OSError:
++        return None
++    return path if path.is_file() else None
++
++
+ def trigger_reload(filename):
+     logger.info('%s changed, reloading.', filename)
+     sys.exit(3)
+@@ -580,6 +606,9 @@ def run_with_reloader(main_func, *args, **kwargs):
+         if os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true':
+             reloader = get_reloader()
+             logger.info('Watching for file changes with %s', reloader.__class__.__name__)
++            main_script = get_main_script()
++            if main_script is not None:
++                reloader.watch_file(main_script)
+             start_django(reloader, main_func, *args, **kwargs)
+         else:
+             exit_code = restart_with_reloader()
+diff --git a/tests/utils_tests/test_autoreload.py b/tests/utils_tests/test_autoreload.py
+index 42bcd0a50b..ad7998084c 100644
+--- a/tests/utils_tests/test_autoreload.py
++++ b/tests/utils_tests/test_autoreload.py
+@@ -210,14 +210,30 @@ class RunWithReloaderTests(SimpleTestCase):
+     @mock.patch('django.utils.autoreload.start_django')
+     @mock.patch('django.utils.autoreload.get_reloader')
+     def test_calls_start_django(self, mocked_reloader, mocked_start_django):
+-        mocked_reloader.return_value = mock.sentinel.RELOADER
++        mocked_reloader.return_value = mock.MagicMock()
+         autoreload.run_with_reloader(mock.sentinel.METHOD)
+         self.assertEqual(mocked_start_django.call_count, 1)
+         self.assertSequenceEqual(
+             mocked_start_django.call_args[0],
+-            [mock.sentinel.RELOADER, mock.sentinel.METHOD]
++            [mocked_reloader.return_value, mock.sentinel.METHOD]
+         )
+ 
++    @mock.patch.dict(os.environ, {autoreload.DJANGO_AUTORELOAD_ENV: 'true'})
++    @mock.patch('django.utils.autoreload.start_django')
++    @mock.patch('django.utils.autoreload.get_reloader')
++    def test_watches_main_script(self, mocked_reloader, mocked_start_django):
++        reloader = mock.MagicMock()
++        mocked_reloader.return_value = reloader
++        with tempfile.TemporaryDirectory() as tmpdir:
++            manage_py = Path(tmpdir) / 'manage.py'
++            manage_py.write_text('print(\"hello\")')
++            expected = manage_py.resolve().absolute()
++            fake_main = types.ModuleType('__main__')
++            fake_main.__file__ = str(manage_py)
++            with mock.patch.dict(sys.modules, {'__main__': fake_main}):
++                autoreload.run_with_reloader(mock.sentinel.METHOD)
++        reloader.watch_file.assert_called_once_with(expected)
++
+ 
+ class StartDjangoTests(SimpleTestCase):
+     @mock.patch('django.utils.autoreload.StatReloader')

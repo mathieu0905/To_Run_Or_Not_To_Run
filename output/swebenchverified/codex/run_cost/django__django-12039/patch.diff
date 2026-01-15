@@ -1,0 +1,92 @@
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index 44e49806f8..2d6343c1a0 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -82,9 +82,22 @@ class Columns(TableColumns):
+         super().__init__(table, columns)
+ 
+     def __str__(self):
++        def with_suffix(col, suffix):
++            """
++            Append a column suffix with correct spacing.
++
++            Suffixes are commonly used for index column ordering (e.g. DESC).
++            Historically callers provided suffixes without leading whitespace.
++            """
++            if not suffix:
++                return col
++            if not suffix[0].isspace():
++                suffix = ' ' + suffix
++            return col + suffix
++
+         def col_str(column, idx):
+             try:
+-                return self.quote_name(column) + self.col_suffixes[idx]
++                return with_suffix(self.quote_name(column), self.col_suffixes[idx])
+             except IndexError:
+                 return self.quote_name(column)
+ 
+@@ -109,12 +122,23 @@ class IndexColumns(Columns):
+         super().__init__(table, columns, quote_name, col_suffixes)
+ 
+     def __str__(self):
++        def with_suffix(col, suffix):
++            # Match Columns.__str__ spacing behavior for ordering suffixes.
++            if not suffix:
++                return col
++            if not suffix[0].isspace():
++                suffix = ' ' + suffix
++            return col + suffix
++
+         def col_str(column, idx):
+             # Index.__init__() guarantees that self.opclasses is the same
+             # length as self.columns.
+-            col = '{} {}'.format(self.quote_name(column), self.opclasses[idx])
++            col = self.quote_name(column)
++            opclass = self.opclasses[idx]
++            if opclass:
++                col = '{} {}'.format(col, opclass)
+             try:
+-                col = '{} {}'.format(col, self.col_suffixes[idx])
++                col = with_suffix(col, self.col_suffixes[idx])
+             except IndexError:
+                 pass
+             return col
+diff --git a/tests/indexes/tests.py b/tests/indexes/tests.py
+index 588feaddff..401aaf686d 100644
+--- a/tests/indexes/tests.py
++++ b/tests/indexes/tests.py
+@@ -22,6 +22,14 @@ class SchemaIndexesTests(TestCase):
+     Test index handling by the db.backends.schema infrastructure.
+     """
+ 
++    def test_create_index_column_ordering_whitespace(self):
++        editor = connection.schema_editor()
++        index = Index(fields=['-headline'], name='test_ordering_whitespace')
++        sql = str(index.create_sql(Article, editor))
++        quoted = connection.ops.quote_name('headline')
++        self.assertIn('(%s DESC)' % quoted, sql)
++        self.assertNotIn('%sDESC' % quoted, sql)
++
+     def test_index_name_hash(self):
+         """
+         Index names should be deterministic.
+@@ -123,6 +131,18 @@ class SchemaIndexesPostgreSQLTests(TransactionTestCase):
+         WHERE c.relname = '%s'
+     '''
+ 
++    def test_ops_class_without_ordering_whitespace(self):
++        editor = connection.schema_editor()
++        index = Index(
++            name='test_ops_class_whitespace',
++            fields=['body'],
++            opclasses=['text_pattern_ops'],
++        )
++        sql = str(index.create_sql(IndexedArticle2, editor))
++        quoted = connection.ops.quote_name('body')
++        self.assertIn('(%s text_pattern_ops)' % quoted, sql)
++        self.assertNotIn('text_pattern_ops )', sql)
++
+     def test_text_indexes(self):
+         """Test creation of PostgreSQL-specific text indexes (#12234)"""
+         from .models import IndexedArticle

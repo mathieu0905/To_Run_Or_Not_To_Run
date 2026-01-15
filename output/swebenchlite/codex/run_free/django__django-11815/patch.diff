@@ -1,0 +1,105 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 27b5cbd379..d5cd3707bd 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -120,8 +120,24 @@ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
++        imports = {'import %s' % module}
++
++        # Prefer serializing by member name rather than value. Enum values may be
++        # dynamic (e.g. gettext_lazy promises) and serializing by value forces a
++        # runtime conversion to a string in serializer_factory(), which can make
++        # old migrations fail to import when the value changes.
++        name = getattr(self.value, "name", None)
++        if (
++            name is not None
++            and name in enum_class.__members__
++            and enum_class.__members__[name] is self.value
++        ):
++            return "%s.%s[%r]" % (module, enum_class.__name__, name), imports
++
++        # Fallback for unnamed values (e.g. IntFlag combinations) or other Enum
++        # instances that can't be reliably reconstructed from their name.
+         v_string, v_imports = serializer_factory(self.value.value).serialize()
+-        imports = {'import %s' % module, *v_imports}
++        imports.update(v_imports)
+         return "%s.%s(%s)" % (module, enum_class.__name__, v_string), imports
+ 
+ 
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index f97d76e9ad..812f4a2eaa 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -257,6 +257,10 @@ class WriterTests(SimpleTestCase):
+             A = 'a-value'
+             B = 'value-b'
+ 
++        class LazyTextEnum(enum.Enum):
++            GOOD = _('Good')
++            BAD = _('Bad')
++
+         class BinaryEnum(enum.Enum):
+             A = b'a-value'
+             B = b'value-b'
+@@ -267,15 +271,19 @@ class WriterTests(SimpleTestCase):
+ 
+         self.assertSerializedResultEqual(
+             TextEnum.A,
+-            ("migrations.test_writer.TextEnum('a-value')", {'import migrations.test_writer'})
++            ("migrations.test_writer.TextEnum['A']", {'import migrations.test_writer'})
+         )
+         self.assertSerializedResultEqual(
+             BinaryEnum.A,
+-            ("migrations.test_writer.BinaryEnum(b'a-value')", {'import migrations.test_writer'})
++            ("migrations.test_writer.BinaryEnum['A']", {'import migrations.test_writer'})
+         )
+         self.assertSerializedResultEqual(
+             IntEnum.B,
+-            ("migrations.test_writer.IntEnum(2)", {'import migrations.test_writer'})
++            ("migrations.test_writer.IntEnum['B']", {'import migrations.test_writer'})
++        )
++        self.assertSerializedResultEqual(
++            LazyTextEnum.GOOD,
++            ("migrations.test_writer.LazyTextEnum['GOOD']", {'import migrations.test_writer'})
+         )
+ 
+         field = models.CharField(default=TextEnum.B, choices=[(m.value, m) for m in TextEnum])
+@@ -283,27 +291,27 @@ class WriterTests(SimpleTestCase):
+         self.assertEqual(
+             string,
+             "models.CharField(choices=["
+-            "('a-value', migrations.test_writer.TextEnum('a-value')), "
+-            "('value-b', migrations.test_writer.TextEnum('value-b'))], "
+-            "default=migrations.test_writer.TextEnum('value-b'))"
++            "('a-value', migrations.test_writer.TextEnum['A']), "
++            "('value-b', migrations.test_writer.TextEnum['B'])], "
++            "default=migrations.test_writer.TextEnum['B'])"
+         )
+         field = models.CharField(default=BinaryEnum.B, choices=[(m.value, m) for m in BinaryEnum])
+         string = MigrationWriter.serialize(field)[0]
+         self.assertEqual(
+             string,
+             "models.CharField(choices=["
+-            "(b'a-value', migrations.test_writer.BinaryEnum(b'a-value')), "
+-            "(b'value-b', migrations.test_writer.BinaryEnum(b'value-b'))], "
+-            "default=migrations.test_writer.BinaryEnum(b'value-b'))"
++            "(b'a-value', migrations.test_writer.BinaryEnum['A']), "
++            "(b'value-b', migrations.test_writer.BinaryEnum['B'])], "
++            "default=migrations.test_writer.BinaryEnum['B'])"
+         )
+         field = models.IntegerField(default=IntEnum.A, choices=[(m.value, m) for m in IntEnum])
+         string = MigrationWriter.serialize(field)[0]
+         self.assertEqual(
+             string,
+             "models.IntegerField(choices=["
+-            "(1, migrations.test_writer.IntEnum(1)), "
+-            "(2, migrations.test_writer.IntEnum(2))], "
+-            "default=migrations.test_writer.IntEnum(1))"
++            "(1, migrations.test_writer.IntEnum['A']), "
++            "(2, migrations.test_writer.IntEnum['B'])], "
++            "default=migrations.test_writer.IntEnum['A'])"
+         )
+ 
+     def test_serialize_choices(self):

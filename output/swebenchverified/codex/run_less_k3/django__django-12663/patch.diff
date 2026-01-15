@@ -1,0 +1,105 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 9fe0c9a656..7691b175f8 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -233,6 +233,18 @@ class Query(BaseExpression):
+     @property
+     def output_field(self):
+         if len(self.select) == 1:
++            # When a subquery selects a single relational field via values(),
++            # the select list uses the relation's target field (e.g. the PK),
++            # but for lookups (e.g. comparing against a model instance) the
++            # relation field itself is required.
++            if self.subquery and len(self.values_select) == 1:
++                try:
++                    field = self.model._meta.get_field(self.values_select[0])
++                except FieldDoesNotExist:
++                    pass
++                else:
++                    if field.is_relation and field.name == self.values_select[0]:
++                        return field
+             return self.select[0].field
+         elif len(self.annotation_select) == 1:
+             return next(iter(self.annotation_select.values())).output_field
+diff --git a/tests/queries/models.py b/tests/queries/models.py
+index e9eec5718d..71d742dc15 100644
+--- a/tests/queries/models.py
++++ b/tests/queries/models.py
+@@ -3,6 +3,7 @@ Various complex queries that have been problematic in the past.
+ """
+ import threading
+ 
++from django.conf import settings
+ from django.db import models
+ from django.db.models.functions import Now
+ 
+@@ -747,3 +748,15 @@ class ReturningModel(models.Model):
+ 
+ class NonIntegerPKReturningModel(models.Model):
+     created = CreatedField(editable=False, primary_key=True)
++
++
++class LazySubqueryA(models.Model):
++    pass
++
++
++class LazySubqueryB(models.Model):
++    a = models.ForeignKey(LazySubqueryA, models.CASCADE)
++
++
++class LazySubqueryC(models.Model):
++    owner = models.ForeignKey(settings.AUTH_USER_MODEL, models.CASCADE)
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index e57cad79ef..7ed43b204e 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -4,13 +4,15 @@ import sys
+ import unittest
+ from operator import attrgetter
+ 
++from django.contrib.auth import get_user_model
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db import DEFAULT_DB_ALIAS, connection
+-from django.db.models import Count, Exists, F, OuterRef, Q
++from django.db.models import Count, Exists, F, OuterRef, Q, Subquery
+ from django.db.models.sql.constants import LOUTER
+ from django.db.models.sql.where import NothingNode, WhereNode
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+ from django.test.utils import CaptureQueriesContext
++from django.utils.functional import SimpleLazyObject
+ 
+ from .models import (
+     FK1, Annotation, Article, Author, BaseA, Book, CategoryItem,
+@@ -18,7 +20,8 @@ from .models import (
+     Classroom, CommonMixedCaseForeignKeys, Company, Cover, CustomPk,
+     CustomPkTag, DateTimePK, Detail, DumbCategory, Eaten, Employment,
+     ExtraInfo, Fan, Food, Identifier, Individual, Item, Job,
+-    JobResponsibilities, Join, LeafA, LeafB, LoopX, LoopZ, ManagedModel,
++    JobResponsibilities, Join, LazySubqueryA, LazySubqueryB, LazySubqueryC,
++    LeafA, LeafB, LoopX, LoopZ, ManagedModel,
+     Member, MixedCaseDbColumnCategoryItem, MixedCaseFieldCategoryItem, ModelA,
+     ModelB, ModelC, ModelD, MyObject, NamedCategory, Node, Note, NullableName,
+     Number, ObjectA, ObjectB, ObjectC, OneToOneCategory, Order, OrderItem,
+@@ -3950,3 +3953,22 @@ class Ticket23622Tests(TestCase):
+             set(Ticket23605A.objects.filter(qy).values_list('pk', flat=True))
+         )
+         self.assertSequenceEqual(Ticket23605A.objects.filter(qx), [a2])
++
++
++class SimpleLazyObjectSubqueryTests(TestCase):
++    def test_simplelazyobject_in_nested_subquery_annotation(self):
++        owner_user = (
++            LazySubqueryB.objects.filter(a=OuterRef("pk"))
++            .annotate(owner_user=Subquery(LazySubqueryC.objects.values("owner")))
++            .values("owner_user")
++        )
++        user = get_user_model().objects.create_user("testuser")
++        LazySubqueryC.objects.create(owner=user)
++        a = LazySubqueryA.objects.create()
++        LazySubqueryB.objects.create(a=a)
++
++        lazy_user = SimpleLazyObject(lambda: user)
++        qs = LazySubqueryA.objects.annotate(owner_user=Subquery(owner_user)).filter(
++            owner_user=lazy_user,
++        )
++        self.assertTrue(qs.exists())

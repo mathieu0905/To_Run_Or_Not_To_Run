@@ -1,0 +1,115 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 7d226955d5..e6613ef11c 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -6,8 +6,10 @@ import enum
+ import functools
+ import math
+ import re
++import sys
+ import types
+ import uuid
++from importlib.util import find_spec
+ 
+ from django.conf import SettingsReference
+ from django.db import models
+@@ -74,6 +76,32 @@ class DecimalSerializer(BaseSerializer):
+ 
+ 
+ class DeconstructableSerializer(BaseSerializer):
++    @staticmethod
++    def _get_importable_module(path):
++        """
++        Return the importable module portion of a deconstruction path.
++
++        Deconstruction paths can include dotted qualnames (e.g.
++        "myapp.models.Outer.Inner"). In such cases, only the real module
++        ("myapp.models") should be imported.
++        """
++        parts = path.split(".")
++        # Try the longest prefix first and work backwards until we find an
++        # importable module. Prefer already-imported modules to avoid imports.
++        for i in range(len(parts), 0, -1):
++            candidate = ".".join(parts[:i])
++            if candidate in sys.modules:
++                return candidate
++            try:
++                if find_spec(candidate) is not None:
++                    return candidate
++            except (ImportError, ModuleNotFoundError, AttributeError):
++                # find_spec() can error when asked about submodules of a module
++                # that isn't a package (e.g. "mod.Class.Inner").
++                continue
++        # Fallback to the historical behavior.
++        return path.rsplit(".", 1)[0]
++
+     @staticmethod
+     def serialize_deconstructed(path, args, kwargs):
+         name, imports = DeconstructableSerializer._serialize_path(path)
+@@ -95,6 +123,7 @@ class DeconstructableSerializer(BaseSerializer):
+             imports = {"from django.db import models"}
+             name = "models.%s" % name
+         else:
++            module = DeconstructableSerializer._get_importable_module(path)
+             imports = {"import %s" % module}
+             name = path
+         return name, imports
+@@ -266,10 +295,15 @@ class TypeSerializer(BaseSerializer):
+                 return string, set(imports)
+         if hasattr(self.value, "__module__"):
+             module = self.value.__module__
++            qualname = getattr(self.value, "__qualname__", self.value.__name__)
+             if module == builtins.__name__:
+                 return self.value.__name__, set()
+             else:
+-                return "%s.%s" % (module, self.value.__name__), {"import %s" % module}
++                # Qualname can include "<locals>" for classes created in local
++                # scopes. Fall back to __name__ to preserve historical behavior.
++                if '<' in qualname:
++                    qualname = self.value.__name__
++                return "%s.%s" % (module, qualname), {"import %s" % module}
+ 
+ 
+ class UUIDSerializer(BaseSerializer):
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index ca924f35ec..f6a2fd594c 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -41,6 +41,17 @@ class TestModel1:
+     thing = models.FileField(upload_to=upload_to)
+ 
+ 
++class Outer:
++    class Inner(models.CharField):
++        pass
++
++
++class Thing:
++    class State(enum.Enum):
++        ON = 'on'
++        OFF = 'off'
++
++
+ class TextEnum(enum.Enum):
+     A = 'a-value'
+     B = 'value-b'
+@@ -322,6 +333,19 @@ class WriterTests(SimpleTestCase):
+             "('value-b', migrations.test_writer.TextTranslatedEnum['B'])], "
+             "default=migrations.test_writer.TextTranslatedEnum['A'])"
+         )
++
++    def test_serialize_inner_class_paths(self):
++        field = Outer.Inner(max_length=20)
++        self.assertSerializedResultEqual(
++            field,
++            ("migrations.test_writer.Outer.Inner(max_length=20)", {'import migrations.test_writer'}),
++        )
++        self.assertSerializedFieldEqual(field)
++        self.assertSerializedResultEqual(
++            Thing.State,
++            ("migrations.test_writer.Thing.State", {'import migrations.test_writer'}),
++        )
++        self.assertSerializedEqual(Thing.State)
+         field = models.CharField(default=BinaryEnum.B, choices=[(m.value, m) for m in BinaryEnum])
+         string = MigrationWriter.serialize(field)[0]
+         self.assertEqual(

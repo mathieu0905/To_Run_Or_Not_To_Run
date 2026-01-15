@@ -1,0 +1,42 @@
+diff --git a/django/template/autoreload.py b/django/template/autoreload.py
+index cf1b20ba95..fb3a9dc807 100644
+--- a/django/template/autoreload.py
++++ b/django/template/autoreload.py
+@@ -48,6 +48,12 @@ def watch_for_template_changes(sender, **kwargs):
+ 
+ @receiver(file_changed, dispatch_uid='template_loaders_file_changed')
+ def template_changed(sender, file_path, **kwargs):
++    # If a template directory overlaps with the project's Python code (e.g.
++    # TEMPLATES["DIRS"] includes BASE_DIR), don't treat Python module changes
++    # as template changes. Otherwise, the dev server won't reload for code
++    # edits because this receiver will swallow the event.
++    if file_path.suffix in {'.py', '.pyw', '.pyc', '.pyo'}:
++        return
+     for template_dir in get_template_directories():
+         if template_dir in file_path.parents:
+             reset_loaders()
+diff --git a/tests/template_tests/test_autoreloader.py b/tests/template_tests/test_autoreloader.py
+index d6ece4cc6d..a75bed6d50 100644
+--- a/tests/template_tests/test_autoreloader.py
++++ b/tests/template_tests/test_autoreloader.py
+@@ -39,6 +39,20 @@ class TemplateReloadTests(SimpleTestCase):
+         self.assertIsNone(autoreload.template_changed(None, Path(__file__)))
+         mock_reset.assert_not_called()
+ 
++    @override_settings(
++        TEMPLATES=[{
++            'BACKEND': 'django.template.backends.django.DjangoTemplates',
++            # Simulate a common configuration mistake: adding BASE_DIR rather
++            # than BASE_DIR / "templates". The autoreloader must still reload
++            # when Python code changes under this directory.
++            'DIRS': [ROOT],
++        }]
++    )
++    @mock.patch('django.template.autoreload.reset_loaders')
++    def test_python_file_change_under_template_dir_doesnt_swallow_reload(self, mock_reset):
++        self.assertIsNone(autoreload.template_changed(None, ROOT / 'settings.py'))
++        mock_reset.assert_not_called()
++
+     def test_watch_for_template_changes(self):
+         mock_reloader = mock.MagicMock()
+         autoreload.watch_for_template_changes(mock_reloader)

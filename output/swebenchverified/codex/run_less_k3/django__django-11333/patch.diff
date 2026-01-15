@@ -1,0 +1,57 @@
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 247e3680c0..fbc86ab4fc 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -63,13 +63,33 @@ class ResolverMatch:
+         )
+ 
+ 
+-@functools.lru_cache(maxsize=None)
+ def get_resolver(urlconf=None):
++    """
++    Return an URLResolver instance for the given URLconf.
++
++    Normalize a ``None`` URLconf to ``settings.ROOT_URLCONF`` before hitting
++    the resolver cache. This avoids constructing (and populating) multiple
++    URLResolver instances for the same effective URLconf when callers use
++    ``None`` (e.g. before set_urlconf() has been called) and later use the
++    explicit value.
++    """
+     if urlconf is None:
+         urlconf = settings.ROOT_URLCONF
++    return _get_cached_resolver(urlconf)
++
++
++@functools.lru_cache(maxsize=None)
++def _get_cached_resolver(urlconf):
+     return URLResolver(RegexPattern(r'^/'), urlconf)
+ 
+ 
++# Keep the cache management API that callers (e.g. clear_url_caches()) expect.
++get_resolver.cache_clear = _get_cached_resolver.cache_clear
++get_resolver.cache_info = _get_cached_resolver.cache_info
++if hasattr(_get_cached_resolver, "cache_parameters"):
++    get_resolver.cache_parameters = _get_cached_resolver.cache_parameters
++
++
+ @functools.lru_cache(maxsize=None)
+ def get_ns_resolver(ns_pattern, resolver, converters):
+     # Build a namespaced resolver for the given parent URLconf pattern.
+diff --git a/tests/urlpatterns_reverse/tests.py b/tests/urlpatterns_reverse/tests.py
+index d26923ab9d..b3810566da 100644
+--- a/tests/urlpatterns_reverse/tests.py
++++ b/tests/urlpatterns_reverse/tests.py
+@@ -369,6 +369,13 @@ class URLPatternReverse(SimpleTestCase):
+ 
+ 
+ class ResolverTests(SimpleTestCase):
++    @override_settings(ROOT_URLCONF='urlpatterns_reverse.urls')
++    def test_get_resolver_normalizes_none_for_caching(self):
++        # get_resolver(None) should reuse the same cached resolver as an
++        # explicit URLconf value.
++        get_resolver.cache_clear()
++        self.assertIs(get_resolver(None), get_resolver('urlpatterns_reverse.urls'))
++
+     def test_resolver_repr(self):
+         """
+         Test repr of URLResolver, especially when urlconf_name is a list

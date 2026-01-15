@@ -1,0 +1,210 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..7e763afc6d 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -6,6 +6,7 @@ import copy
+ import datetime
+ import re
+ import warnings
++from heapq import heappop, heappush, heapify
+ from itertools import chain
+ 
+ from django.conf import settings
+@@ -59,22 +60,27 @@ class Media:
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
+-                for medium in css.keys() | obj.keys()
+-            }
+-        return css
++        # Merge all definitions at once per medium to avoid introducing
++        # artificial ordering constraints between unrelated assets.
++        css_dicts = self._css_lists
++        if len(css_dicts) == 1:
++            return css_dicts[0]
++        mediums = set().union(*(d.keys() for d in css_dicts if d))
++        return {
++            medium: self.merge(*(d.get(medium, []) for d in css_dicts))
++            for medium in mediums
++        }
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Merge all lists at once to avoid introducing ordering constraints
++        # from intermediate pairwise merges.
++        js_lists = self._js_lists
++        if not any(js_lists):
++            return []
++        if len(js_lists) == 1:
++            return js_lists[0]
++        return self.merge(*js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +121,99 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(*lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge two or more lists while keeping the relative order of elements
++        within each list.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
++        if not lists:
++            return []
++        if len(lists) == 1:
++            return lists[0]
++
++        # De-duplicate within each list and record first-seen order across all
++        # lists for deterministic tie-breaking between independent assets.
++        normalized_lists = []
++        first_seen = {}
++        for lst in lists:
++            if not lst:
++                normalized_lists.append([])
++                continue
++            seen = set()
++            normalized = []
++            for item in lst:
++                if item in seen:
++                    continue
++                seen.add(item)
++                normalized.append(item)
++                first_seen.setdefault(item, len(first_seen))
++            normalized_lists.append(normalized)
++
++        if not first_seen:
++            return []
++
++        # Build a dependency graph from within-list ordering constraints and
++        # perform a stable topological sort.
++        graph = {item: set() for item in first_seen}
++        indegree = {item: 0 for item in first_seen}
++        for lst in normalized_lists:
++            for before, after in zip(lst, lst[1:]):
++                if after in graph[before]:
++                    continue
++                graph[before].add(after)
++                indegree[after] += 1
++
++        heap = [(first_seen[item], item) for item, degree in indegree.items() if degree == 0]
++        heapify(heap)
++        result = []
++        while heap:
++            _, node = heappop(heap)
++            result.append(node)
++            for neighbor in graph[node]:
++                indegree[neighbor] -= 1
++                if indegree[neighbor] == 0:
++                    heappush(heap, (first_seen[neighbor], neighbor))
++
++        if len(result) != len(first_seen):
++            # Conflicting constraints (a cycle) exist. Warn using the historical
++            # message format, then fall back to a deterministic order.
++            def find_conflict_pair():
++                positions = [{item: i for i, item in enumerate(lst)} for lst in normalized_lists]
++                for base_i, base in enumerate(normalized_lists):
++                    for a_i in range(len(base)):
++                        a = base[a_i]
++                        for b_i in range(a_i + 1, len(base)):
++                            b = base[b_i]
++                            for other_i, pos in enumerate(positions):
++                                if other_i == base_i:
++                                    continue
++                                if a in pos and b in pos and pos[a] > pos[b]:
++                                    return a, b
++                return None
++
++            conflict = find_conflict_pair()
++            if conflict:
++                a, b = conflict
++                warnings.warn(
++                    'Detected duplicate Media files in an opposite order:\n%s\n%s' % (a, b),
++                    MediaOrderConflictWarning,
++                )
+             else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                warnings.warn(
++                    'Detected conflicting Media ordering.',
++                    MediaOrderConflictWarning,
++                )
++            remaining = sorted(
++                (item for item in first_seen if item not in result),
++                key=first_seen.get,
++            )
++            return result + remaining
++
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 8cb484a15e..3cef34bbad 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -1,3 +1,5 @@
++import warnings
++
+ from django.forms import CharField, Form, Media, MultiWidget, TextInput
+ from django.template import Context, Template
+ from django.test import SimpleTestCase, override_settings
+@@ -571,3 +573,20 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_js_does_not_create_artificial_constraints(self):
++        """
++        Merging three or more lists shouldn't introduce ordering constraints
++        between otherwise unrelated assets.
++        """
++        widget1 = Media(js=['color-picker.js'])
++        widget2 = Media(js=['text-editor.js'])
++        widget3 = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++        merged = widget1 + widget2 + widget3
++        with warnings.catch_warnings(record=True) as recorded:
++            warnings.simplefilter('always')
++            self.assertEqual(
++                merged._js,
++                ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'],
++            )
++        self.assertEqual([w for w in recorded if issubclass(w.category, RuntimeWarning)], [])

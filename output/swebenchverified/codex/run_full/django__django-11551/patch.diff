@@ -1,0 +1,155 @@
+diff --git a/django/contrib/admin/checks.py b/django/contrib/admin/checks.py
+index f82c20c2f1..ccebbbb900 100644
+--- a/django/contrib/admin/checks.py
++++ b/django/contrib/admin/checks.py
+@@ -720,33 +720,32 @@ class ModelAdminChecks(BaseModelAdminChecks):
+             return []
+         elif hasattr(obj, item):
+             return []
+-        elif hasattr(obj.model, item):
++        try:
++            field = obj.model._meta.get_field(item)
++        except FieldDoesNotExist:
+             try:
+-                field = obj.model._meta.get_field(item)
+-            except FieldDoesNotExist:
+-                return []
+-            else:
+-                if isinstance(field, models.ManyToManyField):
+-                    return [
+-                        checks.Error(
+-                            "The value of '%s' must not be a ManyToManyField." % label,
+-                            obj=obj.__class__,
+-                            id='admin.E109',
+-                        )
+-                    ]
+-                return []
+-        else:
++                field = getattr(obj.model, item)
++            except AttributeError:
++                return [
++                    checks.Error(
++                        "The value of '%s' refers to '%s', which is not a callable, "
++                        "an attribute of '%s', or an attribute or method on '%s.%s'." % (
++                            label, item, obj.__class__.__name__,
++                            obj.model._meta.app_label, obj.model._meta.object_name,
++                        ),
++                        obj=obj.__class__,
++                        id='admin.E108',
++                    )
++                ]
++        if isinstance(field, models.ManyToManyField):
+             return [
+                 checks.Error(
+-                    "The value of '%s' refers to '%s', which is not a callable, "
+-                    "an attribute of '%s', or an attribute or method on '%s.%s'." % (
+-                        label, item, obj.__class__.__name__,
+-                        obj.model._meta.app_label, obj.model._meta.object_name,
+-                    ),
++                    "The value of '%s' must not be a ManyToManyField." % label,
+                     obj=obj.__class__,
+-                    id='admin.E108',
++                    id='admin.E109',
+                 )
+             ]
++        return []
+ 
+     def _check_list_display_links(self, obj):
+         """ Check that list_display_links is a unique subset of list_display.
+diff --git a/tests/modeladmin/models.py b/tests/modeladmin/models.py
+index c0d3c772c9..f32c1c77ac 100644
+--- a/tests/modeladmin/models.py
++++ b/tests/modeladmin/models.py
+@@ -52,3 +52,44 @@ class ValidationTestModel(models.Model):
+ 
+ class ValidationTestInlineModel(models.Model):
+     parent = models.ForeignKey(ValidationTestModel, models.CASCADE)
++
++
++class _NoClassAccessDescriptor:
++    """
++    Descriptor that raises AttributeError when accessed on the model class.
++
++    This mimics third-party fields whose descriptor can't be evaluated without a
++    model instance (e.g. fields that require instance state).
++    """
++    def __init__(self, attname):
++        self.attname = attname
++
++    def __get__(self, instance, cls=None):
++        if instance is None:
++            raise AttributeError
++        return instance.__dict__.get(self.attname)
++
++    def __set__(self, instance, value):
++        instance.__dict__[self.attname] = value
++
++
++class NoClassAccessField(models.IntegerField):
++    def contribute_to_class(self, cls, name, private_only=False):
++        super().contribute_to_class(cls, name, private_only=private_only)
++        # Override the normal descriptor with one that can't be accessed from
++        # the model class. The field is still discoverable via _meta.get_field().
++        setattr(cls, self.attname, _NoClassAccessDescriptor(self.attname))
++
++
++class ListDisplayClassAccessErrorModel(models.Model):
++    broken = NoClassAccessField()
++
++
++class NoClassAccessManyToManyField(models.ManyToManyField):
++    def contribute_to_class(self, cls, name, **kwargs):
++        super().contribute_to_class(cls, name, **kwargs)
++        setattr(cls, self.name, _NoClassAccessDescriptor(self.name))
++
++
++class ListDisplayM2MClassAccessErrorModel(models.Model):
++    users = NoClassAccessManyToManyField(User)
+diff --git a/tests/modeladmin/test_checks.py b/tests/modeladmin/test_checks.py
+index a1b7001f68..8284f85f48 100644
+--- a/tests/modeladmin/test_checks.py
++++ b/tests/modeladmin/test_checks.py
+@@ -9,7 +9,8 @@ from django.forms.models import BaseModelFormSet
+ from django.test import SimpleTestCase
+ 
+ from .models import (
+-    Band, Song, User, ValidationTestInlineModel, ValidationTestModel,
++    Band, ListDisplayClassAccessErrorModel, ListDisplayM2MClassAccessErrorModel,
++    Song, User, ValidationTestInlineModel, ValidationTestModel,
+ )
+ 
+ 
+@@ -498,6 +499,16 @@ class ListDisplayTests(CheckTestCase):
+             'admin.E109'
+         )
+ 
++    def test_invalid_field_type_when_descriptor_raises_attribute_error(self):
++        class TestModelAdmin(ModelAdmin):
++            list_display = ('users',)
++
++        self.assertIsInvalid(
++            TestModelAdmin, ListDisplayM2MClassAccessErrorModel,
++            "The value of 'list_display[0]' must not be a ManyToManyField.",
++            'admin.E109'
++        )
++
+     def test_valid_case(self):
+         def a_callable(obj):
+             pass
+@@ -509,6 +520,16 @@ class ListDisplayTests(CheckTestCase):
+ 
+         self.assertIsValid(TestModelAdmin, ValidationTestModel)
+ 
++    def test_field_descriptor_raises_attribute_error_on_class_access(self):
++        """
++        list_display should accept real model fields even if their descriptor
++        raises AttributeError when accessed on the model class.
++        """
++        class TestModelAdmin(ModelAdmin):
++            list_display = ('broken',)
++
++        self.assertIsValid(TestModelAdmin, ListDisplayClassAccessErrorModel)
++
+ 
+ class ListDisplayLinksCheckTests(CheckTestCase):
+ 

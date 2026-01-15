@@ -1,0 +1,58 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 69a5fbf389..8edb2d24ef 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -249,16 +249,22 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
+             return None
+         db = kwargs.get('using')
+ 
+-        autocomplete_fields = self.get_autocomplete_fields(request)
+-        if db_field.name in autocomplete_fields:
+-            kwargs['widget'] = AutocompleteSelectMultiple(db_field.remote_field, self.admin_site, using=db)
+-        elif db_field.name in self.raw_id_fields:
+-            kwargs['widget'] = widgets.ManyToManyRawIdWidget(db_field.remote_field, self.admin_site, using=db)
+-        elif db_field.name in [*self.filter_vertical, *self.filter_horizontal]:
+-            kwargs['widget'] = widgets.FilteredSelectMultiple(
+-                db_field.verbose_name,
+-                db_field.name in self.filter_vertical
+-            )
++        # Avoid stomping on custom widget arguments.
++        if 'widget' not in kwargs:
++            autocomplete_fields = self.get_autocomplete_fields(request)
++            if db_field.name in autocomplete_fields:
++                kwargs['widget'] = AutocompleteSelectMultiple(
++                    db_field.remote_field, self.admin_site, using=db
++                )
++            elif db_field.name in self.raw_id_fields:
++                kwargs['widget'] = widgets.ManyToManyRawIdWidget(
++                    db_field.remote_field, self.admin_site, using=db
++                )
++            elif db_field.name in [*self.filter_vertical, *self.filter_horizontal]:
++                kwargs['widget'] = widgets.FilteredSelectMultiple(
++                    db_field.verbose_name,
++                    db_field.name in self.filter_vertical
++                )
+ 
+         if 'queryset' not in kwargs:
+             queryset = self.get_field_queryset(db, db_field, request)
+diff --git a/tests/admin_widgets/tests.py b/tests/admin_widgets/tests.py
+index 719d0d8095..e77bcac72c 100644
+--- a/tests/admin_widgets/tests.py
++++ b/tests/admin_widgets/tests.py
+@@ -117,6 +117,16 @@ class AdminFormfieldForDBFieldTests(SimpleTestCase):
+         self.assertFormfield(Band, 'members', widgets.FilteredSelectMultiple,
+                              filter_vertical=['members'])
+ 
++    def test_many_to_many_custom_widget_argument_not_overridden(self):
++        class BandAdmin(admin.ModelAdmin):
++            filter_vertical = ['members']
++
++        ma = BandAdmin(Band, admin.site)
++        field = Band._meta.get_field('members')
++        custom_widget = forms.CheckboxSelectMultiple()
++        formfield = ma.formfield_for_manytomany(field, request=None, widget=custom_widget)
++        self.assertIsInstance(formfield.widget, forms.CheckboxSelectMultiple)
++
+     def test_formfield_overrides(self):
+         self.assertFormfield(Event, 'start_date', forms.TextInput,
+                              formfield_overrides={DateField: {'widget': forms.TextInput}})

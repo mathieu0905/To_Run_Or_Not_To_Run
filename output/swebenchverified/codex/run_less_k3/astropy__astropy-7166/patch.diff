@@ -1,0 +1,75 @@
+diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
+index de3fb01d1..be3b489a8 100644
+--- a/astropy/utils/misc.py
++++ b/astropy/utils/misc.py
+@@ -528,13 +528,38 @@ class InheritDocstrings(type):
+                 not key.startswith('_'))
+ 
+         for key, val in dct.items():
+-            if (inspect.isfunction(val) and
+-                is_public_member(key) and
+-                val.__doc__ is None):
++            if (not is_public_member(key) or
++                    getattr(val, '__doc__', None) is not None):
++                continue
++
++            if inspect.isfunction(val):
+                 for base in cls.__mro__[1:]:
+                     super_method = getattr(base, key, None)
+-                    if super_method is not None:
+-                        val.__doc__ = super_method.__doc__
++                    super_doc = getattr(super_method, '__doc__', None)
++                    if super_doc is not None:
++                        val.__doc__ = super_doc
++                        break
++
++            elif isinstance(val, property):
++                # Properties don't satisfy inspect.isfunction, and their
++                # __doc__ is read-only, so we must replace the property object.
++                for base in cls.__mro__[1:]:
++                    super_prop = getattr(base, key, None)
++                    super_doc = getattr(super_prop, '__doc__', None)
++                    if super_doc is not None:
++                        try:
++                            new_prop = type(val)(val.fget, val.fset, val.fdel,
++                                                 super_doc)
++                        except Exception:
++                            # Avoid changing the descriptor type for custom
++                            # property subclasses.
++                            if type(val) is property:
++                                new_prop = property(val.fget, val.fset,
++                                                    val.fdel, super_doc)
++                            else:
++                                break
++
++                        setattr(cls, key, new_prop)
+                         break
+ 
+         super().__init__(name, bases, dct)
+diff --git a/astropy/utils/tests/test_misc.py b/astropy/utils/tests/test_misc.py
+index 4f632e8d1..811690a64 100644
+--- a/astropy/utils/tests/test_misc.py
++++ b/astropy/utils/tests/test_misc.py
+@@ -89,6 +89,22 @@ def test_inherit_docstrings():
+         assert Subclass.__call__.__doc__ == "FOO"
+ 
+ 
++def test_inherit_docstrings_property():
++    class Base(metaclass=misc.InheritDocstrings):
++        @property
++        def foo(self):
++            "FOO"
++            return 1
++
++    class Subclass(Base):
++        @property
++        def foo(self):
++            return 2
++
++    if Base.foo.__doc__ is not None:
++        assert Subclass.foo.__doc__ == "FOO"
++
++
+ def test_set_locale():
+     # First, test if the required locales are available
+     current = locale.setlocale(locale.LC_ALL)

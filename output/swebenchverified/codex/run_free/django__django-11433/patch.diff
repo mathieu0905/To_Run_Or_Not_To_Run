@@ -1,0 +1,75 @@
+diff --git a/django/forms/forms.py b/django/forms/forms.py
+index 0ab25643da..dc35b98f62 100644
+--- a/django/forms/forms.py
++++ b/django/forms/forms.py
+@@ -365,6 +365,10 @@ class BaseForm:
+         Clean all of self.data and populate self._errors and self.cleaned_data.
+         """
+         self._errors = ErrorDict()
++        # A snapshot of the per-field cleaned_data after _clean_fields() and
++        # before form.clean(). ModelForms use this to distinguish between a
++        # field's cleaned value and intentional overrides made in form.clean().
++        self._cleaned_data_before_form_clean = {}
+         if not self.is_bound:  # Stop further processing.
+             return
+         self.cleaned_data = {}
+@@ -374,6 +378,7 @@ class BaseForm:
+             return
+ 
+         self._clean_fields()
++        self._cleaned_data_before_form_clean = self.cleaned_data.copy()
+         self._clean_form()
+         self._post_clean()
+ 
+diff --git a/django/forms/models.py b/django/forms/models.py
+index 5edbbd376f..218c40e73c 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -48,9 +48,15 @@ def construct_instance(form, instance, fields=None, exclude=None):
+             continue
+         # Leave defaults for fields that aren't in POST data, except for
+         # checkbox inputs because they don't appear in POST data if not checked.
+-        if (f.has_default() and
+-                form[f.name].field.widget.value_omitted_from_data(form.data, form.files, form.add_prefix(f.name))):
+-            continue
++        if f.has_default() and form[f.name].field.widget.value_omitted_from_data(
++            form.data, form.files, form.add_prefix(f.name)
++        ):
++            # If the field was omitted from the submitted data, keep the
++            # instance's current value (typically a model default) unless the
++            # value was overridden in form.clean().
++            before_form_clean = getattr(form, '_cleaned_data_before_form_clean', None)
++            if before_form_clean is None or cleaned_data[f.name] == before_form_clean.get(f.name):
++                continue
+         # Defer saving file-type fields until after the other fields, so a
+         # callable upload_to can use the values from other fields.
+         if isinstance(f, models.FileField):
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index 3893eb334c..f269c52e7d 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -585,6 +585,24 @@ class ModelFormBaseTest(TestCase):
+         m2 = mf2.save(commit=False)
+         self.assertEqual(m2.mode, '')
+ 
++    def test_cleaned_data_overwrites_default_when_field_omitted(self):
++        class PubForm(forms.ModelForm):
++            mode = forms.CharField(max_length=255, required=False)
++
++            class Meta:
++                model = PublicationDefaults
++                fields = ('title', 'mode')
++
++            def clean(self):
++                cleaned_data = super().clean()
++                cleaned_data['mode'] = 'de'
++                return cleaned_data
++
++        mf = PubForm({'title': 'Django'})
++        self.assertEqual(mf.errors, {})
++        m = mf.save(commit=False)
++        self.assertEqual(m.mode, 'de')
++
+     def test_default_not_populated_on_optional_checkbox_input(self):
+         class PubForm(forms.ModelForm):
+             class Meta:

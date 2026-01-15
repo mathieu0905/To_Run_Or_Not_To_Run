@@ -1,0 +1,45 @@
+diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py
+index 2ff8b0ee26..8c222fc0e8 100644
+--- a/django/forms/boundfield.py
++++ b/django/forms/boundfield.py
+@@ -277,7 +277,17 @@ class BoundWidget:
+ 
+     @property
+     def id_for_label(self):
+-        return 'id_%s_%s' % (self.data['name'], self.data['index'])
++        """
++        Return the ID to use in a <label for="..."> for this widget.
++
++        For choice widgets, the final ID is computed in ChoiceWidget.create_option()
++        and stored in widget attrs. Fall back to the historical "id_<name>_<index>"
++        format when no ID is available (e.g. <select> options).
++        """
++        id_ = (self.data.get('attrs') or {}).get('id')
++        if 'index' in self.data:
++            return id_ if id_ is not None else 'id_%s_%s' % (self.data['name'], self.data['index'])
++        return self.parent_widget.id_for_label(id_)
+ 
+     @property
+     def choice_label(self):
+diff --git a/tests/forms_tests/tests/test_forms.py b/tests/forms_tests/tests/test_forms.py
+index f3ee64ceda..16f99044d4 100644
+--- a/tests/forms_tests/tests/test_forms.py
++++ b/tests/forms_tests/tests/test_forms.py
+@@ -912,6 +912,17 @@ Java</label></li>
+ </ul>"""
+         )
+ 
++    def test_iterable_boundfield_checkbox_auto_id(self):
++        class SongForm(Form):
++            composers = MultipleChoiceField(
++                choices=[('J', 'John Lennon'), ('P', 'Paul McCartney')],
++                widget=CheckboxSelectMultiple,
++            )
++
++        fields = list(SongForm(auto_id='%s_id')['composers'])
++        self.assertEqual(fields[0].id_for_label, 'composers_id_0')
++        self.assertEqual(fields[1].id_for_label, 'composers_id_1')
++
+     def test_multiple_choice_list_data(self):
+         # Data for a MultipleChoiceField should be a list. QueryDict and
+         # MultiValueDict conveniently work with this.

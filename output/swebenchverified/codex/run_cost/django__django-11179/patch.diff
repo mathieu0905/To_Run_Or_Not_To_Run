@@ -1,0 +1,30 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 92fe4affb9..79c1600de8 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -277,6 +277,9 @@ class Collector:
+             if self.can_fast_delete(instance):
+                 with transaction.mark_for_rollback_on_error():
+                     count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
++                # Mirror the behavior of the non-fast path: deleted instances
++                # should have their primary key cleared.
++                setattr(instance, model._meta.pk.attname, None)
+                 return count, {model._meta.label: count}
+ 
+         with transaction.atomic(using=self.using, savepoint=False):
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 55eeb226ea..9a48a23e6f 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -439,6 +439,11 @@ class DeletionTests(TestCase):
+ 
+ class FastDeleteTests(TestCase):
+ 
++    def test_fast_delete_clears_pk(self):
++        b = Base.objects.create()
++        b.delete()
++        self.assertIsNone(b.pk)
++
+     def test_fast_delete_fk(self):
+         u = User.objects.create(
+             avatar=Avatar.objects.create()

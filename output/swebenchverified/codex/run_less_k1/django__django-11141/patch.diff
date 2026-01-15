@@ -1,0 +1,38 @@
+diff --git a/django/db/migrations/loader.py b/django/db/migrations/loader.py
+index 8c308621d2..fea5ed097d 100644
+--- a/django/db/migrations/loader.py
++++ b/django/db/migrations/loader.py
+@@ -84,11 +84,10 @@ class MigrationLoader:
+                     continue
+                 raise
+             else:
+-                # Empty directories are namespaces.
+-                # getattr() needed on PY36 and older (replace w/attribute access).
+-                if getattr(module, '__file__', None) is None:
+-                    self.unmigrated_apps.add(app_config.label)
+-                    continue
++                # Namespace packages (e.g. a migrations/ directory without an
++                # __init__.py) don't have a __file__ attribute, but they do have
++                # a __path__ used by pkgutil.iter_modules(). Treat them as valid
++                # migration packages.
+                 # Module is not a package (e.g. migrations.py).
+                 if not hasattr(module, '__path__'):
+                     self.unmigrated_apps.add(app_config.label)
+diff --git a/tests/migrations/test_loader.py b/tests/migrations/test_loader.py
+index 0f0a590e7c..48135ab29b 100644
+--- a/tests/migrations/test_loader.py
++++ b/tests/migrations/test_loader.py
+@@ -193,8 +193,12 @@ class LoaderTests(TestCase):
+         with override_settings(MIGRATION_MODULES={"migrations": "migrations.faulty_migrations.namespace"}):
+             loader = MigrationLoader(connection)
+             self.assertIn(
++                "migrations", loader.migrated_apps,
++                "App with a namespace package migrations module not in migrated apps."
++            )
++            self.assertNotIn(
+                 "migrations", loader.unmigrated_apps,
+-                "App missing __init__.py in migrations module not in unmigrated apps."
++                "App with a namespace package migrations module unexpectedly in unmigrated apps."
+             )
+ 
+     @override_settings(

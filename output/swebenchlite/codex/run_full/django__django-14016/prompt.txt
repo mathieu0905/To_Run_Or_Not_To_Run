@@ -1,0 +1,67 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 1710cdbe79c90665046034fe1700933d038d90ad
+
+## Problem Description
+"TypeError: cannot pickle" when applying | operator to a Q object
+Description
+	 
+		(last modified by Daniel Izquierdo)
+	 
+Using a reference to a non-pickleable type of object such as dict_keys in a Q object makes the | operator fail:
+>>> from django.db.models import Q
+>>> Q(x__in={}.keys())
+<Q: (AND: ('x__in', dict_keys([])))>
+>>> Q() | Q(x__in={}.keys())
+Traceback (most recent call last):
+...
+TypeError: cannot pickle 'dict_keys' object
+Even though this particular example could be solved by doing Q() | Q(x__in={}) it still feels like using .keys() should work.
+I can work on a patch if there's agreement that this should not crash.
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

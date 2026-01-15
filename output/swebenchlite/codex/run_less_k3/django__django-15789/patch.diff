@@ -1,0 +1,83 @@
+diff --git a/django/utils/html.py b/django/utils/html.py
+index d0bc97be80..3b06e6bff7 100644
+--- a/django/utils/html.py
++++ b/django/utils/html.py
+@@ -59,15 +59,22 @@ _json_script_escapes = {
+ }
+ 
+ 
+-def json_script(value, element_id=None):
++def json_script(value, element_id=None, encoder=None):
+     """
+     Escape all the HTML/XML special characters with their unicode escapes, so
+     value is safe to be output anywhere except for inside a tag attribute. Wrap
+     the escaped JSON in a script tag.
++
++    The optional ``encoder`` parameter allows specifying a custom JSON encoder
++    class (a subclass of :class:`json.JSONEncoder`) to use when serializing
++    ``value``. If not provided, :class:`~django.core.serializers.json.DjangoJSONEncoder`
++    is used.
+     """
+     from django.core.serializers.json import DjangoJSONEncoder
+ 
+-    json_str = json.dumps(value, cls=DjangoJSONEncoder).translate(_json_script_escapes)
++    if encoder is None:
++        encoder = DjangoJSONEncoder
++    json_str = json.dumps(value, cls=encoder).translate(_json_script_escapes)
+     if element_id:
+         template = '<script id="{}" type="application/json">{}</script>'
+         args = (element_id, mark_safe(json_str))
+diff --git a/docs/ref/utils.txt b/docs/ref/utils.txt
+index 7712015929..71f7c808f9 100644
+--- a/docs/ref/utils.txt
++++ b/docs/ref/utils.txt
+@@ -655,6 +655,21 @@ escaping HTML.
+             ((u.first_name, u.last_name) for u in users)
+         )
+ 
++.. function:: json_script(value, element_id=None, encoder=None)
++
++    Safely outputs ``value`` as JSON, wrapped in a ``<script type="application/json">``
++    tag.
++
++    This is the Python equivalent of the :tfilter:`json_script` template filter.
++
++    The optional ``element_id`` argument specifies the HTML "id" of the
++    ``<script>`` tag.
++
++    The optional ``encoder`` argument specifies a JSON encoder class (a
++    subclass of :class:`json.JSONEncoder`) used when serializing ``value``. If
++    not provided, :class:`~django.core.serializers.json.DjangoJSONEncoder` is
++    used.
++
+ .. function:: strip_tags(value)
+ 
+     Tries to remove anything that looks like an HTML tag from the string, that
+diff --git a/tests/utils_tests/test_html.py b/tests/utils_tests/test_html.py
+index 22a43fd4cd..1814426537 100644
+--- a/tests/utils_tests/test_html.py
++++ b/tests/utils_tests/test_html.py
+@@ -1,3 +1,4 @@
++import json
+ import os
+ from datetime import datetime
+ 
+@@ -211,6 +212,18 @@ class TestUtilsHtml(SimpleTestCase):
+             with self.subTest(arg=arg):
+                 self.assertEqual(json_script(arg, "test_id"), expected)
+ 
++    def test_json_script_custom_encoder(self):
++        class CustomJSONEncoder(json.JSONEncoder):
++            def default(self, o):
++                if isinstance(o, complex):
++                    return "<&>"
++                return super().default(o)
++
++        self.assertEqual(
++            json_script(complex(1, 2), "test_id", encoder=CustomJSONEncoder),
++            '<script id="test_id" type="application/json">"\\u003C\\u0026\\u003E"</script>',
++        )
++
+     def test_json_script_without_id(self):
+         self.assertHTMLEqual(
+             json_script({"key": "value"}),

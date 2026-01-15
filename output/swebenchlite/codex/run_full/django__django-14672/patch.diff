@@ -1,0 +1,54 @@
+diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py
+index ccc2223a5f..65950590e2 100644
+--- a/django/db/models/fields/reverse_related.py
++++ b/django/db/models/fields/reverse_related.py
+@@ -310,7 +310,7 @@ class ManyToManyRel(ForeignObjectRel):
+     def identity(self):
+         return super().identity + (
+             self.through,
+-            self.through_fields,
++            make_hashable(self.through_fields),
+             self.db_constraint,
+         )
+ 
+diff --git a/tests/invalid_models_tests/test_relative_fields.py b/tests/invalid_models_tests/test_relative_fields.py
+index 8909b12214..ecf7e3ef01 100644
+--- a/tests/invalid_models_tests/test_relative_fields.py
++++ b/tests/invalid_models_tests/test_relative_fields.py
+@@ -967,6 +967,36 @@ class AccessorClashTests(SimpleTestCase):
+         self.assertEqual(ManyToManyRel.check(), [])
+         self.assertEqual(FKRel.check(), [])
+ 
++    def test_m2m_through_fields_list_is_hashable(self):
++        """
++        Regression test for #33602.
++
++        ManyToManyRel.identity must be hashable so that model checks (e.g.
++        proxy model checks) can put rel objects in sets.
++        """
++        class Parent(models.Model):
++            name = models.CharField(max_length=256)
++
++        class ProxyParent(Parent):
++            class Meta:
++                proxy = True
++
++        class Child(models.Model):
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
++            many_to_many_field = models.ManyToManyField(
++                to=Parent,
++                through="ManyToManyModel",
++                through_fields=['child', 'parent'],
++                related_name="something",
++            )
++
++        class ManyToManyModel(models.Model):
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='+')
++            child = models.ForeignKey(Child, on_delete=models.CASCADE, related_name='+')
++            second_child = models.ForeignKey(Child, on_delete=models.CASCADE, null=True, default=None)
++
++        self.assertEqual(ProxyParent.check(), [])
++
+ 
+ @isolate_apps('invalid_models_tests')
+ class ReverseQueryNameClashTests(SimpleTestCase):

@@ -1,0 +1,117 @@
+diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py
+index 5c2266ca1d..8ee48876d6 100644
+--- a/django/core/checks/model_checks.py
++++ b/django/core/checks/model_checks.py
+@@ -5,11 +5,17 @@ from itertools import chain
+ 
+ from django.apps import apps
+ from django.core.checks import Error, Tags, register
++from django.db import connections, router
+ 
+ 
+ @register(Tags.models)
+ def check_all_models(app_configs=None, **kwargs):
+-    db_table_models = defaultdict(list)
++    # Track db_table usage per-database (using allow_migrate_model()) so that
++    # multi-database projects can reuse table names when database routers
++    # partition models between databases.
++    db_table_models = defaultdict(lambda: defaultdict(list))  # db_table -> db_alias -> [model_label, ...]
++    db_table_labels = defaultdict(list)  # db_table -> [model_label, ...] (stable order for messages)
++    db_table_labels_set = defaultdict(set)  # db_table -> {model_label, ...}
+     indexes = defaultdict(list)
+     constraints = defaultdict(list)
+     errors = []
+@@ -19,7 +25,18 @@ def check_all_models(app_configs=None, **kwargs):
+         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
+     for model in models:
+         if model._meta.managed and not model._meta.proxy:
+-            db_table_models[model._meta.db_table].append(model._meta.label)
++            allowed_dbs = [
++                db_alias for db_alias in connections
++                if router.allow_migrate_model(db_alias, model)
++            ]
++            if allowed_dbs:
++                db_table = model._meta.db_table
++                label = model._meta.label
++                if label not in db_table_labels_set[db_table]:
++                    db_table_labels[db_table].append(label)
++                    db_table_labels_set[db_table].add(label)
++                for db_alias in allowed_dbs:
++                    db_table_models[db_table][db_alias].append(label)
+         if not inspect.ismethod(model.check):
+             errors.append(
+                 Error(
+@@ -35,12 +52,12 @@ def check_all_models(app_configs=None, **kwargs):
+             indexes[model_index.name].append(model._meta.label)
+         for model_constraint in model._meta.constraints:
+             constraints[model_constraint.name].append(model._meta.label)
+-    for db_table, model_labels in db_table_models.items():
+-        if len(model_labels) != 1:
++    for db_table, db_aliases in db_table_models.items():
++        if any(len(model_labels) > 1 for model_labels in db_aliases.values()):
+             errors.append(
+                 Error(
+                     "db_table '%s' is used by multiple models: %s."
+-                    % (db_table, ', '.join(db_table_models[db_table])),
++                    % (db_table, ', '.join(db_table_labels[db_table])),
+                     obj=db_table,
+                     id='models.E028',
+                 )
+diff --git a/tests/check_framework/test_model_checks.py b/tests/check_framework/test_model_checks.py
+index 79177e38f7..8e6b4be5fb 100644
+--- a/tests/check_framework/test_model_checks.py
++++ b/tests/check_framework/test_model_checks.py
+@@ -1,10 +1,25 @@
+ from django.core import checks
+ from django.core.checks import Error
+ from django.db import models
++from django.conf import settings
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+ from django.test.utils import (
+     isolate_apps, modify_settings, override_system_checks,
+ )
++from django.test.utils import override_settings
++
++
++class PartitionByAppLabelRouter:
++    """
++    Route apps to separate databases to avoid false-positive db_table collisions.
++    """
++
++    def allow_migrate(self, db, app_label, **hints):
++        if app_label == 'basic':
++            return db == 'default'
++        if app_label == 'check_framework':
++            return db == 'other'
++        return None
+ 
+ 
+ @isolate_apps('check_framework', attr_name='apps')
+@@ -50,6 +65,27 @@ class DuplicateDBTableTests(SimpleTestCase):
+             )
+         ])
+ 
++    @modify_settings(INSTALLED_APPS={'append': 'basic'})
++    @isolate_apps('basic', 'check_framework', kwarg_name='apps')
++    def test_no_collision_across_databases_with_router(self, apps):
++        override_kwargs = {'DATABASE_ROUTERS': [PartitionByAppLabelRouter()]}
++        if 'other' not in settings.DATABASES:
++            databases = settings.DATABASES.copy()
++            databases['other'] = settings.DATABASES['default'].copy()
++            override_kwargs['DATABASES'] = databases
++        with override_settings(**override_kwargs):
++            class Model1(models.Model):
++                class Meta:
++                    app_label = 'basic'
++                    db_table = 'test_table'
++
++            class Model2(models.Model):
++                class Meta:
++                    app_label = 'check_framework'
++                    db_table = 'test_table'
++
++            self.assertEqual(checks.run_checks(app_configs=apps.get_app_configs()), [])
++
+     def test_no_collision_for_unmanaged_models(self):
+         class Unmanaged(models.Model):
+             class Meta:

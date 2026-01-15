@@ -1,0 +1,47 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..3637be0b4b 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -955,8 +955,30 @@ class CharField(Field):
+         return [
+             *super().check(**kwargs),
+             *self._check_max_length_attribute(**kwargs),
++            *self._check_max_length_warning(),
+         ]
+ 
++    def _check_max_length_warning(self):
++        if self.max_length is None or not self.choices:
++            return []
++
++        choice_max_length = max(
++            len(choice)
++            for choice, _ in self.flatchoices
++            if isinstance(choice, str)
++        ) if self.flatchoices else 0
++
++        if choice_max_length > self.max_length:
++            return [
++                checks.Error(
++                    "'max_length' is too small to fit the longest value "
++                    "in 'choices' (%d characters)." % choice_max_length,
++                    obj=self,
++                    id='fields.E122',
++                )
++            ]
++        return []
++
+     def _check_max_length_attribute(self, **kwargs):
+         if self.max_length is None:
+             return [
+diff --git a/docs/ref/checks.txt b/docs/ref/checks.txt
+index 4da932720e..846dfd042f 100644
+--- a/docs/ref/checks.txt
++++ b/docs/ref/checks.txt
+@@ -143,6 +143,7 @@ Model fields
+   appeared before support for null values was added in Django 2.1.*
+ * **fields.E120**: ``CharField``\s must define a ``max_length`` attribute.
+ * **fields.E121**: ``max_length`` must be a positive integer.
++* **fields.E122**: ``max_length`` is too small to fit the longest value in ``choices``.
+ * **fields.W122**: ``max_length`` is ignored when used with
+   ``<integer field type>``.
+ * **fields.E130**: ``DecimalField``\s must define a ``decimal_places`` attribute.

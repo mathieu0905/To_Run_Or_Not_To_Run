@@ -1,0 +1,46 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 4038859cfa..264e9699f7 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -17,7 +17,7 @@ from django.db import (
+     connections, router, transaction,
+ )
+ from django.db.models import (
+-    NOT_PROVIDED, ExpressionWrapper, IntegerField, Max, Value,
++    NOT_PROVIDED, AutoField, ExpressionWrapper, IntegerField, Max, Value,
+ )
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.constraints import CheckConstraint, UniqueConstraint
+@@ -1299,6 +1299,7 @@ class Model(metaclass=ModelBase):
+     def _check_default_pk(cls):
+         if (
+             cls._meta.pk.auto_created and
++            isinstance(cls._meta.pk, AutoField) and
+             not settings.is_overridden('DEFAULT_AUTO_FIELD') and
+             not cls._meta.app_config._is_default_auto_field_overridden
+         ):
+diff --git a/tests/check_framework/test_model_checks.py b/tests/check_framework/test_model_checks.py
+index d4342ada07..ea17fdd6a8 100644
+--- a/tests/check_framework/test_model_checks.py
++++ b/tests/check_framework/test_model_checks.py
+@@ -395,6 +395,20 @@ class ModelDefaultAutoFieldTests(SimpleTestCase):
+             ),
+         ])
+ 
++    def test_inherited_primary_key(self):
++        """
++        Multi-table inheritance creates a primary key on the child model via an
++        auto-created OneToOneField pointing to the parent. That primary key is
++        not an auto-created AutoField and shouldn't trigger W042.
++        """
++        class Parent(models.Model):
++            id = models.BigAutoField(primary_key=True)
++
++        class Child(Parent):
++            pass
++
++        self.assertEqual(checks.run_checks(app_configs=self.apps.get_app_configs()), [])
++
+     @override_settings(DEFAULT_AUTO_FIELD='django.db.models.BigAutoField')
+     def test_default_auto_field_setting(self):
+         class Model(models.Model):

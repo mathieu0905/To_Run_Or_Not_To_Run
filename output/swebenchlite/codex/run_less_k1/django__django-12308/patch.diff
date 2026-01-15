@@ -1,0 +1,46 @@
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..5f5cfdc961 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -396,6 +396,11 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value, field.decimal_places)
+     elif isinstance(field, (models.IntegerField, models.FloatField)):
+         return formats.number_format(value)
++    elif isinstance(field, models.JSONField):
++        # Use the corresponding form field to serialize values as valid JSON.
++        # This also preserves InvalidJSONInput values which may be present when
++        # redisplaying forms with invalid JSON input.
++        return field.formfield().prepare_value(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
+     else:
+diff --git a/tests/admin_utils/tests.py b/tests/admin_utils/tests.py
+index 463ba9556d..2b47c625b5 100644
+--- a/tests/admin_utils/tests.py
++++ b/tests/admin_utils/tests.py
+@@ -9,6 +9,7 @@ from django.contrib.admin.utils import (
+     flatten_fieldsets, label_for_field, lookup_field, quote,
+ )
+ from django.db import DEFAULT_DB_ALIAS, models
++from django.forms.fields import InvalidJSONInput
+ from django.test import SimpleTestCase, TestCase, override_settings
+ from django.utils.formats import localize
+ from django.utils.safestring import mark_safe
+@@ -94,6 +95,17 @@ class UtilsTests(SimpleTestCase):
+ 
+     empty_value = '-empty-'
+ 
++    def test_json_display_for_field(self):
++        field = models.JSONField()
++        self.assertEqual(
++            display_for_field({'foo': 'bar'}, field, self.empty_value),
++            '{"foo": "bar"}',
++        )
++        self.assertEqual(
++            display_for_field(InvalidJSONInput("{'foo': 'bar'}"), field, self.empty_value),
++            "{'foo': 'bar'}",
++        )
++
+     def test_values_from_lookup_field(self):
+         """
+         Regression test for #12654: lookup_field

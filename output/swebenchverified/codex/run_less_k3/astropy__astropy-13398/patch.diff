@@ -1,0 +1,127 @@
+diff --git a/astropy/coordinates/builtin_frames/__init__.py b/astropy/coordinates/builtin_frames/__init__.py
+index 6fd688c28..17b524478 100644
+--- a/astropy/coordinates/builtin_frames/__init__.py
++++ b/astropy/coordinates/builtin_frames/__init__.py
+@@ -48,6 +48,7 @@ from . import supergalactic_transforms
+ from . import icrs_cirs_transforms
+ from . import cirs_observed_transforms
+ from . import icrs_observed_transforms
++from . import itrs_observed_transforms
+ from . import intermediate_rotation_transforms
+ from . import ecliptic_transforms
+ 
+diff --git a/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py b/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py
+index a15248c38..eadc4cd88 100644
+--- a/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py
++++ b/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py
+@@ -8,6 +8,7 @@ rotations without aberration corrections or offsets.
+ import numpy as np
+ import erfa
+ 
++from astropy import units as u
+ from astropy.coordinates.baseframe import frame_transform_graph
+ from astropy.coordinates.transformations import FunctionTransformWithFiniteDifference
+ from astropy.coordinates.matrix_utilities import matrix_transpose
+@@ -272,8 +273,30 @@ def itrs_to_teme(itrs_coo, teme_frame):
+     return teme_frame.realize_frame(newrepr)
+ 
+ 
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, ITRS, ITRS)
++def itrs_to_itrs(itrs_coo, itrs_frame):
++    # For near-Earth positions naturally expressed in ITRS (e.g., ground points,
++    # satellites), treat ITRS as time-invariant: preserve coordinate values and
++    # adopt the destination frame attributes.
++    #
++    # For far-away objects (e.g., when an ephemeris has been transformed into
++    # ITRS), preserve the historical behaviour of changing `obstime` by going
++    # via CIRS/ICRS, which effectively assumes the coordinate is tied to the
++    # corresponding inertial position.
++    if itrs_coo.cartesian.x.unit == u.one:
++        near_earth = False
++    else:
++        near_earth = np.all(itrs_coo.cartesian.norm() < 1e8 * u.m)
++
++    if near_earth:
++        return itrs_frame.realize_frame(itrs_coo.data)
++
++    # Fall back to the historical path.
++    cirs = itrs_coo.transform_to(CIRS(obstime=itrs_frame.obstime, location=EARTH_CENTER))
++    return cirs.transform_to(itrs_frame)
++
++
+ # Create loopback transformations
+-frame_transform_graph._add_merged_transform(ITRS, CIRS, ITRS)
+ frame_transform_graph._add_merged_transform(PrecessedGeocentric, GCRS, PrecessedGeocentric)
+ frame_transform_graph._add_merged_transform(TEME, ITRS, TEME)
+ frame_transform_graph._add_merged_transform(TETE, ICRS, TETE)
+diff --git a/astropy/coordinates/tests/test_intermediate_transformations.py b/astropy/coordinates/tests/test_intermediate_transformations.py
+index 007ccc025..fb6940b98 100644
+--- a/astropy/coordinates/tests/test_intermediate_transformations.py
++++ b/astropy/coordinates/tests/test_intermediate_transformations.py
+@@ -806,6 +806,40 @@ def test_straight_overhead():
+     assert_allclose(hd.dec, 52*u.deg, atol=1*u.uas, rtol=0)
+ 
+ 
++def test_itrs_to_observed_straight_overhead():
++    """
++    A nearby object directly above the observer should transform to Alt=90.
++
++    This is a regression test for ITRS->observed transforms that should not
++    pick up a spurious annual aberration term when converting between
++    geocentric and topocentric quantities.
++    """
++    t = Time("J2010")
++    obj = EarthLocation(-1 * u.deg, 52 * u.deg, height=10.0 * u.km)
++    home = EarthLocation(-1 * u.deg, 52 * u.deg, height=0.0 * u.km)
++
++    itrs = obj.get_itrs(obstime=t)
++
++    aa = itrs.transform_to(AltAz(obstime=t, location=home))
++    assert_allclose(aa.alt, 90 * u.deg, atol=1 * u.uas, rtol=0)
++
++    hd = itrs.transform_to(HADec(obstime=t, location=home))
++    assert_allclose(hd.ha, 0 * u.hourangle, atol=1 * u.uas, rtol=0)
++    assert_allclose(hd.dec, 52 * u.deg, atol=1 * u.uas, rtol=0)
++
++
++def test_itrs_self_transform_time_invariant():
++    """ITRS self-transforms should preserve coordinate values."""
++    t1 = Time("J2000")
++    t2 = Time("J2010")
++    loc = EarthLocation.from_geodetic(0 * u.deg, 0 * u.deg, 0 * u.m)
++
++    itrs1 = loc.get_itrs(obstime=t1)
++    itrs2 = itrs1.transform_to(ITRS(obstime=t2))
++
++    assert_allclose(itrs2.cartesian.xyz, itrs1.cartesian.xyz)
++
++
+ def jplephem_ge(minversion):
+     """Check if jplephem is installed and has version >= minversion."""
+     # This is a separate routine since somehow with pyinstaller the stanza
+diff --git a/astropy/utils/iers/iers.py b/astropy/utils/iers/iers.py
+index dae42fba8..1c9b117c7 100644
+--- a/astropy/utils/iers/iers.py
++++ b/astropy/utils/iers/iers.py
+@@ -263,10 +263,18 @@ class IERS(QTable):
+         utc : float or array
+             fractional part of MJD
+         """
+-        try:  # see if this is a Time object
+-            jd1, jd2 = jd1.utc.jd1, jd1.utc.jd2
++        # If this is a Time object, convert to UTC for MJD computation.
++        # If conversion fails (e.g., missing/expired leap-second data), fall
++        # back to using the existing scale rather than leaving `jd1` as a
++        # Time instance (which would break the arithmetic below).
++        try:
++            t = jd1.utc
++        except AttributeError:
++            t = None
+         except Exception:
+-            pass
++            t = jd1
++        if t is not None:
++            jd1, jd2 = t.jd1, t.jd2
+ 
+         mjd = np.floor(jd1 - MJD_ZERO + jd2)
+         utc = jd1 - (MJD_ZERO+mjd) + jd2

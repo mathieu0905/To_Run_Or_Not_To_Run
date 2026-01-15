@@ -1,0 +1,148 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index eaccc96d7d..c9861fe213 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -5,7 +5,7 @@ from itertools import chain
+ 
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db.models.constants import LOOKUP_SEP
+-from django.db.models.expressions import OrderBy, Random, RawSQL, Ref, Value
++from django.db.models.expressions import F, OrderBy, Random, RawSQL, Ref, Value
+ from django.db.models.functions import Cast
+ from django.db.models.query_utils import QueryWrapper, select_related_descend
+ from django.db.models.sql.constants import (
+@@ -704,6 +704,23 @@ class SQLCompiler:
+         not be) and column name for ordering by the given 'name' parameter.
+         The 'name' is of the form 'field1__field2__...__fieldN'.
+         """
++        if hasattr(name, 'resolve_expression'):
++            # When ordering comes from a related model's Meta.ordering, items
++            # may be expressions (e.g. F(...).asc()). Normalize to OrderBy and
++            # apply default_order to match the behavior of prefixed string
++            # orderings (e.g. ordering by '-relation' reverses the related
++            # model ordering).
++            expr = name
++            if isinstance(expr, Value):
++                # output_field must be resolved for constants.
++                expr = Cast(expr, expr.output_field)
++            if not isinstance(expr, OrderBy):
++                expr = expr.asc()
++            if default_order == 'DESC':
++                expr = expr.copy()
++                expr.reverse_ordering()
++            return [(expr, False)]
++
+         name, order = get_order_dir(name, default_order)
+         descending = order == 'DESC'
+         pieces = name.split(LOOKUP_SEP)
+@@ -722,12 +739,55 @@ class SQLCompiler:
+ 
+             results = []
+             for item in opts.ordering:
+-                results.extend(self.find_ordering_name(item, opts, alias,
+-                                                       order, already_seen))
++                if hasattr(item, 'resolve_expression'):
++                    expr = item
++                    if isinstance(expr, Value):
++                        # output_field must be resolved for constants.
++                        expr = Cast(expr, expr.output_field)
++                    if not isinstance(expr, OrderBy):
++                        expr = expr.asc()
++                    if descending:
++                        expr = expr.copy()
++                        expr.reverse_ordering()
++                    expr = self._prefix_expression(expr, name)
++                    results.append((expr, False))
++                else:
++                    if item == '?':
++                        results.append((OrderBy(Random()), False))
++                        continue
++                    # Prefix the related model's ordering with the relation
++                    # path so it can be resolved in the context of the root
++                    # query.
++                    prefix = item[0] if item and item[0] in '+-' else ''
++                    bare_item = item[1:] if prefix else item
++                    prefixed_item = '%s%s%s%s' % (prefix, name, LOOKUP_SEP, bare_item)
++                    results.extend(self.find_ordering_name(
++                        prefixed_item,
++                        self.query.get_meta(),
++                        default_order=order,
++                        already_seen=already_seen,
++                    ))
+             return results
+         targets, alias, _ = self.query.trim_joins(targets, joins, path)
+         return [(OrderBy(transform_function(t, alias), descending=descending), False) for t in targets]
+ 
++    def _prefix_expression(self, expression, prefix):
++        """
++        Return a copy of an expression with all F() references prefixed with
++        the given relation path.
++        """
++        if isinstance(expression, F):
++            return F('%s%s%s' % (prefix, LOOKUP_SEP, expression.name))
++        # Most expressions are trees of other expressions.
++        if not hasattr(expression, 'get_source_expressions'):
++            return expression
++        clone = expression.copy()
++        clone.set_source_expressions([
++            self._prefix_expression(expr, prefix) if expr is not None else None
++            for expr in expression.get_source_expressions()
++        ])
++        return clone
++
+     def _setup_joins(self, pieces, opts, alias):
+         """
+         Helper method for get_order_by() and get_distinct().
+diff --git a/tests/ordering/models.py b/tests/ordering/models.py
+index 8b71983c44..2f0fda9c81 100644
+--- a/tests/ordering/models.py
++++ b/tests/ordering/models.py
+@@ -59,3 +59,14 @@ class Reference(models.Model):
+ 
+     class Meta:
+         ordering = ('article',)
++
++
++class ArticleReference(models.Model):
++    """
++    Used to test ordering by a relation whose target model has expression
++    ordering in Meta.ordering.
++    """
++    article = models.ForeignKey(Article, models.CASCADE)
++
++    class Meta:
++        ordering = ('article',)
+diff --git a/tests/ordering/tests.py b/tests/ordering/tests.py
+index 18c32d6d5f..6b24a4cb6d 100644
+--- a/tests/ordering/tests.py
++++ b/tests/ordering/tests.py
+@@ -9,7 +9,7 @@ from django.db.models.functions import Upper
+ from django.test import TestCase
+ from django.utils.deprecation import RemovedInDjango31Warning
+ 
+-from .models import Article, Author, OrderedByFArticle, Reference
++from .models import Article, ArticleReference, Author, OrderedByFArticle, Reference
+ 
+ 
+ class OrderingTests(TestCase):
+@@ -67,6 +67,20 @@ class OrderingTests(TestCase):
+             attrgetter("headline")
+         )
+ 
++    def test_order_by_related_model_with_expression_ordering(self):
++        ArticleReference.objects.create(article=self.a2)
++        ArticleReference.objects.create(article=self.a4)
++        ArticleReference.objects.create(article=self.a1)
++        ArticleReference.objects.create(article=self.a3)
++        self.assertSequenceEqual(
++            list(ArticleReference.objects.values_list('article__headline', flat=True)),
++            ['Article 4', 'Article 2', 'Article 3', 'Article 1'],
++        )
++        self.assertSequenceEqual(
++            list(ArticleReference.objects.order_by('-article').values_list('article__headline', flat=True)),
++            ['Article 1', 'Article 3', 'Article 2', 'Article 4'],
++        )
++
+     def test_order_by_override(self):
+         """
+         Only the last order_by has any effect (since they each override any

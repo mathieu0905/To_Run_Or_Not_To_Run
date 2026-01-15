@@ -1,0 +1,140 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index ae82d26340..1bfbf39151 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -214,6 +214,11 @@ class Collector:
+         if collect_related:
+             if keep_parents:
+                 parents = set(model._meta.get_parent_list())
++            # When multiple relations target the same related model/table for
++            # the same batch of parent objects, combine their fast delete
++            # querysets to reduce database roundtrips (e.g. multiple FKs or
++            # self-referential m2m through tables).
++            fast_deletes = {}
+             for related in get_candidate_relations_to_delete(model._meta):
+                 # Preserve parent reverse relationships if keep_parents=True.
+                 if keep_parents and related.model in parents:
+@@ -225,7 +230,8 @@ class Collector:
+                 for batch in batches:
+                     sub_objs = self.related_objects(related, batch)
+                     if self.can_fast_delete(sub_objs, from_field=field):
+-                        self.fast_deletes.append(sub_objs)
++                        batch_key = tuple(obj.pk for obj in batch)
++                        fast_deletes.setdefault((sub_objs.model, batch_key), []).append(sub_objs)
+                     else:
+                         related_model = related.related_model
+                         # Non-referenced fields can be deferred if no signal
+@@ -243,6 +249,17 @@ class Collector:
+                             sub_objs = sub_objs.only(*tuple(referenced_fields))
+                         if sub_objs:
+                             field.remote_field.on_delete(self, field, sub_objs, self.using)
++            for querysets in fast_deletes.values():
++                combined = querysets[0]
++                for qs in querysets[1:]:
++                    try:
++                        combined = combined | qs
++                    except (AssertionError, TypeError, ValueError):
++                        # If querysets can't be merged (e.g. incompatible
++                        # query options), fall back to issuing them separately.
++                        self.fast_deletes.append(combined)
++                        combined = qs
++                self.fast_deletes.append(combined)
+             for field in model._meta.private_fields:
+                 if hasattr(field, 'bulk_related_objects'):
+                     # It's something like generic foreign key.
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 505fd843d7..07bc42e106 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -3,7 +3,8 @@ from math import ceil
+ from django.db import IntegrityError, connection, models
+ from django.db.models.deletion import Collector
+ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
+-from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
++from django.test import TestCase, TransactionTestCase, skipIfDBFeature, skipUnlessDBFeature
++from django.test.utils import CaptureQueriesContext, isolate_apps
+ 
+ from .models import (
+     MR, A, Avatar, Base, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
+@@ -582,3 +583,81 @@ class FastDeleteTests(TestCase):
+                 User.objects.filter(avatar__desc='missing').delete(),
+                 (0, {'delete.User': 0})
+             )
++
++
++class CombinedFastDeleteTests(TransactionTestCase):
++    available_apps = ["delete"]
++
++    @isolate_apps("delete")
++    def test_combine_fast_deletes_for_multiple_foreign_keys(self):
++        class User(models.Model):
++            class Meta:
++                app_label = "delete"
++                db_table = "test_delete_user_multi_fk"
++
++        class Entry(models.Model):
++            created_by = models.ForeignKey(User, models.CASCADE, related_name="+")
++            updated_by = models.ForeignKey(User, models.CASCADE, related_name="+")
++
++            class Meta:
++                app_label = "delete"
++                db_table = "test_delete_entry_multi_fk"
++
++        with connection.schema_editor() as schema_editor:
++            schema_editor.create_model(User)
++            schema_editor.create_model(Entry)
++        try:
++            u = User.objects.create()
++            Entry.objects.create(created_by=u, updated_by=u)
++            with CaptureQueriesContext(connection) as ctx:
++                u.delete()
++            deletes = [q["sql"] for q in ctx.captured_queries if q["sql"].startswith("DELETE")]
++            self.assertEqual(len(deletes), 2)
++            entry_deletes = [sql for sql in deletes if "test_delete_entry_multi_fk" in sql]
++            self.assertEqual(len(entry_deletes), 1)
++            self.assertIn(" OR ", entry_deletes[0])
++        finally:
++            with connection.schema_editor() as schema_editor:
++                schema_editor.delete_model(Entry)
++                schema_editor.delete_model(User)
++
++    @isolate_apps("delete")
++    def test_combine_fast_deletes_for_self_referential_m2m_through_table(self):
++        class Person(models.Model):
++            friends = models.ManyToManyField(
++                "self",
++                through="Friendship",
++                symmetrical=False,
++                related_name="+",
++            )
++
++            class Meta:
++                app_label = "delete"
++                db_table = "test_delete_person_self_m2m"
++
++        class Friendship(models.Model):
++            from_person = models.ForeignKey("Person", models.CASCADE, related_name="+")
++            to_person = models.ForeignKey("Person", models.CASCADE, related_name="+")
++
++            class Meta:
++                app_label = "delete"
++                db_table = "test_delete_friendship_self_m2m"
++
++        with connection.schema_editor() as schema_editor:
++            schema_editor.create_model(Person)
++            schema_editor.create_model(Friendship)
++        try:
++            p1 = Person.objects.create()
++            p2 = Person.objects.create()
++            Friendship.objects.create(from_person=p1, to_person=p2)
++            with CaptureQueriesContext(connection) as ctx:
++                p1.delete()
++            deletes = [q["sql"] for q in ctx.captured_queries if q["sql"].startswith("DELETE")]
++            self.assertEqual(len(deletes), 2)
++            friendship_deletes = [sql for sql in deletes if "test_delete_friendship_self_m2m" in sql]
++            self.assertEqual(len(friendship_deletes), 1)
++            self.assertIn(" OR ", friendship_deletes[0])
++        finally:
++            with connection.schema_editor() as schema_editor:
++                schema_editor.delete_model(Friendship)
++                schema_editor.delete_model(Person)

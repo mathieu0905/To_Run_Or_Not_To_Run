@@ -1,0 +1,97 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 28374272f4..5cc2b362e9 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -516,13 +516,28 @@ class Field(RegisterLookupMixin):
+     def __eq__(self, other):
+         # Needed for @total_ordering
+         if isinstance(other, Field):
+-            return self.creation_counter == other.creation_counter
++            # Fields from abstract models are copied onto each concrete model.
++            # Those copies preserve their original creation_counter, so include
++            # the owning model in equality to avoid considering them equal.
++            return (
++                self.creation_counter == other.creation_counter
++                and getattr(self, "model", None) is getattr(other, "model", None)
++            )
+         return NotImplemented
+ 
+     def __lt__(self, other):
+         # This is needed because bisect does not take a comparison function.
+         if isinstance(other, Field):
+-            return self.creation_counter < other.creation_counter
++            if self.creation_counter != other.creation_counter:
++                return self.creation_counter < other.creation_counter
++            self_model = getattr(self, "model", None)
++            other_model = getattr(other, "model", None)
++            if self_model is other_model:
++                return False
++            if self_model is None or other_model is None:
++                return self_model is None and other_model is not None
++            # Break ties deterministically across models.
++            return self_model._meta.label_lower < other_model._meta.label_lower
+         return NotImplemented
+ 
+     def __hash__(self):
+diff --git a/tests/model_inheritance_regress/models.py b/tests/model_inheritance_regress/models.py
+index 1f5f516aac..50b3df4598 100644
+--- a/tests/model_inheritance_regress/models.py
++++ b/tests/model_inheritance_regress/models.py
+@@ -201,3 +201,18 @@ class Congressman(Person, Politician):
+ 
+ class Senator(Congressman):
+     pass
++
++
++class AbstractBaseWithField(models.Model):
++    myfield = models.IntegerField()
++
++    class Meta:
++        abstract = True
++
++
++class ChildModelWithAbstractFieldB(AbstractBaseWithField):
++    pass
++
++
++class ChildModelWithAbstractFieldC(AbstractBaseWithField):
++    pass
+diff --git a/tests/model_inheritance_regress/tests.py b/tests/model_inheritance_regress/tests.py
+index 2c15925da5..942d7c5340 100644
+--- a/tests/model_inheritance_regress/tests.py
++++ b/tests/model_inheritance_regress/tests.py
+@@ -10,11 +10,12 @@ from django.test import TestCase
+ 
+ from .models import (
+     ArticleWithAuthor, BachelorParty, BirthdayParty, BusStation, Child,
+-    Congressman, DerivedM, InternalCertificationAudit, ItalianRestaurant,
+-    M2MChild, MessyBachelorParty, ParkingLot, ParkingLot3, ParkingLot4A,
+-    ParkingLot4B, Person, Place, Politician, Profile, QualityControl,
+-    Restaurant, SelfRefChild, SelfRefParent, Senator, Supplier, TrainStation,
+-    User, Wholesaler,
++    ChildModelWithAbstractFieldB, ChildModelWithAbstractFieldC, Congressman,
++    DerivedM, InternalCertificationAudit, ItalianRestaurant, M2MChild,
++    MessyBachelorParty, ParkingLot, ParkingLot3, ParkingLot4A, ParkingLot4B,
++    Person, Place, Politician, Profile, QualityControl, Restaurant,
++    SelfRefChild, SelfRefParent, Senator, Supplier, TrainStation, User,
++    Wholesaler,
+ )
+ 
+ 
+@@ -319,6 +320,16 @@ class ModelInheritanceTest(TestCase):
+             assignee='adrian',
+         )
+ 
++    def test_abstract_base_class_fields_compare_unequal_across_models(self):
++        """
++        Fields copied from an abstract base model onto different concrete
++        subclasses must not compare equal.
++        """
++        field_b = ChildModelWithAbstractFieldB._meta.get_field("myfield")
++        field_c = ChildModelWithAbstractFieldC._meta.get_field("myfield")
++        self.assertNotEqual(field_b, field_c)
++        self.assertEqual(len({field_b, field_c}), 2)
++
+     def test_abstract_base_class_m2m_relation_inheritance(self):
+         # many-to-many relations defined on an abstract base class are
+         # correctly inherited (and created) on the child class.

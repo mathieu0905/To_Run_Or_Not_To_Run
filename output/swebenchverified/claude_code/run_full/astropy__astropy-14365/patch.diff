@@ -11,3 +11,50 @@ index 83a4f004a..768beb0de 100644
      line = line.strip()
      if not line:
          return "comment"
+diff --git a/astropy/io/ascii/tests/test_qdp.py b/astropy/io/ascii/tests/test_qdp.py
+index ef24e6f6a..4550b8bf7 100644
+--- a/astropy/io/ascii/tests/test_qdp.py
++++ b/astropy/io/ascii/tests/test_qdp.py
+@@ -245,3 +245,42 @@ def test_get_lines_from_qdp(tmp_path):
+         assert file_output[i] == line
+         assert list_output[i] == line
+         assert text_output[i] == line
++
++
++def test_case_insensitive_commands(tmp_path):
++    """Test that QDP commands are case-insensitive."""
++    # Test lowercase SERR
++    example_qdp_lower = """
++    read serr 1 2
++    1 0.5 1 0.5
++    2 0.6 2 0.6
++    """
++
++    path = str(tmp_path / "test_lower.qdp")
++    with open(path, "w") as fp:
++        print(example_qdp_lower, file=fp)
++
++    table = _read_table_qdp(path, table_id=0)
++    assert len(table.colnames) == 4
++    assert 'col1' in table.colnames
++    assert 'col1_err' in table.colnames
++    assert 'col2' in table.colnames
++    assert 'col2_err' in table.colnames
++
++    # Test mixed case TERR
++    example_qdp_mixed = """
++    ReAd TeRr 1
++    1 0.5 0.3 2
++    2 0.6 0.4 3
++    """
++
++    path2 = str(tmp_path / "test_mixed.qdp")
++    with open(path2, "w") as fp:
++        print(example_qdp_mixed, file=fp)
++
++    table2 = _read_table_qdp(path2, table_id=0)
++    assert len(table2.colnames) == 4
++    assert 'col1' in table2.colnames
++    assert 'col1_perr' in table2.colnames
++    assert 'col1_nerr' in table2.colnames
++    assert 'col2' in table2.colnames

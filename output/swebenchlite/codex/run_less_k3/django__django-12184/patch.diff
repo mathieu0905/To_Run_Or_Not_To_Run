@@ -1,0 +1,41 @@
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 2d4610aac4..01c22e44dd 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -155,11 +155,12 @@ class RegexPattern(CheckURLMixin):
+     def match(self, path):
+         match = self.regex.search(path)
+         if match:
+-            # If there are any named groups, use those as kwargs, ignoring
+-            # non-named groups. Otherwise, pass all non-named arguments as
+-            # positional arguments.
++            # If the pattern contains named groups, use those as kwargs and
++            # ignore positional groups entirely. This must be based on whether
++            # named groups exist (not whether they matched) to avoid passing
++            # optional named groups as positional args when they are omitted.
+             kwargs = {k: v for k, v in match.groupdict().items() if v is not None}
+-            args = () if kwargs else match.groups()
++            args = () if self.regex.groupindex else match.groups()
+             return path[match.end():], args, kwargs
+         return None
+ 
+diff --git a/tests/urlpatterns/test_resolvers.py b/tests/urlpatterns/test_resolvers.py
+index eaca6096d9..b597a4373b 100644
+--- a/tests/urlpatterns/test_resolvers.py
++++ b/tests/urlpatterns/test_resolvers.py
+@@ -9,6 +9,15 @@ class RegexPatternTests(SimpleTestCase):
+     def test_str(self):
+         self.assertEqual(str(RegexPattern(_('^translated/$'))), '^translated/$')
+ 
++    def test_match_ignores_positional_groups_when_optional_named_group_is_omitted(self):
++        """
++        Regression test for optional named groups that don't match:
++        they must not be passed as positional args.
++        """
++        pattern = RegexPattern(r'^module/(?P<format>(html|json|xml))?/?$')
++        self.assertEqual(pattern.match('module/'), ('', (), {}))
++        self.assertEqual(pattern.match('module/json/'), ('', (), {'format': 'json'}))
++
+ 
+ class RoutePatternTests(SimpleTestCase):
+ 

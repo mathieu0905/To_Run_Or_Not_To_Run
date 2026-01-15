@@ -1,0 +1,48 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 4648daf395..ecc4cc7c3a 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1077,10 +1077,14 @@ class Query(BaseExpression):
+         elif isinstance(value, (list, tuple)):
+             # The items of the iterable may be expressions and therefore need
+             # to be resolved independently.
+-            return type(value)(
++            resolved_values = (
+                 self.resolve_lookup_value(sub_value, can_reuse, allow_joins)
+                 for sub_value in value
+             )
++            if isinstance(value, tuple) and hasattr(value, '_fields'):
++                # Namedtuples don't accept a single iterable argument.
++                return type(value)(*resolved_values)
++            return type(value)(resolved_values)
+         return value
+ 
+     def solve_lookup_type(self, lookup):
+diff --git a/tests/custom_lookups/tests.py b/tests/custom_lookups/tests.py
+index 14f95a241b..13c7488d84 100644
+--- a/tests/custom_lookups/tests.py
++++ b/tests/custom_lookups/tests.py
+@@ -1,5 +1,6 @@
+ import time
+ import unittest
++from collections import namedtuple
+ from datetime import date, datetime
+ 
+ from django.core.exceptions import FieldError
+@@ -281,6 +282,16 @@ class LookupTests(TestCase):
+             self.assertSequenceEqual(baseqs.filter(age__div3__gte=3), [])
+             self.assertSequenceEqual(baseqs.filter(age__div3__range=(1, 2)), [a1, a2, a4])
+ 
++    def test_div3_extract_range_namedtuple(self):
++        with register_lookup(models.IntegerField, Div3Transform):
++            a1 = Author.objects.create(name='a1', age=1)
++            a2 = Author.objects.create(name='a2', age=2)
++            Author.objects.create(name='a3', age=3)
++            a4 = Author.objects.create(name='a4', age=4)
++            baseqs = Author.objects.order_by('name')
++            Range = namedtuple('Range', 'near far')
++            self.assertSequenceEqual(baseqs.filter(age__div3__range=Range(1, 2)), [a1, a2, a4])
++
+     def test_foreignobject_lookup_registration(self):
+         field = Article._meta.get_field('author')
+ 

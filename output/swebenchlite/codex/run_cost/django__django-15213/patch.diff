@@ -1,0 +1,117 @@
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+index 188b640850..c304fcfdaa 100644
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -76,6 +76,10 @@ class Q(tree.Node):
+             check_filterable=False,
+         )
+         query.promote_joins(joins)
++        # Mark the returned WhereNode so it can render "match everything"
++        # predicates as a valid boolean expression (rather than an empty SQL
++        # fragment) when used outside of WHERE clauses.
++        clause.is_expression = True
+         return clause
+ 
+     def deconstruct(self):
+diff --git a/django/db/models/sql/where.py b/django/db/models/sql/where.py
+index 50ff13be75..5da8b47064 100644
+--- a/django/db/models/sql/where.py
++++ b/django/db/models/sql/where.py
+@@ -28,6 +28,9 @@ class WhereNode(tree.Node):
+     default = AND
+     resolved = False
+     conditional = True
++    # True when this node originates from a Q object used as an expression
++    # (e.g. annotate(ExpressionWrapper(Q(...), output_field=BooleanField()))).
++    is_expression = False
+ 
+     def split_having(self, negated=False):
+         """
+@@ -60,6 +63,10 @@ class WhereNode(tree.Node):
+                 where_parts.append(c)
+         having_node = self.__class__(having_parts, self.connector, self.negated) if having_parts else None
+         where_node = self.__class__(where_parts, self.connector, self.negated) if where_parts else None
++        if having_node is not None:
++            having_node.is_expression = self.is_expression
++        if where_node is not None:
++            where_node.is_expression = self.is_expression
+         return where_node, having_node
+ 
+     def as_sql(self, compiler, connection):
+@@ -94,6 +101,9 @@ class WhereNode(tree.Node):
+             # counts.
+             if empty_needed == 0:
+                 if self.negated:
++                    # NOT (an impossible predicate) is always true.
++                    if self.is_expression:
++                        return '1=1', []
+                     return '', []
+                 else:
+                     raise EmptyResultSet
+@@ -101,6 +111,8 @@ class WhereNode(tree.Node):
+                 if self.negated:
+                     raise EmptyResultSet
+                 else:
++                    if self.is_expression:
++                        return '1=1', []
+                     return '', []
+         conn = ' %s ' % self.connector
+         sql_string = conn.join(result)
+@@ -112,6 +124,11 @@ class WhereNode(tree.Node):
+                 sql_string = 'NOT (%s)' % sql_string
+             elif len(result) > 1 or self.resolved:
+                 sql_string = '(%s)' % sql_string
++        elif self.is_expression:
++            # WhereNode.as_sql() uses an empty string to represent a predicate
++            # that matches everything. That's fine for WHERE clauses (they can
++            # omit it) but it's invalid SQL in expression contexts.
++            sql_string = '1=1'
+         return sql_string, result_params
+ 
+     def get_group_by_cols(self, alias=None):
+@@ -148,6 +165,7 @@ class WhereNode(tree.Node):
+         clone = self.__class__._new_instance(
+             children=None, connector=self.connector, negated=self.negated,
+         )
++        clone.is_expression = self.is_expression
+         for child in self.children:
+             if hasattr(child, 'clone'):
+                 clone.children.append(child.clone())
+@@ -214,6 +232,14 @@ class WhereNode(tree.Node):
+         # Wrap filters with a CASE WHEN expression if a database backend
+         # (e.g. Oracle) doesn't support boolean expression in SELECT or GROUP
+         # BY list.
++        if not sql:
++            # WhereNode.as_sql() returns an empty string for predicates that
++            # match everything (e.g. ~Q(pk__in=[])). That's fine in WHERE
++            # clauses but invalid in the SELECT clause, so render it as a
++            # constant True boolean value instead.
++            from django.db.models import BooleanField, Value
++
++            return compiler.compile(Value(True, output_field=BooleanField()))
+         if not compiler.connection.features.supports_boolean_expr_in_select_clause:
+             sql = f'CASE WHEN {sql} THEN 1 ELSE 0 END'
+         return sql, params
+diff --git a/tests/annotations/tests.py b/tests/annotations/tests.py
+index 62912ee99c..e51357bad5 100644
+--- a/tests/annotations/tests.py
++++ b/tests/annotations/tests.py
+@@ -210,6 +210,18 @@ class NonAggregateAnnotationTestCase(TestCase):
+         self.assertEqual(len(books), Book.objects.count())
+         self.assertTrue(all(not book.selected for book in books))
+ 
++        books = Book.objects.annotate(
++            selected=ExpressionWrapper(~Q(pk__in=[]), output_field=BooleanField())
++        )
++        self.assertEqual(len(books), Book.objects.count())
++        self.assertTrue(all(book.selected for book in books))
++
++        books = Book.objects.annotate(
++            selected=ExpressionWrapper(~Q(pk__in=Book.objects.none()), output_field=BooleanField())
++        )
++        self.assertEqual(len(books), Book.objects.count())
++        self.assertTrue(all(book.selected for book in books))
++
+     def test_empty_queryset_annotation(self):
+         qs = Author.objects.annotate(
+             empty=Subquery(Author.objects.values('id').none())

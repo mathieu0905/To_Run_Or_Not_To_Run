@@ -1,0 +1,123 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 1b3285ddc..27bb84e06 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -859,7 +859,11 @@ class Card(_Verify):
+                     return kw, vc
+ 
+                 value = m.group("strg") or ""
+-                value = value.rstrip().replace("''", "'")
++                # Keep doubled quotes (FITS escape sequence) intact here; they
++                # are decoded later by _parse_value. Decoding them here can
++                # lead to incorrect results when the true value contains
++                # consecutive quote characters (e.g. "''").
++                value = value.rstrip()
+                 if value and value[-1] == "&":
+                     value = value[:-1]
+                 values.append(value)
+@@ -1058,7 +1062,7 @@ class Card(_Verify):
+ 
+         # do the value string
+         value = self._value.replace("'", "''")
+-        words = _words_group(value, value_length)
++        words = _words_group_avoid_escaped_quotes(value, value_length)
+         for idx, word in enumerate(words):
+             if idx == 0:
+                 headstr = "{:{len}}= ".format(self.keyword, len=KEYWORD_LENGTH)
+@@ -1330,3 +1334,71 @@ def _pad(input):
+     else:
+         strlen = _len % Card.length
+         return input + " " * (Card.length - strlen)
++
++
++def _words_group_avoid_escaped_quotes(s, width):
++    """
++    Split a long string into parts no longer than ``width`` without splitting
++    a word across parts unless necessary.
++
++    This is based on `astropy.io.fits.util._words_group`, but adds one FITS
++    specific constraint: when a word must be split at a fixed width, avoid
++    splitting between doubled single quotes (``''``) which are used to escape
++    single quotes in FITS string values.  Splitting between the two quotes of
++    an escape sequence can cause the value to be parsed incorrectly when
++    reconstructing a long string from CONTINUE cards.
++    """
++    words = []
++    slen = len(s)
++
++    # Appending one blank at the end always ensures that the "last" blank is
++    # beyond the end of the string.
++    arr = np.frombuffer(s.encode("utf8") + b" ", dtype="S1")
++
++    # Locations of the blanks.
++    blank_loc = np.nonzero(arr == b" ")[0]
++    offset = 0
++    xoffset = 0
++
++    while True:
++        try:
++            loc = np.nonzero(blank_loc >= width + offset)[0][0]
++        except IndexError:
++            loc = len(blank_loc)
++
++        if loc > 0:
++            offset = blank_loc[loc - 1] + 1
++        else:
++            offset = -1
++
++        # Check for one word longer than width; break in the middle.
++        if offset <= xoffset:
++            offset = min(xoffset + width, slen)
++
++            # If we are splitting in the middle of a run of quotes, adjust the
++            # split point so the left-hand piece does not end with an odd
++            # number of quotes. This prevents splitting an escaped quote pair.
++            while (
++                xoffset < offset < slen
++                and s[offset - 1] == "'"
++                and s[offset] == "'"
++            ):
++                # Count consecutive quotes at the end of the left-hand piece.
++                i = offset - 1
++                nquotes = 0
++                while i >= xoffset and s[i] == "'":
++                    nquotes += 1
++                    i -= 1
++
++                if nquotes % 2 == 0:
++                    break
++
++                offset -= 1
++
++        # Collect the pieces in a list.
++        words.append(s[xoffset:offset])
++        if offset >= slen:
++            break
++        xoffset = offset
++
++    return words
+diff --git a/astropy/io/fits/tests/test_header.py b/astropy/io/fits/tests/test_header.py
+index c573100c9..10fa0ab1a 100644
+--- a/astropy/io/fits/tests/test_header.py
++++ b/astropy/io/fits/tests/test_header.py
+@@ -559,6 +559,20 @@ class TestHeaderFunctions(FitsTestCase):
+             "CONTINUE  '' / ntlongcommentlongcommentlongcommentlongcomment                   "
+         )
+ 
++    def test_long_string_continue_preserves_doubled_quotes_roundtrip(self):
++        # Regression test for splitting escaped quotes across CONTINUE cards.
++        for n in range(60, 70):
++            card1 = fits.Card("CONFIG", "x" * n + "''")
++            card2 = fits.Card.fromstring(str(card1))
++            assert card1.value == card2.value
++
++    def test_long_string_continue_preserves_doubled_quotes_interior_roundtrip(self):
++        # Like the test above, but with more content after the doubled quotes.
++        for n in range(50, 70):
++            card1 = fits.Card("CONFIG", "x" * n + "''" + "x" * 10)
++            card2 = fits.Card.fromstring(str(card1))
++            assert card1.value == card2.value
++
+     def test_long_string_value_via_fromstring(self, capsys):
+         # long string value via fromstring() method
+         c = fits.Card.fromstring(

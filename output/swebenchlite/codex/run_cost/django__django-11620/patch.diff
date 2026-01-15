@@ -1,0 +1,44 @@
+diff --git a/django/views/debug.py b/django/views/debug.py
+index cb3e8c7ec1..08bc43cf0e 100644
+--- a/django/views/debug.py
++++ b/django/views/debug.py
+@@ -5,7 +5,7 @@ import types
+ from pathlib import Path
+ 
+ from django.conf import settings
+-from django.http import HttpResponse, HttpResponseNotFound
++from django.http import Http404, HttpResponse, HttpResponseNotFound
+ from django.template import Context, Engine, TemplateDoesNotExist
+ from django.template.defaultfilters import pprint
+ from django.urls import Resolver404, resolve
+@@ -483,7 +483,7 @@ def technical_404_response(request, exception):
+     caller = ''
+     try:
+         resolver_match = resolve(request.path)
+-    except Resolver404:
++    except Http404:
+         pass
+     else:
+         obj = resolver_match.func
+diff --git a/tests/view_tests/tests/test_debug.py b/tests/view_tests/tests/test_debug.py
+index 46589c82ba..9927f3efb3 100644
+--- a/tests/view_tests/tests/test_debug.py
++++ b/tests/view_tests/tests/test_debug.py
+@@ -120,6 +120,17 @@ class DebugViewTests(SimpleTestCase):
+         self.assertContains(response, r"path-post/&lt;int:pk&gt;/", status_code=404)
+         self.assertContains(response, "[name='path-post']", status_code=404)
+ 
++    @override_settings(ROOT_URLCONF='urlpatterns.path_converter_http404_urls')
++    def test_404_from_path_converter(self):
++        """
++        Raising Http404 in a path converter's to_python() should still result
++        in a technical 404 response when DEBUG=True.
++        """
++        response = self.client.get('/converter-404/abc/')
++        self.assertEqual(response.status_code, 404)
++        self.assertContains(response, "No object found for", status_code=404)
++        self.assertContains(response, "abc", status_code=404)
++
+     @override_settings(ROOT_URLCONF=WithoutEmptyPathUrls)
+     def test_404_empty_path_not_in_urls(self):
+         response = self.client.get('/')

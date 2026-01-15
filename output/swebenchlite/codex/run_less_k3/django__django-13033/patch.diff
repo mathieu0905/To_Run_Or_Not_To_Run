@@ -1,0 +1,105 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index abbb1e37cb..d524865fa3 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -726,8 +726,14 @@ class SQLCompiler:
+ 
+         # If we get to this point and the field is a relation to another model,
+         # append the default ordering for that model unless it is the pk
+-        # shortcut or the attribute name of the field that is specified.
+-        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name and name != 'pk':
++        # shortcut or the attribute name (attname, e.g. "author_id") of the
++        # field that is specified.
++        #
++        # Note: name can include relation prefixes (e.g. "book__author_id") and
++        # transforms, so compare against the split path rather than the full
++        # name string.
++        field_attname = getattr(field, 'attname', None)
++        if field.is_relation and opts.ordering and field_attname not in pieces and name != 'pk':
+             # Firstly, avoid infinite loops.
+             already_seen = already_seen or set()
+             join_tuple = tuple(getattr(self.query.alias_map[j], 'join_cols', None) for j in joins)
+diff --git a/tests/ordering/models.py b/tests/ordering/models.py
+index 2efb743e44..856c082d5e 100644
+--- a/tests/ordering/models.py
++++ b/tests/ordering/models.py
+@@ -59,3 +59,20 @@ class Reference(models.Model):
+ 
+     class Meta:
+         ordering = ('article',)
++
++
++class SelfRefModel(models.Model):
++    """
++    A self-referential FK with default ordering to ensure ordering by the FK's
++    attname (e.g. "root_id") doesn't inherit related model ordering.
++    """
++    root = models.ForeignKey('self', on_delete=models.CASCADE, null=True)
++    oneval = models.BigIntegerField(null=True)
++
++    class Meta:
++        ordering = ('-id',)
++
++
++class SelfRefRelatedModel(models.Model):
++    record = models.ForeignKey(SelfRefModel, on_delete=models.CASCADE)
++    twoval = models.BigIntegerField(null=True)
+diff --git a/tests/ordering/tests.py b/tests/ordering/tests.py
+index a9cc729c45..eb92429a40 100644
+--- a/tests/ordering/tests.py
++++ b/tests/ordering/tests.py
+@@ -8,7 +8,10 @@ from django.db.models import (
+ from django.db.models.functions import Upper
+ from django.test import TestCase
+ 
+-from .models import Article, Author, ChildArticle, OrderedByFArticle, Reference
++from .models import (
++    Article, Author, ChildArticle, OrderedByFArticle, Reference, SelfRefModel,
++    SelfRefRelatedModel,
++)
+ 
+ 
+ class OrderingTests(TestCase):
+@@ -343,6 +346,42 @@ class OrderingTests(TestCase):
+             attrgetter("headline")
+         )
+ 
++    def test_order_by_qualified_fk_attname(self):
++        """
++        ordering by a related model foreign key by its attribute name (attname)
++        prevents the query from inheriting its related model ordering.
++        """
++        root_1 = SelfRefModel.objects.create(oneval=1)
++        root_2 = SelfRefModel.objects.create(oneval=2)
++        record_1 = SelfRefModel.objects.create(root=root_1, oneval=1)
++        record_2 = SelfRefModel.objects.create(root=root_2, oneval=2)
++        related_1 = SelfRefRelatedModel.objects.create(record=record_1)
++        related_2 = SelfRefRelatedModel.objects.create(record=record_2)
++
++        qs = (
++            SelfRefRelatedModel.objects
++            .filter(record__oneval__in=[1, 2])
++            .order_by('record__root_id')
++        )
++        self.assertSequenceEqual(list(qs), [related_1, related_2])
++        sql = str(qs.query).upper()
++        fragment = sql[sql.find('ORDER BY'):]
++        self.assertIn('ROOT_ID', fragment)
++        self.assertNotIn('DESC', fragment)
++        self.assertEqual(sql.count('JOIN'), 1)
++
++        qs = (
++            SelfRefRelatedModel.objects
++            .filter(record__oneval__in=[1, 2])
++            .order_by('-record__root_id')
++        )
++        self.assertSequenceEqual(list(qs), [related_2, related_1])
++        sql = str(qs.query).upper()
++        fragment = sql[sql.find('ORDER BY'):]
++        self.assertIn('ROOT_ID', fragment)
++        self.assertIn('DESC', fragment)
++        self.assertEqual(sql.count('JOIN'), 1)
++
+     def test_order_by_f_expression(self):
+         self.assertQuerysetEqual(
+             Article.objects.order_by(F('headline')), [

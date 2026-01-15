@@ -1,0 +1,94 @@
+diff --git a/django/core/management/__init__.py b/django/core/management/__init__.py
+index 5f2e64761e..5d5f07aff2 100644
+--- a/django/core/management/__init__.py
++++ b/django/core/management/__init__.py
+@@ -130,12 +130,57 @@ def call_command(command_name, *args, **options):
+                 yield opt
+ 
+     parser_actions = list(get_actions(parser))
++    # Any required mutually exclusive group that has an option supplied via
++    # **options must also be represented in parse_args() so that argparse's
++    # validation doesn't fail (e.g. "one of the arguments ... is required").
++    def get_mutually_exclusive_groups(parser):
++        for group in parser._mutually_exclusive_groups:
++            yield group
++        for opt in parser._actions:
++            if isinstance(opt, _SubParsersAction):
++                for sub_opt in opt.choices.values():
++                    yield from get_mutually_exclusive_groups(sub_opt)
++
++    def action_to_parse_args(action, value):
++        """
++        Convert a parser action and a value provided via **options into argv
++        tokens suitable for argparse parsing.
++
++        This is only used to satisfy argparse validation (required options,
++        mutually exclusive groups, etc.). The final value is taken from
++        arg_options when defaults are merged below.
++        """
++        option = min(action.option_strings)
++        # Flags (store_true/store_false) don't take a value on the command line.
++        if action.nargs == 0:
++            return [option] if value else []
++        if value is None:
++            return []
++        # Use the "--opt=value" form so values beginning with "-" aren't
++        # misinterpreted as options.
++        if not isinstance(value, (list, tuple)):
++            return ['{}={}'.format(option, value)]
++        # For sequence values, fall back to separate tokens.
++        return [option, *map(str, value)]
++
++    added_option_dests = set()
++    for group in get_mutually_exclusive_groups(parser):
++        if not group.required:
++            continue
++        for action in group._group_actions:
++            if action.dest in arg_options:
++                parse_args += action_to_parse_args(action, arg_options[action.dest])
++                added_option_dests.add(action.dest)
++
+     # Any required arguments which are passed in via **options must be passed
+     # to parse_args().
+-    parse_args += [
+-        '{}={}'.format(min(opt.option_strings), arg_options[opt.dest])
+-        for opt in parser_actions if opt.required and opt.dest in options
+-    ]
++    for opt in parser_actions:
++        if (
++            opt.required and opt.option_strings and opt.dest in arg_options and
++            opt.dest not in added_option_dests
++        ):
++            parse_args += action_to_parse_args(opt, arg_options[opt.dest])
++            added_option_dests.add(opt.dest)
+     defaults = parser.parse_args(args=parse_args)
+     defaults = dict(defaults._get_kwargs(), **arg_options)
+     # Raise an error if any unknown options were passed.
+diff --git a/tests/admin_scripts/tests.py b/tests/admin_scripts/tests.py
+index 1e4477ed34..c4a7a06705 100644
+--- a/tests/admin_scripts/tests.py
++++ b/tests/admin_scripts/tests.py
+@@ -1534,6 +1534,23 @@ class CommandTypes(AdminScriptTestCase):
+         with self.assertRaisesMessage(CommandError, msg):
+             call_command(BaseCommand(no_color=True, force_color=True))
+ 
++    def test_call_command_required_mutually_exclusive_group_with_kwargs(self):
++        out = StringIO()
++        call_command('mutually_exclusive_required', shop_id=1, stdout=out)
++        self.assertEqual(out.getvalue(), 'shop_id=1 shop_name=None\n')
++
++        out = StringIO()
++        call_command('mutually_exclusive_required', shop='django', stdout=out)
++        self.assertEqual(out.getvalue(), 'shop_id=None shop_name=django\n')
++
++        msg = "Error: one of the arguments --shop-id --shop is required"
++        with self.assertRaisesMessage(CommandError, msg):
++            call_command('mutually_exclusive_required')
++
++        msg = "Error: argument --shop: not allowed with argument --shop-id"
++        with self.assertRaisesMessage(CommandError, msg):
++            call_command('mutually_exclusive_required', shop_id=1, shop='django')
++
+     def test_custom_stdout(self):
+         class Command(BaseCommand):
+             requires_system_checks = False

@@ -1,0 +1,45 @@
+diff --git a/django/core/checks/translation.py b/django/core/checks/translation.py
+index 138ed07ff8..2e7a65584b 100644
+--- a/django/core/checks/translation.py
++++ b/django/core/checks/translation.py
+@@ -55,7 +55,22 @@ def check_setting_languages_bidi(app_configs, **kwargs):
+ @register(Tags.translation)
+ def check_language_settings_consistent(app_configs, **kwargs):
+     """Error if language settings are not consistent with each other."""
+-    available_tags = {i for i, _ in settings.LANGUAGES} | {'en-us'}
+-    if settings.LANGUAGE_CODE not in available_tags:
++    # Language tags are case-insensitive (RFC 5646). Django also falls back to
++    # a more generic language when a specific sublanguage isn't available (e.g.
++    # "de-at" -> "de"). System checks should accept such configurations.
++    available_tags = {i.lower() for i, _ in settings.LANGUAGES if isinstance(i, str)} | {'en-us'}
++    language_code = settings.LANGUAGE_CODE
++    # If LANGUAGE_CODE is invalid, check_setting_language_code() will report it.
++    # Avoid crashing this consistency check.
++    if not isinstance(language_code, str):
++        return []
++    language_code = language_code.lower()
++    if language_code not in available_tags:
++        # Try progressively more generic variants by stripping subtags.
++        # For example: "ca-es-valencia" -> "ca-es" -> "ca".
++        while '-' in language_code:
++            language_code = language_code.rsplit('-', 1)[0]
++            if language_code in available_tags:
++                return []
+         return [E004]
+     return []
+diff --git a/tests/check_framework/test_translation.py b/tests/check_framework/test_translation.py
+index 4cd79d803f..308f496d20 100644
+--- a/tests/check_framework/test_translation.py
++++ b/tests/check_framework/test_translation.py
+@@ -84,3 +84,11 @@ class TranslationCheckTests(SimpleTestCase):
+             self.assertEqual(check_language_settings_consistent(None), [
+                 Error(msg, id='translation.E004'),
+             ])
++
++    def test_language_code_sublanguage_falls_back_to_base_language(self):
++        with self.settings(LANGUAGE_CODE='de-at', LANGUAGES=[('de', 'German')]):
++            self.assertEqual(check_language_settings_consistent(None), [])
++
++    def test_language_code_multi_part_sublanguage_falls_back(self):
++        with self.settings(LANGUAGE_CODE='ca-es-valencia', LANGUAGES=[('ca-es', 'Catalan (Spain)')]):
++            self.assertEqual(check_language_settings_consistent(None), [])

@@ -1,0 +1,59 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index 0c3a981290..dc646cb781 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -95,7 +95,7 @@ class DjangoHelpFormatter(HelpFormatter):
+     """
+     show_last = {
+         '--version', '--verbosity', '--traceback', '--settings', '--pythonpath',
+-        '--no-color', '--force-color',
++        '--no-color', '--force-color', '--skip-checks',
+     }
+ 
+     def _reordered_actions(self, actions):
+@@ -286,6 +286,10 @@ class BaseCommand:
+             '--force-color', action='store_true',
+             help='Force colorization of the command output.',
+         )
++        parser.add_argument(
++            '--skip-checks', action='store_true',
++            help='Skip system checks.',
++        )
+         self.add_arguments(parser)
+         return parser
+ 
+diff --git a/tests/admin_scripts/tests.py b/tests/admin_scripts/tests.py
+index d6ea84da7a..d0646ce89f 100644
+--- a/tests/admin_scripts/tests.py
++++ b/tests/admin_scripts/tests.py
+@@ -1212,6 +1212,30 @@ class ManageCheck(AdminScriptTestCase):
+         self.assertEqual(err, expected_err)
+         self.assertNoOutput(out)
+ 
++    def test_skip_checks_option(self):
++        """
++        The --skip-checks option skips the system check framework for commands
++        run from the command line.
++        """
++        self.write_settings(
++            'settings.py',
++            apps=[
++                'admin_scripts.app_raising_messages',
++                'admin_scripts',
++                'django.contrib.auth',
++                'django.contrib.contenttypes',
++            ],
++            sdict={'DEBUG': True},
++        )
++        out, err = self.run_manage(['requires_system_checks_command'])
++        self.assertNoOutput(out)
++        self.assertIn('SystemCheckError', err)
++        self.assertIn('An error', err)
++
++        out, err = self.run_manage(['requires_system_checks_command', '--skip-checks'])
++        self.assertNoOutput(err)
++        self.assertEqual(out, 'EXECUTE: requires_system_checks_command skip_checks=True\n')
++
+ 
+ class ManageRunserver(SimpleTestCase):
+     def setUp(self):

@@ -1,0 +1,72 @@
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 105dc93251..889e8dd7c6 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -262,9 +262,11 @@ class Exact(FieldGetDbPrepValueMixin, BuiltinLookup):
+         from django.db.models.sql.query import Query
+         if isinstance(self.rhs, Query):
+             if self.rhs.has_limit_one():
+-                # The subquery must select only the pk.
+-                self.rhs.clear_select_clause()
+-                self.rhs.add_fields(['pk'])
++                # The subquery must be limited to one result. If no fields are
++                # explicitly selected, default to the primary key.
++                if not getattr(self.rhs, 'has_select_fields', True):
++                    self.rhs.clear_select_clause()
++                    self.rhs.add_fields(['pk'])
+             else:
+                 raise ValueError(
+                     'The QuerySet value for an exact lookup must be limited to '
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index a603824c0d..b31cca3001 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -5,6 +5,7 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import FieldError
+ from django.db import connection
++from django.db.models import Max
+ from django.db.models.expressions import Exists, OuterRef
+ from django.db.models.functions import Substr
+ from django.test import TestCase, skipUnlessDBFeature
+@@ -891,6 +892,40 @@ class LookupTests(TestCase):
+             [self.a5, self.a6, self.a7]
+         )
+ 
++    def test_exact_sliced_queryset_preserves_subquery_group_by(self):
++        """
++        Exact lookups shouldn't override grouping/annotations of a sliced
++        subquery that already selects a single field.
++        """
++        from django.db.models.sql.query import Query
++
++        inner = (
++            Author.objects.filter(alias__isnull=False)
++            .values('alias')
++            .annotate(m=Max('id'))
++            .values('m')[:1]
++        )
++        qs = Author.objects.filter(id=inner)
++        # Trigger compilation. Exact.process_rhs() may mutate the inner query.
++        str(qs.query)
++
++        rhs_query = next(
++            (
++                child.rhs for child in qs.query.where.children
++                if hasattr(child, 'rhs') and isinstance(child.rhs, Query)
++            ),
++            None,
++        )
++        self.assertIsNotNone(rhs_query)
++        self.assertIn('m', rhs_query.annotation_select)
++        group_by = rhs_query.group_by if isinstance(rhs_query.group_by, (list, tuple)) else ()
++        group_by_targets = [
++            expr.target.name for expr in group_by
++            if hasattr(expr, 'target')
++        ]
++        self.assertIn('alias', group_by_targets)
++        self.assertNotIn('id', group_by_targets)
++
+     def test_exact_sliced_queryset_not_limited_to_one(self):
+         msg = (
+             'The QuerySet value for an exact lookup must be limited to one '

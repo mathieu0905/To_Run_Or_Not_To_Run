@@ -1,0 +1,57 @@
+diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py
+index ccc2223a5f..65950590e2 100644
+--- a/django/db/models/fields/reverse_related.py
++++ b/django/db/models/fields/reverse_related.py
+@@ -310,7 +310,7 @@ class ManyToManyRel(ForeignObjectRel):
+     def identity(self):
+         return super().identity + (
+             self.through,
+-            self.through_fields,
++            make_hashable(self.through_fields),
+             self.db_constraint,
+         )
+ 
+diff --git a/tests/proxy_models/tests.py b/tests/proxy_models/tests.py
+index 50d2c57dd4..d5bcea71cb 100644
+--- a/tests/proxy_models/tests.py
++++ b/tests/proxy_models/tests.py
+@@ -141,6 +141,39 @@ class ProxyModelTests(TestCase):
+         ]
+         self.assertEqual(errors, expected)
+ 
++    @isolate_apps('proxy_models')
++    def test_check_proxy_model_with_m2m_through_fields_list(self):
++        """
++        Proxy model checks shouldn't crash when a reverse ManyToManyRel has
++        through_fields provided as a list (must be hashable for identity/__hash__).
++        """
++        class Parent(models.Model):
++            name = models.CharField(max_length=256)
++
++        class ProxyParent(Parent):
++            class Meta:
++                proxy = True
++
++        class Child(models.Model):
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
++            many_to_many_field = models.ManyToManyField(
++                to=Parent,
++                through='ManyToManyModel',
++                through_fields=['child', 'parent'],
++                related_name='something',
++            )
++
++        class ManyToManyModel(models.Model):
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='+')
++            child = models.ForeignKey(Child, on_delete=models.CASCADE, related_name='+')
++            second_child = models.ForeignKey(
++                Child, on_delete=models.CASCADE, related_name='+', null=True, default=None,
++            )
++
++        # ManyToManyRel.through_fields may be a list; ensure hashing doesn't crash.
++        self.assertIsInstance(hash(Child._meta.get_field('many_to_many_field').remote_field), int)
++        self.assertIsInstance(ProxyParent.check(), list)
++
+     @override_settings(TEST_SWAPPABLE_MODEL='proxy_models.AlternateModel')
+     @isolate_apps('proxy_models')
+     def test_swappable(self):

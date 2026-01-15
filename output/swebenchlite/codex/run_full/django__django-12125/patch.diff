@@ -1,0 +1,125 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 7d226955d5..d677dc4788 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -6,6 +6,7 @@ import enum
+ import functools
+ import math
+ import re
++import sys
+ import types
+ import uuid
+ 
+@@ -90,14 +91,31 @@ class DeconstructableSerializer(BaseSerializer):
+ 
+     @staticmethod
+     def _serialize_path(path):
+-        module, name = path.rsplit(".", 1)
+-        if module == "django.db.models":
+-            imports = {"from django.db import models"}
+-            name = "models.%s" % name
+-        else:
+-            imports = {"import %s" % module}
+-            name = path
+-        return name, imports
++        """
++        Turn a dotted path into a reference and the import(s) required.
++
++        Most deconstructed paths are of the form 'package.module.ClassName'.
++        For nested classes (e.g. 'package.module.Outer.Inner'), import the
++        defining module (if known) and use attribute access for the qualname.
++        """
++        # Try to resolve the module boundary without importing anything new.
++        parts = path.split(".")
++        module = qualname = None
++        for i in range(len(parts), 0, -1):
++            candidate = ".".join(parts[:i])
++            if candidate in sys.modules:
++                remainder = ".".join(parts[i:])
++                if remainder:
++                    module, qualname = candidate, remainder
++                break
++
++        if module is None:
++            # Fall back to assuming the last component is the class/function name.
++            module, qualname = path.rsplit(".", 1)
++
++        if module == "django.db.models" and "." not in qualname:
++            return "models.%s" % qualname, {"from django.db import models"}
++        return "%s.%s" % (module, qualname), {"import %s" % module}
+ 
+     def serialize(self):
+         return self.serialize_deconstructed(*self.value.deconstruct())
+@@ -143,7 +161,12 @@ class FunctionTypeSerializer(BaseSerializer):
+         if getattr(self.value, "__self__", None) and isinstance(self.value.__self__, type):
+             klass = self.value.__self__
+             module = klass.__module__
+-            return "%s.%s.%s" % (module, klass.__name__, self.value.__name__), {"import %s" % module}
++            qualname = getattr(klass, "__qualname__", klass.__name__)
++            # Local classes aren't importable. Keep the historical behavior of
++            # serializing them as module.<name>.
++            if "<" in qualname:
++                qualname = klass.__name__
++            return "%s.%s.%s" % (module, qualname, self.value.__name__), {"import %s" % module}
+         # Further error checking
+         if self.value.__name__ == '<lambda>':
+             raise ValueError("Cannot serialize function: lambda")
+@@ -264,12 +287,17 @@ class TypeSerializer(BaseSerializer):
+         for case, string, imports in special_cases:
+             if case is self.value:
+                 return string, set(imports)
+-        if hasattr(self.value, "__module__"):
+-            module = self.value.__module__
+-            if module == builtins.__name__:
+-                return self.value.__name__, set()
+-            else:
+-                return "%s.%s" % (module, self.value.__name__), {"import %s" % module}
++        module = getattr(self.value, "__module__", None)
++        if module is None:
++            raise ValueError("Cannot serialize type %r: No module" % self.value)
++        if module == builtins.__name__:
++            return self.value.__name__, set()
++        qualname = getattr(self.value, "__qualname__", self.value.__name__)
++        # Local classes aren't importable. Keep the historical behavior of
++        # serializing them as module.<name>.
++        if "<" in qualname:  # Qualname can include <locals>.
++            qualname = self.value.__name__
++        return "%s.%s" % (module, qualname), {"import %s" % module}
+ 
+ 
+ class UUIDSerializer(BaseSerializer):
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index ca924f35ec..449c3f9301 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -41,6 +41,11 @@ class TestModel1:
+     thing = models.FileField(upload_to=upload_to)
+ 
+ 
++class Outer:
++    class Inner(models.CharField):
++        pass
++
++
+ class TextEnum(enum.Enum):
+     A = 'a-value'
+     B = 'value-b'
+@@ -538,6 +543,18 @@ class WriterTests(SimpleTestCase):
+         self.assertEqual(string, 'range')
+         self.assertEqual(imports, set())
+ 
++    def test_serialize_inner_class_type(self):
++        self.assertSerializedResultEqual(
++            Outer.Inner,
++            ('migrations.test_writer.Outer.Inner', {'import migrations.test_writer'}),
++        )
++
++    def test_serialize_inner_class_field(self):
++        self.assertSerializedResultEqual(
++            Outer.Inner(max_length=20),
++            ('migrations.test_writer.Outer.Inner(max_length=20)', {'import migrations.test_writer'}),
++        )
++
+     def test_serialize_unbound_method_reference(self):
+         """An unbound method used within a class body can be serialized."""
+         self.serialize_round_trip(TestModel1.thing)

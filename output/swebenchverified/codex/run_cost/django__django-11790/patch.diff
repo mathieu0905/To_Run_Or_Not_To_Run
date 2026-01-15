@@ -1,0 +1,62 @@
+diff --git a/django/contrib/auth/forms.py b/django/contrib/auth/forms.py
+index a0cfed0995..b084a3598a 100644
+--- a/django/contrib/auth/forms.py
++++ b/django/contrib/auth/forms.py
+@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
+ from django.contrib.auth.tokens import default_token_generator
+ from django.contrib.sites.shortcuts import get_current_site
+ from django.core.mail import EmailMultiAlternatives
++from django.core.validators import MaxLengthValidator
+ from django.template import loader
+ from django.utils.encoding import force_bytes
+ from django.utils.http import urlsafe_base64_encode
+@@ -191,7 +192,16 @@ class AuthenticationForm(forms.Form):
+ 
+         # Set the max length and label for the "username" field.
+         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+-        self.fields['username'].max_length = self.username_field.max_length or 254
++        username_field = self.fields['username']
++        if username_field.max_length is None:
++            username_field.max_length = self.username_field.max_length or 254
++            # max_length is used to build HTML attributes and validators in
++            # Field.__init__(). Since we set it dynamically here, update both.
++            username_field.widget.attrs.update(username_field.widget_attrs(username_field.widget))
++            username_field.validators = [
++                v for v in username_field.validators if not isinstance(v, MaxLengthValidator)
++            ]
++            username_field.validators.append(MaxLengthValidator(int(username_field.max_length)))
+         if self.fields['username'].label is None:
+             self.fields['username'].label = capfirst(self.username_field.verbose_name)
+ 
+diff --git a/tests/auth_tests/test_forms.py b/tests/auth_tests/test_forms.py
+index 7085dcfa11..904e4e0cda 100644
+--- a/tests/auth_tests/test_forms.py
++++ b/tests/auth_tests/test_forms.py
+@@ -282,6 +282,11 @@ class UserCreationFormTest(TestDataMixin, TestCase):
+ @override_settings(AUTHENTICATION_BACKENDS=['django.contrib.auth.backends.AllowAllUsersModelBackend'])
+ class AuthenticationFormTest(TestDataMixin, TestCase):
+ 
++    def test_username_field_max_length_sets_maxlength_attribute(self):
++        form = AuthenticationForm()
++        username_max_length = User._meta.get_field(User.USERNAME_FIELD).max_length
++        self.assertEqual(form.fields['username'].widget.attrs.get('maxlength'), str(username_max_length))
++
+     def test_invalid_username(self):
+         # The user submits an invalid username.
+ 
+@@ -423,6 +428,7 @@ class AuthenticationFormTest(TestDataMixin, TestCase):
+         CustomEmailField.objects.create_user(**data)
+         form = AuthenticationForm(None, data)
+         self.assertEqual(form.fields['username'].max_length, 255)
++        self.assertEqual(form.fields['username'].widget.attrs.get('maxlength'), '255')
+         self.assertEqual(form.errors, {})
+ 
+     @override_settings(AUTH_USER_MODEL='auth_tests.IntegerUsernameUser')
+@@ -435,6 +441,7 @@ class AuthenticationFormTest(TestDataMixin, TestCase):
+         IntegerUsernameUser.objects.create_user(**data)
+         form = AuthenticationForm(None, data)
+         self.assertEqual(form.fields['username'].max_length, 254)
++        self.assertEqual(form.fields['username'].widget.attrs.get('maxlength'), '254')
+         self.assertEqual(form.errors, {})
+ 
+     def test_username_field_label(self):

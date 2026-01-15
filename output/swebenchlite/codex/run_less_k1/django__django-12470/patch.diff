@@ -1,0 +1,51 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 92213a4e67..c8f9d0b0dc 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -711,7 +711,11 @@ class SQLCompiler:
+         # If we get to this point and the field is a relation to another model,
+         # append the default ordering for that model unless the attribute name
+         # of the field is specified.
+-        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name:
++        #
++        # The special 'pk' shortcut should always order by the primary key
++        # column itself, even if the primary key is implemented as a relation
++        # (e.g. multi-table inheritance).
++        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name and name != 'pk':
+             # Firstly, avoid infinite loops.
+             already_seen = already_seen or set()
+             join_tuple = tuple(getattr(self.query.alias_map[j], 'join_cols', None) for j in joins)
+diff --git a/tests/model_inheritance/tests.py b/tests/model_inheritance/tests.py
+index 4252f3a301..c3171d0c4e 100644
+--- a/tests/model_inheritance/tests.py
++++ b/tests/model_inheritance/tests.py
+@@ -158,6 +158,29 @@ class ModelInheritanceTests(TestCase):
+         m = MixinModel()
+         self.assertEqual(m.other_attr, 1)
+ 
++    @isolate_apps('model_inheritance')
++    def test_inherited_ordering_by_pk_desc(self):
++        class Parent(models.Model):
++            class Meta:
++                ordering = ['-pk']
++
++        class Child(Parent):
++            pass
++
++        with connection.schema_editor() as schema_editor:
++            schema_editor.create_model(Parent)
++            schema_editor.create_model(Child)
++        try:
++            Child.objects.create()
++            Child.objects.create()
++            Child.objects.create()
++            pks = list(Child.objects.values_list('pk', flat=True))
++            self.assertEqual(pks, sorted(pks, reverse=True))
++        finally:
++            with connection.schema_editor() as schema_editor:
++                schema_editor.delete_model(Child)
++                schema_editor.delete_model(Parent)
++
+     @isolate_apps('model_inheritance')
+     def test_abstract_parent_link(self):
+         class A(models.Model):

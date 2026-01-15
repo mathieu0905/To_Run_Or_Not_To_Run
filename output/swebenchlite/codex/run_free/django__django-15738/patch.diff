@@ -1,0 +1,105 @@
+diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+index 03f0f11507..345952224b 100644
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -14,6 +14,7 @@ from django.db.backends.utils import names_digest, split_identifier
+ from django.db.models import Deferrable, Index
+ from django.db.models.sql import Query
+ from django.db.transaction import TransactionManagementError, atomic
++from django.db.utils import DatabaseError
+ from django.utils import timezone
+ 
+ logger = logging.getLogger("django.db.backends.schema")
+@@ -583,6 +584,35 @@ class BaseDatabaseSchemaEditor:
+             if default_name in constraint_names:
+                 constraint_names = [default_name]
+         if len(constraint_names) != 1:
++            # If the related columns were removed earlier in the same migration,
++            # the database may have already removed the underlying constraint or
++            # index (e.g. DROP COLUMN ... CASCADE). In that case, attempting to
++            # delete it again should be a no-op rather than a hard failure.
++            if not constraint_names:
++                if any(col is None for col in columns):
++                    return
++                try:
++                    table = model._meta.db_table
++                    identifier_converter = (
++                        self.connection.introspection.identifier_converter
++                    )
++                    with self.connection.cursor() as cursor:
++                        existing_columns = {
++                            identifier_converter(info.name)
++                            for info in self.connection.introspection.get_table_description(
++                                cursor, table
++                            )
++                        }
++                    if any(
++                        identifier_converter(col) not in existing_columns
++                        for col in columns
++                        if col is not None
++                    ):
++                        return
++                except DatabaseError:
++                    # If introspection isn't possible, fall back to the
++                    # historical behavior and raise.
++                    pass
+             raise ValueError(
+                 "Found wrong number (%s) of constraints for %s(%s)"
+                 % (
+diff --git a/tests/migrations/test_operations.py b/tests/migrations/test_operations.py
+index 2373ef3469..855f9f57e8 100644
+--- a/tests/migrations/test_operations.py
++++ b/tests/migrations/test_operations.py
+@@ -2809,6 +2809,52 @@ class OperationTests(OperationTestBase):
+             operation.describe(), "Alter unique_together for Pony (0 constraint(s))"
+         )
+ 
++    def test_remove_unique_together_after_field_becomes_m2m(self):
++        """
++        Dropping a unique_together that references a field that's been replaced
++        by an M2M field in the same migration should be a no-op if the related
++        constraint was already removed when the old column was dropped.
++        """
++        app_label = "test_rut_afbm2m"
++        self.apply_operations(
++            app_label,
++            ProjectState(),
++            operations=[
++                migrations.CreateModel(
++                    "ProjectDataSet",
++                    fields=[("id", models.AutoField(primary_key=True))],
++                ),
++                migrations.CreateModel(
++                    "Author",
++                    fields=[
++                        ("id", models.AutoField(primary_key=True)),
++                        (
++                            "project_data_set",
++                            models.ForeignKey(
++                                "ProjectDataSet",
++                                on_delete=models.PROTECT,
++                            ),
++                        ),
++                        ("state", models.IntegerField()),
++                        ("start_date", models.DateField()),
++                    ],
++                    options={
++                        "unique_together": {
++                            ("project_data_set", "state", "start_date"),
++                        },
++                    },
++                ),
++                migrations.RemoveField("Author", "project_data_set"),
++                migrations.AddField(
++                    "Author",
++                    "project_data_set",
++                    models.ManyToManyField("ProjectDataSet"),
++                ),
++                migrations.AlterUniqueTogether("Author", set()),
++            ],
++        )
++        self.assertColumnNotExists(f"{app_label}_author", "project_data_set_id")
++
+     @skipUnlessDBFeature("allows_multiple_constraints_on_same_fields")
+     def test_remove_unique_together_on_pk_field(self):
+         app_label = "test_rutopkf"

@@ -1,0 +1,87 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 35f3c5e1ea..9113a816ed 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -23,7 +23,7 @@ from django.db import DEFAULT_DB_ALIAS, NotSupportedError, connections
+ from django.db.models.aggregates import Count
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.expressions import (
+-    BaseExpression, Col, F, OuterRef, Ref, SimpleCol,
++    BaseExpression, Col, F, OuterRef, Ref, ResolvedOuterRef, SimpleCol,
+ )
+ from django.db.models.fields import Field
+ from django.db.models.fields.related_lookups import MultiColSource
+@@ -1702,7 +1702,15 @@ class Query(BaseExpression):
+         handle.
+         """
+         filter_lhs, filter_rhs = filter_expr
+-        if isinstance(filter_rhs, F):
++        if isinstance(filter_rhs, ResolvedOuterRef):
++            # Promote outer refs by one level. split_exclude() introduces a
++            # nested subquery; any existing outer references must keep
++            # referring to the original outer query, not the intermediate
++            # query created by the exclude rewrite.
++            filter_expr = (filter_lhs, OuterRef(OuterRef(filter_rhs.name)))
++        elif isinstance(filter_rhs, OuterRef):
++            filter_expr = (filter_lhs, OuterRef(filter_rhs))
++        elif isinstance(filter_rhs, F):
+             filter_expr = (filter_lhs, OuterRef(filter_rhs.name))
+         # Generate the inner query.
+         query = Query(self.model)
+diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
+index 668d5e6ad6..fc51217826 100644
+--- a/tests/queries/test_qs_combinators.py
++++ b/tests/queries/test_qs_combinators.py
+@@ -1,9 +1,12 @@
+ from django.db import connection
+-from django.db.models import Exists, F, IntegerField, OuterRef, Value
++from django.db.models import Exists, F, IntegerField, OuterRef, Q, Value
+ from django.db.utils import DatabaseError, NotSupportedError
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
++from django.utils import timezone
+ 
+-from .models import Number, ReservedName
++from .models import (
++    Author, ExtraInfo, Item, NamedCategory, Note, Number, ReservedName, Tag,
++)
+ 
+ 
+ @skipUnlessDBFeature('supports_select_union')
+@@ -285,3 +288,37 @@ class QuerySetSetOperationTests(TestCase):
+                         msg % (operation, combinator),
+                     ):
+                         getattr(getattr(qs, combinator)(qs), operation)()
++
++
++class OuterRefExcludeTests(TestCase):
++    @classmethod
++    def setUpTestData(cls):
++        cat1 = NamedCategory.objects.create(name='cat1')
++        cat2 = NamedCategory.objects.create(name='cat2')
++        cls.cat2_pk = cat2.pk
++        tag1 = Tag.objects.create(name='tag1', category=cat1)
++        note = Note.objects.create(note='note', misc='misc')
++        extra = ExtraInfo.objects.create(info='extra', note=note)
++        author = Author.objects.create(name='author', num=1, extra=extra)
++        item1 = Item.objects.create(
++            name='item1',
++            created=timezone.now(),
++            creator=author,
++            note=note,
++        )
++        item1.tags.add(tag1)
++        # Ensure the outer query's primary keys match the category IDs.
++        Number.objects.create(pk=cat1.pk, num=cat1.pk, other_num=0)
++        Number.objects.create(pk=cat2.pk, num=cat2.pk, other_num=0)
++
++    def test_exists_exclude_outerref_uses_outer_model(self):
++        qs = Number.objects.annotate(
++            foo=Exists(Item.objects.exclude(tags__category_id=OuterRef('pk'))),
++        ).filter(foo=True)
++        self.assertEqual(list(qs.values_list('pk', flat=True)), [self.cat2_pk])
++
++    def test_exists_negated_q_outerref_uses_outer_model(self):
++        qs = Number.objects.annotate(
++            foo=Exists(Item.objects.filter(~Q(tags__category_id=OuterRef('pk')))),
++        ).filter(foo=True)
++        self.assertEqual(list(qs.values_list('pk', flat=True)), [self.cat2_pk])

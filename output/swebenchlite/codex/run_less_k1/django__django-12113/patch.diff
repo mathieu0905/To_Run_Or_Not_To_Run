@@ -1,0 +1,61 @@
+diff --git a/django/db/backends/sqlite3/creation.py b/django/db/backends/sqlite3/creation.py
+index d97052f52d..e4825262f3 100644
+--- a/django/db/backends/sqlite3/creation.py
++++ b/django/db/backends/sqlite3/creation.py
+@@ -90,12 +90,12 @@ class DatabaseCreation(BaseDatabaseCreation):
+         """
+         Return a tuple that uniquely identifies a test database.
+ 
+-        This takes into account the special cases of ":memory:" and "" for
+-        SQLite since the databases will be distinct despite having the same
+-        TEST NAME. See https://www.sqlite.org/inmemorydb.html
++        This takes into account the special cases of in-memory databases for
++        SQLite since they are distinct per connection alias even when they
++        share the same TEST NAME. See https://www.sqlite.org/inmemorydb.html
+         """
+         test_database_name = self._get_test_db_name()
+-        sig = [self.connection.settings_dict['NAME']]
++        sig = [test_database_name]
+         if self.is_in_memory_db(test_database_name):
+             sig.append(self.connection.alias)
+         return tuple(sig)
+diff --git a/tests/backends/sqlite/tests.py b/tests/backends/sqlite/tests.py
+index 3447fb6096..1afb34aa31 100644
+--- a/tests/backends/sqlite/tests.py
++++ b/tests/backends/sqlite/tests.py
+@@ -76,6 +76,35 @@ class Tests(TestCase):
+         creation = DatabaseWrapper(settings_dict).creation
+         self.assertEqual(creation._get_test_db_name(), creation.connection.settings_dict['TEST']['NAME'])
+ 
++    def test_test_db_signature_uses_test_name(self):
++        """
++        SQLite test database signatures must include TEST['NAME'] so distinct
++        persistent test databases aren't incorrectly treated as mirrors.
++        """
++        from django.db.backends.sqlite3.base import DatabaseWrapper
++
++        default = DatabaseWrapper(
++            {'NAME': '', 'TEST': {'NAME': 'test_default.sqlite3'}},
++            alias='default',
++        )
++        other = DatabaseWrapper(
++            {'NAME': '', 'TEST': {'NAME': 'test_other.sqlite3'}},
++            alias='other',
++        )
++        self.assertNotEqual(
++            default.creation.test_db_signature(),
++            other.creation.test_db_signature(),
++        )
++
++        # In-memory databases are distinct per alias even with the same TEST NAME.
++        shared_memory_name = 'file:memorydb_shared?mode=memory&cache=shared'
++        mem_a = DatabaseWrapper({'TEST': {'NAME': shared_memory_name}}, alias='mem_a')
++        mem_b = DatabaseWrapper({'TEST': {'NAME': shared_memory_name}}, alias='mem_b')
++        self.assertNotEqual(
++            mem_a.creation.test_db_signature(),
++            mem_b.creation.test_db_signature(),
++        )
++
+     def test_regexp_function(self):
+         tests = (
+             ('test', r'[0-9]+', False),

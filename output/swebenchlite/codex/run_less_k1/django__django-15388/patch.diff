@@ -1,0 +1,44 @@
+diff --git a/django/template/autoreload.py b/django/template/autoreload.py
+index cf1b20ba95..01d61d28f7 100644
+--- a/django/template/autoreload.py
++++ b/django/template/autoreload.py
+@@ -48,6 +48,12 @@ def watch_for_template_changes(sender, **kwargs):
+ 
+ @receiver(file_changed, dispatch_uid='template_loaders_file_changed')
+ def template_changed(sender, file_path, **kwargs):
++    # If a template directory includes the project root (e.g. BASE_DIR), then
++    # Python source changes would otherwise be treated as "template changes"
++    # and would suppress the autoreloader restart.
++    file_path = Path(file_path)
++    if file_path.suffix in {'.py', '.pyi'}:
++        return
+     for template_dir in get_template_directories():
+         if template_dir in file_path.parents:
+             reset_loaders()
+diff --git a/tests/template_tests/test_autoreloader.py b/tests/template_tests/test_autoreloader.py
+index d6ece4cc6d..8b349a58d9 100644
+--- a/tests/template_tests/test_autoreloader.py
++++ b/tests/template_tests/test_autoreloader.py
+@@ -34,6 +34,22 @@ class TemplateReloadTests(SimpleTestCase):
+         self.assertTrue(autoreload.template_changed(None, template_path))
+         mock_reset.assert_called_once()
+ 
++    @override_settings(
++        TEMPLATES=[{
++            'BACKEND': 'django.template.backends.django.DjangoTemplates',
++            'DIRS': [ROOT],
++            'OPTIONS': {
++                'loaders': [],
++            },
++        }]
++    )
++    @mock.patch('django.template.autoreload.reset_loaders')
++    def test_python_file_changed_does_not_reset_loaders(self, mock_reset):
++        # A Python file can live inside a configured template directory (e.g.
++        # when DIRS contains BASE_DIR). It must still trigger a full reload.
++        self.assertIsNone(autoreload.template_changed(None, Path(__file__)))
++        mock_reset.assert_not_called()
++
+     @mock.patch('django.template.autoreload.reset_loaders')
+     def test_non_template_changed(self, mock_reset):
+         self.assertIsNone(autoreload.template_changed(None, Path(__file__)))

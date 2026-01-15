@@ -11,3 +11,30 @@ index de3fb01d1..cceaeb957 100644
                  is_public_member(key) and
                  val.__doc__ is None):
                  for base in cls.__mro__[1:]:
+diff --git a/astropy/utils/tests/test_misc.py b/astropy/utils/tests/test_misc.py
+index 4f632e8d1..6781dcc07 100644
+--- a/astropy/utils/tests/test_misc.py
++++ b/astropy/utils/tests/test_misc.py
+@@ -89,6 +89,22 @@ def test_inherit_docstrings():
+         assert Subclass.__call__.__doc__ == "FOO"
+ 
+ 
++def test_inherit_docstrings_for_properties():
++    class Base(metaclass=misc.InheritDocstrings):
++        @property
++        def my_property(self):
++            "Property docstring"
++            return 1
++
++    class Subclass(Base):
++        @property
++        def my_property(self):
++            return 2
++
++    if Base.my_property.__doc__ is not None:
++        assert Subclass.my_property.__doc__ == "Property docstring"
++
++
+ def test_set_locale():
+     # First, test if the required locales are available
+     current = locale.setlocale(locale.LC_ALL)

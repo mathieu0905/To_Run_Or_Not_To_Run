@@ -1,0 +1,125 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 9fe0c9a656..145c079044 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1552,9 +1552,6 @@ class Query(BaseExpression):
+         # directly, compute transforms here and create a partial that converts
+         # fields to the appropriate wrapped version.
+ 
+-        def final_transformer(field, alias):
+-            return field.get_col(alias)
+-
+         # Try resolving all the names as fields first. If there's an error,
+         # treat trailing names as lookups until a field can be resolved.
+         last_field_exception = None
+@@ -1575,6 +1572,19 @@ class Query(BaseExpression):
+                 # resolved into fields.
+                 transforms = names[pivot:]
+                 break
++
++        def final_transformer(field, alias):
++            """
++            Return a column reference for `field` on `alias`.
++
++            When selecting a related field (e.g. values('fk')), preserve the
++            relation as the output field. This allows lookups on expressions
++            (e.g. Subquery(...)) to use related-field lookups and normalize
++            rhs values such as model instances and SimpleLazyObject wrappers.
++            """
++            if isinstance(final_field, Field) and final_field.is_relation:
++                return field.get_col(alias, output_field=final_field)
++            return field.get_col(alias)
+         for name in transforms:
+             def transform(field, alias, *, name, previous):
+                 try:
+diff --git a/tests/queries/models.py b/tests/queries/models.py
+index e9eec5718d..02bad547ad 100644
+--- a/tests/queries/models.py
++++ b/tests/queries/models.py
+@@ -3,6 +3,7 @@ Various complex queries that have been problematic in the past.
+ """
+ import threading
+ 
++from django.conf import settings
+ from django.db import models
+ from django.db.models.functions import Now
+ 
+@@ -23,6 +24,18 @@ class NamedCategory(DumbCategory):
+         return self.name
+ 
+ 
++class LazyObjectSubqueryA(models.Model):
++    pass
++
++
++class LazyObjectSubqueryB(models.Model):
++    a = models.ForeignKey(LazyObjectSubqueryA, on_delete=models.CASCADE)
++
++
++class LazyObjectSubqueryC(models.Model):
++    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
++
++
+ class Tag(models.Model):
+     name = models.CharField(max_length=10)
+     parent = models.ForeignKey(
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index e57cad79ef..6a68f79d98 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -4,13 +4,15 @@ import sys
+ import unittest
+ from operator import attrgetter
+ 
++from django.contrib.auth.models import User
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db import DEFAULT_DB_ALIAS, connection
+-from django.db.models import Count, Exists, F, OuterRef, Q
++from django.db.models import Count, Exists, F, OuterRef, Q, Subquery
+ from django.db.models.sql.constants import LOUTER
+ from django.db.models.sql.where import NothingNode, WhereNode
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+ from django.test.utils import CaptureQueriesContext
++from django.utils.functional import SimpleLazyObject
+ 
+ from .models import (
+     FK1, Annotation, Article, Author, BaseA, Book, CategoryItem,
+@@ -28,7 +30,7 @@ from .models import (
+     SharedConnection, SimpleCategory, SingleObject, SpecialCategory, Staff,
+     StaffUser, Student, Tag, Task, Teacher, Ticket21203Child,
+     Ticket21203Parent, Ticket23605A, Ticket23605B, Ticket23605C, TvChef, Valid,
+-    X,
++    X, LazyObjectSubqueryA, LazyObjectSubqueryB, LazyObjectSubqueryC,
+ )
+ 
+ 
+@@ -3557,6 +3559,29 @@ class ValuesSubqueryTests(TestCase):
+         self.assertSequenceEqual(Order.objects.filter(items__in=OrderItem.objects.values_list('status')), [o1])
+ 
+ 
++class SimpleLazyObjectSubqueryTests(TestCase):
++    def test_simplelazyobject_nested_subquery_annotation(self):
++        a = LazyObjectSubqueryA.objects.create()
++        LazyObjectSubqueryB.objects.create(a=a)
++
++        owner_user = (
++            LazyObjectSubqueryB.objects.filter(a=OuterRef('pk'))
++            .annotate(owner_user=Subquery(LazyObjectSubqueryC.objects.values('owner')))
++            .values('owner_user')
++        )
++
++        def make_user():
++            user = User.objects.create_user('testuser')
++            LazyObjectSubqueryC.objects.create(owner=user)
++            return user
++
++        lazy_user = SimpleLazyObject(make_user)
++        qs = LazyObjectSubqueryA.objects.annotate(
++            owner_user=Subquery(owner_user),
++        ).filter(owner_user=lazy_user)
++        self.assertSequenceEqual(qs, [a])
++
++
+ class DoubleInSubqueryTests(TestCase):
+     def test_double_subquery_in(self):
+         lfa1 = LeafA.objects.create(data='foo')

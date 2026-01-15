@@ -1,0 +1,97 @@
+diff --git a/django/contrib/contenttypes/management/__init__.py b/django/contrib/contenttypes/management/__init__.py
+index 2b5f688136..77ff19af8e 100644
+--- a/django/contrib/contenttypes/management/__init__.py
++++ b/django/contrib/contenttypes/management/__init__.py
+@@ -24,7 +24,8 @@ class RenameContentType(migrations.RunPython):
+             content_type.model = new_model
+             try:
+                 with transaction.atomic(using=db):
+-                    content_type.save(update_fields={'model'})
++                    # Ensure the update runs on the migration connection.
++                    content_type.save(using=db, update_fields={'model'})
+             except IntegrityError:
+                 # Gracefully fallback if a stale content type causes a
+                 # conflict as remove_stale_contenttypes will take care of
+diff --git a/tests/contenttypes_tests/test_operations.py b/tests/contenttypes_tests/test_operations.py
+index bdf492fe2a..f2da02bb1f 100644
+--- a/tests/contenttypes_tests/test_operations.py
++++ b/tests/contenttypes_tests/test_operations.py
+@@ -4,7 +4,7 @@ from django.contrib.contenttypes import management as contenttypes_management
+ from django.contrib.contenttypes.models import ContentType
+ from django.core.management import call_command
+ from django.db import migrations, models
+-from django.test import TransactionTestCase, override_settings
++from django.test import SimpleTestCase, TransactionTestCase, override_settings
+ 
+ 
+ @override_settings(
+@@ -64,3 +64,69 @@ class ContentTypeOperationsTests(TransactionTestCase):
+         call_command('migrate', 'contenttypes_tests', 'zero', database='default', interactive=False, verbosity=0)
+         self.assertTrue(ContentType.objects.filter(app_label='contenttypes_tests', model='foo').exists())
+         self.assertTrue(ContentType.objects.filter(app_label='contenttypes_tests', model='renamedfoo').exists())
++
++
++class RenameContentTypeDatabaseTests(SimpleTestCase):
++    def test_rename_uses_schema_editor_database(self):
++        """
++        RenameContentType should save the ContentType using the same database
++        alias as the provided schema editor.
++        """
++        from contextlib import contextmanager
++        from types import SimpleNamespace
++        from unittest import mock
++
++        operation = contenttypes_management.RenameContentType('testapp', 'oldmodel', 'newmodel')
++
++        class FakeManager:
++            def __init__(self, instance):
++                self._instance = instance
++                self.clear_cache = mock.Mock()
++
++            def db_manager(self, db):
++                return self
++
++            def get_by_natural_key(self, app_label, model):
++                return self._instance
++
++        class FakeContentType:
++            DoesNotExist = type('DoesNotExist', (Exception,), {})
++
++            def __init__(self):
++                self.model = 'oldmodel'
++                self.save = mock.Mock()
++
++        instance = FakeContentType()
++        FakeContentTypeModel = type(
++            'ContentType',
++            (),
++            {
++                'DoesNotExist': FakeContentType.DoesNotExist,
++                'objects': FakeManager(instance),
++            },
++        )
++
++        class FakeApps:
++            def get_model(self, app_label, model_name):
++                self.requested = (app_label, model_name)
++                return FakeContentTypeModel
++
++        schema_editor = SimpleNamespace(connection=SimpleNamespace(alias='other'))
++
++        @contextmanager
++        def fake_atomic(using=None):
++            yield
++
++        with mock.patch.object(
++            contenttypes_management.router, 'allow_migrate_model', return_value=True
++        ), mock.patch.object(
++            contenttypes_management.transaction, 'atomic', fake_atomic
++        ):
++            operation._rename(FakeApps(), schema_editor, 'oldmodel', 'newmodel')
++
++        self.assertEqual(instance.model, 'newmodel')
++        instance.save.assert_called_once()
++        _args, kwargs = instance.save.call_args
++        self.assertEqual(kwargs['using'], 'other')
++        self.assertEqual(kwargs['update_fields'], {'model'})
++        FakeContentTypeModel.objects.clear_cache.assert_called_once()

@@ -1,0 +1,139 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 7d226955d5..0a08f35002 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -4,6 +4,7 @@ import datetime
+ import decimal
+ import enum
+ import functools
++import importlib.util
+ import math
+ import re
+ import types
+@@ -74,6 +75,33 @@ class DecimalSerializer(BaseSerializer):
+ 
+ 
+ class DeconstructableSerializer(BaseSerializer):
++    @staticmethod
++    def _split_path(path):
++        """
++        Split a deconstruction path into an importable module and an attribute
++        path within that module.
++
++        Deconstruction paths are usually "<module>.<name>", but nested classes
++        use "__qualname__" (e.g. "app.models.Outer.Inner"). In that case,
++        only "app.models" is importable; "Outer.Inner" is accessed as
++        attributes.
++        """
++        module, name = path.rsplit(".", 1)
++        attrs = [name]
++        # Walk backwards until the module portion is importable.
++        while module:
++            try:
++                spec = importlib.util.find_spec(module)
++            except (AttributeError, ImportError, ValueError):
++                spec = None
++            if spec is not None:
++                break
++            if "." not in module:
++                break
++            module, extra = module.rsplit(".", 1)
++            attrs.insert(0, extra)
++        return module, ".".join(attrs)
++
+     @staticmethod
+     def serialize_deconstructed(path, args, kwargs):
+         name, imports = DeconstructableSerializer._serialize_path(path)
+@@ -90,10 +118,15 @@ class DeconstructableSerializer(BaseSerializer):
+ 
+     @staticmethod
+     def _serialize_path(path):
+-        module, name = path.rsplit(".", 1)
++        module, name = DeconstructableSerializer._split_path(path)
+         if module == "django.db.models":
+             imports = {"from django.db import models"}
+-            name = "models.%s" % name
++            # Only single-segment names can be referenced as models.<name>.
++            if "." in name:
++                imports = {"import %s" % module}
++                name = path
++            else:
++                name = "models.%s" % name
+         else:
+             imports = {"import %s" % module}
+             name = path
+@@ -143,7 +176,10 @@ class FunctionTypeSerializer(BaseSerializer):
+         if getattr(self.value, "__self__", None) and isinstance(self.value.__self__, type):
+             klass = self.value.__self__
+             module = klass.__module__
+-            return "%s.%s.%s" % (module, klass.__name__, self.value.__name__), {"import %s" % module}
++            return (
++                "%s.%s.%s" % (module, klass.__qualname__, self.value.__name__),
++                {"import %s" % module},
++            )
+         # Further error checking
+         if self.value.__name__ == '<lambda>':
+             raise ValueError("Cannot serialize function: lambda")
+@@ -267,9 +303,15 @@ class TypeSerializer(BaseSerializer):
+         if hasattr(self.value, "__module__"):
+             module = self.value.__module__
+             if module == builtins.__name__:
+-                return self.value.__name__, set()
++                return self.value.__qualname__, set()
+             else:
+-                return "%s.%s" % (module, self.value.__name__), {"import %s" % module}
++                qualname = self.value.__qualname__
++                # Preserve backwards-compatible behavior for local classes by
++                # falling back to __name__ (e.g. "MyClass" instead of
++                # "func.<locals>.MyClass").
++                if "<" in qualname:
++                    qualname = self.value.__name__
++                return "%s.%s" % (module, qualname), {"import %s" % module}
+ 
+ 
+ class UUIDSerializer(BaseSerializer):
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index ca924f35ec..22087a5ed0 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -61,6 +61,18 @@ class IntEnum(enum.IntEnum):
+     B = 2
+ 
+ 
++class Outer:
++    class Inner(models.CharField):
++        pass
++
++
++class Thing:
++    @enum.unique
++    class State(enum.Enum):
++        on = 'on'
++        off = 'off'
++
++
+ class OperationWriterTests(SimpleTestCase):
+ 
+     def test_empty_signature(self):
+@@ -341,6 +353,21 @@ class WriterTests(SimpleTestCase):
+             "default=migrations.test_writer.IntEnum['A'])"
+         )
+ 
++    def test_serialize_inner_class_field(self):
++        field = Outer.Inner(max_length=20)
++        self.assertSerializedResultEqual(
++            field,
++            ("migrations.test_writer.Outer.Inner(max_length=20)", {"import migrations.test_writer"}),
++        )
++        self.assertSerializedFieldEqual(field)
++
++    def test_serialize_inner_class_type(self):
++        self.assertSerializedResultEqual(
++            Thing.State,
++            ("migrations.test_writer.Thing.State", {"import migrations.test_writer"}),
++        )
++        self.assertSerializedEqual(Thing.State)
++
+     def test_serialize_choices(self):
+         class TextChoices(models.TextChoices):
+             A = 'A', 'A value'

@@ -1,0 +1,73 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 30616c0172..879821c607 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -563,6 +563,19 @@ class MigrationAutodetector:
+                 if isinstance(base, str) and "." in base:
+                     base_app_label, base_name = base.split(".", 1)
+                     dependencies.append((base_app_label, base_name, None, True))
++                    # If a local field is being moved from a base model onto
++                    # this new subclass in the same migration, ensure the base
++                    # field is removed first. Otherwise, rendering the
++                    # intermediate state after CreateModel can raise:
++                    # FieldError: Local field 'x' clashes with field of the
++                    # same name from base class 'Y'.
++                    for field_name in model_state.fields:
++                        base_field_key = (base_app_label, base_name, field_name)
++                        if (
++                            base_field_key in self.old_field_keys and
++                            base_field_key not in self.new_field_keys
++                        ):
++                            dependencies.append((base_app_label, base_name, field_name, False))
+             # Depend on the other end of the primary key if it's a relation
+             if primary_key_rel:
+                 dependencies.append((
+diff --git a/tests/migrations/test_autodetector.py b/tests/migrations/test_autodetector.py
+index daff57fc2c..0ce5cb72a4 100644
+--- a/tests/migrations/test_autodetector.py
++++ b/tests/migrations/test_autodetector.py
+@@ -5,6 +5,7 @@ from unittest import mock
+ from django.apps import apps
+ from django.conf import settings
+ from django.contrib.auth.models import AbstractBaseUser
++from django.core.exceptions import FieldError
+ from django.core.validators import RegexValidator, validate_slug
+ from django.db import connection, models
+ from django.db.migrations.autodetector import MigrationAutodetector
+@@ -1928,6 +1929,36 @@ class AutodetectorTests(TestCase):
+         self.assertOperationAttributes(changes, 'testapp', 0, 0, name="publisher")
+         self.assertOperationAttributes(changes, 'testapp', 0, 1, name="Publisher")
+ 
++    def test_move_field_to_new_model_subclass_orders_removal_first(self):
++        """
++        Moving a field from a concrete base model to a new subclass in the
++        same change must remove the base field before creating the subclass,
++        otherwise the intermediate state can't be rendered (#21890).
++        """
++        readable_with_title = ModelState("testapp", "Readable", [
++            ("id", models.AutoField(primary_key=True)),
++            ("title", models.CharField(max_length=200)),
++        ])
++        readable = ModelState("testapp", "Readable", [
++            ("id", models.AutoField(primary_key=True)),
++        ])
++        book = ModelState("testapp", "Book", [
++            ("title", models.CharField(max_length=200)),
++        ], bases=("testapp.readable",))
++        changes = self.get_changes([readable_with_title], [readable, book])
++        self.assertNumberMigrations(changes, "testapp", 1)
++        self.assertOperationTypes(changes, "testapp", 0, ["RemoveField", "CreateModel"])
++
++        # Applying the operations in order must not produce an invalid
++        # intermediate state (i.e. no field clash when rendering state.apps).
++        state = self.make_project_state([readable_with_title])
++        for operation in changes["testapp"][0].operations:
++            operation.state_forwards("testapp", state)
++            try:
++                state.apps  # Force rendering.
++            except FieldError as exc:
++                self.fail("Invalid intermediate state while applying operations: %s" % exc)
++
+     @mock.patch('django.db.migrations.questioner.MigrationQuestioner.ask_not_null_addition',
+                 side_effect=AssertionError("Should not have prompted for not null addition"))
+     def test_add_many_to_many(self, mocked_ask_method):

@@ -1,0 +1,177 @@
+diff --git a/django/core/files/storage.py b/django/core/files/storage.py
+index 4c27fce605..f9f890885e 100644
+--- a/django/core/files/storage.py
++++ b/django/core/files/storage.py
+@@ -22,6 +22,25 @@ __all__ = (
+ )
+ 
+ 
++def _prefix_url_with_script_prefix(url):
++    """
++    Prefix a root-relative URL with the current script prefix (SCRIPT_NAME).
++
++    Keep absolute/protocol-relative URLs unchanged and avoid double-prefixing
++    when the URL already starts with the script prefix.
++    """
++    if not url or not url.startswith('/') or url.startswith('//'):
++        return url
++    # Import lazily to avoid importing URL machinery for storage backends
++    # that never generate URLs.
++    from django.urls import get_script_prefix
++
++    script_prefix = get_script_prefix()
++    if script_prefix == '/' or url.startswith(script_prefix):
++        return url
++    return script_prefix.rstrip('/') + url
++
++
+ class Storage:
+     """
+     A base storage class, providing some default behaviors that all other
+@@ -329,10 +348,11 @@ class FileSystemStorage(Storage):
+     def url(self, name):
+         if self.base_url is None:
+             raise ValueError("This file is not accessible via a URL.")
++        base_url = _prefix_url_with_script_prefix(self.base_url)
+         url = filepath_to_uri(name)
+         if url is not None:
+             url = url.lstrip('/')
+-        return urljoin(self.base_url, url)
++        return urljoin(base_url, url)
+ 
+     def _datetime_from_timestamp(self, ts):
+         """
+diff --git a/django/templatetags/static.py b/django/templatetags/static.py
+index 39712aaba0..3ca8113654 100644
+--- a/django/templatetags/static.py
++++ b/django/templatetags/static.py
+@@ -8,6 +8,24 @@ from django.utils.html import conditional_escape
+ register = template.Library()
+ 
+ 
++def _prefix_url_with_script_prefix(url):
++    """
++    Prefix a root-relative URL with the current script prefix (SCRIPT_NAME).
++
++    This mirrors how URL reversing includes the script prefix. Only root-
++    relative URLs (e.g. "/static/") are affected; absolute and protocol-
++    relative URLs are left unchanged.
++    """
++    if not url or not url.startswith('/') or url.startswith('//'):
++        return url
++    # Import lazily to avoid circular imports during Django setup.
++    from django.urls.base import get_script_prefix
++    script_prefix = get_script_prefix()
++    if script_prefix == '/' or url.startswith(script_prefix):
++        return url
++    return script_prefix.rstrip('/') + url
++
++
+ class PrefixNode(template.Node):
+ 
+     def __repr__(self):
+@@ -44,6 +62,8 @@ class PrefixNode(template.Node):
+             prefix = ''
+         else:
+             prefix = iri_to_uri(getattr(settings, name, ''))
++            if name in {"STATIC_URL", "MEDIA_URL"}:
++                prefix = _prefix_url_with_script_prefix(prefix)
+         return prefix
+ 
+     def render(self, context):
+diff --git a/tests/file_storage/tests.py b/tests/file_storage/tests.py
+index 1c4176014c..e92f76e6a6 100644
+--- a/tests/file_storage/tests.py
++++ b/tests/file_storage/tests.py
+@@ -21,7 +21,7 @@ from django.test import (
+     LiveServerTestCase, SimpleTestCase, TestCase, override_settings,
+ )
+ from django.test.utils import requires_tz_support
+-from django.urls import NoReverseMatch, reverse_lazy
++from django.urls import NoReverseMatch, clear_script_prefix, reverse_lazy, set_script_prefix
+ from django.utils import timezone
+ 
+ from .models import Storage, temp_storage, temp_storage_location
+@@ -108,6 +108,21 @@ class FileStorageTests(SimpleTestCase):
+         self.assertEqual(storage.base_location, '')
+         self.assertEqual(storage.location, os.getcwd())
+ 
++    def test_url_includes_script_name(self):
++        set_script_prefix('/prefix/')
++        self.addCleanup(clear_script_prefix)
++        self.assertEqual(
++            self.storage.url('foo.txt'),
++            '/prefix/test_media_url/foo.txt',
++        )
++
++        # Don't double-prefix if base_url already includes the script prefix.
++        storage = self.storage_class(
++            location=self.temp_dir,
++            base_url='/prefix/test_media_url/',
++        )
++        self.assertEqual(storage.url('foo.txt'), '/prefix/test_media_url/foo.txt')
++
+     def test_file_access_options(self):
+         """
+         Standard file access options are available, and work as expected.
+diff --git a/tests/staticfiles_tests/test_templatetags.py b/tests/staticfiles_tests/test_templatetags.py
+index cd3f7d4bfa..3a6f56a8af 100644
+--- a/tests/staticfiles_tests/test_templatetags.py
++++ b/tests/staticfiles_tests/test_templatetags.py
+@@ -1,4 +1,5 @@
+ from django.test import override_settings
++from django.urls import clear_script_prefix, set_script_prefix
+ 
+ from .cases import StaticFilesTestCase
+ 
+@@ -10,6 +11,11 @@ class TestTemplateTag(StaticFilesTestCase):
+         self.assertStaticRenders("testfile.txt", "/static/testfile.txt")
+         self.assertStaticRenders("special?chars&quoted.html", "/static/special%3Fchars%26quoted.html")
+ 
++    def test_template_tag_includes_script_name(self):
++        set_script_prefix('/prefix/')
++        self.addCleanup(clear_script_prefix)
++        self.assertStaticRenders("testfile.txt", "/prefix/static/testfile.txt")
++
+     @override_settings(STATICFILES_STORAGE='staticfiles_tests.storage.QueryStringStorage')
+     def test_template_tag_escapes(self):
+         """
+diff --git a/tests/template_tests/syntax_tests/test_static.py b/tests/template_tests/syntax_tests/test_static.py
+index 00f8cdbc11..6a08491b10 100644
+--- a/tests/template_tests/syntax_tests/test_static.py
++++ b/tests/template_tests/syntax_tests/test_static.py
+@@ -3,6 +3,7 @@ from urllib.parse import urljoin
+ from django.conf import settings
+ from django.template import TemplateSyntaxError
+ from django.test import SimpleTestCase, override_settings
++from django.urls import clear_script_prefix, set_script_prefix
+ 
+ from ..utils import setup
+ 
+@@ -11,6 +12,26 @@ from ..utils import setup
+ class StaticTagTests(SimpleTestCase):
+     libraries = {'static': 'django.templatetags.static'}
+ 
++    @setup({
++        'get-static': '{% load static %}{% get_static_prefix %}',
++        'get-media': '{% load static %}{% get_media_prefix %}',
++    })
++    def test_prefixes_include_script_name(self):
++        set_script_prefix('/prefix/')
++        self.addCleanup(clear_script_prefix)
++        output = self.engine.render_to_string('get-static')
++        self.assertEqual(output, '/prefix/static/')
++        output = self.engine.render_to_string('get-media')
++        self.assertEqual(output, '/prefix/media/')
++
++    @setup({'t': '{% load static %}{% static \"admin/base.css\" %}'})
++    @override_settings(STATIC_URL='/prefix/static/')
++    def test_static_prefix_does_not_double_prefix_script_name(self):
++        set_script_prefix('/prefix/')
++        self.addCleanup(clear_script_prefix)
++        output = self.engine.render_to_string('t')
++        self.assertEqual(output, urljoin(settings.STATIC_URL, 'admin/base.css'))
++
+     @setup({'static-prefixtag01': '{% load static %}{% get_static_prefix %}'})
+     def test_static_prefixtag01(self):
+         output = self.engine.render_to_string('static-prefixtag01')

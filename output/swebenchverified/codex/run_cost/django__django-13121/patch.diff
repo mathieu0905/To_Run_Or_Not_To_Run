@@ -1,0 +1,88 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index a156c5e881..7ff287b026 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -9,6 +9,7 @@ from django.db.models import fields
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.query_utils import Q
+ from django.utils.deconstruct import deconstructible
++from django.utils.duration import duration_microseconds
+ from django.utils.functional import cached_property
+ from django.utils.hashable import make_hashable
+ 
+@@ -479,6 +480,29 @@ class CombinedExpression(SQLiteNumericMixin, Expression):
+ 
+ 
+ class DurationExpression(CombinedExpression):
++    def _as_sql_for_duration_output(self, compiler, connection):
++        """
++        Compile duration-only arithmetic on backends that store DurationField
++        values as an integer number of microseconds (i.e. without a native
++        interval type).
++
++        In that case, using date/interval arithmetic (e.g. INTERVAL on MySQL)
++        can yield non-numeric results that don't round-trip through
++        DurationField's value conversion.
++        """
++        expressions = []
++        expression_params = []
++        for side in (self.lhs, self.rhs):
++            if isinstance(side, DurationValue):
++                sql, params = compiler.compile(Value(duration_microseconds(side.value)))
++            else:
++                sql, params = compiler.compile(side)
++            expressions.append(sql)
++            expression_params.extend(params)
++        expression_wrapper = '(%s)'
++        sql = connection.ops.combine_expression(self.connector, expressions)
++        return expression_wrapper % sql, expression_params
++
+     def compile(self, side, compiler, connection):
+         if not isinstance(side, DurationValue):
+             try:
+@@ -493,6 +517,24 @@ class DurationExpression(CombinedExpression):
+ 
+     def as_sql(self, compiler, connection):
+         connection.ops.check_expression_support(self)
++        try:
++            output_field = self.output_field
++        except FieldError:
++            output_field = None
++
++        def _is_duration(side):
++            if isinstance(side, DurationValue):
++                return True
++            try:
++                return side.output_field.get_internal_type() == 'DurationField'
++            except FieldError:
++                return False
++
++        # If this expression returns a duration and both sides are durations,
++        # do plain numeric arithmetic on the stored microseconds value.
++        if output_field is not None and output_field.get_internal_type() == 'DurationField':
++            if _is_duration(self.lhs) and _is_duration(self.rhs):
++                return self._as_sql_for_duration_output(compiler, connection)
+         expressions = []
+         expression_params = []
+         sql, params = self.compile(self.lhs, compiler, connection)
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index 459a87797d..c37abf2403 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -1468,6 +1468,16 @@ class FTimeDeltaTests(TestCase):
+         ))
+         self.assertIsNone(queryset.first().shifted)
+ 
++    def test_durationfield_addition_annotation(self):
++        delta = datetime.timedelta(days=1)
++        qs = Experiment.objects.annotate(
++            plus=F('estimated_time') + delta,
++            minus=F('estimated_time') - delta,
++        ).order_by('name')
++        for e in qs:
++            self.assertEqual(e.plus, e.estimated_time + delta)
++            self.assertEqual(e.minus, e.estimated_time - delta)
++
+     @skipUnlessDBFeature('supports_temporal_subtraction')
+     def test_date_subtraction(self):
+         queryset = Experiment.objects.annotate(

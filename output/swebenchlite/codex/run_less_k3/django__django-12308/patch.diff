@@ -1,0 +1,44 @@
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..45e11d1326 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -388,6 +388,11 @@ def display_for_field(value, field, empty_value_display):
+         return _boolean_icon(value)
+     elif value is None:
+         return empty_value_display
++    elif isinstance(field, models.JSONField):
++        # Render JSONField values as valid JSON, not Python literals (e.g.
++        # {"foo": "bar"} instead of {'foo': 'bar'}). Use the form field's
++        # prepare_value() to preserve InvalidJSONInput values.
++        return field.formfield().prepare_value(value)
+     elif isinstance(field, models.DateTimeField):
+         return formats.localize(timezone.template_localtime(value))
+     elif isinstance(field, (models.DateField, models.TimeField)):
+diff --git a/tests/admin_utils/tests.py b/tests/admin_utils/tests.py
+index 463ba9556d..472dbb1041 100644
+--- a/tests/admin_utils/tests.py
++++ b/tests/admin_utils/tests.py
+@@ -94,6 +94,23 @@ class UtilsTests(SimpleTestCase):
+ 
+     empty_value = '-empty-'
+ 
++    def test_display_for_field_jsonfield(self):
++        display_value = display_for_field(
++            {"foo": "bar"},
++            models.JSONField(),
++            self.empty_value,
++        )
++        self.assertEqual(display_value, '{"foo": "bar"}')
++
++        # The admin display should preserve invalid JSON input verbatim.
++        invalid_json = forms.fields.InvalidJSONInput('{"foo": "bar"')
++        display_value = display_for_field(
++            invalid_json,
++            models.JSONField(),
++            self.empty_value,
++        )
++        self.assertEqual(display_value, invalid_json)
++
+     def test_values_from_lookup_field(self):
+         """
+         Regression test for #12654: lookup_field

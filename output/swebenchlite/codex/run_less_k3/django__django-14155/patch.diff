@@ -1,0 +1,34 @@
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 9b00e24509..d21953c7d9 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -31,6 +31,29 @@ from .utils import get_callable
+ 
+ class ResolverMatch:
+     def __init__(self, func, args, kwargs, url_name=None, app_names=None, namespaces=None, route=None, tried=None):
++        if isinstance(func, functools.partial):
++            # Unwrap functools.partial() to expose the underlying view and any
++            # pre-applied arguments in repr().
++            partials = []
++            while isinstance(func, functools.partial):
++                partials.append(func)
++                func = func.func
++
++            partial_args = ()
++            partial_kwargs = {}
++            for p in reversed(partials):
++                partial_args += p.args
++                if p.keywords:
++                    partial_kwargs.update(p.keywords)
++
++            # args from the resolver are typically a tuple, but accept any
++            # iterable for backwards compatibility.
++            args = partial_args + tuple(args)
++            if partial_kwargs:
++                # Match functools.partial() call semantics: call-time kwargs
++                # override those provided to partial().
++                kwargs = {**partial_kwargs, **kwargs}
++
+         self.func = func
+         self.args = args
+         self.kwargs = kwargs

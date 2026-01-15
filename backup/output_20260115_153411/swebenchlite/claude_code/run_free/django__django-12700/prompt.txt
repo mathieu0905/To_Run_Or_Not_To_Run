@@ -1,0 +1,95 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: d51c50d836c5cf8db5566da17963f871be554615
+
+## Problem Description
+Settings are cleaned insufficiently.
+Description
+	
+Posting publicly after checking with the rest of the security team.
+I just ran into a case where django.views.debug.SafeExceptionReporterFilter.get_safe_settings() would return several un-cleansed values. Looking at cleanse_setting() I realized that we ​only take care of `dict`s but don't take other types of iterables into account but ​return them as-is.
+Example:
+In my settings.py I have this:
+MY_SETTING = {
+	"foo": "value",
+	"secret": "value",
+	"token": "value",
+	"something": [
+		{"foo": "value"},
+		{"secret": "value"},
+		{"token": "value"},
+	],
+	"else": [
+		[
+			{"foo": "value"},
+			{"secret": "value"},
+			{"token": "value"},
+		],
+		[
+			{"foo": "value"},
+			{"secret": "value"},
+			{"token": "value"},
+		],
+	]
+}
+On Django 3.0 and below:
+>>> import pprint
+>>> from django.views.debug import get_safe_settings
+>>> pprint.pprint(get_safe_settings()["MY_SETTING"])
+{'else': [[{'foo': 'value'}, {'secret': 'value'}, {'token': 'value'}],
+		 [{'foo': 'value'}, {'secret': 'value'}, {'token': 'value'}]],
+ 'foo': 'value',
+ 'secret': '********************',
+ 'something': [{'foo': 'value'}, {'secret': 'value'}, {'token': 'value'}],
+ 'token': '********************'}
+On Django 3.1 and up:
+>>> from django.views.debug import SafeExceptionReporterFilter
+>>> import pprint
+>>> pprint.pprint(SafeExceptionReporterFilter().get_safe_settings()["MY_SETTING"])
+{'else': [[{'foo': 'value'}, {'secret': 'value'}, {'token': 'value'}],
+		 [{'foo': 'value'}, {'secret': 'value'}, {'token': 'value'}]],
+ 'foo': 'value',
+ 'secret': '********************',
+ 'something': [{'foo': 'value'}, {'secret': 'value'}, {'token': 'value'}],
+ 'token': '********************'}
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+Any attempt to execute Python code will be blocked by the sandbox.
+
+## ALLOWED Operations
+You may ONLY use these commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `python` / `python3` - ANY Python execution
+❌ `pytest` / `unittest` / `tox` / `nose` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Reason deeply about the code based on what you read
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

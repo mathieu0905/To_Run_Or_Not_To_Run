@@ -1,0 +1,63 @@
+diff --git a/django/db/models/enums.py b/django/db/models/enums.py
+index bbe362a6ab..7a0907ac3e 100644
+--- a/django/db/models/enums.py
++++ b/django/db/models/enums.py
+@@ -65,11 +65,19 @@ class Choices(enum.Enum, metaclass=ChoicesMeta):
+ 
+ class IntegerChoices(int, Choices):
+     """Class for creating enumerated integer choices."""
+-    pass
++    def __str__(self):
++        # These enums are commonly used as "raw" field values. Returning the
++        # underlying value avoids surprising "EnumClass.MEMBER" strings when
++        # a freshly-assigned member is coerced to str().
++        return str(self.value)
+ 
+ 
+ class TextChoices(str, Choices):
+     """Class for creating enumerated string choices."""
+ 
++    def __str__(self):
++        # See IntegerChoices.__str__().
++        return self.value
++
+     def _generate_next_value_(name, start, count, last_values):
+         return name
+diff --git a/tests/model_fields/test_charfield.py b/tests/model_fields/test_charfield.py
+index cf3ce0c4c5..3555574367 100644
+--- a/tests/model_fields/test_charfield.py
++++ b/tests/model_fields/test_charfield.py
+@@ -34,6 +34,10 @@ class TestCharField(TestCase):
+             F = 'Festival!'
+ 
+         p1 = Post.objects.create(title=Event.C, body=Event.F)
++        # When assigning an enum member, coercing to str() should produce the
++        # underlying value (not "EnumClass.MEMBER").
++        self.assertEqual(str(p1.title), 'Carnival!')
++        self.assertEqual(str(p1.body), 'Festival!')
+         p1.refresh_from_db()
+         self.assertEqual(p1.title, 'Carnival!')
+         self.assertEqual(p1.body, 'Festival!')
+diff --git a/tests/model_fields/test_integerfield.py b/tests/model_fields/test_integerfield.py
+index 606d71057a..8ef6e6dd29 100644
+--- a/tests/model_fields/test_integerfield.py
++++ b/tests/model_fields/test_integerfield.py
+@@ -132,6 +132,18 @@ class IntegerFieldTests(TestCase):
+         instance = self.model.objects.get()
+         self.assertIsInstance(instance.value, int)
+ 
++    def test_assignment_from_choice_enum(self):
++        class Choice(models.IntegerChoices):
++            A = 1
++            B = 2
++
++        instance = self.model.objects.create(value=Choice.A)
++        # When assigning an enum member, coercing to str() should produce the
++        # underlying value (not "EnumClass.MEMBER").
++        self.assertEqual(str(instance.value), '1')
++        instance.refresh_from_db()
++        self.assertEqual(str(instance.value), '1')
++
+     def test_coercing(self):
+         self.model.objects.create(value='10')
+         instance = self.model.objects.get(value='10')

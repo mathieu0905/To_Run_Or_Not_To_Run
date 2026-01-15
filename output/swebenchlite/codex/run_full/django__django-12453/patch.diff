@@ -1,0 +1,113 @@
+diff --git a/django/db/backends/base/creation.py b/django/db/backends/base/creation.py
+index c50fc90171..a5700d3a00 100644
+--- a/django/db/backends/base/creation.py
++++ b/django/db/backends/base/creation.py
+@@ -5,7 +5,7 @@ from io import StringIO
+ from django.apps import apps
+ from django.conf import settings
+ from django.core import serializers
+-from django.db import router
++from django.db import router, transaction
+ 
+ # The prefix to put on the default database name when creating
+ # the test database.
+@@ -126,8 +126,18 @@ class BaseDatabaseCreation:
+         the serialize_db_to_string() method.
+         """
+         data = StringIO(data)
+-        for obj in serializers.deserialize("json", data, using=self.connection.alias):
+-            obj.save()
++        table_names = set()
++        # Disable constraint checks so fixture-like loads don't depend on model
++        # ordering (e.g. when objects contain forward foreign key references).
++        # Wrap the whole load in a transaction so backends with deferrable
++        # constraints can defer checking until the end of the block.
++        with self.connection.constraint_checks_disabled():
++            with transaction.atomic(using=self.connection.alias):
++                for obj in serializers.deserialize("json", data, using=self.connection.alias):
++                    obj.save()
++                    table_names.add(obj.object._meta.db_table)
++                # Re-validate constraints after restoring the serialized data.
++                self.connection.check_constraints(table_names=table_names)
+ 
+     def _get_database_display_str(self, verbosity, database_name):
+         """
+diff --git a/tests/backends/base/test_creation.py b/tests/backends/base/test_creation.py
+index b91466911a..3d666fc0ba 100644
+--- a/tests/backends/base/test_creation.py
++++ b/tests/backends/base/test_creation.py
+@@ -1,11 +1,14 @@
+ import copy
+ from unittest import mock
+ 
++from django.apps import apps
++from django.core import serializers
+ from django.db import DEFAULT_DB_ALIAS, connection, connections
++from django.db import models
+ from django.db.backends.base.creation import (
+     TEST_DATABASE_PREFIX, BaseDatabaseCreation,
+ )
+-from django.test import SimpleTestCase
++from django.test import SimpleTestCase, TransactionTestCase, skipUnlessDBFeature
+ 
+ 
+ def get_connection_copy():
+@@ -73,3 +76,58 @@ class TestDbCreationTests(SimpleTestCase):
+         finally:
+             with mock.patch.object(creation, '_destroy_test_db'):
+                 creation.destroy_test_db(old_database_name, verbosity=0)
++
++
++@skipUnlessDBFeature('supports_foreign_keys')
++class DeserializeDbFromStringTests(TransactionTestCase):
++    available_apps = ['backends']
++
++    def setUp(self):
++        super().setUp()
++        # Define models on an installed app to allow serializers.deserialize()
++        # to resolve them from the global app registry.
++        self._old_models = apps.app_configs['backends'].models.copy()
++
++        class SRParent(models.Model):
++            class Meta:
++                app_label = 'backends'
++
++        class SRChild(models.Model):
++            parent = models.ForeignKey(SRParent, on_delete=models.CASCADE)
++
++            class Meta:
++                app_label = 'backends'
++
++        apps.clear_cache()
++
++        self.SRParent = SRParent
++        self.SRChild = SRChild
++
++        with connection.schema_editor() as schema_editor:
++            schema_editor.create_model(SRParent)
++            schema_editor.create_model(SRChild)
++
++    def tearDown(self):
++        try:
++            with connection.schema_editor() as schema_editor:
++                schema_editor.delete_model(self.SRChild)
++                schema_editor.delete_model(self.SRParent)
++        finally:
++            apps.app_configs['backends'].models = self._old_models
++            apps.all_models['backends'] = self._old_models
++            apps.clear_cache()
++            super().tearDown()
++
++    def test_deserialize_db_from_string_allows_forward_fk_references(self):
++        parent = self.SRParent.objects.create(pk=1)
++        child = self.SRChild.objects.create(pk=1, parent=parent)
++        # Force an intentionally "wrong" ordering: child before parent.
++        data = serializers.serialize('json', [child, parent])
++        self.SRChild.objects.all().delete()
++        self.SRParent.objects.all().delete()
++
++        connection.creation.deserialize_db_from_string(data)
++
++        self.assertEqual(self.SRParent.objects.count(), 1)
++        self.assertEqual(self.SRChild.objects.count(), 1)
++        self.assertEqual(self.SRChild.objects.get().parent_id, 1)

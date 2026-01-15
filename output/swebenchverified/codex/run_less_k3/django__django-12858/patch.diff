@@ -1,0 +1,71 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 6c9e9d3707..35e4e14f2d 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1732,30 +1732,23 @@ class Model(metaclass=ModelBase):
+         fields = _fields
+ 
+         # Check related fields.
++        from django.db.models.sql.query import Query
++
+         for field in related_fields:
+-            _cls = cls
+-            fld = None
+-            for part in field.split(LOOKUP_SEP):
+-                try:
+-                    # pk is an alias that won't be found by opts.get_field.
+-                    if part == 'pk':
+-                        fld = _cls._meta.pk
+-                    else:
+-                        fld = _cls._meta.get_field(part)
+-                    if fld.is_relation:
+-                        _cls = fld.get_path_info()[-1].to_opts.model
+-                    else:
+-                        _cls = None
+-                except (FieldDoesNotExist, AttributeError):
+-                    if fld is None or fld.get_transform(part) is None:
+-                        errors.append(
+-                            checks.Error(
+-                                "'ordering' refers to the nonexistent field, "
+-                                "related field, or lookup '%s'." % field,
+-                                obj=cls,
+-                                id='models.E015',
+-                            )
+-                        )
++            # Meta.ordering uses the same syntax as QuerySet.order_by().
++            # Mirror QuerySet.order_by() validation to correctly allow
++            # lookups (e.g. `__isnull`) and transforms (e.g. `__lower`).
++            try:
++                Query(cls).names_to_path(field.split(LOOKUP_SEP), cls._meta)
++            except FieldError:
++                errors.append(
++                    checks.Error(
++                        "'ordering' refers to the nonexistent field, "
++                        "related field, or lookup '%s'." % field,
++                        obj=cls,
++                        id='models.E015',
++                    )
++                )
+ 
+         # Skip ordering on pk. This is always a valid order_by field
+         # but is an alias and therefore won't be found by opts.get_field.
+diff --git a/tests/invalid_models_tests/test_models.py b/tests/invalid_models_tests/test_models.py
+index 6bfdf2e736..dc215b7d40 100644
+--- a/tests/invalid_models_tests/test_models.py
++++ b/tests/invalid_models_tests/test_models.py
+@@ -893,6 +893,15 @@ class OtherModelTests(SimpleTestCase):
+         with register_lookup(models.CharField, Lower):
+             self.assertEqual(Model.check(), [])
+ 
++    def test_ordering_allows_isnull_lookup(self):
++        class Model(models.Model):
++            parent = models.ForeignKey('self', models.CASCADE, null=True)
++
++            class Meta:
++                ordering = ('parent__isnull',)
++
++        self.assertEqual(Model.check(), [])
++
+     def test_ordering_pointing_to_related_model_pk(self):
+         class Parent(models.Model):
+             pass

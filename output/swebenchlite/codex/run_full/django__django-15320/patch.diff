@@ -1,0 +1,55 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 6f26dff0e0..f450fc121b 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1149,7 +1149,16 @@ class Subquery(BaseExpression, Combinable):
+ 
+     def __init__(self, queryset, output_field=None, **extra):
+         # Allow the usage of both QuerySet and sql.Query objects.
+-        self.query = getattr(queryset, 'query', queryset)
++        query = getattr(queryset, 'query', queryset)
++        # Subquery() is compiled via Query.as_sql(), which only wraps the SQL
++        # in parentheses and applies subquery-specific behavior (e.g. clearing
++        # ORDER BY on some backends) when Query.subquery is True. Mark the
++        # stored query accordingly and avoid mutating the caller's queryset.
++        if hasattr(query, "clone"):
++            query = query.clone()
++        if hasattr(query, "subquery"):
++            query.subquery = True
++        self.query = query
+         self.extra = extra
+         super().__init__(output_field)
+ 
+@@ -1179,7 +1188,11 @@ class Subquery(BaseExpression, Combinable):
+         template_params = {**self.extra, **extra_context}
+         query = query or self.query
+         subquery_sql, sql_params = query.as_sql(compiler, connection)
+-        template_params['subquery'] = subquery_sql[1:-1]
++        # Query.as_sql() wraps subqueries in parentheses when Query.subquery is
++        # True. Strip a single pair to avoid double-wrapping by our template.
++        if subquery_sql.startswith('(') and subquery_sql.endswith(')'):
++            subquery_sql = subquery_sql[1:-1]
++        template_params['subquery'] = subquery_sql
+ 
+         template = template or template_params.get('template', self.template)
+         sql = template % template_params
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index 06c9ad597a..f7e524c63b 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -446,6 +446,15 @@ class BasicExpressionsTests(TestCase):
+         queryset = Company.objects.values('pk')
+         self.assertIsInstance(Exists(queryset).output_field, BooleanField)
+ 
++    def test_subquery_as_sql_compiles_select(self):
++        subquery = Subquery(Company.objects.values('pk'))
++        self.assertIs(subquery.query.subquery, True)
++        compiler = subquery.query.get_compiler(connection=connection)
++        sql, params = subquery.as_sql(compiler, connection)
++        self.assertEqual(params, ())
++        self.assertTrue(sql.startswith('(SELECT'), sql)
++        self.assertTrue(sql.endswith(')'), sql)
++
+     def test_subquery(self):
+         Company.objects.filter(name='Example Inc.').update(
+             point_of_contact=Employee.objects.get(firstname='Joe', lastname='Smith'),

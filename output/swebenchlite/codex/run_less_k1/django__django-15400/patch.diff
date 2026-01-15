@@ -1,0 +1,48 @@
+diff --git a/django/utils/functional.py b/django/utils/functional.py
+index 9e1be0fe0f..66dfdcb14e 100644
+--- a/django/utils/functional.py
++++ b/django/utils/functional.py
+@@ -373,6 +373,13 @@ class LazyObject:
+     __len__ = new_method_proxy(len)
+     __contains__ = new_method_proxy(operator.contains)
+ 
++    # Basic arithmetic support. Magic methods aren't routed through
++    # __getattr__(), so implement the ones needed for common proxy use cases.
++    def __radd__(self, other):
++        if self._wrapped is empty:
++            self._setup()
++        return other + self._wrapped
++
+ 
+ def unpickle_lazyobject(wrapped):
+     """
+diff --git a/tests/utils_tests/test_simplelazyobject.py b/tests/utils_tests/test_simplelazyobject.py
+index 7c9c021afb..5f041cf485 100644
+--- a/tests/utils_tests/test_simplelazyobject.py
++++ b/tests/utils_tests/test_simplelazyobject.py
+@@ -6,6 +6,25 @@ from django.utils.functional import SimpleLazyObject
+ 
+ 
+ class TestUtilsSimpleLazyObjectDjangoTestCase(TestCase):
++    def test_radd(self):
++        setup_calls = []
++
++        class Left:
++            def __add__(self, other):
++                return NotImplemented
++
++        class Right:
++            def __radd__(self, other):
++                return "radd-result"
++
++        def factory():
++            setup_calls.append(True)
++            return Right()
++
++        x = SimpleLazyObject(factory)
++        self.assertEqual(Left() + x, "radd-result")
++        self.assertEqual(setup_calls, [True])
++
+     def test_pickle(self):
+         user = User.objects.create_user("johndoe", "john@example.com", "pass")
+         x = SimpleLazyObject(lambda: user)

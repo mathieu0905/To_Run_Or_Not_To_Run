@@ -1,0 +1,47 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 1c40161c7f..9e9283b1e0 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -927,18 +927,34 @@ class MigrationAutodetector:
+                 if remote_field_name:
+                     to_field_rename_key = rename_key + (remote_field_name,)
+                     if to_field_rename_key in self.renamed_fields:
+-                        new_field.remote_field.field_name = old_field.remote_field.field_name
++                        # Update old_field instead of new_field to preserve the new
++                        # to_field value in case AlterField is generated.
++                        old_field.remote_field.field_name = remote_field_name
+                 # Handle ForeignObjects which can have multiple from_fields/to_fields.
+                 from_fields = getattr(new_field, 'from_fields', None)
+-                if from_fields:
++                old_from_fields = getattr(old_field, 'from_fields', None)
++                if from_fields and old_from_fields:
+                     from_rename_key = (app_label, model_name)
+-                    new_field.from_fields = tuple([
+-                        self.renamed_fields.get(from_rename_key + (from_field,), from_field)
+-                        for from_field in from_fields
++                    # Update old_field instead of new_field to preserve the new
++                    # field values in case AlterField is generated.
++                    # Create reverse mapping: old_name -> new_name
++                    from_renamed = {
++                        self.renamed_fields[k]: k[2]
++                        for k in self.renamed_fields
++                        if k[:2] == from_rename_key
++                    }
++                    to_renamed = {
++                        self.renamed_fields[k]: k[2]
++                        for k in self.renamed_fields
++                        if k[:2] == rename_key
++                    }
++                    old_field.from_fields = tuple([
++                        from_renamed.get(from_field, from_field)
++                        for from_field in old_field.from_fields
+                     ])
+-                    new_field.to_fields = tuple([
+-                        self.renamed_fields.get(rename_key + (to_field,), to_field)
+-                        for to_field in new_field.to_fields
++                    old_field.to_fields = tuple([
++                        to_renamed.get(to_field, to_field)
++                        for to_field in old_field.to_fields
+                     ])
+                 dependencies.extend(self._get_dependencies_for_foreign_key(new_field))
+             if hasattr(new_field, "remote_field") and getattr(new_field.remote_field, "through", None):

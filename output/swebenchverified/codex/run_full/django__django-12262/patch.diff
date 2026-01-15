@@ -1,0 +1,85 @@
+diff --git a/django/template/library.py b/django/template/library.py
+index 20bc86dac8..89645bed73 100644
+--- a/django/template/library.py
++++ b/django/template/library.py
+@@ -261,16 +261,16 @@ def parse_bits(parser, bits, params, varargs, varkw, defaults,
+         if kwarg:
+             # The kwarg was successfully extracted
+             param, value = kwarg.popitem()
+-            if param not in params and param not in unhandled_kwargs and varkw is None:
+-                # An unexpected keyword argument was supplied
+-                raise TemplateSyntaxError(
+-                    "'%s' received unexpected keyword argument '%s'" %
+-                    (name, param))
+-            elif param in kwargs:
++            if param in kwargs:
+                 # The keyword argument has already been supplied once
+                 raise TemplateSyntaxError(
+                     "'%s' received multiple values for keyword argument '%s'" %
+                     (name, param))
++            elif param not in params and param not in kwonly and varkw is None:
++                # An unexpected keyword argument was supplied
++                raise TemplateSyntaxError(
++                    "'%s' received unexpected keyword argument '%s'" %
++                    (name, param))
+             else:
+                 # All good, record the keyword argument
+                 kwargs[str(param)] = value
+diff --git a/tests/template_tests/templatetags/inclusion.py b/tests/template_tests/templatetags/inclusion.py
+index 242fbe80cb..af4e244cee 100644
+--- a/tests/template_tests/templatetags/inclusion.py
++++ b/tests/template_tests/templatetags/inclusion.py
+@@ -127,6 +127,11 @@ def inclusion_two_params_from_template(one, two):
+ inclusion_two_params_from_template.anything = "Expected inclusion_two_params_from_template __dict__"
+ 
+ 
++@register.inclusion_tag('inclusion.html')
++def inclusion_keyword_only_default(*, kwarg=42):
++    return {"result": "inclusion_keyword_only_default - Expected result: %s" % kwarg}
++
++
+ @register.inclusion_tag('inclusion.html')
+ def inclusion_one_default(one, two='hi'):
+     """Expected inclusion_one_default __doc__"""
+diff --git a/tests/template_tests/test_custom.py b/tests/template_tests/test_custom.py
+index dbc5bc267d..b709f23e95 100644
+--- a/tests/template_tests/test_custom.py
++++ b/tests/template_tests/test_custom.py
+@@ -62,6 +62,8 @@ class SimpleTagTests(TagTestCase):
+                 'simple_keyword_only_param - Expected result: 37'),
+             ('{% load custom %}{% simple_keyword_only_default %}',
+                 'simple_keyword_only_default - Expected result: 42'),
++            ('{% load custom %}{% simple_keyword_only_default kwarg=37 %}',
++                'simple_keyword_only_default - Expected result: 37'),
+             ('{% load custom %}{% simple_one_default 37 %}', 'simple_one_default - Expected result: 37, hi'),
+             ('{% load custom %}{% simple_one_default 37 two="hello" %}',
+                 'simple_one_default - Expected result: 37, hello'),
+@@ -101,6 +103,8 @@ class SimpleTagTests(TagTestCase):
+                 '{% load custom %}{% simple_unlimited_args_kwargs 37 40|add:2 eggs="scrambled" 56 four=1|add:3 %}'),
+             ("'simple_unlimited_args_kwargs' received multiple values for keyword argument 'eggs'",
+                 '{% load custom %}{% simple_unlimited_args_kwargs 37 eggs="scrambled" eggs="scrambled" %}'),
++            ("'simple_keyword_only_param' received multiple values for keyword argument 'kwarg'",
++                '{% load custom %}{% simple_keyword_only_param kwarg=37 kwarg=42 %}'),
+         ]
+ 
+         for entry in errors:
+@@ -174,6 +178,10 @@ class InclusionTagTests(TagTestCase):
+                 '{% load inclusion %}{% inclusion_one_default 37 %}',
+                 'inclusion_one_default - Expected result: 37, hi\n'
+             ),
++            (
++                '{% load inclusion %}{% inclusion_keyword_only_default kwarg=37 %}',
++                'inclusion_keyword_only_default - Expected result: 37\n',
++            ),
+             ('{% load inclusion %}{% inclusion_one_default 37 two="hello" %}',
+                 'inclusion_one_default - Expected result: 37, hello\n'),
+             ('{% load inclusion %}{% inclusion_one_default one=99 two="hello" %}',
+@@ -215,6 +223,8 @@ class InclusionTagTests(TagTestCase):
+             ),
+             ("'inclusion_unlimited_args_kwargs' received multiple values for keyword argument 'eggs'",
+                 '{% load inclusion %}{% inclusion_unlimited_args_kwargs 37 eggs="scrambled" eggs="scrambled" %}'),
++            ("'inclusion_keyword_only_default' received multiple values for keyword argument 'kwarg'",
++                '{% load inclusion %}{% inclusion_keyword_only_default kwarg=37 kwarg=42 %}'),
+         ]
+ 
+         for entry in errors:

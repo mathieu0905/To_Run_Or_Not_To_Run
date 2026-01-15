@@ -1,0 +1,145 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 880a2cc17b..456b7f72ed 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -2113,29 +2113,43 @@ class InlineModelAdmin(BaseModelAdmin):
+ 
+     def has_add_permission(self, request, obj):
+         if self.opts.auto_created:
+-            # We're checking the rights to an auto-created intermediate model,
+-            # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # The user doesn't need any permissions on the auto-created
++            # intermediate model itself (it has no explicit permissions).
++            #
++            # Editing an auto-created M2M "through" model changes the parent
++            # object, so require the parent model's add/change permission and
++            # the related model's view permission.
++            parent_opts = self.parent_model._meta
++            parent_codename = get_permission_codename('add' if obj is None else 'change', parent_opts)
++            return (
++                request.user.has_perm('%s.%s' % (parent_opts.app_label, parent_codename)) and
++                self.has_view_permission(request, obj)
++            )
+         return super().has_add_permission(request)
+ 
+     def has_change_permission(self, request, obj=None):
+         if self.opts.auto_created:
+-            # We're checking the rights to an auto-created intermediate model,
+-            # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # Editing an auto-created M2M "through" model requires the ability
++            # to add/change the parent object, not just view the related model.
++            parent_opts = self.parent_model._meta
++            parent_codename = get_permission_codename('add' if obj is None else 'change', parent_opts)
++            return (
++                request.user.has_perm('%s.%s' % (parent_opts.app_label, parent_codename)) and
++                self.has_view_permission(request, obj)
++            )
+         return super().has_change_permission(request)
+ 
+     def has_delete_permission(self, request, obj=None):
+         if self.opts.auto_created:
+-            # We're checking the rights to an auto-created intermediate model,
+-            # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # Removing an auto-created M2M relation is part of changing the
++            # parent object, so require the parent model's add/change permission
++            # and the related model's view permission.
++            parent_opts = self.parent_model._meta
++            parent_codename = get_permission_codename('add' if obj is None else 'change', parent_opts)
++            return (
++                request.user.has_perm('%s.%s' % (parent_opts.app_label, parent_codename)) and
++                self.has_view_permission(request, obj)
++            )
+         return super().has_delete_permission(request, obj)
+ 
+     def has_view_permission(self, request, obj=None):
+diff --git a/tests/admin_views/admin.py b/tests/admin_views/admin.py
+index 3e8df5b7c2..37201b98d4 100644
+--- a/tests/admin_views/admin.py
++++ b/tests/admin_views/admin.py
+@@ -1158,3 +1158,17 @@ class ArticleAdmin10(admin.ModelAdmin):
+ 
+ site10 = admin.AdminSite(name='admin10')
+ site10.register(Article, ArticleAdmin10)
++
++# Used to test permissions on auto-created M2M through models when used as
++# inlines. Keep this separate from the main `site` registrations to avoid
++# affecting other admin_views tests.
++class PizzaToppingsThroughInline(admin.TabularInline):
++    model = Pizza.toppings.through
++
++
++class PizzaM2MThroughInlineAdmin(admin.ModelAdmin):
++    inlines = [PizzaToppingsThroughInline]
++
++
++site_m2m_inline_admin = admin.AdminSite(name='m2m_inline_admin')
++site_m2m_inline_admin.register(Pizza, PizzaM2MThroughInlineAdmin)
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index 87835eb37b..67c1747576 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -1982,6 +1982,43 @@ class AdminViewPermissionsTest(TestCase):
+         formset = response.context['inline_admin_formsets'][0]
+         self.assertEqual(len(formset.forms), 3)
+ 
++    def test_view_only_cannot_edit_auto_created_m2m_through_inline(self):
++        """
++        Users with view permission (but no change permission) must not be able
++        to add/remove objects through an auto-created M2M through inline.
++        """
++        pizza = Pizza.objects.create(name='Double Cheese')
++        topping = Topping.objects.create(name='Cheddar')
++        pizza.toppings.add(topping)
++
++        # The parent (Pizza) is view-only and the related model (Topping) is
++        # viewable. The inline should be displayed but not editable.
++        self.viewuser.user_permissions.add(get_perm(Pizza, get_permission_codename('view', Pizza._meta)))
++        self.viewuser.user_permissions.add(get_perm(Topping, get_permission_codename('view', Topping._meta)))
++        self.client.force_login(self.viewuser)
++
++        url = reverse('m2m_inline_admin:admin_views_pizza_change', args=(pizza.pk,))
++        response = self.client.get(url)
++        self.assertEqual(response.status_code, 200)
++        inline_formset = response.context['inline_admin_formsets'][0]
++        self.assertIs(inline_formset.has_add_permission, False)
++        self.assertIs(inline_formset.has_change_permission, False)
++        self.assertIs(inline_formset.has_delete_permission, False)
++
++        through_model = Pizza.toppings.through
++        through_obj = through_model.objects.get(pizza=pizza, topping=topping)
++        prefix = inline_formset.formset.prefix
++        data = {
++            '%s-TOTAL_FORMS' % prefix: 1,
++            '%s-INITIAL_FORMS' % prefix: 1,
++            '%s-0-id' % prefix: str(through_obj.pk),
++            '%s-0-DELETE' % prefix: 'on',
++        }
++        response = self.client.post(url, data)
++        self.assertEqual(response.status_code, 302)
++        pizza.refresh_from_db()
++        self.assertEqual(list(pizza.toppings.values_list('pk', flat=True)), [topping.pk])
++
+     def test_change_view_with_view_and_add_inlines(self):
+         """User has view and add permissions on the inline model."""
+         self.viewuser.user_permissions.add(get_perm(Section, get_permission_codename('change', Section._meta)))
+diff --git a/tests/admin_views/urls.py b/tests/admin_views/urls.py
+index fdb61d759d..59eaa008cc 100644
+--- a/tests/admin_views/urls.py
++++ b/tests/admin_views/urls.py
+@@ -18,6 +18,7 @@ urlpatterns = [
+     path('test_admin/admin8/', (admin.site.get_urls(), 'admin', 'admin-extra-context'), {'extra_context': {}}),
+     path('test_admin/admin9/', admin.site9.urls),
+     path('test_admin/admin10/', admin.site10.urls),
++    path('test_admin/m2m_inline_admin/', admin.site_m2m_inline_admin.urls),
+     path('test_admin/has_permission_admin/', custom_has_permission_admin.site.urls),
+     path('test_admin/autocomplete_admin/', autocomplete_site.urls),
+ ]

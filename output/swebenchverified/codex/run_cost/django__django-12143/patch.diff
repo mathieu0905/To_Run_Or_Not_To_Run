@@ -1,0 +1,100 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 137e6faa0f..66aea98bbd 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -1631,7 +1631,16 @@ class ModelAdmin(BaseModelAdmin):
+ 
+     def _get_edited_object_pks(self, request, prefix):
+         """Return POST data values of list_editable primary keys."""
+-        pk_pattern = re.compile(r'{}-\d+-{}$'.format(prefix, self.model._meta.pk.name))
++        # `prefix` can contain arbitrary characters (including regex special
++        # chars) when a custom formset prefix is used. Escape it to avoid
++        # incorrect matching and potential data loss when determining the
++        # edited object PKs from POST data.
++        pk_pattern = re.compile(
++            r'{}-\d+-{}$'.format(
++                re.escape(prefix),
++                re.escape(self.model._meta.pk.name),
++            )
++        )
+         return [value for key, value in request.POST.items() if pk_pattern.match(key)]
+ 
+     def _get_list_editable_queryset(self, request, prefix):
+diff --git a/tests/admin_views/admin.py b/tests/admin_views/admin.py
+index bf10151356..f5f763d6d8 100644
+--- a/tests/admin_views/admin.py
++++ b/tests/admin_views/admin.py
+@@ -242,6 +242,21 @@ class PersonAdmin(admin.ModelAdmin):
+         return super().get_queryset(request).order_by('age')
+ 
+ 
++class SpecialPrefixPersonModelFormSet(BasePersonModelFormSet):
++    @classmethod
++    def get_default_prefix(cls):
++        # Include regex special characters to exercise prefix handling.
++        return 'form[0]'
++
++
++class SpecialPrefixPersonAdmin(admin.ModelAdmin):
++    list_display = ('name', 'gender', 'alive')
++    list_editable = ('gender',)
++
++    def get_changelist_formset(self, request, **kwargs):
++        return super().get_changelist_formset(request, formset=SpecialPrefixPersonModelFormSet, **kwargs)
++
++
+ class FooAccountAdmin(admin.StackedInline):
+     model = FooAccount
+     extra = 1
+@@ -1187,3 +1202,7 @@ class ArticleAdmin10(admin.ModelAdmin):
+ 
+ site10 = admin.AdminSite(name='admin10')
+ site10.register(Article, ArticleAdmin10)
++
++
++site11 = admin.AdminSite(name='special_prefix_admin')
++site11.register(Person, SpecialPrefixPersonAdmin)
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index c9ca64097f..e2d8b4859a 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -3132,6 +3132,27 @@ class AdminViewListEditable(TestCase):
+ 
+         self.assertIs(Person.objects.get(name="John Mauchly").alive, False)
+ 
++    def test_list_editable_formset_prefix_with_regex_chars(self):
++        """
++        Regression test for escaping formset prefixes when determining edited
++        object PKs from POST keys.
++        """
++        prefix = 'form[0]'
++        data = {
++            f"{prefix}-TOTAL_FORMS": "1",
++            f"{prefix}-INITIAL_FORMS": "1",
++            f"{prefix}-MAX_NUM_FORMS": "0",
++            f"{prefix}-0-id": str(self.per1.pk),
++            f"{prefix}-0-gender": "2",
++            "_save": "Save",
++        }
++        response = self.client.post(
++            reverse('special_prefix_admin:admin_views_person_changelist'),
++            data,
++        )
++        self.assertEqual(response.status_code, 302)
++        self.assertEqual(Person.objects.get(pk=self.per1.pk).gender, 2)
++
+     def test_non_field_errors(self):
+         """
+         Non-field errors are displayed for each of the forms in the
+diff --git a/tests/admin_views/urls.py b/tests/admin_views/urls.py
+index fdb61d759d..615b8b2859 100644
+--- a/tests/admin_views/urls.py
++++ b/tests/admin_views/urls.py
+@@ -18,6 +18,7 @@ urlpatterns = [
+     path('test_admin/admin8/', (admin.site.get_urls(), 'admin', 'admin-extra-context'), {'extra_context': {}}),
+     path('test_admin/admin9/', admin.site9.urls),
+     path('test_admin/admin10/', admin.site10.urls),
++    path('test_admin/special_prefix_admin/', admin.site11.urls),
+     path('test_admin/has_permission_admin/', custom_has_permission_admin.site.urls),
+     path('test_admin/autocomplete_admin/', autocomplete_site.urls),
+ ]

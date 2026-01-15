@@ -1,0 +1,75 @@
+diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
+index b98abfafb..1696a7f08 100644
+--- a/astropy/units/quantity.py
++++ b/astropy/units/quantity.py
+@@ -636,6 +636,10 @@ class Quantity(np.ndarray):
+         result : `~astropy.units.Quantity`
+             Results of the ufunc, with the unit set properly.
+         """
++        # Never mutate the original kwargs in case we need to return
++        # NotImplemented and let another operand handle the ufunc.
++        kwargs = kwargs.copy()
++
+         # Determine required conversion functions -- to bring the unit of the
+         # input to that expected (e.g., radian for np.sin), or to get
+         # consistent units between two inputs (e.g., in np.add) --
+@@ -666,8 +670,22 @@ class Quantity(np.ndarray):
+         # Same for inputs, but here also convert if necessary.
+         arrays = []
+         for input_, converter in zip(inputs, converters):
++            # Keep the original input around: if unit conversion fails because
++            # the value is not (yet) something we can convert to an array, we
++            # should defer to other __array_ufunc__ implementations.
++            orig_input = input_
+             input_ = getattr(input_, "value", input_)
+-            arrays.append(converter(input_) if converter else input_)
++            if converter:
++                try:
++                    arrays.append(converter(input_))
++                except (TypeError, ValueError):
++                    if not isinstance(orig_input, Quantity) and hasattr(
++                        orig_input, "__array_ufunc__"
++                    ):
++                        return NotImplemented
++                    raise
++            else:
++                arrays.append(input_)
+ 
+         # Call our superclass's __array_ufunc__
+         result = super().__array_ufunc__(function, method, *arrays, **kwargs)
+diff --git a/astropy/units/tests/test_quantity.py b/astropy/units/tests/test_quantity.py
+index b07d4de1d..839d93eb9 100644
+--- a/astropy/units/tests/test_quantity.py
++++ b/astropy/units/tests/test_quantity.py
+@@ -514,6 +514,31 @@ class TestQuantityOperations:
+         with pytest.raises(TypeError):
+             q1 + u.meter
+ 
++    def test_array_ufunc_incompatible_ducktype_defers(self):
++        class DuckArray(np.lib.mixins.NDArrayOperatorsMixin):
++            def __init__(self, ndarray):
++                self.ndarray = ndarray
++
++            @property
++            def unit(self):
++                return self.ndarray.unit
++
++            def __array_ufunc__(self, function, method, *inputs, **kwargs):
++                inputs = [
++                    inp.ndarray if isinstance(inp, DuckArray) else inp for inp in inputs
++                ]
++                for inp in inputs:
++                    if isinstance(inp, np.ndarray):
++                        result = inp.__array_ufunc__(function, method, *inputs, **kwargs)
++                        if result is not NotImplemented:
++                            return DuckArray(result)
++                return NotImplemented
++
++        result = (1 * u.m) + DuckArray(1 * u.mm)
++        assert isinstance(result, DuckArray)
++        assert result.ndarray.unit == u.m
++        assert_allclose(result.ndarray.value, 1.001)
++
+     def test_dimensionless_operations(self):
+         # test conversion to dimensionless
+         dq = 3.0 * u.m / u.km

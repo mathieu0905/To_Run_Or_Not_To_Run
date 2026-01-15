@@ -1,0 +1,111 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 8c1ac5d73..2ab4d4dad 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -5,7 +5,7 @@ import warnings
+ 
+ import numpy as np
+ 
+-from .util import _str_to_num, _is_int, translate, _words_group
++from .util import _str_to_num, _is_int, translate, _words_group, decode_ascii
+ from .verify import _Verify, _ErrList, VerifyError, VerifyWarning
+ 
+ from . import conf
+@@ -547,12 +547,25 @@ class Card(_Verify):
+     @classmethod
+     def fromstring(cls, image):
+         """
+-        Construct a `Card` object from a (raw) string. It will pad the string
+-        if it is not the length of a card image (80 columns).  If the card
+-        image is longer than 80 columns, assume it contains ``CONTINUE``
+-        card(s).
++        Construct a `Card` object from a (raw) string.
++
++        This accepts both text (``str``) and byte strings (``bytes``).  Byte
++        strings are decoded as ASCII, with any non-ASCII bytes replaced by
++        ``'?'`` (a warning is issued), matching header parsing behavior when
++        reading from files.
++
++        The input is padded if it is not the length of a card image (80
++        columns).  If the card image is longer than 80 columns, it is assumed
++        to contain ``CONTINUE`` card(s).
+         """
+ 
++        if isinstance(image, (bytearray, memoryview)):
++            image = bytes(image)
++        if isinstance(image, bytes):
++            image = decode_ascii(image)
++        elif not isinstance(image, str):
++            raise TypeError('Card.fromstring() requires a str or bytes object')
++
+         card = cls()
+         card._image = _pad(image)
+         card._verified = False
+diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
+index ad07e6d52..6672740af 100644
+--- a/astropy/io/fits/header.py
++++ b/astropy/io/fits/header.py
+@@ -334,10 +334,13 @@ class Header:
+ 
+         Parameters
+         ----------
+-        data : str
+-           String containing the entire header.
++        data : str or bytes
++           String containing the entire header.  If this is a byte string it
++           is decoded as ASCII, with any non-ASCII bytes replaced by ``'?'``
++           (a warning is issued), matching the behavior of reading headers from
++           files.
+ 
+-        sep : str, optional
++        sep : str or bytes, optional
+             The string separating cards from each other, such as a newline.  By
+             default there is no card separator (as is the case in a raw FITS
+             file).
+@@ -348,6 +351,24 @@ class Header:
+             A new `Header` instance.
+         """
+ 
++        # Normalize inputs to text; header parsing operates on 80-character
++        # card images.
++        if isinstance(data, (bytearray, memoryview)):
++            data = bytes(data)
++        if isinstance(data, bytes):
++            data = decode_ascii(data)
++        elif not isinstance(data, str):
++            raise TypeError('Header.fromstring() requires a str or bytes '
++                            'object for the header data.')
++
++        if isinstance(sep, (bytearray, memoryview)):
++            sep = bytes(sep)
++        if isinstance(sep, bytes):
++            sep = decode_ascii(sep)
++        elif not isinstance(sep, str):
++            raise TypeError('Header.fromstring() requires a str or bytes '
++                            'object for sep.')
++
+         cards = []
+ 
+         # If the card separator contains characters that may validly appear in
+diff --git a/astropy/io/fits/tests/test_header.py b/astropy/io/fits/tests/test_header.py
+index 7c1725aed..52309ef06 100644
+--- a/astropy/io/fits/tests/test_header.py
++++ b/astropy/io/fits/tests/test_header.py
+@@ -102,6 +102,17 @@ class TestHeaderFunctions(FitsTestCase):
+         c = fits.Card.fromstring('ABC     = F')
+         assert c.value is False
+ 
++    def test_fromstring_accepts_bytes(self):
++        c = fits.Card.fromstring(b'ABC     = F')
++        assert c.value is False
++
++        hstr = "FOO     = 1\nEND"
++        h = fits.Header.fromstring(hstr.encode('ascii'), sep='\n')
++        assert h['FOO'] == 1
++
++        h = fits.Header.fromstring(hstr.encode('ascii'), sep=b'\n')
++        assert h['FOO'] == 1
++
+     def test_long_integer_value_card(self):
+         """Test Card constructor with long integer value"""
+ 

@@ -1,0 +1,90 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..96284611b 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -57,10 +57,44 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None, **kwargs):
++        # RST is a fixed-width table with whitespace delimiters and no bookend.
++        # Allow passing ``header_rows`` (like FixedWidth) for flexible multi-line
++        # headers, e.g. ``["name", "unit"]``.
++        kwargs.pop("delimiter_pad", None)
++        kwargs.pop("bookend", None)
++        super().__init__(
++            delimiter_pad=None, bookend=False, header_rows=header_rows, **kwargs
++        )
++
++        # For RST "simple tables" the first non-comment line is a position line,
++        # followed by header rows and then another position line. Data starts
++        # after that second position line.
++        self.data.start_line = self.header.start_line + len(self.header.header_rows) + 1
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++
++        # Find where the table itself begins (skip any leading comment lines).
++        # This ensures we insert the outer border in the right place.
++        start_idx = 0
++        comment = self.header.write_comment
++        for i, line in enumerate(lines):
++            if not line.strip():
++                continue
++            if comment not in (False, None) and line.startswith(str(comment)):
++                continue
++            start_idx = i
++            break
++
++        header_rows = getattr(self.data, "header_rows", ["name"])
++        pos_idx = start_idx + len(header_rows)
++        border = lines[pos_idx]
++
++        # For header-less tables (header_rows=[]), the first table line is
++        # already the position/border line, so just append the final border.
++        if len(header_rows) > 0:
++            lines.insert(start_idx, border)
++        lines.append(border)
++
+         return lines
+diff --git a/astropy/io/ascii/tests/test_rst.py b/astropy/io/ascii/tests/test_rst.py
+index 84d6fed40..bf76f5f26 100644
+--- a/astropy/io/ascii/tests/test_rst.py
++++ b/astropy/io/ascii/tests/test_rst.py
+@@ -2,7 +2,9 @@
+ 
+ from io import StringIO
+ 
++import astropy.units as u
+ from astropy.io import ascii
++from astropy.table import QTable
+ 
+ from .common import assert_almost_equal, assert_equal
+ 
+@@ -185,3 +187,23 @@ Col1      Col2 Col3 Col4
+ ==== ========= ==== ====
+ """,
+     )
++
++
++def test_write_header_rows():
++    out = StringIO()
++    tbl = QTable(
++        {"wave": [350.0, 950.0] * u.nm, "response": [0.7, 1.2] * u.count},
++    )
++    ascii.write(tbl, out, Writer=ascii.RST, header_rows=["name", "unit"])
++    assert_equal_splitlines(
++        out.getvalue(),
++        """\
++===== ========
++ wave response
++   nm       ct
++===== ========
++350.0      0.7
++950.0      1.2
++===== ========
++""",
++    )

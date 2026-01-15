@@ -1,0 +1,77 @@
+diff --git a/django/db/backends/sqlite3/creation.py b/django/db/backends/sqlite3/creation.py
+index d97052f52d..e9f91a1e1a 100644
+--- a/django/db/backends/sqlite3/creation.py
++++ b/django/db/backends/sqlite3/creation.py
+@@ -90,12 +90,19 @@ class DatabaseCreation(BaseDatabaseCreation):
+         """
+         Return a tuple that uniquely identifies a test database.
+ 
+-        This takes into account the special cases of ":memory:" and "" for
+-        SQLite since the databases will be distinct despite having the same
+-        TEST NAME. See https://www.sqlite.org/inmemorydb.html
++        Use the test database name (as returned by _get_test_db_name()) rather
++        than the production NAME.
++
++        This is important for configurations that omit NAME (e.g. Django's
++        sqlite test settings) but provide distinct TEST['NAME'] values for
++        multiple aliases. In that case, relying on NAME would incorrectly
++        treat those aliases as pointing at the same database and mirror them,
++        which can lead to SQLite "database is locked" errors.
+         """
+         test_database_name = self._get_test_db_name()
+-        sig = [self.connection.settings_dict['NAME']]
++        sig = [test_database_name]
+         if self.is_in_memory_db(test_database_name):
++            # Keep the historic behavior of treating in-memory databases as
++            # distinct per alias even if they share the same TEST NAME.
+             sig.append(self.connection.alias)
+         return tuple(sig)
+diff --git a/tests/backends/sqlite/tests.py b/tests/backends/sqlite/tests.py
+index 3447fb6096..708835a06e 100644
+--- a/tests/backends/sqlite/tests.py
++++ b/tests/backends/sqlite/tests.py
+@@ -14,7 +14,8 @@ from django.db.models.aggregates import Aggregate
+ from django.db.models.fields import CharField
+ from django.db.utils import NotSupportedError
+ from django.test import (
+-    TestCase, TransactionTestCase, override_settings, skipIfDBFeature,
++    SimpleTestCase, TestCase, TransactionTestCase, override_settings,
++    skipIfDBFeature,
+ )
+ from django.test.utils import isolate_apps
+ 
+@@ -27,6 +28,34 @@ except ImproperlyConfigured:
+     pass
+ 
+ 
++@unittest.skipUnless(connection.vendor == 'sqlite', 'SQLite tests')
++class TestDbSignatureTests(SimpleTestCase):
++    def test_distinct_test_name_is_used_in_signature(self):
++        """
++        Distinct TEST['NAME'] values must result in distinct signatures.
++
++        Otherwise, setup_databases() may incorrectly mirror the aliases onto a
++        single SQLite file, leading to "database is locked" errors when both
++        aliases are used.
++        """
++        connections = ConnectionHandler({
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': '',
++                'TEST': {'NAME': 'test_default.sqlite3'},
++            },
++            'other': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': '',
++                'TEST': {'NAME': 'test_other.sqlite3'},
++            },
++        })
++        self.assertNotEqual(
++            connections['default'].creation.test_db_signature(),
++            connections['other'].creation.test_db_signature(),
++        )
++
++
+ @unittest.skipUnless(connection.vendor == 'sqlite', 'SQLite tests')
+ class Tests(TestCase):
+     longMessage = True

@@ -1,0 +1,53 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index abbb1e37cb..f5f9e79c00 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -727,7 +727,16 @@ class SQLCompiler:
+         # If we get to this point and the field is a relation to another model,
+         # append the default ordering for that model unless it is the pk
+         # shortcut or the attribute name of the field that is specified.
+-        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name and name != 'pk':
++        #
++        # "name" may span relationships (e.g. "author__parent_id"). In that
++        # case, compare against the last path component rather than the full
++        # lookup path to detect an explicit "<field>_id" attname.
++        if (
++            field.is_relation and
++            opts.ordering and
++            getattr(field, 'attname', None) != pieces[-1] and
++            pieces[-1] != 'pk'
++        ):
+             # Firstly, avoid infinite loops.
+             already_seen = already_seen or set()
+             join_tuple = tuple(getattr(self.query.alias_map[j], 'join_cols', None) for j in joins)
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index eeb8a5e591..dba2e20932 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -506,6 +506,26 @@ class Queries1Tests(TestCase):
+         )
+         self.assertEqual(len(qs.query.alias_map), 1)
+ 
++    def test_order_by_fk_attname_does_not_use_related_model_ordering(self):
++        ann3 = Annotation.objects.create(name='a3', tag=self.t2)
++        ann4 = Annotation.objects.create(name='a4', tag=self.t5)
++        qs = Annotation.objects.filter(pk__in=[ann3.pk, ann4.pk]).order_by('tag__parent_id')
++        sql = str(qs.query)
++        # Ordering by a foreign key attname shouldn't pull in the related
++        # model's default ordering (which would require an extra self-join).
++        tag_table = connection.ops.quote_name(Tag._meta.db_table)
++        self.assertEqual(sql.count('JOIN %s' % tag_table), 1)
++        order_by = sql.rsplit('ORDER BY ', 1)[1]
++        self.assertIn('parent_id', order_by)
++        self.assertNotIn('name', order_by)
++
++        qs = Annotation.objects.filter(pk__in=[ann3.pk, ann4.pk]).order_by('-tag__parent_id')
++        sql = str(qs.query)
++        self.assertEqual(sql.count('JOIN %s' % tag_table), 1)
++        order_by = sql.rsplit('ORDER BY ', 1)[1]
++        self.assertIn('parent_id', order_by)
++        self.assertIn('DESC', order_by)
++
+     def test_tickets_2874_3002(self):
+         qs = Item.objects.select_related().order_by('note__note', 'name')
+         self.assertQuerysetEqual(

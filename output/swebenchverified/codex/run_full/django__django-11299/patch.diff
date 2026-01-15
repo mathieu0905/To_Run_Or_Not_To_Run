@@ -1,0 +1,57 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index b99f03cd88..d8b54cef78 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1338,7 +1338,8 @@ class Query(BaseExpression):
+             if isinstance(child, Node):
+                 child_clause, needed_inner = self._add_q(
+                     child, used_aliases, branch_negated,
+-                    current_negated, allow_joins, split_subq)
++                    current_negated, allow_joins, split_subq, simple_col=simple_col,
++                )
+                 joinpromoter.add_votes(needed_inner)
+             else:
+                 child_clause, needed_inner = self.build_filter(
+diff --git a/tests/constraints/tests.py b/tests/constraints/tests.py
+index b7aeb1e7f0..568b5e2788 100644
+--- a/tests/constraints/tests.py
++++ b/tests/constraints/tests.py
+@@ -1,7 +1,9 @@
+ from django.core.exceptions import ValidationError
+ from django.db import IntegrityError, connection, models
+ from django.db.models.constraints import BaseConstraint
++from django.db.models.sql.query import Query
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
++from django.test.utils import isolate_apps
+ 
+ from .models import Product
+ 
+@@ -67,6 +69,28 @@ class CheckConstraintTests(TestCase):
+         self.assertEqual(args, ())
+         self.assertEqual(kwargs, {'check': check, 'name': name})
+ 
++    @isolate_apps('constraints')
++    def test_get_check_sql_nested_q_uses_unqualified_columns(self):
++        class TestConstraint(models.Model):
++            field_1 = models.IntegerField(null=True, blank=True)
++            flag = models.BooleanField()
++
++            class Meta:
++                app_label = 'constraints'
++
++        constraint = models.CheckConstraint(
++            check=models.Q(flag__exact=True, field_1__isnull=False) | models.Q(flag__exact=False),
++            name='field_1_has_value_if_flag_set',
++        )
++        query = Query(model=TestConstraint)
++        where = query.build_where(constraint.check)
++        compiler = query.get_compiler(connection=connection)
++        check_sql, _ = where.as_sql(compiler, connection)
++        # Check constraint SQL must not use "table"."column" (or equivalent)
++        # as the table name may change (e.g. SQLite table remake/rename).
++        qualified_prefix = connection.ops.quote_name(TestConstraint._meta.db_table) + '.'
++        self.assertNotIn(qualified_prefix, check_sql)
++
+     @skipUnlessDBFeature('supports_table_check_constraints')
+     def test_database_constraint(self):
+         Product.objects.create(name='Valid', price=10, discounted_price=5)

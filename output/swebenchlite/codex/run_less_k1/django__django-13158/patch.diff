@@ -1,0 +1,37 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 686e75c979..d87da6712a 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -502,6 +502,12 @@ class SQLCompiler:
+             combinator = self.query.combinator
+             features = self.connection.features
+             if combinator:
++                # QuerySet.none() marks the outer query as empty, but compound
++                # queries are compiled from their combined queries. Short-circuit
++                # compilation when the outer query is empty to avoid returning
++                # results from the combined queries.
++                if self.query.is_empty():
++                    raise EmptyResultSet
+                 if not getattr(features, 'supports_select_{}'.format(combinator)):
+                     raise NotSupportedError('{} is not supported on this database backend.'.format(combinator))
+                 result, params = self.get_combinator_sql(combinator, self.query.combinator_all)
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index 914defe5e7..e9d2e36488 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -1781,6 +1781,15 @@ class ModelMultipleChoiceFieldTests(TestCase):
+             (self.c2.pk, "multicategory It's a test"),
+             (self.c3.pk, 'multicategory Third')])
+ 
++    def test_model_multiple_choice_required_false_with_union_queryset(self):
++        qs = Category.objects.filter(pk=self.c1.pk).union(
++            Category.objects.filter(pk=self.c2.pk),
++        )
++        f = forms.ModelMultipleChoiceField(qs, required=False)
++        cleaned = f.clean([])
++        self.assertIsInstance(cleaned, EmptyQuerySet)
++        self.assertEqual(list(cleaned), [])
++
+     def test_model_multiple_choice_number_of_queries(self):
+         """
+         ModelMultipleChoiceField does O(1) queries instead of O(n) (#10156).

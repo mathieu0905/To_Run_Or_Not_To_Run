@@ -1,0 +1,78 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 00c19e2c55..95fd3f8379 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -201,6 +201,11 @@ class Widget(metaclass=MediaDefiningClass):
+     is_localized = False
+     is_required = False
+     supports_microseconds = True
++    # Whether BoundField.label_tag() should generate a "for" attribute for
++    # this widget. Widgets that render multiple <input>/<select> elements
++    # (e.g. MultiWidget) typically shouldn't link the field label to a single
++    # element.
++    use_id_for_label = True
+ 
+     def __init__(self, attrs=None):
+         self.attrs = {} if attrs is None else attrs.copy()
+@@ -268,13 +273,18 @@ class Widget(metaclass=MediaDefiningClass):
+     def id_for_label(self, id_):
+         """
+         Return the HTML ID attribute of this Widget for use by a <label>,
+-        given the ID of the field. Return None if no ID is available.
++        given the ID of the field. Return an empty string (or None) if no ID
++        is available or if the widget shouldn't be associated with a single
++        element.
+ 
+         This hook is necessary because some widgets have multiple HTML
+         elements and, thus, multiple IDs. In that case, this method should
+         return an ID value that corresponds to the first ID in the widget's
+         tags.
+         """
++        if not self.use_id_for_label:
++            # An empty string disables the label's "for" attribute.
++            return ''
+         return id_
+ 
+     def use_required_attribute(self, initial):
+@@ -801,6 +811,7 @@ class MultiWidget(Widget):
+     You'll probably want to use this class with MultiValueField.
+     """
+     template_name = 'django/forms/widgets/multiwidget.html'
++    use_id_for_label = False
+ 
+     def __init__(self, widgets, attrs=None):
+         if isinstance(widgets, dict):
+@@ -848,11 +859,6 @@ class MultiWidget(Widget):
+         context['widget']['subwidgets'] = subwidgets
+         return context
+ 
+-    def id_for_label(self, id_):
+-        if id_:
+-            id_ += '_0'
+-        return id_
+-
+     def value_from_datadict(self, data, files, name):
+         return [
+             widget.value_from_datadict(data, files, name + widget_name)
+diff --git a/tests/forms_tests/field_tests/test_multivaluefield.py b/tests/forms_tests/field_tests/test_multivaluefield.py
+index 22e0892f68..449bf16d19 100644
+--- a/tests/forms_tests/field_tests/test_multivaluefield.py
++++ b/tests/forms_tests/field_tests/test_multivaluefield.py
+@@ -141,7 +141,7 @@ class MultiValueFieldTest(SimpleTestCase):
+         self.assertHTMLEqual(
+             form.as_table(),
+             """
+-            <tr><th><label for="id_field1_0">Field1:</label></th>
++            <tr><th><label>Field1:</label></th>
+             <td><input type="text" name="field1_0" id="id_field1_0" required>
+             <select multiple name="field1_1" id="id_field1_1" required>
+             <option value="J">John</option>
+@@ -164,7 +164,7 @@ class MultiValueFieldTest(SimpleTestCase):
+         self.assertHTMLEqual(
+             form.as_table(),
+             """
+-            <tr><th><label for="id_field1_0">Field1:</label></th>
++            <tr><th><label>Field1:</label></th>
+             <td><input type="text" name="field1_0" value="some text" id="id_field1_0" required>
+             <select multiple name="field1_1" id="id_field1_1" required>
+             <option value="J" selected>John</option>

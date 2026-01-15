@@ -1,0 +1,39 @@
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index 03cd8af8d7..c052e7c0d0 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -199,6 +199,9 @@ class Field:
+         result = copy.copy(self)
+         memo[id(self)] = result
+         result.widget = copy.deepcopy(self.widget, memo)
++        # error_messages can be modified per-form/per-field instance. Ensure
++        # deep copies of Fields don't share the same dict.
++        result.error_messages = copy.deepcopy(self.error_messages, memo)
+         result.validators = self.validators[:]
+         return result
+ 
+diff --git a/tests/forms_tests/tests/test_forms.py b/tests/forms_tests/tests/test_forms.py
+index 45f5405fee..d2a7823005 100644
+--- a/tests/forms_tests/tests/test_forms.py
++++ b/tests/forms_tests/tests/test_forms.py
+@@ -2912,6 +2912,20 @@ Good luck picking a username that doesn&#x27;t already exist.</p>
+         self.assertIsNot(field2.fields, field.fields)
+         self.assertIsNot(field2.fields[0].choices, field.fields[0].choices)
+ 
++    def test_field_error_messages_deep_copy(self):
++        class DynamicMessageForm(Form):
++            name = CharField()
++
++            def __init__(self, *args, required_message=None, **kwargs):
++                super().__init__(*args, **kwargs)
++                if required_message is not None:
++                    self.fields['name'].error_messages['required'] = required_message
++
++        form1 = DynamicMessageForm(required_message='One')
++        form2 = DynamicMessageForm(required_message='Two')
++        self.assertEqual(form1.fields['name'].error_messages['required'], 'One')
++        self.assertEqual(form2.fields['name'].error_messages['required'], 'Two')
++
+     def test_multivalue_initial_data(self):
+         """
+         #23674 -- invalid initial data should not break form.changed_data()

@@ -1,0 +1,192 @@
+diff --git a/django/core/files/storage.py b/django/core/files/storage.py
+index 4c27fce605..c1dcc66563 100644
+--- a/django/core/files/storage.py
++++ b/django/core/files/storage.py
+@@ -1,6 +1,6 @@
+ import os
+ from datetime import datetime
+-from urllib.parse import urljoin
++from urllib.parse import urljoin, urlsplit
+ 
+ from django.conf import settings
+ from django.core.exceptions import SuspiciousFileOperation
+@@ -22,6 +22,27 @@ __all__ = (
+ )
+ 
+ 
++def _add_script_prefix(url):
++    """
++    Prepend the current script prefix (from SCRIPT_NAME) to root-relative URLs.
++
++    Ignore absolute/protocol-relative URLs and already-prefixed URLs.
++    """
++    if not url:
++        return url
++    parsed = urlsplit(url)
++    if parsed.scheme or parsed.netloc:
++        return url
++    if not url.startswith('/'):
++        return url
++    # Import lazily to avoid circular imports during Django initialization.
++    from django.urls import get_script_prefix
++    script_prefix = get_script_prefix()
++    if script_prefix == '/' or url.startswith(script_prefix):
++        return url
++    return script_prefix.rstrip('/') + url
++
++
+ class Storage:
+     """
+     A base storage class, providing some default behaviors that all other
+@@ -332,7 +353,7 @@ class FileSystemStorage(Storage):
+         url = filepath_to_uri(name)
+         if url is not None:
+             url = url.lstrip('/')
+-        return urljoin(self.base_url, url)
++        return urljoin(_add_script_prefix(self.base_url), url)
+ 
+     def _datetime_from_timestamp(self, ts):
+         """
+diff --git a/django/templatetags/static.py b/django/templatetags/static.py
+index 39712aaba0..263b47f13d 100644
+--- a/django/templatetags/static.py
++++ b/django/templatetags/static.py
+@@ -1,4 +1,4 @@
+-from urllib.parse import quote, urljoin
++from urllib.parse import quote, urljoin, urlsplit
+ 
+ from django import template
+ from django.apps import apps
+@@ -8,6 +8,27 @@ from django.utils.html import conditional_escape
+ register = template.Library()
+ 
+ 
++def _add_script_prefix(url):
++    """
++    Prepend the current script prefix (from SCRIPT_NAME) to root-relative URLs.
++
++    Ignore absolute/protocol-relative URLs and already-prefixed URLs.
++    """
++    if not url:
++        return url
++    parsed = urlsplit(url)
++    if parsed.scheme or parsed.netloc:
++        return url
++    if not url.startswith('/'):
++        return url
++    # Import lazily to avoid circular imports during Django initialization.
++    from django.urls import get_script_prefix
++    script_prefix = get_script_prefix()
++    if script_prefix == '/' or url.startswith(script_prefix):
++        return url
++    return script_prefix.rstrip('/') + url
++
++
+ class PrefixNode(template.Node):
+ 
+     def __repr__(self):
+@@ -44,7 +65,7 @@ class PrefixNode(template.Node):
+             prefix = ''
+         else:
+             prefix = iri_to_uri(getattr(settings, name, ''))
+-        return prefix
++        return _add_script_prefix(prefix)
+ 
+     def render(self, context):
+         prefix = self.handle_simple(self.name)
+diff --git a/tests/file_storage/tests.py b/tests/file_storage/tests.py
+index 1c4176014c..15c14da114 100644
+--- a/tests/file_storage/tests.py
++++ b/tests/file_storage/tests.py
+@@ -20,7 +20,7 @@ from django.db.models.fields.files import FileDescriptor
+ from django.test import (
+     LiveServerTestCase, SimpleTestCase, TestCase, override_settings,
+ )
+-from django.test.utils import requires_tz_support
++from django.test.utils import override_script_prefix, requires_tz_support
+ from django.urls import NoReverseMatch, reverse_lazy
+ from django.utils import timezone
+ 
+@@ -344,6 +344,10 @@ class FileStorageTests(SimpleTestCase):
+ 
+         self.assertEqual(self.storage.url(None), "/test_media_url/")
+ 
++    def test_file_url_script_prefix(self):
++        with override_script_prefix('/prefix/'):
++            self.assertEqual(self.storage.url('test.file'), '/prefix/test_media_url/test.file')
++
+     def test_base_url(self):
+         """
+         File storage returns a url even when its base_url is unset or modified.
+diff --git a/tests/staticfiles_tests/test_templatetags.py b/tests/staticfiles_tests/test_templatetags.py
+index cd3f7d4bfa..f37d64bbf6 100644
+--- a/tests/staticfiles_tests/test_templatetags.py
++++ b/tests/staticfiles_tests/test_templatetags.py
+@@ -1,4 +1,5 @@
+ from django.test import override_settings
++from django.test.utils import override_script_prefix
+ 
+ from .cases import StaticFilesTestCase
+ 
+@@ -10,6 +11,10 @@ class TestTemplateTag(StaticFilesTestCase):
+         self.assertStaticRenders("testfile.txt", "/static/testfile.txt")
+         self.assertStaticRenders("special?chars&quoted.html", "/static/special%3Fchars%26quoted.html")
+ 
++    def test_template_tag_script_prefix(self):
++        with override_script_prefix('/prefix/'):
++            self.assertStaticRenders("testfile.txt", "/prefix/static/testfile.txt")
++
+     @override_settings(STATICFILES_STORAGE='staticfiles_tests.storage.QueryStringStorage')
+     def test_template_tag_escapes(self):
+         """
+diff --git a/tests/template_tests/syntax_tests/test_static.py b/tests/template_tests/syntax_tests/test_static.py
+index 00f8cdbc11..eda0c4bcaf 100644
+--- a/tests/template_tests/syntax_tests/test_static.py
++++ b/tests/template_tests/syntax_tests/test_static.py
+@@ -3,6 +3,7 @@ from urllib.parse import urljoin
+ from django.conf import settings
+ from django.template import TemplateSyntaxError
+ from django.test import SimpleTestCase, override_settings
++from django.test.utils import override_script_prefix
+ 
+ from ..utils import setup
+ 
+@@ -16,6 +17,12 @@ class StaticTagTests(SimpleTestCase):
+         output = self.engine.render_to_string('static-prefixtag01')
+         self.assertEqual(output, settings.STATIC_URL)
+ 
++    @setup({'static-prefixtag01-scriptprefix': '{% load static %}{% get_static_prefix %}'})
++    def test_static_prefixtag01_scriptprefix(self):
++        with override_script_prefix('/prefix/'):
++            output = self.engine.render_to_string('static-prefixtag01-scriptprefix')
++        self.assertEqual(output, '/prefix/static/')
++
+     @setup({'static-prefixtag02': '{% load static %}'
+                                   '{% get_static_prefix as static_prefix %}{{ static_prefix }}'})
+     def test_static_prefixtag02(self):
+@@ -27,6 +34,12 @@ class StaticTagTests(SimpleTestCase):
+         output = self.engine.render_to_string('static-prefixtag03')
+         self.assertEqual(output, settings.MEDIA_URL)
+ 
++    @setup({'static-prefixtag03-scriptprefix': '{% load static %}{% get_media_prefix %}'})
++    def test_static_prefixtag03_scriptprefix(self):
++        with override_script_prefix('/prefix/'):
++            output = self.engine.render_to_string('static-prefixtag03-scriptprefix')
++        self.assertEqual(output, '/prefix/media/')
++
+     @setup({'static-prefixtag04': '{% load static %}'
+                                   '{% get_media_prefix as media_prefix %}{{ media_prefix }}'})
+     def test_static_prefixtag04(self):
+@@ -44,6 +57,12 @@ class StaticTagTests(SimpleTestCase):
+         output = self.engine.render_to_string('static-statictag01')
+         self.assertEqual(output, urljoin(settings.STATIC_URL, 'admin/base.css'))
+ 
++    @setup({'static-statictag01-scriptprefix': '{% load static %}{% static "admin/base.css" %}'})
++    def test_static_statictag01_scriptprefix(self):
++        with override_script_prefix('/prefix/'):
++            output = self.engine.render_to_string('static-statictag01-scriptprefix')
++        self.assertEqual(output, '/prefix/static/admin/base.css')
++
+     @setup({'static-statictag02': '{% load static %}{% static base_css %}'})
+     def test_static_statictag02(self):
+         output = self.engine.render_to_string('static-statictag02', {'base_css': 'admin/base.css'})

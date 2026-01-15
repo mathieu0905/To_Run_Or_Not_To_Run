@@ -1,0 +1,62 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 25c3b44250..ea0c705ed2 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -139,9 +139,13 @@ def iter_modules_and_files(modules, extra_files):
+         path = Path(filename)
+         try:
+             resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
+-            # The module could have been removed, don't fail loudly if this
+-            # is the case.
++        except (OSError, RuntimeError, ValueError) as exc:
++            # This is a best-effort file list for development-time auto-reload.
++            #
++            # The path may not exist anymore, may be a broken symlink, or may
++            # be invalid for the platform/Python (e.g. containing an embedded
++            # null byte). Don't crash the reloader for a single bad path.
++            logger.debug('Skipping file path %r during auto-reload: %s', filename, exc)
+             continue
+         results.add(resolved_path)
+     return frozenset(results)
+@@ -187,7 +191,7 @@ def sys_path_directories():
+         path = Path(path)
+         try:
+             resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
++        except (OSError, RuntimeError, ValueError):
+             continue
+         # If the path is a file (like a zip file), watch the parent directory.
+         if resolved_path.is_file():
+diff --git a/tests/utils_tests/test_autoreload.py b/tests/utils_tests/test_autoreload.py
+index 1ea019ac7a..2c2e51820f 100644
+--- a/tests/utils_tests/test_autoreload.py
++++ b/tests/utils_tests/test_autoreload.py
+@@ -140,6 +140,14 @@ class TestIterModulesAndFiles(SimpleTestCase):
+         fake_main = types.ModuleType('__main__')
+         self.assertEqual(autoreload.iter_modules_and_files((fake_main,), frozenset()), frozenset())
+ 
++    def test_iter_modules_and_files_ignores_embedded_null_byte_paths(self):
++        # On some systems, resolving certain paths can intermittently raise
++        # "ValueError: embedded null byte". Auto-reload should ignore such
++        # paths rather than crashing.
++        autoreload.iter_modules_and_files.cache_clear()
++        result = autoreload.iter_modules_and_files((), frozenset({'/tmp/bad\0path.py'}))
++        self.assertEqual(result, frozenset())
++
+ 
+ class TestCommonRoots(SimpleTestCase):
+     def test_common_roots(self):
+@@ -184,6 +192,12 @@ class TestSysPathDirectories(SimpleTestCase):
+             paths = list(autoreload.sys_path_directories())
+         self.assertIn(self.directory, paths)
+ 
++    def test_sys_paths_ignore_embedded_null_byte(self):
++        with extend_sys_path('/tmp/bad\0path'):
++            # Should not crash.
++            paths = list(autoreload.sys_path_directories())
++        self.assertTrue(all('\0' not in str(p) for p in paths))
++
+ 
+ class GetReloaderTests(SimpleTestCase):
+     @mock.patch('django.utils.autoreload.WatchmanReloader')

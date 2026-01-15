@@ -1,0 +1,141 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index d37d43d5c5..dfe9d09cc9 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -4,7 +4,9 @@ be executed through ``django-admin`` or ``manage.py``).
+ """
+ import argparse
+ import os
++import re
+ import sys
++import textwrap
+ from argparse import ArgumentParser, HelpFormatter
+ from io import TextIOBase
+ 
+@@ -102,9 +104,9 @@ def no_translations(handle_func):
+     return wrapper
+ 
+ 
+-class DjangoHelpFormatter(HelpFormatter):
++class DjangoHelpFormatterMixin:
+     """
+-    Customized formatter so that command-specific arguments appear in the
++    Mixin that reorders actions so that command-specific arguments appear in the
+     --help output before arguments common to all commands.
+     """
+ 
+@@ -131,6 +133,34 @@ class DjangoHelpFormatter(HelpFormatter):
+         super().add_arguments(self._reordered_actions(actions))
+ 
+ 
++class DjangoHelpFormatter(DjangoHelpFormatterMixin, HelpFormatter):
++    """
++    Customized formatter so that command-specific arguments appear in the
++    --help output before arguments common to all commands.
++    """
++
++    def _fill_text(self, text, width, indent):
++        """
++        Preserve explicit newlines in help text (e.g. multi-line command help),
++        while still wrapping each line to the terminal width.
++        """
++        filled_lines = []
++        for line in text.splitlines():
++            if not line.strip():
++                filled_lines.append("")
++                continue
++            prefix = re.match(r"[ \t]*", line).group(0)
++            wrapper = textwrap.TextWrapper(
++                width=width,
++                initial_indent=indent + prefix,
++                subsequent_indent=indent + prefix,
++                replace_whitespace=False,
++                drop_whitespace=False,
++            )
++            filled_lines.append(wrapper.fill(line[len(prefix) :]))
++        return "\n".join(filled_lines)
++
++
+ class OutputWrapper(TextIOBase):
+     """
+     Wrapper around stdout/stderr
+@@ -215,6 +245,11 @@ class BaseCommand:
+         A short description of the command, which will be printed in
+         help messages.
+ 
++    ``formatter_class``
++        The formatter class used to output help and usage information. This
++        defaults to ``DjangoHelpFormatter`` and can be overridden on a per
++        command basis. Custom formatters keep Django's default option ordering.
++
+     ``output_transaction``
+         A boolean indicating whether the command outputs SQL
+         statements; if ``True``, the output will automatically be
+@@ -244,6 +279,7 @@ class BaseCommand:
+ 
+     # Metadata about this command.
+     help = ""
++    formatter_class = DjangoHelpFormatter
+ 
+     # Configuration shortcuts that alter various logic.
+     _called_from_command_line = False
+@@ -286,10 +322,21 @@ class BaseCommand:
+         Create and return the ``ArgumentParser`` which will be used to
+         parse the arguments to this command.
+         """
++        formatter_class = kwargs.pop("formatter_class", self.formatter_class)
++        # Preserve Django's "common arguments last" ordering even when a command
++        # uses a different argparse formatter class.
++        if formatter_class is not None and not issubclass(
++            formatter_class, DjangoHelpFormatterMixin
++        ):
++            formatter_class = type(
++                "Django%s" % formatter_class.__name__,
++                (DjangoHelpFormatterMixin, formatter_class),
++                {},
++            )
+         parser = CommandParser(
+             prog="%s %s" % (os.path.basename(prog_name), subcommand),
+             description=self.help or None,
+-            formatter_class=DjangoHelpFormatter,
++            formatter_class=formatter_class,
+             missing_args_message=getattr(self, "missing_args_message", None),
+             called_from_command_line=getattr(self, "_called_from_command_line", None),
+             **kwargs,
+diff --git a/tests/user_commands/tests.py b/tests/user_commands/tests.py
+index 222a1c5835..22a928cdf8 100644
+--- a/tests/user_commands/tests.py
++++ b/tests/user_commands/tests.py
+@@ -45,6 +45,32 @@ class CommandTests(SimpleTestCase):
+         management.call_command("dance", "--style", "Jive", stdout=out)
+         self.assertIn("I don't feel like dancing Jive.\n", out.getvalue())
+ 
++    def test_multiline_command_help_preserves_newlines(self):
++        class Command(BaseCommand):
++            help = (
++                "Import a contract from tzkt.\n"
++                "Example usage:\n"
++                "\t./manage.py tzkt_import 'Tezos Mainnet' "
++                "KT1HTDtMBRCKoNHjfWEEvXneGQpCfPAt6BRe"
++            )
++
++        parser = Command().create_parser("manage.py", "tzkt_import")
++        help_text = parser.format_help()
++        self.assertIn("Import a contract from tzkt.\nExample usage:\n", help_text)
++
++    def test_command_formatter_class_can_be_customized(self):
++        import argparse
++
++        class Command(BaseCommand):
++            formatter_class = argparse.RawTextHelpFormatter
++
++            def add_arguments(self, parser):
++                parser.add_argument("--foo", help="Line 1\nLine 2")
++
++        parser = Command().create_parser("manage.py", "format_test")
++        help_text = parser.format_help()
++        self.assertRegex(help_text, r"Line 1\n\s+Line 2")
++
+     def test_language_preserved(self):
+         with translation.override("fr"):
+             management.call_command("dance", verbosity=0)

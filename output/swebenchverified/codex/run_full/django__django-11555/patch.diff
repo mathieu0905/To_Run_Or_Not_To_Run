@@ -1,0 +1,146 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index eaccc96d7d..9d24a5e2c4 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -5,7 +5,7 @@ from itertools import chain
+ 
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db.models.constants import LOOKUP_SEP
+-from django.db.models.expressions import OrderBy, Random, RawSQL, Ref, Value
++from django.db.models.expressions import F, OrderBy, Random, RawSQL, Ref, Value
+ from django.db.models.functions import Cast
+ from django.db.models.query_utils import QueryWrapper, select_related_descend
+ from django.db.models.sql.constants import (
+@@ -722,12 +722,70 @@ class SQLCompiler:
+ 
+             results = []
+             for item in opts.ordering:
+-                results.extend(self.find_ordering_name(item, opts, alias,
+-                                                       order, already_seen))
++                if hasattr(item, 'resolve_expression'):
++                    results.append(
++                        (self._resolve_ordering_expression(item, opts, alias, order), False)
++                    )
++                else:
++                    results.extend(
++                        self.find_ordering_name(item, opts, alias, order, already_seen)
++                    )
+             return results
+         targets, alias, _ = self.query.trim_joins(targets, joins, path)
+         return [(OrderBy(transform_function(t, alias), descending=descending), False) for t in targets]
+ 
++    def _resolve_ordering_expression(self, expression, opts, alias, default_order):
++        """
++        Resolve an ordering expression against the given model options and
++        starting table alias.
++
++        This is needed for "related model ordering": ordering by a relation
++        field appends the related model's Meta.ordering, which may contain
++        expressions (e.g. F()/.asc()/.desc()).
++        """
++        if isinstance(expression, Value):
++            # output_field must be resolved for constants.
++            expression = Cast(expression, expression.output_field)
++        if isinstance(expression, OrderBy):
++            expression = expression.copy()
++            if default_order == 'DESC':
++                expression.reverse_ordering()
++        else:
++            expression = expression.desc() if default_order == 'DESC' else expression.asc()
++        return self._resolve_ordering_expression_r(expression, opts, alias)
++
++    def _resolve_ordering_expression_r(self, expression, opts, alias):
++        """
++        Recursively resolve F() references in an expression for related ordering.
++        """
++        if isinstance(expression, F):
++            return self._resolve_ordering_f(expression.name, opts, alias)
++        source_expressions = expression.get_source_expressions()
++        if not source_expressions:
++            return expression
++        clone = expression.copy()
++        clone.set_source_expressions([
++            self._resolve_ordering_expression_r(expr, opts, alias)
++            for expr in source_expressions
++        ])
++        return clone
++
++    def _resolve_ordering_f(self, name, opts, alias):
++        """
++        Resolve an F() reference relative to the given model options and alias.
++        """
++        pieces = name.split(LOOKUP_SEP)
++        join_info = self.query.setup_joins(pieces, opts, alias)
++        targets, final_alias, joins = self.query.trim_joins(
++            join_info.targets, join_info.joins, join_info.path
++        )
++        if len(targets) > 1:
++            raise FieldError(
++                "Referencing multicolumn fields with F() objects isn't supported"
++            )
++        # Verify that the last lookup is a field or transform.
++        return join_info.transform_function(targets[0], final_alias)
++
+     def _setup_joins(self, pieces, opts, alias):
+         """
+         Helper method for get_order_by() and get_distinct().
+diff --git a/tests/ordering/models.py b/tests/ordering/models.py
+index 8b71983c44..2d71aff854 100644
+--- a/tests/ordering/models.py
++++ b/tests/ordering/models.py
+@@ -59,3 +59,17 @@ class Reference(models.Model):
+ 
+     class Meta:
+         ordering = ('article',)
++
++
++class OrderedByExpression(models.Model):
++    name = models.CharField(max_length=10)
++
++    class Meta:
++        ordering = (models.F('name').asc(),)
++
++
++class ReferenceToOrderedByExpression(models.Model):
++    target = models.ForeignKey(OrderedByExpression, models.CASCADE)
++
++    class Meta:
++        ordering = ('target',)
+diff --git a/tests/ordering/tests.py b/tests/ordering/tests.py
+index 18c32d6d5f..01503bad5e 100644
+--- a/tests/ordering/tests.py
++++ b/tests/ordering/tests.py
+@@ -9,7 +9,14 @@ from django.db.models.functions import Upper
+ from django.test import TestCase
+ from django.utils.deprecation import RemovedInDjango31Warning
+ 
+-from .models import Article, Author, OrderedByFArticle, Reference
++from .models import (
++    Article,
++    Author,
++    OrderedByExpression,
++    OrderedByFArticle,
++    Reference,
++    ReferenceToOrderedByExpression,
++)
+ 
+ 
+ class OrderingTests(TestCase):
+@@ -452,6 +459,17 @@ class OrderingTests(TestCase):
+         r2 = Reference.objects.create(article_id=self.a2.pk)
+         self.assertSequenceEqual(Reference.objects.all(), [r2, r1])
+ 
++    def test_related_ordering_with_expression(self):
++        a = OrderedByExpression.objects.create(name='a')
++        b = OrderedByExpression.objects.create(name='b')
++        r1 = ReferenceToOrderedByExpression.objects.create(target=b)
++        r2 = ReferenceToOrderedByExpression.objects.create(target=a)
++        self.assertSequenceEqual(ReferenceToOrderedByExpression.objects.all(), [r2, r1])
++        self.assertSequenceEqual(
++            ReferenceToOrderedByExpression.objects.order_by('-target'),
++            [r1, r2],
++        )
++
+     def test_default_ordering_by_f_expression(self):
+         """F expressions can be used in Meta.ordering."""
+         articles = OrderedByFArticle.objects.all()

@@ -1,0 +1,85 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 5f41053283..e65455293d 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -1020,10 +1020,14 @@ class MigrationAutodetector:
+         ):
+             self._generate_added_field(app_label, model_name, field_name)
+ 
+-    def _generate_added_field(self, app_label, model_name, field_name):
++    def _generate_added_field(
++        self, app_label, model_name, field_name, *, extra_dependencies=None
++    ):
+         field = self.to_state.models[app_label, model_name].get_field(field_name)
+         # Fields that are foreignkeys/m2ms depend on stuff
+         dependencies = []
++        if extra_dependencies:
++            dependencies.extend(extra_dependencies)
+         if field.remote_field and field.remote_field.model:
+             dependencies.extend(
+                 self._get_dependencies_for_foreign_key(
+@@ -1210,7 +1214,17 @@ class MigrationAutodetector:
+                 else:
+                     # We cannot alter between m2m and concrete fields
+                     self._generate_removed_field(app_label, model_name, field_name)
+-                    self._generate_added_field(app_label, model_name, field_name)
++                    # Ensure the AddField happens after the corresponding
++                    # RemoveField, otherwise the new field could overwrite the
++                    # existing one in the in-memory state during sorting.
++                    self._generate_added_field(
++                        app_label,
++                        model_name,
++                        field_name,
++                        extra_dependencies=[
++                            (app_label, model_name, field_name, False),
++                        ],
++                    )
+ 
+     def create_altered_indexes(self):
+         option_name = operations.AddIndex.option_name
+diff --git a/tests/migrations/test_autodetector.py b/tests/migrations/test_autodetector.py
+index 547e0b32c5..61dabc22b3 100644
+--- a/tests/migrations/test_autodetector.py
++++ b/tests/migrations/test_autodetector.py
+@@ -3787,6 +3787,41 @@ class AutodetectorTests(TestCase):
+             changes, "testapp", 0, 2, name="publishers", model_name="author"
+         )
+ 
++    def test_concrete_field_changed_to_many_to_many_with_unique_together_removed(self):
++        """
++        Changing a concrete field that's part of unique_together into a
++        ManyToManyField requires dropping unique_together before removing the
++        concrete field, and adding the new field only after the removal.
++        """
++        author_with_unique_together = ModelState(
++            "testapp",
++            "Author",
++            [
++                ("id", models.AutoField(primary_key=True)),
++                ("publishers", models.CharField(max_length=100)),
++            ],
++            {"unique_together": {("publishers",)}},
++        )
++        author_with_m2m_no_unique_together = ModelState(
++            "testapp",
++            "Author",
++            [
++                ("id", models.AutoField(primary_key=True)),
++                ("publishers", models.ManyToManyField("testapp.Publisher")),
++            ],
++        )
++        changes = self.get_changes(
++            [author_with_unique_together, self.publisher],
++            [author_with_m2m_no_unique_together, self.publisher],
++        )
++        self.assertNumberMigrations(changes, "testapp", 1)
++        self.assertOperationTypes(
++            changes,
++            "testapp",
++            0,
++            ["AlterUniqueTogether", "RemoveField", "AddField"],
++        )
++
+     def test_many_to_many_changed_to_concrete_field(self):
+         """
+         #23938 - Changing a ManyToManyField into a concrete field

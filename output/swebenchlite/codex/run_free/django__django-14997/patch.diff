@@ -1,0 +1,145 @@
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index c06386a2fa..0922045a3c 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -204,18 +204,28 @@ class Statement(Reference):
+ class Expressions(TableColumns):
+     def __init__(self, table, expressions, compiler, quote_value):
+         self.compiler = compiler
+-        self.expressions = expressions
++        # Expressions used in CREATE INDEX/UNIQUE statements must reference
++        # columns without a table prefix. SQLite, for example, errors when index
++        # expressions contain a qualified column reference (e.g. "table"."col").
++        # Keep a private copy to avoid mutating callers.
++        self.expressions = deepcopy(expressions)
+         self.quote_value = quote_value
+-        columns = [col.target.column for col in self.compiler.query._gen_cols([self.expressions])]
++        columns = []
++        for col in self.compiler.query._gen_cols([self.expressions]):
++            col.alias = None
++            columns.append(col.target.column)
+         super().__init__(table, columns)
+ 
+     def rename_table_references(self, old_table, new_table):
+         if self.table != old_table:
+             return
++        # The expression SQL doesn't include the table name, so keep the
++        # generated columns unqualified.
+         expressions = deepcopy(self.expressions)
+         self.columns = []
+         for col in self.compiler.query._gen_cols([expressions]):
+-            col.alias = new_table
++            col.alias = None
++            self.columns.append(col.target.column)
+         self.expressions = expressions
+         super().rename_table_references(old_table, new_table)
+ 
+@@ -225,6 +235,7 @@ class Expressions(TableColumns):
+         expressions = deepcopy(self.expressions)
+         self.columns = []
+         for col in self.compiler.query._gen_cols([expressions]):
++            col.alias = None
+             if col.target.column == old_column:
+                 col.target.column = new_column
+             self.columns.append(col.target.column)
+diff --git a/tests/backends/sqlite/tests.py b/tests/backends/sqlite/tests.py
+index 07477a5c71..d87d2b4985 100644
+--- a/tests/backends/sqlite/tests.py
++++ b/tests/backends/sqlite/tests.py
+@@ -9,7 +9,8 @@ from unittest import mock
+ 
+ from django.core.exceptions import ImproperlyConfigured
+ from django.db import NotSupportedError, connection, transaction
+-from django.db.models import Aggregate, Avg, CharField, StdDev, Sum, Variance
++from django.db import models
++from django.db.models import Aggregate, Avg, CharField, F, StdDev, Sum, Variance
+ from django.db.utils import ConnectionHandler
+ from django.test import (
+     TestCase, TransactionTestCase, override_settings, skipIfDBFeature,
+@@ -81,6 +82,43 @@ class Tests(TestCase):
+         creation = DatabaseWrapper(settings_dict).creation
+         self.assertEqual(creation._get_test_db_name(), creation.connection.settings_dict['TEST']['NAME'])
+ 
++    def test_remake_table_unique_constraint_f_expressions(self):
++        """
++        Remaking a table shouldn't generate qualified column references in
++        expression-based unique constraints (SQLite forbids "table"."column"
++        in index expressions).
++        """
++        with isolate_apps('backends'):
++            class Tag(models.Model):
++                name = models.SlugField(help_text="The tag key.")
++                value = models.CharField(max_length=200, help_text="The tag value.")
++
++                class Meta:
++                    constraints = [
++                        models.UniqueConstraint(F('name'), F('value'), name='unique_name_value'),
++                    ]
++
++            class TagNew(models.Model):
++                name = models.SlugField(help_text="The tag key.")
++                value = models.CharField(max_length=150, help_text="The tag value.")
++
++                class Meta:
++                    db_table = Tag._meta.db_table
++                    constraints = [
++                        models.UniqueConstraint(F('name'), F('value'), name='unique_name_value'),
++                    ]
++
++            with connection.schema_editor() as editor:
++                editor.create_model(Tag)
++                try:
++                    editor.alter_field(
++                        Tag,
++                        Tag._meta.get_field('value'),
++                        TagNew._meta.get_field('value'),
++                    )
++                finally:
++                    editor.delete_model(TagNew)
++
+     def test_regexp_function(self):
+         tests = (
+             ('test', r'[0-9]+', False),
+diff --git a/tests/backends/test_ddl_references.py b/tests/backends/test_ddl_references.py
+index bd4036ee33..b8edf9fea2 100644
+--- a/tests/backends/test_ddl_references.py
++++ b/tests/backends/test_ddl_references.py
+@@ -221,32 +221,22 @@ class ExpressionsTests(TransactionTestCase):
+         self.expressions.rename_table_references(table, 'other')
+         self.assertIs(self.expressions.references_table(table), False)
+         self.assertIs(self.expressions.references_table('other'), True)
+-        self.assertIn(
+-            '%s.%s' % (
+-                self.editor.quote_name('other'),
+-                self.editor.quote_name('first_name'),
+-            ),
+-            str(self.expressions),
+-        )
++        # Expressions used in index/constraint DDL are unqualified so the
++        # rendered SQL shouldn't contain a table prefix.
++        self.assertNotIn('%s.' % self.editor.quote_name('other'), str(self.expressions))
+ 
+     def test_rename_column_references(self):
+         table = Person._meta.db_table
+         self.expressions.rename_column_references(table, 'first_name', 'other')
+         self.assertIs(self.expressions.references_column(table, 'other'), True)
+         self.assertIs(self.expressions.references_column(table, 'first_name'), False)
+-        self.assertIn(
+-            '%s.%s' % (self.editor.quote_name(table), self.editor.quote_name('other')),
+-            str(self.expressions),
+-        )
++        self.assertIn(self.editor.quote_name('other'), str(self.expressions))
++        self.assertNotIn('%s.' % self.editor.quote_name(table), str(self.expressions))
+ 
+     def test_str(self):
+-        table_name = self.editor.quote_name(Person._meta.db_table)
+-        expected_str = '%s.%s, %s.%s DESC, (UPPER(%s.%s))' % (
+-            table_name,
++        expected_str = '%s, %s DESC, (UPPER(%s))' % (
+             self.editor.quote_name('first_name'),
+-            table_name,
+             self.editor.quote_name('last_name'),
+-            table_name,
+             self.editor.quote_name('last_name'),
+         )
+         self.assertEqual(str(self.expressions), expected_str)

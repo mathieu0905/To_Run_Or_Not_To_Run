@@ -1,0 +1,87 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index abbb1e37cb..99c128a7a8 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -726,8 +726,12 @@ class SQLCompiler:
+ 
+         # If we get to this point and the field is a relation to another model,
+         # append the default ordering for that model unless it is the pk
+-        # shortcut or the attribute name of the field that is specified.
+-        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name and name != 'pk':
++        # shortcut (including across relations, e.g. "author__pk") or the
++        # attribute name of the field that is specified (e.g. "author_id" or
++        # "author__parent_id"). In those cases, the intent is to order by the
++        # underlying FK column, not by the related model's default ordering.
++        last_piece = pieces[-1]
++        if field.is_relation and opts.ordering and last_piece not in {'pk', getattr(field, 'attname', None)}:
+             # Firstly, avoid infinite loops.
+             already_seen = already_seen or set()
+             join_tuple = tuple(getattr(self.query.alias_map[j], 'join_cols', None) for j in joins)
+diff --git a/tests/ordering/models.py b/tests/ordering/models.py
+index 2efb743e44..299e76cce4 100644
+--- a/tests/ordering/models.py
++++ b/tests/ordering/models.py
+@@ -59,3 +59,22 @@ class Reference(models.Model):
+ 
+     class Meta:
+         ordering = ('article',)
++
++
++class SelfRefOrderedModel(models.Model):
++    """
++    Used to ensure ordering by a related field's attname (e.g. "parent_id")
++    doesn't trigger related model default ordering, even for self relations.
++    """
++    id = models.BigAutoField(primary_key=True)
++    root = models.ForeignKey('self', models.CASCADE, null=True)
++    oneval = models.BigIntegerField(null=True)
++
++    class Meta:
++        ordering = ('-id',)
++
++
++class RelatedSelfRefModel(models.Model):
++    id = models.BigAutoField(primary_key=True)
++    record = models.ForeignKey(SelfRefOrderedModel, models.CASCADE)
++    twoval = models.BigIntegerField(null=True)
+diff --git a/tests/ordering/tests.py b/tests/ordering/tests.py
+index a9cc729c45..ffa0111a1f 100644
+--- a/tests/ordering/tests.py
++++ b/tests/ordering/tests.py
+@@ -8,7 +8,10 @@ from django.db.models import (
+ from django.db.models.functions import Upper
+ from django.test import TestCase
+ 
+-from .models import Article, Author, ChildArticle, OrderedByFArticle, Reference
++from .models import (
++    Article, Author, ChildArticle, OrderedByFArticle, Reference,
++    RelatedSelfRefModel, SelfRefOrderedModel,
++)
+ 
+ 
+ class OrderingTests(TestCase):
+@@ -66,6 +69,24 @@ class OrderingTests(TestCase):
+             attrgetter("headline")
+         )
+ 
++    def test_order_by_related_fk_attname_ignores_related_model_ordering(self):
++        root1 = SelfRefOrderedModel.objects.create(oneval=101)
++        root2 = SelfRefOrderedModel.objects.create(oneval=102)
++        child1 = SelfRefOrderedModel.objects.create(root=root1, oneval=1)
++        child2 = SelfRefOrderedModel.objects.create(root=root2, oneval=2)
++        RelatedSelfRefModel.objects.create(record=child1, twoval=11)
++        RelatedSelfRefModel.objects.create(record=child2, twoval=12)
++
++        qs = RelatedSelfRefModel.objects.filter(record__oneval__in=[1, 2, 3])
++        self.assertSequenceEqual(
++            list(qs.order_by('record__root_id').values_list('record__root_id', flat=True)),
++            [root1.pk, root2.pk],
++        )
++        self.assertSequenceEqual(
++            list(qs.order_by('-record__root_id').values_list('record__root_id', flat=True)),
++            [root2.pk, root1.pk],
++        )
++
+     def test_order_by_override(self):
+         """
+         Only the last order_by has any effect (since they each override any

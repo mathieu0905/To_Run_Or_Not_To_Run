@@ -1,0 +1,48 @@
+diff --git a/django/db/models/enums.py b/django/db/models/enums.py
+index f48143ddaf..f09a24b722 100644
+--- a/django/db/models/enums.py
++++ b/django/db/models/enums.py
+@@ -8,6 +8,12 @@ __all__ = ['Choices', 'IntegerChoices', 'TextChoices']
+ class ChoicesMeta(enum.EnumMeta):
+     """A metaclass for creating a enum choices."""
+ 
++    # Django templates auto-call callables with no arguments. Enum classes are
++    # callable (EnumMeta.__call__) and require a value argument, so mark these
++    # enums as safe to access without invoking them during template variable
++    # resolution (e.g. {{ YearInSchool.FRESHMAN }}).
++    do_not_call_in_templates = True
++
+     def __new__(metacls, classname, bases, classdict):
+         labels = []
+         for key in classdict._member_names:
+diff --git a/tests/template_tests/test_callables.py b/tests/template_tests/test_callables.py
+index b72b122deb..5cd1727426 100644
+--- a/tests/template_tests/test_callables.py
++++ b/tests/template_tests/test_callables.py
+@@ -1,5 +1,6 @@
+ from unittest import TestCase
+ 
++from django.db import models
+ from django.template import Context, Engine
+ 
+ 
+@@ -123,3 +124,19 @@ class CallableVariablesTests(TestCase):
+         # Double-check that the object was really never called during the
+         # template rendering.
+         self.assertEqual(my_doodad.num_calls, 0)
++
++    def test_model_choices_enum_not_called(self):
++        class YearInSchool(models.TextChoices):
++            FRESHMAN = 'FR', 'Freshman'
++            SOPHOMORE = 'SO', 'Sophomore'
++
++        c = Context({'YearInSchool': YearInSchool, 'year': YearInSchool.FRESHMAN})
++
++        # Enum classes are callable and require an argument. Ensure template
++        # variable resolution doesn't attempt to call them when accessing
++        # members.
++        t = self.engine.from_string('{{ YearInSchool.FRESHMAN }}')
++        self.assertEqual(t.render(c), 'FR')
++
++        t = self.engine.from_string('{% if year == YearInSchool.FRESHMAN %}yes{% endif %}')
++        self.assertEqual(t.render(c), 'yes')

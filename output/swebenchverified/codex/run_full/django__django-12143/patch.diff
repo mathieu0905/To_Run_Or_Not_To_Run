@@ -1,0 +1,47 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 137e6faa0f..a57aac3244 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -1631,7 +1631,12 @@ class ModelAdmin(BaseModelAdmin):
+ 
+     def _get_edited_object_pks(self, request, prefix):
+         """Return POST data values of list_editable primary keys."""
+-        pk_pattern = re.compile(r'{}-\d+-{}$'.format(prefix, self.model._meta.pk.name))
++        # Escape the prefix to avoid interpreting regex special characters in
++        # custom formset prefixes (e.g. "a.b") which could lead to matching
++        # the wrong fields.
++        pk_pattern = re.compile(
++            r'{}-\d+-{}$'.format(re.escape(prefix), re.escape(self.model._meta.pk.name))
++        )
+         return [value for key, value in request.POST.items() if pk_pattern.match(key)]
+ 
+     def _get_list_editable_queryset(self, request, prefix):
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index c9ca64097f..502f517d5a 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -24,7 +24,8 @@ from django.core.files import temp as tempfile
+ from django.forms.utils import ErrorList
+ from django.template.response import TemplateResponse
+ from django.test import (
+-    TestCase, modify_settings, override_settings, skipUnlessDBFeature,
++    RequestFactory, TestCase, modify_settings, override_settings,
++    skipUnlessDBFeature,
+ )
+ from django.test.utils import override_script_prefix
+ from django.urls import NoReverseMatch, resolve, reverse
+@@ -3356,6 +3357,14 @@ class AdminViewListEditable(TestCase):
+         self.assertIs(Person.objects.get(name="John Mauchly").alive, False)
+         self.assertEqual(Person.objects.get(name="Grace Hopper").gender, 2)
+ 
++    def test_list_editable_formset_prefix_with_regex_chars(self):
++        model_admin = ModelAdmin(Person, AdminSite())
++        request = RequestFactory().post('/', data={
++            '.-0-id': str(self.per1.pk),
++            'a-0-id': str(self.per2.pk),
++        })
++        self.assertEqual(model_admin._get_edited_object_pks(request, '.'), [str(self.per1.pk)])
++
+     def test_list_editable_popup(self):
+         """
+         Fields should not be list-editable in popups.

@@ -1,0 +1,156 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index eaccc96d7d..a7ed906324 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -5,7 +5,7 @@ from itertools import chain
+ 
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db.models.constants import LOOKUP_SEP
+-from django.db.models.expressions import OrderBy, Random, RawSQL, Ref, Value
++from django.db.models.expressions import F, OrderBy, OuterRef, Random, RawSQL, Ref, ResolvedOuterRef, Value
+ from django.db.models.functions import Cast
+ from django.db.models.query_utils import QueryWrapper, select_related_descend
+ from django.db.models.sql.constants import (
+@@ -704,6 +704,10 @@ class SQLCompiler:
+         not be) and column name for ordering by the given 'name' parameter.
+         The 'name' is of the form 'field1__field2__...__fieldN'.
+         """
++        # Related models may specify Meta.ordering with expressions. In that
++        # case, name is an expression (often OrderBy), not a string.
++        if hasattr(name, "resolve_expression"):
++            return self._find_ordering_expression(name, opts, alias, default_order)
+         name, order = get_order_dir(name, default_order)
+         descending = order == 'DESC'
+         pieces = name.split(LOOKUP_SEP)
+@@ -728,6 +732,70 @@ class SQLCompiler:
+         targets, alias, _ = self.query.trim_joins(targets, joins, path)
+         return [(OrderBy(transform_function(t, alias), descending=descending), False) for t in targets]
+ 
++    def _find_ordering_expression(self, expression, opts, alias, default_order):
++        """
++        Resolve an ordering expression against the provided starting opts/alias.
++
++        This is used for related model Meta.ordering where expressions (e.g.
++        F('field').asc()/desc()) are valid elements.
++        """
++        if alias is None:
++            alias = self.query.get_initial_alias()
++        if isinstance(expression, Value):
++            # output_field must be resolved for constants.
++            expression = Cast(expression, expression.output_field)
++        if isinstance(expression, OrderBy):
++            order_by = expression.copy()
++            # When ordering by a relation in descending order, reverse the
++            # related model's ordering.
++            if default_order == "DESC":
++                order_by.reverse_ordering()
++        else:
++            # Apply the default direction to expressions without an explicit
++            # ordering wrapper.
++            order_by = expression.desc() if default_order == "DESC" else expression.asc()
++        resolved = self._resolve_ordering_expression(order_by.expression, opts, alias)
++        order_by.set_source_expressions([resolved])
++        return [(order_by, False)]
++
++    def _resolve_ordering_expression(self, expression, opts, alias):
++        """
++        Resolve F() references in an expression relative to the provided
++        starting opts/alias, using the same join resolution as ordering names.
++        """
++        if expression is None:
++            return None
++        # Preserve (Resolved)OuterRef() semantics inside subqueries.
++        if isinstance(expression, (OuterRef, ResolvedOuterRef)):
++            return expression
++        if isinstance(expression, Value):
++            # output_field must be resolved for constants.
++            return Cast(expression, expression.output_field)
++        if isinstance(expression, F):
++            pieces = expression.name.split(LOOKUP_SEP)
++            field, targets, alias, joins, path, opts, transform_function = self._setup_joins(pieces, opts, alias)
++            if len(targets) > 1:
++                raise FieldError(
++                    "Referencing multicolumn fields with F() objects isn't supported"
++                )
++            targets, alias, _ = self.query.trim_joins(targets, joins, path)
++            # Verify the last lookup is a field or a transform.
++            resolved = transform_function(targets[0], alias)
++            return resolved
++        if isinstance(expression, OrderBy):
++            order_by = expression.copy()
++            resolved = self._resolve_ordering_expression(order_by.expression, opts, alias)
++            order_by.set_source_expressions([resolved])
++            return order_by
++        clone = expression.copy()
++        source_expressions = clone.get_source_expressions()
++        if source_expressions:
++            clone.set_source_expressions([
++                self._resolve_ordering_expression(expr, opts, alias)
++                for expr in source_expressions
++            ])
++        return clone
++
+     def _setup_joins(self, pieces, opts, alias):
+         """
+         Helper method for get_order_by() and get_distinct().
+diff --git a/tests/model_inheritance/models.py b/tests/model_inheritance/models.py
+index a4f9cfe696..0e19dd227f 100644
+--- a/tests/model_inheritance/models.py
++++ b/tests/model_inheritance/models.py
+@@ -194,3 +194,21 @@ class Child(Parent):
+ 
+ class GrandChild(Child):
+     pass
++
++
++class ExpressionOrderingParent(models.Model):
++    """
++    Parent model whose Meta.ordering contains an expression (OrderBy).
++
++    This is used to ensure related model ordering resolution supports
++    expressions (e.g. when ordering by a relation without an explicit
++    attribute name).
++    """
++    name = models.CharField(max_length=50)
++
++    class Meta:
++        ordering = [models.F("name").desc()]
++
++
++class ExpressionOrderingChild(ExpressionOrderingParent):
++    pass
+diff --git a/tests/model_inheritance/tests.py b/tests/model_inheritance/tests.py
+index 5eef0f5bfa..d656412963 100644
+--- a/tests/model_inheritance/tests.py
++++ b/tests/model_inheritance/tests.py
+@@ -7,8 +7,8 @@ from django.test.utils import CaptureQueriesContext, isolate_apps
+ 
+ from .models import (
+     Base, Chef, CommonInfo, GrandChild, GrandParent, ItalianRestaurant,
+-    MixinModel, ParkingLot, Place, Post, Restaurant, Student, SubBase,
+-    Supplier, Title, Worker,
++    ExpressionOrderingChild, MixinModel, ParkingLot, Place, Post, Restaurant,
++    Student, SubBase, Supplier, Title, Worker,
+ )
+ 
+ 
+@@ -98,6 +98,19 @@ class ModelInheritanceTests(TestCase):
+         )
+         self.assertEqual(Restaurant._meta.ordering, ["-rating"])
+ 
++    def test_related_meta_ordering_with_expressions(self):
++        """
++        Ordering by a relation should honor related model Meta.ordering even
++        when it contains expressions.
++
++        Regression test for a crash in SQLCompiler.find_ordering_name() when
++        related model Meta.ordering contains OrderBy expressions.
++        """
++        ExpressionOrderingChild.objects.create(name="a")
++        ExpressionOrderingChild.objects.create(name="b")
++        qs = ExpressionOrderingChild.objects.order_by(ExpressionOrderingChild._meta.pk.name)
++        self.assertSequenceEqual(list(qs.values_list("name", flat=True)), ["b", "a"])
++
+     def test_custompk_m2m(self):
+         b = Base.objects.create()
+         b.titles.add(Title.objects.create(title="foof"))

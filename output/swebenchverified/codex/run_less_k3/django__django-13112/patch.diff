@@ -1,0 +1,79 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index c2aea9c730..b52a2f7b8a 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -582,7 +582,18 @@ class ForeignObject(RelatedField):
+         if self.remote_field.parent_link:
+             kwargs['parent_link'] = self.remote_field.parent_link
+         if isinstance(self.remote_field.model, str):
+-            kwargs['to'] = self.remote_field.model.lower()
++            # Normalize the model name portion while preserving the app label
++            # as declared (app labels may contain mixed-case characters).
++            #
++            # Also keep relative references and the recursive "self" constant
++            # unchanged aside from model name normalization.
++            to = self.remote_field.model
++            if to == RECURSIVE_RELATIONSHIP_CONSTANT:
++                kwargs['to'] = to
++            elif "." in to:
++                kwargs['to'] = ".".join(make_model_tuple(to))
++            else:
++                kwargs['to'] = to.lower()
+         else:
+             kwargs['to'] = self.remote_field.model._meta.label_lower
+         # If swappable is True, then see if we're actually pointing to the target
+diff --git a/tests/model_fields/test_foreignkey.py b/tests/model_fields/test_foreignkey.py
+index d30cca9b5c..864c574935 100644
+--- a/tests/model_fields/test_foreignkey.py
++++ b/tests/model_fields/test_foreignkey.py
+@@ -4,7 +4,8 @@ from django.apps import apps
+ from django.core import checks
+ from django.core.exceptions import FieldError
+ from django.db import models
+-from django.test import TestCase, skipIfDBFeature
++from django.db.migrations.state import ModelState, StateApps
++from django.test import SimpleTestCase, TestCase, skipIfDBFeature
+ from django.test.utils import isolate_apps
+ 
+ from .models import Bar, FkToChar, Foo, PrimaryKeyCharModel
+@@ -147,3 +148,40 @@ class ForeignKeyTests(TestCase):
+         )
+         with self.assertRaisesMessage(FieldError, msg):
+             Related._meta.get_field('child').related_fields
++
++
++class ForeignKeyDeconstructTests(SimpleTestCase):
++    def test_deconstruct_preserves_app_label_case_for_strings(self):
++        field = models.ForeignKey('DJ_RegLogin.Category', on_delete=models.CASCADE)
++        _, _, _, kwargs = field.deconstruct()
++        self.assertEqual(kwargs['to'], 'DJ_RegLogin.category')
++
++    def test_stateapps_renders_with_mixed_case_app_label_foreign_key(self):
++        """
++        StateApps should resolve relations for apps with mixed-case labels.
++        """
++        fk = models.ForeignKey('DJ_RegLogin.Category', on_delete=models.CASCADE)
++        content_state = ModelState(
++            app_label='DJ_RegLogin',
++            name='Content',
++            fields=[
++                ('id', models.AutoField(primary_key=True)),
++                # Clone the field to match how migrations clone fields while
++                # building states.
++                ('category', fk.clone()),
++            ],
++        )
++        category_state = ModelState(
++            app_label='DJ_RegLogin',
++            name='Category',
++            fields=[
++                ('id', models.AutoField(primary_key=True)),
++            ],
++        )
++        # Ensure Content is rendered before Category to exercise lazy model
++        # resolution.
++        models_dict = {
++            ('DJ_RegLogin', 'content'): content_state,
++            ('DJ_RegLogin', 'category'): category_state,
++        }
++        StateApps(real_apps=[], models=models_dict)

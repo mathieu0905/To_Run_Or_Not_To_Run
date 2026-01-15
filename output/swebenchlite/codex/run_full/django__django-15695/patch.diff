@@ -1,0 +1,73 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index d17232e4ec..0816a4ad89 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -966,23 +966,29 @@ class RenameIndex(IndexOperation):
+         schema_editor.rename_index(model, old_index, new_index)
+ 
+     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+-        if self.old_fields:
+-            # Backward operation with unnamed index is a no-op.
++        model = to_state.apps.get_model(app_label, self.model_name)
++        if not self.allow_migrate_model(schema_editor.connection.alias, model):
+             return
+ 
+-        self.new_name_lower, self.old_name_lower = (
+-            self.old_name_lower,
+-            self.new_name_lower,
+-        )
+-        self.new_name, self.old_name = self.old_name, self.new_name
+-
+-        self.database_forwards(app_label, schema_editor, from_state, to_state)
++        if self.old_fields:
++            columns = [model._meta.get_field(field).column for field in self.old_fields]
++            old_generated_name = schema_editor._create_index_name(
++                model._meta.db_table, columns, suffix="_idx"
++            )
++            old_index = models.Index(fields=self.old_fields, name=self.new_name)
++            new_index = models.Index(fields=self.old_fields, name=old_generated_name)
++        else:
++            # Reverse the rename by swapping the source/target indexes from
++            # the forward operation without mutating this operation instance.
++            from_model_state = from_state.models[app_label, self.model_name_lower]
++            old_index = from_model_state.get_index_by_name(self.new_name)
++            to_model_state = to_state.models[app_label, self.model_name_lower]
++            new_index = to_model_state.get_index_by_name(self.old_name)
+ 
+-        self.new_name_lower, self.old_name_lower = (
+-            self.old_name_lower,
+-            self.new_name_lower,
+-        )
+-        self.new_name, self.old_name = self.old_name, self.new_name
++        if old_index.name == new_index.name:
++            # Avoid backend errors (e.g. PostgreSQL) on renaming an index to itself.
++            return
++        schema_editor.rename_index(model, old_index, new_index)
+ 
+     def describe(self):
+         if self.old_name:
+diff --git a/tests/migrations/test_operations.py b/tests/migrations/test_operations.py
+index cfd28b1b39..3e7caa99bd 100644
+--- a/tests/migrations/test_operations.py
++++ b/tests/migrations/test_operations.py
+@@ -2984,9 +2984,18 @@ class OperationTests(OperationTestBase):
+         with connection.schema_editor() as editor:
+             operation.database_forwards(app_label, editor, project_state, new_state)
+         self.assertIndexNameExists(table_name, "new_pony_test_idx")
+-        # Reverse is a no-op.
+-        with connection.schema_editor() as editor, self.assertNumQueries(0):
++        # Reversal restores the original auto-generated name.
++        with connection.schema_editor() as editor:
++            old_generated_name = editor._create_index_name(
++                table_name, ["weight", "pink"], suffix="_idx"
++            )
+             operation.database_backwards(app_label, editor, new_state, project_state)
++        self.assertIndexNameNotExists(table_name, "new_pony_test_idx")
++        self.assertIndexNameExists(table_name, old_generated_name)
++        # Re-apply renaming.
++        with connection.schema_editor() as editor:
++            operation.database_forwards(app_label, editor, project_state, new_state)
++        self.assertIndexNameNotExists(table_name, old_generated_name)
+         self.assertIndexNameExists(table_name, "new_pony_test_idx")
+         # Deconstruction.
+         definition = operation.deconstruct()

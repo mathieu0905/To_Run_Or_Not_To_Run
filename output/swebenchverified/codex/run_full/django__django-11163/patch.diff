@@ -1,0 +1,26 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index d157c291ef..52dd1671e9 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -83,7 +83,8 @@ def model_to_dict(instance, fields=None, exclude=None):
+     for f in chain(opts.concrete_fields, opts.private_fields, opts.many_to_many):
+         if not getattr(f, 'editable', False):
+             continue
+-        if fields and f.name not in fields:
++        # Distinguish between "no fields specified" (None) and an empty list.
++        if fields is not None and f.name not in fields:
+             continue
+         if exclude and f.name in exclude:
+             continue
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index f4f3169bc1..4839fa3162 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -1814,6 +1814,7 @@ class ModelOneToOneFieldTests(TestCase):
+ 
+         bw = BetterWriter.objects.create(name='Joe Better', score=10)
+         self.assertEqual(sorted(model_to_dict(bw)), ['id', 'name', 'score', 'writer_ptr'])
++        self.assertEqual(model_to_dict(bw, fields=[]), {})
+ 
+         form = BetterWriterForm({'name': 'Some Name', 'score': 12})
+         self.assertTrue(form.is_valid())

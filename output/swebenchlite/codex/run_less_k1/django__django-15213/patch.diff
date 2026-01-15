@@ -1,0 +1,37 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 8642e1f151..d5f56fa9c9 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -979,7 +979,14 @@ class ExpressionWrapper(SQLiteNumericMixin, Expression):
+         return super().get_group_by_cols()
+ 
+     def as_sql(self, compiler, connection):
+-        return compiler.compile(self.expression)
++        sql, params = compiler.compile(self.expression)
++        if not sql and getattr(self.expression, 'conditional', False):
++            # Conditional expressions (e.g. Q objects resolved to a WhereNode)
++            # may compile to an empty string to indicate "matches everything".
++            # In a SELECT clause, that becomes invalid SQL (e.g. "SELECT AS …").
++            # Use a backend-appropriate always-true value instead.
++            return compiler.compile(Value(True))
++        return sql, params
+ 
+     def __repr__(self):
+         return "{}({})".format(self.__class__.__name__, self.expression)
+diff --git a/tests/annotations/tests.py b/tests/annotations/tests.py
+index 62912ee99c..bc49349630 100644
+--- a/tests/annotations/tests.py
++++ b/tests/annotations/tests.py
+@@ -204,6 +204,12 @@ class NonAggregateAnnotationTestCase(TestCase):
+         self.assertEqual(len(books), Book.objects.count())
+         self.assertTrue(all(not book.selected for book in books))
+ 
++        books = Book.objects.annotate(
++            selected=ExpressionWrapper(~Q(pk__in=[]), output_field=BooleanField())
++        )
++        self.assertEqual(len(books), Book.objects.count())
++        self.assertTrue(all(book.selected for book in books))
++
+         books = Book.objects.annotate(
+             selected=ExpressionWrapper(Q(pk__in=Book.objects.none()), output_field=BooleanField())
+         )

@@ -1,0 +1,70 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 1a55d3d417..4093629861 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -764,10 +764,27 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            if not hasattr(cls, 'get_%s_display' % self.name):
++            display_method_name = 'get_%s_display' % self.name
++            # Always generate get_FOO_display() for the field being added, but
++            # don't override an explicitly defined method (including one
++            # inherited from a non-generated implementation).
++            #
++            # If a parent model defined this method via an auto-generated
++            # partialmethod, overriding a field (e.g. different/extended
++            # choices) must also override the method so it uses the new field.
++            existing = None
++            for base in cls.mro():
++                if display_method_name in base.__dict__:
++                    existing = base.__dict__[display_method_name]
++                    break
++            if existing is None or (
++                isinstance(existing, partialmethod) and
++                getattr(existing.func, '__name__', None) == '_get_FIELD_display' and
++                existing.keywords is not None and 'field' in existing.keywords
++            ):
+                 setattr(
+                     cls,
+-                    'get_%s_display' % self.name,
++                    display_method_name,
+                     partialmethod(cls._get_FIELD_display, field=self),
+                 )
+ 
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index a3b805409c..861ac2927f 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -4,6 +4,7 @@ from django import forms
+ from django.core.exceptions import ValidationError
+ from django.db import models
+ from django.test import SimpleTestCase, TestCase
++from django.test.utils import isolate_apps
+ from django.utils.functional import lazy
+ 
+ from .models import (
+@@ -178,6 +179,23 @@ class GetFieldDisplayTests(SimpleTestCase):
+         f = FooBar(foo_bar=1)
+         self.assertEqual(f.get_foo_bar_display(), 'something')
+ 
++    @isolate_apps('model_fields')
++    def test_inherited_choices_override_field_display(self):
++        class A(models.Model):
++            foo_choice = [('A', 'output1'), ('B', 'output2')]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++            class Meta:
++                abstract = True
++
++        class B(A):
++            foo_choice = [('A', 'output1'), ('B', 'output2'), ('C', 'output3')]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++        self.assertEqual(B(field_foo='A').get_field_foo_display(), 'output1')
++        self.assertEqual(B(field_foo='B').get_field_foo_display(), 'output2')
++        self.assertEqual(B(field_foo='C').get_field_foo_display(), 'output3')
++
+     def test_iterator_choices(self):
+         """
+         get_choices() works with Iterators.

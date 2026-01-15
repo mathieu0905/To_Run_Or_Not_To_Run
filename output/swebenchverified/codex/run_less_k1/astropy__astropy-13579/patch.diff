@@ -1,0 +1,103 @@
+diff --git a/astropy/wcs/wcsapi/wrappers/sliced_wcs.py b/astropy/wcs/wcsapi/wrappers/sliced_wcs.py
+index d7605b078..7a152783e 100644
+--- a/astropy/wcs/wcsapi/wrappers/sliced_wcs.py
++++ b/astropy/wcs/wcsapi/wrappers/sliced_wcs.py
+@@ -153,12 +153,26 @@ class SlicedLowLevelWCS(BaseWCSWrapper):
+             raise ValueError("Cannot slice WCS: the resulting WCS should have "
+                              "at least one pixel and one world dimension.")
+ 
++    @lazyproperty
++    def _world_reference_values(self):
++        """
++        World values for all axes at a reference pixel location.
++
++        This is used to supply values for world axes that are dropped by the
++        slice when calling the underlying WCS ``world_to_pixel_values`` method.
++        """
++        world_coords = self._pixel_to_world_values_all(*[0] * len(self._pixel_keep))
++        if self._wcs.world_n_dim == 1:
++            return (world_coords,)
++        else:
++            return tuple(world_coords)
++
+     @lazyproperty
+     def dropped_world_dimensions(self):
+         """
+         Information describing the dropped world dimensions.
+         """
+-        world_coords = self._pixel_to_world_values_all(*[0]*len(self._pixel_keep))
++        world_coords = self._world_reference_values
+         dropped_info = defaultdict(list)
+ 
+         for i in range(self._wcs.world_n_dim):
+@@ -251,7 +265,10 @@ class SlicedLowLevelWCS(BaseWCSWrapper):
+                 iworld_curr += 1
+                 world_arrays_new.append(world_arrays[iworld_curr])
+             else:
+-                world_arrays_new.append(1.)
++                # For dropped world axes, use the value corresponding to the
++                # fixed pixel slice so that coupled pixel/world transforms
++                # remain consistent.
++                world_arrays_new.append(self._world_reference_values[iworld])
+ 
+         world_arrays_new = np.broadcast_arrays(*world_arrays_new)
+         pixel_arrays = list(self._wcs.world_to_pixel_values(*world_arrays_new))
+diff --git a/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py b/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py
+index a35411496..dd1db8cdf 100644
+--- a/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py
++++ b/astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py
+@@ -159,6 +159,54 @@ def test_world_to_pixel_broadcasting():
+     assert_allclose(wcs.world_to_pixel_values((10, 10), 20, 25), ((29., 29.), (39., 39.), (44., 44.)))
+ 
+ 
++def test_world_to_pixel_uses_dropped_world_values():
++    # Regression test for a case where slicing drops a world axis, but the
++    # underlying WCS still requires a value for that axis in world->pixel
++    # inversion. Using an arbitrary placeholder (e.g., 1) can yield incorrect
++    # results when pixel/world axes are coupled.
++    header = Header.fromstring("""
++NAXIS   = 3
++NAXIS1  = 10
++NAXIS2  = 10
++NAXIS3  = 10
++CTYPE1  = LINEAR
++CTYPE2  = LINEAR
++CTYPE3  = LINEAR
++CRPIX1  = 1
++CRPIX2  = 1
++CRPIX3  = 1
++CRVAL1  = 0
++CRVAL2  = 100
++CRVAL3  = 10
++CDELT1  = 1
++CDELT2  = 1
++CDELT3  = 2
++PC1_1   = 1
++PC1_2   = 0
++PC1_3   = 0
++PC2_1   = 0
++PC2_2   = 1
++PC2_3   = 1
++PC3_1   = 0
++PC3_2   = 0
++PC3_3   = 1
++""", sep="\n")
++
++    with warnings.catch_warnings():
++        warnings.simplefilter('ignore', VerifyWarning)
++        wcs = WCS(header)
++
++    # Pick a point on the first plane of the third (array) axis (i.e. fixed z).
++    px, py, pz = 4.0, 5.0, 0.0
++    w1, w2, _w3 = wcs.pixel_to_world_values(px, py, pz)
++
++    wcs_sliced = SlicedLowLevelWCS(wcs, 0)
++
++    # World->pixel on the sliced WCS should match the (x, y) from the full WCS
++    # at the fixed z plane.
++    assert_allclose(wcs_sliced.world_to_pixel_values(w1, w2), (px, py))
++
++
+ EXPECTED_SPECTRAL_SLICE_REPR = """
+ SlicedLowLevelWCS Transformation
+ 

@@ -1,0 +1,60 @@
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 247e3680c0..203b90ec51 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -64,10 +64,27 @@ class ResolverMatch:
+ 
+ 
+ @functools.lru_cache(maxsize=None)
++def _get_cached_resolver(urlconf=None):
++    return URLResolver(RegexPattern(r'^/'), urlconf)
++
++
+ def get_resolver(urlconf=None):
++    """
++    Return a URLResolver instance for the given URLconf.
++
++    If ``urlconf`` is None, normalize it to ``settings.ROOT_URLCONF`` before
++    consulting the cache to avoid creating multiple equivalent URLResolvers.
++    """
+     if urlconf is None:
+         urlconf = settings.ROOT_URLCONF
+-    return URLResolver(RegexPattern(r'^/'), urlconf)
++    return _get_cached_resolver(urlconf)
++
++
++# Expose cache helpers for backwards compatibility (e.g. clear_url_caches()).
++for _attr in ("cache_clear", "cache_info"):
++    setattr(get_resolver, _attr, getattr(_get_cached_resolver, _attr))
++if hasattr(_get_cached_resolver, "cache_parameters"):
++    get_resolver.cache_parameters = _get_cached_resolver.cache_parameters
+ 
+ 
+ @functools.lru_cache(maxsize=None)
+diff --git a/tests/urlpatterns_reverse/tests.py b/tests/urlpatterns_reverse/tests.py
+index d26923ab9d..2d243e1589 100644
+--- a/tests/urlpatterns_reverse/tests.py
++++ b/tests/urlpatterns_reverse/tests.py
+@@ -379,6 +379,22 @@ class ResolverTests(SimpleTestCase):
+         sub_resolver = resolver.namespace_dict['test-ns1'][1]
+         self.assertIn('<URLPattern list>', repr(sub_resolver))
+ 
++    def test_get_resolver_cache_normalizes_none(self):
++        """
++        get_resolver(None) should share the cache entry with the default
++        ROOT_URLCONF to avoid creating multiple equivalent URLResolvers.
++        """
++        with override_settings(ROOT_URLCONF='urlpatterns_reverse.named_urls'):
++            get_resolver.cache_clear()
++            try:
++                resolver_none = get_resolver(None)
++                resolver_default = get_resolver()
++                resolver_explicit = get_resolver(settings.ROOT_URLCONF)
++                self.assertIs(resolver_none, resolver_default)
++                self.assertIs(resolver_none, resolver_explicit)
++            finally:
++                get_resolver.cache_clear()
++
+     def test_reverse_lazy_object_coercion_by_resolve(self):
+         """
+         Verifies lazy object returned by reverse_lazy is coerced to

@@ -1,0 +1,101 @@
+diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
+index de3fb01d1..bf2da40da 100644
+--- a/astropy/utils/misc.py
++++ b/astropy/utils/misc.py
+@@ -10,6 +10,7 @@ a clear module/package to live in.
+ import abc
+ import contextlib
+ import difflib
++import functools
+ import inspect
+ import json
+ import os
+@@ -521,6 +522,37 @@ class InheritDocstrings(type):
+     """
+ 
+     def __init__(cls, name, bases, dct):
++        def doc_supported(obj):
++            # Only inherit docstrings for callables/descriptors that are
++            # expected to represent user-facing APIs.
++            if inspect.isfunction(obj) or isinstance(obj, property):
++                return True
++            if isinstance(obj, (classmethod, staticmethod)):
++                return True
++            cached_prop = getattr(functools, "cached_property", None)
++            return cached_prop is not None and isinstance(obj, cached_prop)
++
++        def get_doc(obj):
++            if inspect.isfunction(obj) or isinstance(obj, property):
++                return obj.__doc__
++            if isinstance(obj, (classmethod, staticmethod)):
++                return obj.__func__.__doc__
++            cached_prop = getattr(functools, "cached_property", None)
++            if cached_prop is not None and isinstance(obj, cached_prop):
++                return obj.func.__doc__
++            return None
++
++        def set_doc(obj, doc):
++            if inspect.isfunction(obj) or isinstance(obj, property):
++                obj.__doc__ = doc
++                return
++            if isinstance(obj, (classmethod, staticmethod)):
++                obj.__func__.__doc__ = doc
++                return
++            cached_prop = getattr(functools, "cached_property", None)
++            if cached_prop is not None and isinstance(obj, cached_prop):
++                obj.func.__doc__ = doc
++
+         def is_public_member(key):
+             return (
+                 (key.startswith('__') and key.endswith('__')
+@@ -528,13 +560,18 @@ class InheritDocstrings(type):
+                 not key.startswith('_'))
+ 
+         for key, val in dct.items():
+-            if (inspect.isfunction(val) and
++            if (doc_supported(val) and
+                 is_public_member(key) and
+-                val.__doc__ is None):
++                get_doc(val) is None):
+                 for base in cls.__mro__[1:]:
+-                    super_method = getattr(base, key, None)
+-                    if super_method is not None:
+-                        val.__doc__ = super_method.__doc__
++                    try:
++                        super_method = inspect.getattr_static(base, key)
++                    except AttributeError:
++                        continue
++
++                    super_doc = get_doc(super_method)
++                    if super_doc is not None:
++                        set_doc(val, super_doc)
+                         break
+ 
+         super().__init__(name, bases, dct)
+diff --git a/astropy/utils/tests/test_misc.py b/astropy/utils/tests/test_misc.py
+index 4f632e8d1..0055ce5f0 100644
+--- a/astropy/utils/tests/test_misc.py
++++ b/astropy/utils/tests/test_misc.py
+@@ -89,6 +89,22 @@ def test_inherit_docstrings():
+         assert Subclass.__call__.__doc__ == "FOO"
+ 
+ 
++def test_inherit_docstrings_property():
++    class Base(metaclass=misc.InheritDocstrings):
++        @property
++        def spam(self):
++            "FOO"
++            return 1
++
++    class Subclass(Base):
++        @property
++        def spam(self):
++            return 2
++
++    if Base.spam.__doc__ is not None:
++        assert Subclass.spam.__doc__ == "FOO"
++
++
+ def test_set_locale():
+     # First, test if the required locales are available
+     current = locale.setlocale(locale.LC_ALL)

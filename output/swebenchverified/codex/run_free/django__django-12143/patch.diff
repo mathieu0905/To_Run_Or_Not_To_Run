@@ -1,0 +1,89 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 137e6faa0f..d21f9ee82f 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -1631,7 +1631,10 @@ class ModelAdmin(BaseModelAdmin):
+ 
+     def _get_edited_object_pks(self, request, prefix):
+         """Return POST data values of list_editable primary keys."""
+-        pk_pattern = re.compile(r'{}-\d+-{}$'.format(prefix, self.model._meta.pk.name))
++        # Escape the prefix to avoid unintended regex behavior (or errors) when
++        # it contains special characters. See #34849.
++        pk_name = self.model._meta.pk.name
++        pk_pattern = re.compile(rf'{re.escape(prefix)}-\d+-{re.escape(pk_name)}$')
+         return [value for key, value in request.POST.items() if pk_pattern.match(key)]
+ 
+     def _get_list_editable_queryset(self, request, prefix):
+diff --git a/tests/admin_views/admin.py b/tests/admin_views/admin.py
+index bf10151356..2fb411d70d 100644
+--- a/tests/admin_views/admin.py
++++ b/tests/admin_views/admin.py
+@@ -242,6 +242,21 @@ class PersonAdmin(admin.ModelAdmin):
+         return super().get_queryset(request).order_by('age')
+ 
+ 
++class RegexSpecialPrefixPersonModelFormSet(BasePersonModelFormSet):
++    @classmethod
++    def get_default_prefix(cls):
++        # Include a regex special character to exercise prefix escaping in the
++        # admin's list_editable POST processing.
++        return 'form+'
++
++
++class RegexSpecialPrefixPersonAdmin(PersonAdmin):
++    def get_changelist_formset(self, request, **kwargs):
++        return super().get_changelist_formset(
++            request, formset=RegexSpecialPrefixPersonModelFormSet, **kwargs
++        )
++
++
+ class FooAccountAdmin(admin.StackedInline):
+     model = FooAccount
+     extra = 1
+@@ -1128,6 +1143,7 @@ site7 = admin.AdminSite(name="admin7")
+ site7.register(Article, ArticleAdmin2)
+ site7.register(Section)
+ site7.register(PrePopulatedPost, PrePopulatedPostReadOnlyAdmin)
++site7.register(Person, RegexSpecialPrefixPersonAdmin)
+ 
+ 
+ # Used to test ModelAdmin.sortable_by and get_sortable_by().
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index c9ca64097f..78ca9bff8f 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -3132,6 +3132,34 @@ class AdminViewListEditable(TestCase):
+ 
+         self.assertIs(Person.objects.get(name="John Mauchly").alive, False)
+ 
++    def test_list_editable_prefix_with_regex_special_chars(self):
++        """
++        list_editable POST processing must handle formset prefixes containing
++        regex special characters.
++        """
++        data = {
++            "form+-TOTAL_FORMS": "3",
++            "form+-INITIAL_FORMS": "3",
++            "form+-MIN_NUM_FORMS": "0",
++            "form+-MAX_NUM_FORMS": "0",
++
++            "form+-0-gender": "1",
++            "form+-0-id": "%s" % self.per1.pk,
++
++            "form+-1-gender": "2",
++            "form+-1-id": "%s" % self.per2.pk,
++
++            "form+-2-alive": "checked",
++            "form+-2-gender": "1",
++            "form+-2-id": "%s" % self.per3.pk,
++
++            "_save": "Save",
++        }
++        response = self.client.post(reverse('admin7:admin_views_person_changelist'), data)
++        self.assertEqual(response.status_code, 302)
++        self.assertEqual(Person.objects.count(), 3)
++        self.assertEqual(Person.objects.get(pk=self.per2.pk).gender, 2)
++
+     def test_non_field_errors(self):
+         """
+         Non-field errors are displayed for each of the forms in the

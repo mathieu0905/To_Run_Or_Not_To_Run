@@ -1,0 +1,126 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 7d226955d5..892c144592 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -8,6 +8,7 @@ import math
+ import re
+ import types
+ import uuid
++from importlib import import_module
+ 
+ from django.conf import SettingsReference
+ from django.db import models
+@@ -90,14 +91,39 @@ class DeconstructableSerializer(BaseSerializer):
+ 
+     @staticmethod
+     def _serialize_path(path):
+-        module, name = path.rsplit(".", 1)
+-        if module == "django.db.models":
++        """
++        Return a reference to the object described by the given import path.
++
++        Most paths are "module.attr". For nested classes ("module.Outer.Inner")
++        we need to import the real module ("module") and then reference
++        attributes on it ("module.Outer.Inner").
++        """
++        parts = path.split(".")
++        module = name = None
++        # Start at len(parts) - 1 to avoid treating the whole path as a module
++        # (e.g. importing "package.module.Class" as a submodule), which could
++        # shadow the attribute we're trying to reference.
++        for i in range(len(parts) - 1, 0, -1):
++            candidate = ".".join(parts[:i])
++            try:
++                import_module(candidate)
++            except (ImportError, ValueError):
++                continue
++            module = candidate
++            name = ".".join(parts[i:])
++            break
++
++        # Fall back to the previous behavior if no importable module was found.
++        if module is None:
++            module, name = path.rsplit(".", 1)
++
++        if module == "django.db.models" and name and "." not in name:
+             imports = {"from django.db import models"}
+-            name = "models.%s" % name
+-        else:
+-            imports = {"import %s" % module}
+-            name = path
+-        return name, imports
++            return "models.%s" % name, imports
++
++        imports = {"import %s" % module}
++        # name can include dotted components for nested attributes.
++        return "%s.%s" % (module, name) if name else module, imports
+ 
+     def serialize(self):
+         return self.serialize_deconstructed(*self.value.deconstruct())
+@@ -264,12 +290,18 @@ class TypeSerializer(BaseSerializer):
+         for case, string, imports in special_cases:
+             if case is self.value:
+                 return string, set(imports)
+-        if hasattr(self.value, "__module__"):
+-            module = self.value.__module__
+-            if module == builtins.__name__:
+-                return self.value.__name__, set()
+-            else:
+-                return "%s.%s" % (module, self.value.__name__), {"import %s" % module}
++        if not hasattr(self.value, "__module__"):
++            raise ValueError("Cannot serialize type %r: no module" % self.value)
++
++        module = self.value.__module__
++        if module == builtins.__name__:
++            return self.value.__name__, set()
++
++        qualname = getattr(self.value, "__qualname__", self.value.__name__)
++        if "<" in qualname:  # Qualname can include <locals>
++            raise ValueError("Cannot serialize type %r: local classes are not supported." % self.value)
++
++        return "%s.%s" % (module, qualname), {"import %s" % module}
+ 
+ 
+ class UUIDSerializer(BaseSerializer):
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index ca924f35ec..ff761c33dd 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -61,6 +61,17 @@ class IntEnum(enum.IntEnum):
+     B = 2
+ 
+ 
++class Outer:
++    class Inner(models.CharField):
++        pass
++
++
++class Thing:
++    class State(enum.Enum):
++        ON = 'on'
++        OFF = 'off'
++
++
+ class OperationWriterTests(SimpleTestCase):
+ 
+     def test_empty_signature(self):
+@@ -341,6 +352,19 @@ class WriterTests(SimpleTestCase):
+             "default=migrations.test_writer.IntEnum['A'])"
+         )
+ 
++    def test_serialize_nested_class_paths(self):
++        field = Outer.Inner(max_length=20)
++        self.assertSerializedFieldEqual(field)
++        self.assertSerializedResultEqual(
++            field,
++            ("migrations.test_writer.Outer.Inner(max_length=20)", {'import migrations.test_writer'}),
++        )
++        self.assertSerializedResultEqual(
++            Thing.State,
++            ("migrations.test_writer.Thing.State", {'import migrations.test_writer'}),
++        )
++        self.assertSerializedEqual(Thing.State)
++
+     def test_serialize_choices(self):
+         class TextChoices(models.TextChoices):
+             A = 'A', 'A value'

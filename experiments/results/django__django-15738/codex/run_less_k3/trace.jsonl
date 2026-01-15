@@ -1,0 +1,2 @@
+{"type": "turn.completed", "usage": {"input_tokens": 50, "output_tokens": 50}}
+{"type": "item.completed", "item": {"type": "agent_message", "text": "```python\ndef add(a, b):\n    return a + b\n```"}}

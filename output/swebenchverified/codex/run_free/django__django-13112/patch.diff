@@ -1,0 +1,84 @@
+diff --git a/django/apps/registry.py b/django/apps/registry.py
+index 408964a146..18018c4d27 100644
+--- a/django/apps/registry.py
++++ b/django/apps/registry.py
+@@ -161,6 +161,25 @@ class Apps:
+                     break
+             raise LookupError(message)
+ 
++    def _normalize_app_label(self, app_label):
++        """
++        Return the installed app label matching the given label, regardless of
++        casing, when unambiguous.
++
++        When no installed app matches, return app_label unchanged.
++        """
++        if app_label in self.app_configs:
++            return app_label
++        app_label_lower = app_label.lower()
++        matched_label = None
++        for label in self.app_configs:
++            if label.lower() == app_label_lower:
++                # If multiple labels differ only by case, don't guess.
++                if matched_label is not None:
++                    return app_label
++                matched_label = label
++        return matched_label or app_label
++
+     # This method is performance-critical at least for Django's test suite.
+     @functools.lru_cache(maxsize=None)
+     def get_models(self, include_auto_created=False, include_swapped=False):
+@@ -393,6 +412,13 @@ class Apps:
+         # to lazy_model_operation() along with the remaining model args and
+         # repeat until all models are loaded and all arguments are applied.
+         else:
++            # Normalize app labels to match the installed app registry.
++            # This ensures that string model references that differ only by
++            # casing (e.g. "MyApp.Model" vs "myapp.Model") resolve correctly.
++            model_keys = tuple(
++                (self._normalize_app_label(app_label), model_name)
++                for app_label, model_name in model_keys
++            )
+             next_model, *more_models = model_keys
+ 
+             # This will be executed after the class corresponding to next_model
+diff --git a/tests/apps/tests.py b/tests/apps/tests.py
+index 566aec60c3..de548a0fe7 100644
+--- a/tests/apps/tests.py
++++ b/tests/apps/tests.py
+@@ -5,6 +5,7 @@ from django.apps.registry import Apps
+ from django.contrib.admin.models import LogEntry
+ from django.core.exceptions import AppRegistryNotReady, ImproperlyConfigured
+ from django.db import models
++from django.db.migrations.state import AppConfigStub
+ from django.test import SimpleTestCase, override_settings
+ from django.test.utils import extend_sys_path, isolate_apps
+ 
+@@ -161,6 +162,27 @@ class AppsTests(SimpleTestCase):
+         with self.assertRaises(ValueError):
+             apps.get_model('admin_LogEntry')
+ 
++    def test_lazy_model_operation_case_insensitive_app_label(self):
++        called_with = []
++
++        def receiver(model):
++            called_with.append(model)
++
++        local_apps = Apps([AppConfigStub('DJ_RegLogin')])
++        local_apps.lazy_model_operation(receiver, ('dj_reglogin', 'category'))
++
++        # The pending operation key should match the installed label casing.
++        self.assertIn(('DJ_RegLogin', 'category'), local_apps._pending_operations)
++        self.assertNotIn(('dj_reglogin', 'category'), local_apps._pending_operations)
++
++        class DummyMeta:
++            app_label = 'DJ_RegLogin'
++            model_name = 'category'
++
++        dummy_model = type('Category', (), {'_meta': DummyMeta})()
++        local_apps.do_pending_operations(dummy_model)
++        self.assertEqual(called_with, [dummy_model])
++
+     @override_settings(INSTALLED_APPS=['apps.apps.RelabeledAppsConfig'])
+     def test_relabeling(self):
+         self.assertEqual(apps.get_app_config('relabeled').name, 'apps')

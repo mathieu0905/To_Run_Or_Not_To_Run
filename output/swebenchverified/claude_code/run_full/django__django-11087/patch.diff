@@ -1,13 +1,27 @@
 diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
-index 3a462f1c4c..61a3e6d3a1 100644
+index 3a462f1c4c..355881aac6 100644
 --- a/django/db/models/deletion.py
 +++ b/django/db/models/deletion.py
-@@ -234,7 +234,7 @@ class Collector:
+@@ -232,9 +232,21 @@ class Collector:
          """
-         return related.related_model._base_manager.using(self.using).filter(
+         Get a QuerySet of objects related to `objs` via the relation `related`.
+         """
+-        return related.related_model._base_manager.using(self.using).filter(
++        qs = related.related_model._base_manager.using(self.using).filter(
              **{"%s__in" % related.field.name: objs}
--        )
-+        ).only('pk', related.field.name)
+         )
++        # Only fetch fields needed for deletion: pk, parent link fields, and
++        # foreign key fields (for signal handlers and cascade operations)
++        model = related.related_model
++        fields = [model._meta.pk.name]
++        for parent, field in model._meta.parents.items():
++            if field:
++                fields.append(field.name)
++        # Include foreign key fields (attname gives us the actual db column like 'parent_id')
++        for field in model._meta.fields:
++            if field.is_relation and field.many_to_one:
++                fields.append(field.attname)
++        return qs.only(*fields)
  
      def instances_with_model(self):
          for model, instances in self.data.items():

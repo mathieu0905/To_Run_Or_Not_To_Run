@@ -1,0 +1,89 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index d517d7269b..91331928c6 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -914,7 +914,9 @@ class ForeignKey(ForeignObject):
+             return
+ 
+         using = router.db_for_read(self.remote_field.model, instance=model_instance)
+-        qs = self.remote_field.model._default_manager.using(using).filter(
++        # Use the base manager so validation doesn't depend on the default
++        # manager's filtering (e.g. soft-deletion, archived flags).
++        qs = self.remote_field.model._base_manager.using(using).filter(
+             **{self.remote_field.field_name: value}
+         )
+         qs = qs.complex_filter(self.get_limit_choices_to())
+diff --git a/tests/model_forms/models.py b/tests/model_forms/models.py
+index 05c6d71a4a..d2449bdfff 100644
+--- a/tests/model_forms/models.py
++++ b/tests/model_forms/models.py
+@@ -463,3 +463,21 @@ class Award(models.Model):
+ 
+ class NullableUniqueCharFieldModel(models.Model):
+     codename = models.CharField(max_length=50, blank=True, null=True, unique=True)
++
++
++class ArticleManager(models.Manager):
++    def get_queryset(self):
++        # Filter out archived articles by default (e.g. "soft delete").
++        return super().get_queryset().filter(archived=False)
++
++
++class ArticleWithArchive(models.Model):
++    title = models.CharField(max_length=100)
++    archived = models.BooleanField(default=False)
++
++    # Don't include archived articles by default.
++    objects = ArticleManager()
++
++
++class FavoriteArticle(models.Model):
++    article = models.ForeignKey(ArticleWithArchive, models.CASCADE)
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index cb8d7c3f84..c416c5010a 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -19,10 +19,11 @@ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+ 
+ from .models import (
+     Article, ArticleStatus, Author, Author1, Award, BetterWriter, BigInt, Book,
+-    Category, Character, Colour, ColourfulItem, CustomErrorMessage, CustomFF,
+-    CustomFieldForExclusionModel, DateTimePost, DerivedBook, DerivedPost,
+-    Document, ExplicitPK, FilePathModel, FlexibleDatePost, Homepage,
+-    ImprovedArticle, ImprovedArticleWithParentLink, Inventory,
++    ArticleWithArchive, Category, Character, Colour, ColourfulItem,
++    CustomErrorMessage, CustomFF, CustomFieldForExclusionModel, DateTimePost,
++    DerivedBook, DerivedPost, Document, ExplicitPK, FavoriteArticle,
++    FilePathModel, FlexibleDatePost, Homepage, ImprovedArticle,
++    ImprovedArticleWithParentLink, Inventory,
+     NullableUniqueCharFieldModel, Person, Photo, Post, Price, Product,
+     Publication, PublicationDefaults, StrictAssignmentAll,
+     StrictAssignmentFieldSpecific, Student, StumpJoke, TextFile, Triple,
+@@ -2972,3 +2973,27 @@ class ModelToDictTests(TestCase):
+         # If data were a QuerySet, it would be reevaluated here and give "red"
+         # instead of the original value.
+         self.assertEqual(data, [blue])
++
++
++class ForeignKeyValidationManagerTests(TestCase):
++    def test_foreignkey_validate_uses_base_manager(self):
++        """
++        ForeignKey.validate() should use the related model's base manager so
++        validation doesn't depend on the default manager's filtering.
++        """
++        archived = ArticleWithArchive.objects.create(title='Archived', archived=True)
++        self.assertFalse(ArticleWithArchive.objects.filter(pk=archived.pk).exists())
++
++        class FavoriteArticleForm(forms.ModelForm):
++            class Meta:
++                model = FavoriteArticle
++                fields = '__all__'
++
++            def __init__(self, *args, **kwargs):
++                super().__init__(*args, **kwargs)
++                self.fields['article'].queryset = ArticleWithArchive._base_manager.all()
++
++        form = FavoriteArticleForm(data={'article': archived.pk})
++        self.assertTrue(form.is_valid(), form.errors)
++        favorite = form.save()
++        self.assertEqual(favorite.article_id, archived.pk)

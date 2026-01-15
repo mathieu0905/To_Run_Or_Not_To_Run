@@ -1,0 +1,13 @@
+diff --git a/astropy/io/ascii/html.py b/astropy/io/ascii/html.py
+index 266cf229c..46bff2963 100644
+--- a/astropy/io/ascii/html.py
++++ b/astropy/io/ascii/html.py
+@@ -424,6 +424,8 @@ class HTML(core.BaseReader):
+                         new_cols = []
+ 
+                         for col, col_escaped in zip(cols, cols_escaped):
++                            if col.info.name in self.data.formats:
++                                col.info.format = self.data.formats[col.info.name]
+                             if len(col.shape) > 1 and self.html['multicol']:
+                                 span = col.shape[1]
+                                 for i in range(span):

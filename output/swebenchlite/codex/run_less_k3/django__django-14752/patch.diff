@@ -1,0 +1,57 @@
+diff --git a/django/contrib/admin/views/autocomplete.py b/django/contrib/admin/views/autocomplete.py
+index 3903e4c98c..81538c7b87 100644
+--- a/django/contrib/admin/views/autocomplete.py
++++ b/django/contrib/admin/views/autocomplete.py
+@@ -9,6 +9,15 @@ class AutocompleteJsonView(BaseListView):
+     paginate_by = 20
+     admin_site = None
+ 
++    def serialize_result(self, obj, to_field_name):
++        """
++        Convert the given object to a dictionary for JSON serialization.
++
++        This method is a customization hook for subclasses that want to add
++        extra keys to each result without overriding AutocompleteJsonView.get().
++        """
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++
+     def get(self, request, *args, **kwargs):
+         """
+         Return a JsonResponse with search results of the form:
+@@ -26,8 +35,7 @@ class AutocompleteJsonView(BaseListView):
+         context = self.get_context_data()
+         return JsonResponse({
+             'results': [
+-                {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
+-                for obj in context['object_list']
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
+             ],
+             'pagination': {'more': context['page_obj'].has_next()},
+         })
+diff --git a/tests/admin_views/test_autocomplete_view.py b/tests/admin_views/test_autocomplete_view.py
+index aa978f7a83..6e7c10f9b9 100644
+--- a/tests/admin_views/test_autocomplete_view.py
++++ b/tests/admin_views/test_autocomplete_view.py
+@@ -91,6 +91,22 @@ class AutocompleteJsonViewTests(AdminViewBasicTestCase):
+             'pagination': {'more': False},
+         })
+ 
++    def test_serialize_result_can_be_overridden(self):
++        class CustomAutocompleteJsonView(AutocompleteJsonView):
++            def serialize_result(self, obj, to_field_name):
++                return {**super().serialize_result(obj, to_field_name), 'extra': obj.question}
++
++        q = Question.objects.create(question='Is this a question?')
++        request = self.factory.get(self.url, {'term': 'is', **self.opts})
++        request.user = self.superuser
++        response = CustomAutocompleteJsonView.as_view(**self.as_view_args)(request)
++        self.assertEqual(response.status_code, 200)
++        data = json.loads(response.content.decode('utf-8'))
++        self.assertEqual(data, {
++            'results': [{'id': str(q.pk), 'text': q.question, 'extra': q.question}],
++            'pagination': {'more': False},
++        })
++
+     def test_custom_to_field(self):
+         q = Question.objects.create(question='Is this a question?')
+         request = self.factory.get(self.url, {'term': 'is', **self.opts, 'field_name': 'question_with_to_field'})

@@ -1,0 +1,123 @@
+diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+index 61f88401ab..7b86077604 100644
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -393,13 +393,19 @@ class BaseDatabaseSchemaEditor:
+         news = {tuple(fields) for fields in new_index_together}
+         # Deleted indexes
+         for fields in olds.difference(news):
+-            self._delete_composed_index(model, fields, {'index': True}, self.sql_delete_index)
++            # Exclude unique constraints as some backends report them as indexes
++            # (e.g. MySQL and SQLite). Also allow a no-op in case the index is
++            # already covered by a unique constraint and isn't created.
++            self._delete_composed_index(
++                model, fields, {'index': True, 'unique': False},
++                self.sql_delete_index, strict=False,
++            )
+         # Created indexes
+         for field_names in news.difference(olds):
+             fields = [model._meta.get_field(field) for field in field_names]
+             self.execute(self._create_index_sql(model, fields, suffix="_idx"))
+ 
+-    def _delete_composed_index(self, model, fields, constraint_kwargs, sql):
++    def _delete_composed_index(self, model, fields, constraint_kwargs, sql, strict=True):
+         meta_constraint_names = {constraint.name for constraint in model._meta.constraints}
+         meta_index_names = {constraint.name for constraint in model._meta.indexes}
+         columns = [model._meta.get_field(field).column for field in fields]
+@@ -407,12 +413,21 @@ class BaseDatabaseSchemaEditor:
+             model, columns, exclude=meta_constraint_names | meta_index_names,
+             **constraint_kwargs
+         )
+-        if len(constraint_names) != 1:
++        if strict and len(constraint_names) != 1:
+             raise ValueError("Found wrong number (%s) of constraints for %s(%s)" % (
+                 len(constraint_names),
+                 model._meta.db_table,
+                 ", ".join(columns),
+             ))
++        if not strict:
++            if not constraint_names:
++                return
++            if len(constraint_names) > 1:
++                raise ValueError("Found wrong number (%s) of constraints for %s(%s)" % (
++                    len(constraint_names),
++                    model._meta.db_table,
++                    ", ".join(columns),
++                ))
+         self.execute(self._delete_constraint_sql(sql, model, constraint_names[0]))
+ 
+     def alter_db_table(self, model, old_db_table, new_db_table):
+diff --git a/tests/schema/models.py b/tests/schema/models.py
+index 6d4465807a..765085a192 100644
+--- a/tests/schema/models.py
++++ b/tests/schema/models.py
+@@ -80,6 +80,16 @@ class AuthorWithUniqueNameAndBirthday(models.Model):
+         unique_together = [['name', 'birthday']]
+ 
+ 
++class AuthorWithUniqueAndIndexNameAndBirthday(models.Model):
++    name = models.CharField(max_length=255)
++    birthday = models.DateField()
++
++    class Meta:
++        apps = new_apps
++        unique_together = [['name', 'birthday']]
++        index_together = [['name', 'birthday']]
++
++
+ class Book(models.Model):
+     author = models.ForeignKey(Author, models.CASCADE)
+     title = models.CharField(max_length=100, db_index=True)
+diff --git a/tests/schema/tests.py b/tests/schema/tests.py
+index 9aa1e239ac..14e5dc7646 100644
+--- a/tests/schema/tests.py
++++ b/tests/schema/tests.py
+@@ -29,7 +29,8 @@ from .models import (
+     Author, AuthorCharFieldWithIndex, AuthorTextFieldWithIndex,
+     AuthorWithDefaultHeight, AuthorWithEvenLongerName, AuthorWithIndexedName,
+     AuthorWithIndexedNameAndBirthday, AuthorWithUniqueName,
+-    AuthorWithUniqueNameAndBirthday, Book, BookForeignObj, BookWeak,
++    AuthorWithUniqueAndIndexNameAndBirthday, AuthorWithUniqueNameAndBirthday,
++    Book, BookForeignObj, BookWeak,
+     BookWithLongName, BookWithO2O, BookWithoutAuthor, BookWithSlug, IntegerPK,
+     Node, Note, NoteRename, Tag, TagIndexed, TagM2MTest, TagUniqueRename,
+     Thing, UniqueTest, new_apps,
+@@ -2201,6 +2202,38 @@ class SchemaTests(TransactionTestCase):
+             True,
+         )
+ 
++    @skipUnlessDBFeature('allows_multiple_constraints_on_same_fields')
++    def test_remove_index_together_with_unique_together(self):
++        with connection.schema_editor() as editor:
++            editor.create_model(AuthorWithUniqueAndIndexNameAndBirthday)
++        try:
++            constraints = self.get_constraints(AuthorWithUniqueAndIndexNameAndBirthday._meta.db_table)
++            non_unique_indexes = [
++                name for name, details in constraints.items()
++                if details['columns'] == ['name', 'birthday'] and details['index'] and not details['unique']
++            ]
++            self.assertEqual(len(non_unique_indexes), 1)
++            # Remove index_together while keeping unique_together on the same fields.
++            index_together = AuthorWithUniqueAndIndexNameAndBirthday._meta.index_together
++            with connection.schema_editor() as editor:
++                editor.alter_index_together(AuthorWithUniqueAndIndexNameAndBirthday, index_together, [])
++            constraints = self.get_constraints(AuthorWithUniqueAndIndexNameAndBirthday._meta.db_table)
++            non_unique_indexes = [
++                name for name, details in constraints.items()
++                if details['columns'] == ['name', 'birthday'] and details['index'] and not details['unique']
++            ]
++            self.assertEqual(len(non_unique_indexes), 0)
++            self.assertIs(
++                any(
++                    details['columns'] == ['name', 'birthday'] and details['unique']
++                    for details in constraints.values()
++                ),
++                True,
++            )
++        finally:
++            with connection.schema_editor() as editor:
++                editor.delete_model(AuthorWithUniqueAndIndexNameAndBirthday)
++
+     @skipUnlessDBFeature('allows_multiple_constraints_on_same_fields')
+     def test_remove_index_together_does_not_remove_meta_indexes(self):
+         with connection.schema_editor() as editor:

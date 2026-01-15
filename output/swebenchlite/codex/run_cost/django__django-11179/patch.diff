@@ -1,0 +1,36 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 92fe4affb9..7803452653 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -277,6 +277,9 @@ class Collector:
+             if self.can_fast_delete(instance):
+                 with transaction.mark_for_rollback_on_error():
+                     count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
++                # Mirror the normal deletion path: the in-memory instance no
++                # longer represents a row in the database.
++                setattr(instance, model._meta.pk.attname, None)
+                 return count, {model._meta.label: count}
+ 
+         with transaction.atomic(using=self.using, savepoint=False):
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 55eeb226ea..42322a36cc 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -139,6 +139,17 @@ class OnDeleteTests(TestCase):
+ 
+ 
+ class DeletionTests(TestCase):
++    def test_fast_delete_clears_pk(self):
++        """
++        Deleting a single instance with no dependencies uses the fast delete
++        optimization and should clear the instance's primary key.
++        """
++        b = Base.objects.create()
++        pk = b.pk
++        deleted, _rows_count = b.delete()
++        self.assertEqual(deleted, 1)
++        self.assertIsNone(b.pk)
++        self.assertFalse(Base.objects.filter(pk=pk).exists())
+ 
+     def test_m2m(self):
+         m = M.objects.create()

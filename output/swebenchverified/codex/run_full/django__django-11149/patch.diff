@@ -1,0 +1,159 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 880a2cc17b..741acad8ed 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -2113,29 +2113,43 @@ class InlineModelAdmin(BaseModelAdmin):
+ 
+     def has_add_permission(self, request, obj):
+         if self.opts.auto_created:
+-            # We're checking the rights to an auto-created intermediate model,
+-            # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # Auto-created intermediate models (M2M through tables) don't have
++            # their own permissions. Allow viewing the relationship based on
++            # the related model's permissions (see has_view_permission()), but
++            # require add/change permission on the parent model to mutate it.
++            parent_opts = self.parent_model._meta
++            codename = get_permission_codename('add' if obj is None else 'change', parent_opts)
++            return (
++                request.user.has_perm('%s.%s' % (parent_opts.app_label, codename)) and
++                self.has_view_permission(request, obj)
++            )
+         return super().has_add_permission(request)
+ 
+     def has_change_permission(self, request, obj=None):
+         if self.opts.auto_created:
+-            # We're checking the rights to an auto-created intermediate model,
+-            # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # See has_add_permission(): require the parent model's add/change
++            # permission (depending on whether the parent object exists) to
++            # allow edits to an auto-created M2M through model.
++            parent_opts = self.parent_model._meta
++            codename = get_permission_codename('add' if obj is None else 'change', parent_opts)
++            return (
++                request.user.has_perm('%s.%s' % (parent_opts.app_label, codename)) and
++                self.has_view_permission(request, obj)
++            )
+         return super().has_change_permission(request)
+ 
+     def has_delete_permission(self, request, obj=None):
+         if self.opts.auto_created:
+-            # We're checking the rights to an auto-created intermediate model,
+-            # which doesn't have its own individual permissions. The user needs
+-            # to have the view permission for the related model in order to
+-            # be able to do anything with the intermediate model.
+-            return self.has_view_permission(request, obj)
++            # Deleting through model instances removes relationships and should
++            # require change permission on the parent model.
++            if obj is None:
++                return False
++            parent_opts = self.parent_model._meta
++            codename = get_permission_codename('change', parent_opts)
++            return (
++                request.user.has_perm('%s.%s' % (parent_opts.app_label, codename)) and
++                self.has_view_permission(request, obj)
++            )
+         return super().has_delete_permission(request, obj)
+ 
+     def has_view_permission(self, request, obj=None):
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index 87835eb37b..0c7ee144f4 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl, urljoin, urlparse
+ 
+ import pytz
+ 
+-from django.contrib.admin import AdminSite, ModelAdmin
++from django.contrib.admin import AdminSite, ModelAdmin, TabularInline
+ from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+ from django.contrib.admin.models import ADDITION, DELETION, LogEntry
+ from django.contrib.admin.options import TO_FIELD_VAR
+@@ -24,7 +24,7 @@ from django.core.files import temp as tempfile
+ from django.forms.utils import ErrorList
+ from django.template.response import TemplateResponse
+ from django.test import (
+-    TestCase, modify_settings, override_settings, skipUnlessDBFeature,
++    RequestFactory, TestCase, modify_settings, override_settings, skipUnlessDBFeature,
+ )
+ from django.test.utils import override_script_prefix
+ from django.urls import NoReverseMatch, resolve, reverse
+@@ -2044,6 +2044,73 @@ class AdminViewPermissionsTest(TestCase):
+         self.assertRedirects(response, reverse('admin:admin_views_section_changelist'))
+         self.assertEqual(Article.objects.count(), 2)
+ 
++    def test_view_only_user_cannot_edit_auto_created_m2m_inline(self):
++        """
++        A view-only user must not be able to add or delete auto-created M2M
++        through model inlines.
++        """
++        self.viewuser.user_permissions.add(get_perm(Pizza, get_permission_codename('view', Pizza._meta)))
++        self.viewuser.user_permissions.add(get_perm(Topping, get_permission_codename('view', Topping._meta)))
++
++        pizza = Pizza.objects.create(name='Test pizza')
++        topping_1 = Topping.objects.create(name='Topping 1')
++        topping_2 = Topping.objects.create(name='Topping 2')
++        pizza.toppings.add(topping_1)
++
++        through_model = Pizza.toppings.through
++        parent_fk_name, other_fk_name = None, None
++        for field in through_model._meta.fields:
++            remote_model = getattr(getattr(field, 'remote_field', None), 'model', None)
++            if remote_model is Pizza:
++                parent_fk_name = field.name
++            elif remote_model is Topping:
++                other_fk_name = field.name
++        self.assertIsNotNone(parent_fk_name)
++        self.assertIsNotNone(other_fk_name)
++
++        through_obj = through_model.objects.get(**{parent_fk_name: pizza, other_fk_name: topping_1})
++
++        class PizzaToppingsInline(TabularInline):
++            model = through_model
++
++        request = RequestFactory().get('/')
++        request.user = self.viewuser
++        inline = PizzaToppingsInline(Pizza, AdminSite())
++        FormSet = inline.get_formset(request, obj=pizza)
++        prefix = FormSet.get_default_prefix()
++
++        # Attempt to delete the existing relationship.
++        data = {
++            '%s-TOTAL_FORMS' % prefix: '1',
++            '%s-INITIAL_FORMS' % prefix: '1',
++            '%s-MIN_NUM_FORMS' % prefix: '0',
++            '%s-MAX_NUM_FORMS' % prefix: '1000',
++            '%s-0-id' % prefix: str(through_obj.pk),
++            '%s-0-%s' % (prefix, other_fk_name): str(topping_1.pk),
++            '%s-0-DELETE' % prefix: 'on',
++        }
++        formset = FormSet(data=data, instance=pizza, prefix=prefix, queryset=inline.get_queryset(request))
++        self.assertIs(formset.can_delete, False)
++        self.assertIs(formset.is_valid(), True)
++        formset.save()
++        self.assertEqual(through_model.objects.filter(**{parent_fk_name: pizza}).count(), 1)
++
++        # Attempt to add a new relationship.
++        data = {
++            '%s-TOTAL_FORMS' % prefix: '2',
++            '%s-INITIAL_FORMS' % prefix: '1',
++            '%s-MIN_NUM_FORMS' % prefix: '0',
++            '%s-MAX_NUM_FORMS' % prefix: '1000',
++            '%s-0-id' % prefix: str(through_obj.pk),
++            '%s-0-%s' % (prefix, other_fk_name): str(topping_1.pk),
++            '%s-1-id' % prefix: '',
++            '%s-1-%s' % (prefix, other_fk_name): str(topping_2.pk),
++        }
++        formset = FormSet(data=data, instance=pizza, prefix=prefix, queryset=inline.get_queryset(request))
++        self.assertIs(formset.is_valid(), True)
++        formset.save()
++        self.assertEqual(through_model.objects.filter(**{parent_fk_name: pizza}).count(), 1)
++
+     def test_delete_view(self):
+         """Delete view should restrict access and actually delete items."""
+         delete_dict = {'post': 'yes'}

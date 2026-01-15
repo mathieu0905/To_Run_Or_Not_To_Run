@@ -1,0 +1,64 @@
+diff --git a/django/contrib/admin/helpers.py b/django/contrib/admin/helpers.py
+index dd154f72ee..7c550d6a26 100644
+--- a/django/contrib/admin/helpers.py
++++ b/django/contrib/admin/helpers.py
+@@ -209,7 +209,13 @@ class AdminReadonlyField:
+             remote_field.model._meta.model_name,
+         )
+         try:
+-            url = reverse(url_name, args=[quote(remote_obj.pk)])
++            # Use the current AdminSite (namespace) so custom AdminSite instances
++            # generate links under their own URL prefix.
++            url = reverse(
++                url_name,
++                args=[quote(remote_obj.pk)],
++                current_app=self.model_admin.admin_site.name,
++            )
+             return format_html('<a href="{}">{}</a>', url, remote_obj)
+         except NoReverseMatch:
+             return str(remote_obj)
+diff --git a/tests/admin_views/customadmin.py b/tests/admin_views/customadmin.py
+index a9d8a060b9..52e765c49b 100644
+--- a/tests/admin_views/customadmin.py
++++ b/tests/admin_views/customadmin.py
+@@ -55,6 +55,7 @@ site = Admin2(name="admin2")
+ 
+ site.register(models.Article, base_admin.ArticleAdmin)
+ site.register(models.Book, BookAdmin)
++site.register(models.ReadOnlyRelatedField, base_admin.ReadOnlyRelatedFieldAdmin)
+ site.register(models.Section, inlines=[base_admin.ArticleInline], search_fields=['name'])
+ site.register(models.Thing, base_admin.ThingAdmin)
+ site.register(models.Fabric, base_admin.FabricAdmin)
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index 9f9e924b62..39ea1558a5 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -5132,6 +5132,28 @@ class ReadonlyTest(AdminFieldExtractionMixin, TestCase):
+         # Related ForeignKey object not registered in admin.
+         self.assertContains(response, '<div class="readonly">Chapter 1</div>', html=True)
+ 
++    def test_readonly_foreignkey_links_custom_admin_site(self):
++        chapter = Chapter.objects.create(
++            title='Chapter 1',
++            content='content',
++            book=Book.objects.create(name='Book 1'),
++        )
++        language = Language.objects.create(iso='_40', name='Test')
++        obj = ReadOnlyRelatedField.objects.create(
++            chapter=chapter,
++            language=language,
++            user=self.superuser,
++        )
++        response = self.client.get(
++            reverse('admin2:admin_views_readonlyrelatedfield_change', args=(obj.pk,)),
++        )
++        user_url = reverse('admin2:auth_user_change', args=(self.superuser.pk,))
++        self.assertContains(
++            response,
++            '<div class="readonly"><a href="%s">super</a></div>' % user_url,
++            html=True,
++        )
++
+     def test_readonly_manytomany_backwards_ref(self):
+         """
+         Regression test for #16433 - backwards references for related objects

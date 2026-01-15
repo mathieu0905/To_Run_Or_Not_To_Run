@@ -1,0 +1,78 @@
+diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py
+index 2b306a579e..a519ebca41 100644
+--- a/django/core/management/commands/shell.py
++++ b/django/core/management/commands/shell.py
+@@ -84,13 +84,16 @@ class Command(BaseCommand):
+     def handle(self, **options):
+         # Execute the command and exit.
+         if options['command']:
+-            exec(options['command'])
++            # Mirror "python -c" behavior: execute in a fresh module-like
++            # namespace so that names created by the executed code are visible
++            # as globals (e.g. inside functions defined by that code).
++            exec(options['command'], {'__name__': '__main__'})
+             return
+ 
+         # Execute stdin if it has anything to read and exit.
+         # Not supported on Windows due to select.select() limitations.
+         if sys.platform != 'win32' and not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0)[0]:
+-            exec(sys.stdin.read())
++            exec(sys.stdin.read(), {'__name__': '__main__'})
+             return
+ 
+         available_shells = [options['interface']] if options['interface'] else self.shells
+diff --git a/tests/shell/tests.py b/tests/shell/tests.py
+index f33a9ae701..46693e22d2 100644
+--- a/tests/shell/tests.py
++++ b/tests/shell/tests.py
+@@ -21,6 +21,27 @@ class ShellCommandTestCase(SimpleTestCase):
+             )
+         self.assertEqual(cm.records[0].getMessage(), __version__)
+ 
++    def test_command_option_with_function_scope(self):
++        """
++        The -c/--command option should behave like "python -c": names imported
++        in the executed code must be available as globals (e.g. within
++        functions defined by that code).
++        """
++        with self.assertLogs('test', 'INFO') as cm:
++            call_command(
++                'shell',
++                command=(
++                    "import django\n"
++                    "from logging import getLogger\n"
++                    "\n"
++                    "def f():\n"
++                    "    getLogger('test').info(django.__version__)\n"
++                    "\n"
++                    "f()\n"
++                ),
++            )
++        self.assertEqual(cm.records[0].getMessage(), __version__)
++
+     @unittest.skipIf(sys.platform == 'win32', "Windows select() doesn't support file descriptors.")
+     @mock.patch('django.core.management.commands.shell.select')
+     def test_stdin_read(self, select):
+@@ -30,6 +51,22 @@ class ShellCommandTestCase(SimpleTestCase):
+             call_command('shell')
+         self.assertEqual(stdout.getvalue().strip(), '100')
+ 
++    @unittest.skipIf(sys.platform == 'win32', "Windows select() doesn't support file descriptors.")
++    @mock.patch('django.core.management.commands.shell.select')
++    def test_stdin_read_with_function_scope(self, select):
++        with captured_stdin() as stdin, captured_stdout() as stdout:
++            stdin.write(
++                "import django\n"
++                "\n"
++                "def f():\n"
++                "    print(django.__version__)\n"
++                "\n"
++                "f()\n"
++            )
++            stdin.seek(0)
++            call_command('shell')
++        self.assertEqual(stdout.getvalue().strip(), __version__)
++
+     @mock.patch('django.core.management.commands.shell.select.select')  # [1]
+     @mock.patch.dict('sys.modules', {'IPython': None})
+     def test_shell_with_ipython_not_installed(self, select):

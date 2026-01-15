@@ -1,0 +1,54 @@
+diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py
+index ccc2223a5f..65950590e2 100644
+--- a/django/db/models/fields/reverse_related.py
++++ b/django/db/models/fields/reverse_related.py
+@@ -310,7 +310,7 @@ class ManyToManyRel(ForeignObjectRel):
+     def identity(self):
+         return super().identity + (
+             self.through,
+-            self.through_fields,
++            make_hashable(self.through_fields),
+             self.db_constraint,
+         )
+ 
+diff --git a/tests/check_framework/test_model_checks.py b/tests/check_framework/test_model_checks.py
+index 3a626038fd..ee841c52b9 100644
+--- a/tests/check_framework/test_model_checks.py
++++ b/tests/check_framework/test_model_checks.py
+@@ -481,3 +481,36 @@ class ModelDefaultAutoFieldTests(SimpleTestCase):
+                 app_label = 'check_framework.apps.CheckPKConfig'
+ 
+         self.assertEqual(checks.run_checks(app_configs=apps.get_app_configs()), [])
++
++
++@isolate_apps('check_framework', attr_name='apps')
++@override_system_checks([checks.model_checks.check_all_models])
++class ManyToManyRelIdentityHashableTests(SimpleTestCase):
++    def test_through_fields_list_is_hashable_in_identity(self):
++        class Parent(models.Model):
++            id = models.AutoField(primary_key=True)
++            name = models.CharField(max_length=256)
++
++        class ProxyParent(Parent):
++            class Meta:
++                proxy = True
++
++        class Child(models.Model):
++            id = models.AutoField(primary_key=True)
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
++            many_to_many_field = models.ManyToManyField(
++                to=Parent,
++                through='ManyToManyModel',
++                through_fields=['child', 'parent'],
++                related_name='something',
++            )
++
++        class ManyToManyModel(models.Model):
++            id = models.AutoField(primary_key=True)
++            parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='+')
++            child = models.ForeignKey(Child, on_delete=models.CASCADE, related_name='+')
++            second_child = models.ForeignKey(Child, on_delete=models.CASCADE, null=True, default=None)
++
++        # Ensure model checks don't crash when proxy models trigger hashing
++        # of related objects containing ManyToManyRel.through_fields.
++        self.assertEqual(checks.run_checks(app_configs=self.apps.get_app_configs()), [])

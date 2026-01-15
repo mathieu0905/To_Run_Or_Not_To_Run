@@ -1,0 +1,44 @@
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..43511e3645 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -398,6 +398,10 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, models.JSONField):
++        # Use the form field's serializer so the output is valid JSON and
++        # InvalidJSONInput is preserved when re-displaying a bound form.
++        return field.formfield().prepare_value(value)
+     else:
+         return display_for_value(value, empty_value_display)
+ 
+diff --git a/tests/admin_utils/tests.py b/tests/admin_utils/tests.py
+index 463ba9556d..6565a34c41 100644
+--- a/tests/admin_utils/tests.py
++++ b/tests/admin_utils/tests.py
+@@ -9,6 +9,7 @@ from django.contrib.admin.utils import (
+     flatten_fieldsets, label_for_field, lookup_field, quote,
+ )
+ from django.db import DEFAULT_DB_ALIAS, models
++from django.forms.fields import InvalidJSONInput
+ from django.test import SimpleTestCase, TestCase, override_settings
+ from django.utils.formats import localize
+ from django.utils.safestring import mark_safe
+@@ -197,6 +198,16 @@ class UtilsTests(SimpleTestCase):
+         display_value = display_for_field(12345, models.IntegerField(), self.empty_value)
+         self.assertEqual(display_value, '12,345')
+ 
++    def test_jsonfield_display_for_field(self):
++        display_value = display_for_field({"foo": "bar"}, models.JSONField(), self.empty_value)
++        self.assertEqual(display_value, '{"foo": "bar"}')
++
++        # InvalidJSONInput should be preserved, e.g. when re-displaying a bound
++        # (invalid) form.
++        invalid_value = InvalidJSONInput("{'foo': 'bar'}")
++        display_value = display_for_field(invalid_value, models.JSONField(), self.empty_value)
++        self.assertIs(display_value, invalid_value)
++
+     def test_list_display_for_value(self):
+         display_value = display_for_value([1, 2, 3], self.empty_value)
+         self.assertEqual(display_value, '1, 2, 3')

@@ -1,0 +1,47 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 7649c39262..d48c756a6c 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -32,7 +32,10 @@ class SQLCompiler:
+         self.select = None
+         self.annotation_col_map = None
+         self.klass_info = None
+-        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)')
++        # DOTALL is required to correctly handle multiline SQL fragments in
++        # ORDER BY expressions (e.g. RawSQL with newlines). This regex is used
++        # to strip the ordering direction when de-duplicating ORDER BY terms.
++        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)', re.DOTALL)
+         self._meta_ordering = None
+ 
+     def setup_query(self):
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index c22ff34ee8..c3fef87e77 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -70,6 +70,26 @@ class BasicExpressionsTests(TestCase):
+             ['<Company: Example Inc.>', '<Company: Foobar Ltd.>', '<Company: Test GmbH>'],
+         )
+ 
++    def test_order_by_multiline_rawsql_not_deduplicated(self):
++        qs = Company.objects.order_by(
++            RawSQL(
++                '''
++                case when 1=1
++                     then 2 else 1 end
++                ''',
++                [],
++            ).desc(),
++            RawSQL(
++                '''
++                case when 1=0
++                     then 2 else 1 end
++                ''',
++                [],
++            ).asc(),
++        )
++        compiler = qs.query.get_compiler(connection=connection)
++        self.assertEqual(len(compiler.get_order_by()), 2)
++
+     def test_annotate_values_count(self):
+         companies = Company.objects.annotate(foo=RawSQL('%s', ['value']))
+         self.assertEqual(companies.count(), 3)

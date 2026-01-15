@@ -1,5 +1,5 @@
 diff --git a/astropy/io/fits/connect.py b/astropy/io/fits/connect.py
-index 4b6150f4a..01770463d 100644
+index 4b6150f4a..1f51fe483 100644
 --- a/astropy/io/fits/connect.py
 +++ b/astropy/io/fits/connect.py
 @@ -69,7 +69,7 @@ def is_fits(origin, filepath, fileobj, *args, **kwargs):
@@ -7,7 +7,32 @@ index 4b6150f4a..01770463d 100644
          ):
              return True
 -    return isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))
-+    return args and isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))
++    return len(args) > 0 and isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))
  
  
  def _decode_mixins(tbl):
+diff --git a/astropy/io/fits/tests/test_connect.py b/astropy/io/fits/tests/test_connect.py
+index c5c31033f..baf188dc3 100644
+--- a/astropy/io/fits/tests/test_connect.py
++++ b/astropy/io/fits/tests/test_connect.py
+@@ -1002,3 +1002,20 @@ def test_meta_not_modified(tmp_path):
+     t.write(filename)
+     assert len(t.meta) == 1
+     assert t.meta["comments"] == ["a", "b"]
++
++
++def test_identify_format_with_empty_args():
++    """
++    Regression test for issue where identify_format with empty args
++    caused IndexError in is_fits function.
++    """
++    from astropy.io.registry import identify_format
++
++    # Test with non-FITS extension and empty args (the bug case)
++    result = identify_format("write", Table, "test.ecsv", None, [], {})
++    assert "fits" not in result
++    assert "ascii.ecsv" in result
++
++    # Test with FITS extension and empty args (should still work)
++    result = identify_format("write", Table, "test.fits", None, [], {})
++    assert "fits" in result

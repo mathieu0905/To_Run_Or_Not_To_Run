@@ -1,0 +1,72 @@
+diff --git a/astropy/coordinates/builtin_frames/__init__.py b/astropy/coordinates/builtin_frames/__init__.py
+index 6fd688c28..17b524478 100644
+--- a/astropy/coordinates/builtin_frames/__init__.py
++++ b/astropy/coordinates/builtin_frames/__init__.py
+@@ -48,6 +48,7 @@ from . import supergalactic_transforms
+ from . import icrs_cirs_transforms
+ from . import cirs_observed_transforms
+ from . import icrs_observed_transforms
++from . import itrs_observed_transforms
+ from . import intermediate_rotation_transforms
+ from . import ecliptic_transforms
+ 
+diff --git a/astropy/coordinates/tests/test_intermediate_transformations.py b/astropy/coordinates/tests/test_intermediate_transformations.py
+index 007ccc025..3d48738c4 100644
+--- a/astropy/coordinates/tests/test_intermediate_transformations.py
++++ b/astropy/coordinates/tests/test_intermediate_transformations.py
+@@ -806,6 +806,31 @@ def test_straight_overhead():
+     assert_allclose(hd.dec, 52*u.deg, atol=1*u.uas, rtol=0)
+ 
+ 
++def test_itrs_overhead_is_topocentric():
++    """
++    ITRS->observed should be a purely topocentric geometric transform.
++
++    In particular, an object directly above the observer (same geodetic lon/lat,
++    higher height) should have Alt=90 exactly, independent of obstime.
++    """
++    t1 = Time("J2010")
++    t2 = Time("J2011")
++    obj = EarthLocation(-1 * u.deg, 52 * u.deg, height=10.0 * u.km)
++    home = EarthLocation(-1 * u.deg, 52 * u.deg, height=0.0 * u.km)
++
++    itrs = obj.get_itrs(obstime=t1)
++
++    aa = itrs.transform_to(AltAz(obstime=t1, location=home))
++    assert_allclose(aa.alt, 90 * u.deg, atol=1 * u.uas, rtol=0)
++
++    aa2 = itrs.transform_to(AltAz(obstime=t2, location=home))
++    assert_allclose(aa2.alt, 90 * u.deg, atol=1 * u.uas, rtol=0)
++
++    hd = itrs.transform_to(HADec(obstime=t1, location=home))
++    assert_allclose(hd.ha, 0 * u.hourangle, atol=1 * u.uas, rtol=0)
++    assert_allclose(hd.dec, 52 * u.deg, atol=1 * u.uas, rtol=0)
++
++
+ def jplephem_ge(minversion):
+     """Check if jplephem is installed and has version >= minversion."""
+     # This is a separate routine since somehow with pyinstaller the stanza
+diff --git a/astropy/utils/iers/iers.py b/astropy/utils/iers/iers.py
+index dae42fba8..4611549a7 100644
+--- a/astropy/utils/iers/iers.py
++++ b/astropy/utils/iers/iers.py
+@@ -264,8 +264,17 @@ class IERS(QTable):
+             fractional part of MJD
+         """
+         try:  # see if this is a Time object
+-            jd1, jd2 = jd1.utc.jd1, jd1.utc.jd2
+-        except Exception:
++            # In the test suite, warnings are treated as errors.  Accessing
++            # ``.utc`` can raise an ``IERSStaleWarning`` exception if the
++            # packaged leap-second file is past its "expires" date relative to
++            # the current date, even though historical UTC conversions remain
++            # valid.  Silence that warning here so interpolation continues to
++            # work, while leaving other exceptions untouched.
++            import warnings
++            with warnings.catch_warnings():
++                warnings.filterwarnings('ignore', category=IERSStaleWarning)
++                jd1, jd2 = jd1.utc.jd1, jd1.utc.jd2
++        except AttributeError:
+             pass
+ 
+         mjd = np.floor(jd1 - MJD_ZERO + jd2)

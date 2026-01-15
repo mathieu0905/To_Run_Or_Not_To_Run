@@ -1,0 +1,90 @@
+diff --git a/django/views/debug.py b/django/views/debug.py
+index e6b7d4d821..bcdc1a0430 100644
+--- a/django/views/debug.py
++++ b/django/views/debug.py
+@@ -2,6 +2,7 @@ import functools
+ import re
+ import sys
+ import types
++from collections.abc import Mapping
+ from pathlib import Path
+ 
+ from django.conf import settings
+@@ -83,13 +84,20 @@ class SafeExceptionReporterFilter:
+     def cleanse_setting(self, key, value):
+         """
+         Cleanse an individual setting key/value of sensitive content. If the
+-        value is a dictionary, recursively cleanse the keys in that dictionary.
++        value is a dictionary or a list/tuple, recursively cleanse sensitive
++        keys.
+         """
+         try:
+             if self.hidden_settings.search(key):
+                 cleansed = self.cleansed_substitute
+-            elif isinstance(value, dict):
++            elif isinstance(value, Mapping):
+                 cleansed = {k: self.cleanse_setting(k, v) for k, v in value.items()}
++            elif isinstance(value, (list, tuple)):
++                # Recurse into built-in container types that commonly appear in
++                # settings (e.g. LOGGING handlers, middleware, etc.). Don't
++                # attempt to iterate over arbitrary iterables as that could
++                # consume generators or other one-shot iterators.
++                cleansed = type(value)(self.cleanse_setting(key, v) for v in value)
+             else:
+                 cleansed = value
+         except TypeError:
+diff --git a/tests/view_tests/tests/test_debug.py b/tests/view_tests/tests/test_debug.py
+index 8c64bc343e..934e9682b2 100644
+--- a/tests/view_tests/tests/test_debug.py
++++ b/tests/view_tests/tests/test_debug.py
+@@ -1249,6 +1249,50 @@ class ExceptionReporterFilterTests(ExceptionReportTestMixin, LoggingCaptureMixin
+             {'login': 'cooper', 'password': reporter_filter.cleansed_substitute},
+         )
+ 
++    def test_cleanse_setting_recurses_in_iterables(self):
++        reporter_filter = SafeExceptionReporterFilter()
++        initial = {
++            'foo': 'value',
++            'something': [
++                {'foo': 'value'},
++                {'secret': 'value'},
++                {'token': 'value'},
++            ],
++            'else': (
++                [
++                    {'foo': 'value'},
++                    {'secret': 'value'},
++                    {'token': 'value'},
++                ],
++                [
++                    {'foo': 'value'},
++                    {'secret': 'value'},
++                    {'token': 'value'},
++                ],
++            ),
++        }
++        expected = {
++            'foo': 'value',
++            'something': [
++                {'foo': 'value'},
++                {'secret': reporter_filter.cleansed_substitute},
++                {'token': reporter_filter.cleansed_substitute},
++            ],
++            'else': (
++                [
++                    {'foo': 'value'},
++                    {'secret': reporter_filter.cleansed_substitute},
++                    {'token': reporter_filter.cleansed_substitute},
++                ],
++                [
++                    {'foo': 'value'},
++                    {'secret': reporter_filter.cleansed_substitute},
++                    {'token': reporter_filter.cleansed_substitute},
++                ],
++            ),
++        }
++        self.assertEqual(reporter_filter.cleanse_setting('SETTING_NAME', initial), expected)
++
+     def test_request_meta_filtering(self):
+         request = self.rf.get('/', HTTP_SECRET_HEADER='super_secret')
+         reporter_filter = SafeExceptionReporterFilter()

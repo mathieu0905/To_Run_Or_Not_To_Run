@@ -1,0 +1,35 @@
+diff --git a/django/contrib/auth/forms.py b/django/contrib/auth/forms.py
+index 20d8922799..ec0bc24007 100644
+--- a/django/contrib/auth/forms.py
++++ b/django/contrib/auth/forms.py
+@@ -34,6 +34,12 @@ class ReadOnlyPasswordHashWidget(forms.Widget):
+     template_name = 'auth/widgets/read_only_password_hash.html'
+     read_only = True
+ 
++    def id_for_label(self, id_):
++        # The widget renders plain text (a <div>), not a labelable form control.
++        # Returning None prevents <label for="..."> pointing to a non-labelable
++        # element.
++        return None
++
+     def get_context(self, name, value, attrs):
+         context = super().get_context(name, value, attrs)
+         summary = []
+diff --git a/tests/auth_tests/test_forms.py b/tests/auth_tests/test_forms.py
+index 7a731bedc8..65a4f76bf4 100644
+--- a/tests/auth_tests/test_forms.py
++++ b/tests/auth_tests/test_forms.py
+@@ -682,6 +682,13 @@ class UserChangeFormTest(TestDataMixin, TestCase):
+         validator = next(v for v in User._meta.get_field('username').validators if v.code == 'invalid')
+         self.assertEqual(form["username"].errors, [str(validator.message)])
+ 
++    def test_readonly_password_hash_widget_label_has_no_for_attribute(self):
++        user = User.objects.get(username='testclient')
++        form = UserChangeForm(instance=user)
++        html = form.as_table()
++        self.assertIn('for="id_username"', html)
++        self.assertNotIn('for="id_password"', html)
++
+     def test_bug_14242(self):
+         # A regression test, introduce by adding an optimization for the
+         # UserChangeForm.

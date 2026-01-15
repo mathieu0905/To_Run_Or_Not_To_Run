@@ -1,0 +1,55 @@
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 105dc93251..11d1686e1c 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -262,9 +262,12 @@ class Exact(FieldGetDbPrepValueMixin, BuiltinLookup):
+         from django.db.models.sql.query import Query
+         if isinstance(self.rhs, Query):
+             if self.rhs.has_limit_one():
+-                # The subquery must select only the pk.
+-                self.rhs.clear_select_clause()
+-                self.rhs.add_fields(['pk'])
++                # If the subquery doesn't explicitly select a field, it must
++                # select only the pk. Otherwise, preserve the existing select
++                # clause (e.g. values()/annotate()).
++                if not self.rhs.has_select_fields:
++                    self.rhs.clear_select_clause()
++                    self.rhs.add_fields(['pk'])
+             else:
+                 raise ValueError(
+                     'The QuerySet value for an exact lookup must be limited to '
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index a603824c0d..746bf4930d 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -5,6 +5,7 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import FieldError
+ from django.db import connection
++from django.db.models import Max
+ from django.db.models.expressions import Exists, OuterRef
+ from django.db.models.functions import Substr
+ from django.test import TestCase, skipUnlessDBFeature
+@@ -891,6 +892,22 @@ class LookupTests(TestCase):
+             [self.a5, self.a6, self.a7]
+         )
+ 
++    def test_exact_sliced_queryset_with_explicit_select_preserves_group_by(self):
++        Author.objects.create(name='Null 1', alias=None)
++        Author.objects.create(name='Null 2', alias=None)
++        inner = (
++            Author.objects.filter(alias__isnull=True)
++            .values('alias')
++            .annotate(m=Max('id'))
++            .values('m')
++        )
++        qs = Author.objects.filter(id=inner[:1])
++        qn = connection.ops.quote_name
++        sql = str(qs.query)
++        self.assertIn('GROUP BY', sql)
++        self.assertIn(f'GROUP BY U0.{qn("alias")}', sql)
++        self.assertNotIn(f'GROUP BY U0.{qn("id")}', sql)
++
+     def test_exact_sliced_queryset_not_limited_to_one(self):
+         msg = (
+             'The QuerySet value for an exact lookup must be limited to one '

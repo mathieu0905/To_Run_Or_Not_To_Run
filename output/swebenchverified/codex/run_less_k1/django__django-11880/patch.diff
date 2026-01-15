@@ -1,0 +1,37 @@
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index 03cd8af8d7..3d400b5789 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -199,6 +199,10 @@ class Field:
+         result = copy.copy(self)
+         memo[id(self)] = result
+         result.widget = copy.deepcopy(self.widget, memo)
++        # error_messages must be a deep copy: Form/ModelForm instances
++        # deepcopy their class' base_fields, and shared error_messages would
++        # leak dynamic per-instance updates across forms.
++        result.error_messages = copy.deepcopy(self.error_messages, memo)
+         result.validators = self.validators[:]
+         return result
+ 
+diff --git a/tests/forms_tests/field_tests/test_base.py b/tests/forms_tests/field_tests/test_base.py
+index 4ddbea3414..8f46b32d09 100644
+--- a/tests/forms_tests/field_tests/test_base.py
++++ b/tests/forms_tests/field_tests/test_base.py
+@@ -35,6 +35,17 @@ class BasicFieldsTests(SimpleTestCase):
+         self.assertEqual(f.fields['field1'].widget.choices, [('1', '1')])
+         self.assertEqual(f.fields['field2'].widget.choices, [('2', '2')])
+ 
++    def test_field_deepcopies_error_messages(self):
++        class TestForm(Form):
++            field = Field(error_messages={'required': ['Base message']})
++
++        f1 = TestForm()
++        f1.fields['field'].error_messages['required'].append('Extra message')
++
++        f2 = TestForm()
++        self.assertIsNot(f1.fields['field'].error_messages, f2.fields['field'].error_messages)
++        self.assertEqual(f2.fields['field'].error_messages['required'], ['Base message'])
++
+ 
+ class DisabledFieldTests(SimpleTestCase):
+     def test_disabled_field_has_changed_always_false(self):

@@ -1,0 +1,49 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 08d7faf194..564f7ed2ba 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -299,6 +299,10 @@ class Query(BaseExpression):
+         # Copy references to everything.
+         obj.__dict__ = self.__dict__.copy()
+         # Clone attributes that can't use shallow copy.
++        # Combined queries (UNION/INTERSECTION/DIFFERENCE) must not share
++        # mutable state between QuerySet clones.
++        if self.combined_queries:
++            obj.combined_queries = tuple(query.clone() for query in self.combined_queries)
+         obj.alias_refcount = self.alias_refcount.copy()
+         obj.alias_map = self.alias_map.copy()
+         obj.external_aliases = self.external_aliases.copy()
+diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
+index 227972e8c4..3aa616bf84 100644
+--- a/tests/queries/test_qs_combinators.py
++++ b/tests/queries/test_qs_combinators.py
+@@ -180,6 +180,29 @@ class QuerySetSetOperationTests(TestCase):
+         qs2 = Number.objects.order_by('-num')[:2]
+         self.assertNumbersEqual(qs1.union(qs2).order_by('-num')[:4], [9, 8, 1, 0])
+ 
++    @skipUnlessDBFeature('supports_slicing_ordering_in_compound')
++    def test_union_ordering_subquery_does_not_mutate_queryset(self):
++        """
++        Ensure that evaluating derived querysets (e.g. clearing ordering and
++        selecting a subset of columns) doesn't corrupt the original queryset
++        when set operations are involved.
++        """
++        ReservedName.objects.bulk_create([
++            ReservedName(name='a', order=1),
++            ReservedName(name='b', order=2),
++            ReservedName(name='c', order=3),
++            ReservedName(name='d', order=4),
++        ])
++        qs = ReservedName.objects.filter(order__in=[1, 2]).union(
++            ReservedName.objects.filter(order__in=[3, 4]).order_by('order')
++        )
++        # __repr__ evaluates a limited slice and shouldn't alter qs.
++        repr(qs)
++        # Evaluate a derived queryset that changes ordering and selected columns.
++        list(qs.order_by().values_list('pk', flat=True))
++        # The original queryset remains usable.
++        repr(qs)
++
+     @skipIfDBFeature('supports_slicing_ordering_in_compound')
+     def test_unsupported_ordering_slicing_raises_db_error(self):
+         qs1 = Number.objects.all()

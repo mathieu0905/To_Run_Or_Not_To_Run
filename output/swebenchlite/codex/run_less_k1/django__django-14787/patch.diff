@@ -1,0 +1,69 @@
+diff --git a/django/utils/decorators.py b/django/utils/decorators.py
+index 5c9a5d01c7..33471a68d7 100644
+--- a/django/utils/decorators.py
++++ b/django/utils/decorators.py
+@@ -1,6 +1,6 @@
+ "Functions that help with dynamically creating decorators for views."
+ 
+-from functools import partial, update_wrapper, wraps
++from functools import update_wrapper, wraps
+ 
+ 
+ class classonlymethod(classmethod):
+@@ -33,14 +33,20 @@ def _multi_decorate(decorators, method):
+         decorators = [decorators]
+ 
+     def _wrapper(self, *args, **kwargs):
+-        # bound_method has the signature that 'decorator' expects i.e. no
+-        # 'self' argument, but it's a closure over self so it can call
+-        # 'func'. Also, wrap method.__get__() in a function because new
+-        # attributes can't be set on bound method objects, only on functions.
+-        bound_method = partial(method.__get__(self, type(self)))
++        # bound_method has the signature that 'decorator' expects (no 'self'
++        # argument), but it's a closure over self so it can call 'method'.
++        #
++        # Wrap method.__get__() in a function because decorators may assume a
++        # real function object (e.g. via functools.wraps() accessing __name__).
++        bound_method = method.__get__(self, type(self))
++
++        def bound_method_wrapper(*args, **kwargs):
++            return bound_method(*args, **kwargs)
++
++        update_wrapper(bound_method_wrapper, bound_method)
+         for dec in decorators:
+-            bound_method = dec(bound_method)
+-        return bound_method(*args, **kwargs)
++            bound_method_wrapper = dec(bound_method_wrapper)
++        return bound_method_wrapper(*args, **kwargs)
+ 
+     # Copy any attributes that a decorator adds to the function it decorates.
+     for dec in decorators:
+diff --git a/tests/decorators/tests.py b/tests/decorators/tests.py
+index 46b01c1852..189cb57762 100644
+--- a/tests/decorators/tests.py
++++ b/tests/decorators/tests.py
+@@ -207,6 +207,24 @@ class MethodDecoratorTests(SimpleTestCase):
+ 
+         self.assertEqual("test:hello", Test().say("hello"))
+ 
++    def test_wraps_can_be_used_inside_decorator(self):
++        """
++        method_decorator() shouldn't pass a functools.partial() instance to
++        decorators since it may not provide function attributes like __name__.
++        """
++        def logger(func):
++            @wraps(func)
++            def inner(*args, **kwargs):
++                return func(*args, **kwargs)
++            return inner
++
++        class Test:
++            @method_decorator(logger)
++            def hello_world(self):
++                return "hello"
++
++        self.assertEqual(Test().hello_world(), "hello")
++
+     def test_preserve_attributes(self):
+         # Sanity check myattr_dec and myattr2_dec
+         @myattr_dec

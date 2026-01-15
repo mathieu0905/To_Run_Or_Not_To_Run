@@ -1,0 +1,66 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index d610dc86f0..3615497736 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -14,6 +14,7 @@ from django.conf import settings
+ from django.core import checks, exceptions, validators
+ from django.db import connection, connections, router
+ from django.db.models.constants import LOOKUP_SEP
++from django.db.models.enums import Choices
+ from django.db.models.query_utils import DeferredAttribute, RegisterLookupMixin
+ from django.utils import timezone
+ from django.utils.datastructures import DictWrapper
+@@ -786,7 +787,14 @@ class Field(RegisterLookupMixin):
+ 
+     def pre_save(self, model_instance, add):
+         """Return field's value just before saving."""
+-        return getattr(model_instance, self.attname)
++        value = getattr(model_instance, self.attname)
++        # Coerce TextChoices/IntegerChoices (and other models.Choices) members
++        # to their underlying values so the in-memory value matches the value
++        # that will be stored in the database.
++        if isinstance(value, Choices):
++            value = value.value
++            setattr(model_instance, self.attname, value)
++        return value
+ 
+     def get_prep_value(self, value):
+         """Perform preliminary non-db specific value checks and conversions."""
+diff --git a/tests/model_fields/test_charfield.py b/tests/model_fields/test_charfield.py
+index cf3ce0c4c5..fbb2ce9379 100644
+--- a/tests/model_fields/test_charfield.py
++++ b/tests/model_fields/test_charfield.py
+@@ -34,6 +34,10 @@ class TestCharField(TestCase):
+             F = 'Festival!'
+ 
+         p1 = Post.objects.create(title=Event.C, body=Event.F)
++        self.assertIs(type(p1.title), str)
++        self.assertIs(type(p1.body), str)
++        self.assertEqual(str(p1.title), 'Carnival!')
++        self.assertEqual(str(p1.body), 'Festival!')
+         p1.refresh_from_db()
+         self.assertEqual(p1.title, 'Carnival!')
+         self.assertEqual(p1.body, 'Festival!')
+diff --git a/tests/model_fields/test_integerfield.py b/tests/model_fields/test_integerfield.py
+index 606d71057a..e885f45d10 100644
+--- a/tests/model_fields/test_integerfield.py
++++ b/tests/model_fields/test_integerfield.py
+@@ -42,6 +42,18 @@ class IntegerFieldTests(TestCase):
+         self.assertEqual(qs.count(), 1)
+         self.assertEqual(qs[0].value, max_value)
+ 
++    def test_assignment_from_choice_enum(self):
++        class Choices(models.IntegerChoices):
++            A = 1
++            B = 2
++
++        obj = self.model.objects.create(value=Choices.A)
++        self.assertIs(type(obj.value), int)
++        self.assertEqual(str(obj.value), '1')
++        obj.refresh_from_db()
++        self.assertIs(type(obj.value), int)
++        self.assertEqual(obj.value, 1)
++
+     def test_backend_range_save(self):
+         """
+         Backend specific ranges can be saved without corruption.

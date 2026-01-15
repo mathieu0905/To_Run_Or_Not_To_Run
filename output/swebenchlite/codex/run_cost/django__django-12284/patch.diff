@@ -1,0 +1,76 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 1a55d3d417..fc9c50401f 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -2,6 +2,7 @@ import collections.abc
+ import copy
+ import datetime
+ import decimal
++import inspect
+ import operator
+ import uuid
+ import warnings
+@@ -764,12 +765,25 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            if not hasattr(cls, 'get_%s_display' % self.name):
+-                setattr(
+-                    cls,
+-                    'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self),
+-                )
++            display_method_name = 'get_%s_display' % self.name
++            # Don't clobber user-defined display methods. However, override
++            # inherited auto-generated methods so that subclasses use the
++            # correct Field instance (e.g. when a field is overridden).
++            if display_method_name not in cls.__dict__:
++                try:
++                    inherited = inspect.getattr_static(cls, display_method_name)
++                except AttributeError:
++                    inherited = None
++                if inherited is None or (
++                    isinstance(inherited, partialmethod)
++                    and getattr(inherited.func, "__name__", None) == "_get_FIELD_display"
++                    and "field" in (inherited.keywords or {})
++                ):
++                    setattr(
++                        cls,
++                        display_method_name,
++                        partialmethod(cls._get_FIELD_display, field=self),
++                    )
+ 
+     def get_filter_kwargs_for_object(self, obj):
+         """
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index a3b805409c..e47c72fa3e 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -178,6 +178,27 @@ class GetFieldDisplayTests(SimpleTestCase):
+         f = FooBar(foo_bar=1)
+         self.assertEqual(f.get_foo_bar_display(), 'something')
+ 
++    def test_overridden_field_choices_in_subclass(self):
++        """
++        get_FOO_display() uses the correct Field instance when a subclass
++        overrides a field with choices.
++        """
++        class InheritedChoicesAbstractBase(models.Model):
++            foo_choice = [('A', 'output1'), ('B', 'output2')]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++            class Meta:
++                abstract = True
++
++        class InheritedChoicesChild(InheritedChoicesAbstractBase):
++            foo_choice = [('A', 'output1'), ('B', 'output2'), ('C', 'output3')]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++        self.assertEqual(
++            InheritedChoicesChild(field_foo='C').get_field_foo_display(),
++            'output3',
++        )
++
+     def test_iterator_choices(self):
+         """
+         get_choices() works with Iterators.

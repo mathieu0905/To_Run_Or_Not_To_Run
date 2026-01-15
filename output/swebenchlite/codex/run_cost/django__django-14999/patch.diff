@@ -1,0 +1,60 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index 982816be3a..a381e91b00 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -320,11 +320,24 @@ class RenameModel(ModelOperation):
+         new_model = to_state.apps.get_model(app_label, self.new_name)
+         if self.allow_migrate_model(schema_editor.connection.alias, new_model):
+             old_model = from_state.apps.get_model(app_label, self.old_name)
++            old_db_table = old_model._meta.db_table
++            new_db_table = new_model._meta.db_table
++            # If the model's table name doesn't change (e.g. explicit
++            # Meta.db_table), renaming the model is a pure state operation and
++            # should not touch the database. Avoid triggering backend-specific
++            # "alter field" behavior (e.g. FK constraint recreation).
++            if (
++                old_db_table == new_db_table or (
++                    schema_editor.connection.features.ignores_table_name_case and
++                    old_db_table.lower() == new_db_table.lower()
++                )
++            ):
++                return
+             # Move the main table
+             schema_editor.alter_db_table(
+                 new_model,
+-                old_model._meta.db_table,
+-                new_model._meta.db_table,
++                old_db_table,
++                new_db_table,
+             )
+             # Alter the fields pointing to us
+             for related_object in old_model._meta.related_objects:
+diff --git a/tests/migrations/test_operations.py b/tests/migrations/test_operations.py
+index 11961a1f40..47d66b5135 100644
+--- a/tests/migrations/test_operations.py
++++ b/tests/migrations/test_operations.py
+@@ -671,6 +671,24 @@ class OperationTests(OperationTestBase):
+         self.assertNotIn(('migrations', 'bar'), state.models)
+         self.assertIn(('migrations', 'foo'), state.models)
+ 
++    def test_rename_model_db_table_noop(self):
++        """
++        RenameModel is a database no-op when Meta.db_table keeps the table name
++        unchanged.
++        """
++        app_label = "test_rnmo_db_table_noop"
++        project_state = self.set_up_test_model(
++            app_label,
++            related_model=True,
++            db_table=f"{app_label}_pony_table",
++        )
++        operation = migrations.RenameModel("Pony", "Horse")
++        new_state = project_state.clone()
++        operation.state_forwards(app_label, new_state)
++        with connection.schema_editor(collect_sql=True) as editor:
++            operation.database_forwards(app_label, editor, project_state, new_state)
++        self.assertEqual(editor.collected_sql, [])
++
+     def test_rename_model_with_self_referential_fk(self):
+         """
+         Tests the RenameModel operation on model with self referential FK.

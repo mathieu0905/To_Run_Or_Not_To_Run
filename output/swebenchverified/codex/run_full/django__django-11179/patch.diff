@@ -1,0 +1,38 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 92fe4affb9..377b2facc8 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -272,11 +272,18 @@ class Collector:
+         deleted_counter = Counter()
+ 
+         # Optimize for the case with a single obj and no dependencies
+-        if len(self.data) == 1 and len(instances) == 1:
+-            instance = list(instances)[0]
+-            if self.can_fast_delete(instance):
++        if len(self.data) == 1:
++            model, instances = next(iter(self.data.items()))
++            if len(instances) == 1:
++                instance = next(iter(instances))
++            else:
++                instance = None
++            if instance is not None and self.can_fast_delete(instance):
+                 with transaction.mark_for_rollback_on_error():
+                     count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
++                # Mirror the instance state update done below for the general
++                # code path: after deletion, the instance's PK is cleared.
++                setattr(instance, model._meta.pk.attname, None)
+                 return count, {model._meta.label: count}
+ 
+         with transaction.atomic(using=self.using, savepoint=False):
+diff --git a/tests/delete/tests.py b/tests/delete/tests.py
+index 55eeb226ea..256dd80bf3 100644
+--- a/tests/delete/tests.py
++++ b/tests/delete/tests.py
+@@ -91,6 +91,7 @@ class OnDeleteTests(TestCase):
+             # RelToBase should not be queried.
+             b.delete()
+         self.assertEqual(Base.objects.count(), 0)
++        self.assertIsNone(b.pk)
+ 
+     def test_inheritance_cascade_up(self):
+         child = RChild.objects.create()

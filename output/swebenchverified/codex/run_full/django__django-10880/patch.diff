@@ -1,0 +1,47 @@
+diff --git a/django/db/models/aggregates.py b/django/db/models/aggregates.py
+index ac0b62d0bf..c3ac674c79 100644
+--- a/django/db/models/aggregates.py
++++ b/django/db/models/aggregates.py
+@@ -68,7 +68,9 @@ class Aggregate(Func):
+         return []
+ 
+     def as_sql(self, compiler, connection, **extra_context):
+-        extra_context['distinct'] = 'DISTINCT' if self.distinct else ''
++        # DISTINCT must be separated from the following expression, e.g.
++        # COUNT(DISTINCT CASE WHEN ...) rather than COUNT(DISTINCTCASE ...).
++        extra_context['distinct'] = 'DISTINCT ' if self.distinct else ''
+         if self.filter:
+             if connection.features.supports_aggregate_filter_clause:
+                 filter_sql, filter_params = self.filter.as_sql(compiler, connection)
+diff --git a/tests/aggregation/tests.py b/tests/aggregation/tests.py
+index 8cac90f020..65fbaa597d 100644
+--- a/tests/aggregation/tests.py
++++ b/tests/aggregation/tests.py
+@@ -5,8 +5,8 @@ from decimal import Decimal
+ from django.core.exceptions import FieldError
+ from django.db import connection
+ from django.db.models import (
+-    Avg, Count, DecimalField, DurationField, F, FloatField, Func, IntegerField,
+-    Max, Min, Sum, Value,
++    Avg, Case, Count, DecimalField, DurationField, F, FloatField, Func,
++    IntegerField, Max, Min, Sum, Value, When,
+ )
+ from django.test import TestCase
+ from django.test.utils import Approximate, CaptureQueriesContext
+@@ -389,6 +389,16 @@ class AggregateTestCase(TestCase):
+         vals = Book.objects.aggregate(Count("rating", distinct=True))
+         self.assertEqual(vals, {"rating__count": 4})
+ 
++    def test_count_distinct_case(self):
++        case = Case(
++            When(rating=4.0, then=F('publisher_id')),
++            output_field=IntegerField(),
++        )
++        with CaptureQueriesContext(connection) as ctx:
++            vals = Book.objects.aggregate(c=Count(case, distinct=True))
++        self.assertEqual(vals, {'c': 2})
++        self.assertIn('COUNT(DISTINCT CASE', ctx.captured_queries[0]['sql'])
++
+     def test_count_star(self):
+         with self.assertNumQueries(1) as ctx:
+             Book.objects.aggregate(n=Count("*"))

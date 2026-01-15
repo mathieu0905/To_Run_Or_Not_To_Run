@@ -126,3 +126,5 @@ if __name__ == "__main__":
     print("=" * 60)
     clean_error_instances("output/swebenchlite/claude_code")
     clean_error_instances("output/swebenchverified/claude_code")
+    clean_error_instances("output/swebenchlite/codex")
+    clean_error_instances("output/swebenchverified/codex")

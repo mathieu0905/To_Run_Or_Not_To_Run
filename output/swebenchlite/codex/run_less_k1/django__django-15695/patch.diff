@@ -1,0 +1,92 @@
+diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+index f2ca8c8df9..5efc401c6e 100644
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -494,6 +494,16 @@ class BaseDatabaseSchemaEditor:
+         self.execute(index.remove_sql(model, self))
+ 
+     def rename_index(self, model, old_index, new_index):
++        # Some backends (e.g. PostgreSQL) error if asked to rename an index to
++        # the same name.
++        if (
++            old_index.name == new_index.name
++            or (
++                self.connection.features.ignores_table_name_case
++                and old_index.name.lower() == new_index.name.lower()
++            )
++        ):
++            return
+         if self.connection.features.can_rename_index:
+             self.execute(
+                 self._rename_index_sql(model, old_index.name, new_index.name),
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index d17232e4ec..9476d7b180 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -967,7 +967,19 @@ class RenameIndex(IndexOperation):
+ 
+     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+         if self.old_fields:
+-            # Backward operation with unnamed index is a no-op.
++            model = to_state.apps.get_model(app_label, self.model_name)
++            if not self.allow_migrate_model(schema_editor.connection.alias, model):
++                return
++            # Restore the auto-generated name used for index_together.
++            columns = [
++                model._meta.get_field(field).column for field in self.old_fields
++            ]
++            old_auto_name = schema_editor._create_index_name(
++                model._meta.db_table, columns, suffix="_idx"
++            )
++            old_index = models.Index(fields=self.old_fields, name=self.new_name)
++            new_index = models.Index(fields=self.old_fields, name=old_auto_name)
++            schema_editor.rename_index(model, old_index, new_index)
+             return
+ 
+         self.new_name_lower, self.old_name_lower = (
+diff --git a/tests/migrations/test_operations.py b/tests/migrations/test_operations.py
+index cfd28b1b39..844289061c 100644
+--- a/tests/migrations/test_operations.py
++++ b/tests/migrations/test_operations.py
+@@ -2965,6 +2965,16 @@ class OperationTests(OperationTestBase):
+         app_label = "test_rninui"
+         project_state = self.set_up_test_model(app_label, index_together=True)
+         table_name = app_label + "_pony"
++        old_model = project_state.apps.get_model(app_label, "Pony")
++        with connection.schema_editor() as editor:
++            old_auto_index_name = editor._create_index_name(
++                old_model._meta.db_table,
++                [
++                    old_model._meta.get_field(field).column
++                    for field in ("weight", "pink")
++                ],
++                suffix="_idx",
++            )
+         self.assertIndexNameNotExists(table_name, "new_pony_test_idx")
+         operation = migrations.RenameIndex(
+             "Pony", new_name="new_pony_test_idx", old_fields=("weight", "pink")
+@@ -2983,10 +2993,22 @@ class OperationTests(OperationTestBase):
+         # Rename index.
+         with connection.schema_editor() as editor:
+             operation.database_forwards(app_label, editor, project_state, new_state)
++        self.assertIndexNameNotExists(table_name, old_auto_index_name)
+         self.assertIndexNameExists(table_name, "new_pony_test_idx")
+-        # Reverse is a no-op.
+-        with connection.schema_editor() as editor, self.assertNumQueries(0):
++        # Reversal restores the auto-generated name.
++        expected_queries = 1 if connection.features.can_rename_index else 2
++        with connection.schema_editor() as editor, self.assertNumQueries(
++            expected_queries
++        ):
+             operation.database_backwards(app_label, editor, new_state, project_state)
++        self.assertIndexNameExists(table_name, old_auto_index_name)
++        self.assertIndexNameNotExists(table_name, "new_pony_test_idx")
++        # Re-apply renaming.
++        with connection.schema_editor() as editor, self.assertNumQueries(
++            expected_queries
++        ):
++            operation.database_forwards(app_label, editor, project_state, new_state)
++        self.assertIndexNameNotExists(table_name, old_auto_index_name)
+         self.assertIndexNameExists(table_name, "new_pony_test_idx")
+         # Deconstruction.
+         definition = operation.deconstruct()

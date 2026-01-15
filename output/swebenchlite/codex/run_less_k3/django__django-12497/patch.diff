@@ -1,0 +1,48 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index 8ddbb5ba68..ab3ba68a18 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -1308,11 +1308,8 @@ class ManyToManyField(RelatedField):
+                              "which foreign key Django should use via the "
+                              "through_fields keyword argument.") % (self, from_model_name),
+                             hint=(
+-                                'If you want to create a recursive relationship, '
+-                                'use ForeignKey("%s", symmetrical=False, through="%s").'
+-                            ) % (
+-                                RECURSIVE_RELATIONSHIP_CONSTANT,
+-                                relationship_model_name,
++                                "Use through_fields to specify which foreign "
++                                "key Django should use."
+                             ),
+                             obj=self,
+                             id='fields.E334',
+@@ -1328,11 +1325,8 @@ class ManyToManyField(RelatedField):
+                             "which foreign key Django should use via the "
+                             "through_fields keyword argument." % (self, to_model_name),
+                             hint=(
+-                                'If you want to create a recursive relationship, '
+-                                'use ForeignKey("%s", symmetrical=False, through="%s").'
+-                            ) % (
+-                                RECURSIVE_RELATIONSHIP_CONSTANT,
+-                                relationship_model_name,
++                                "Use through_fields to specify which foreign "
++                                "key Django should use."
+                             ),
+                             obj=self,
+                             id='fields.E335',
+diff --git a/tests/invalid_models_tests/test_relative_fields.py b/tests/invalid_models_tests/test_relative_fields.py
+index 24f27168c2..61a1893111 100644
+--- a/tests/invalid_models_tests/test_relative_fields.py
++++ b/tests/invalid_models_tests/test_relative_fields.py
+@@ -150,10 +150,7 @@ class RelativeFieldTests(SimpleTestCase):
+                 "foreign key to 'Person', which is ambiguous. You must specify "
+                 "which foreign key Django should use via the through_fields "
+                 "keyword argument.",
+-                hint=(
+-                    'If you want to create a recursive relationship, use '
+-                    'ForeignKey("self", symmetrical=False, through="AmbiguousRelationship").'
+-                ),
++                hint="Use through_fields to specify which foreign key Django should use.",
+                 obj=field,
+                 id='fields.E335',
+             ),

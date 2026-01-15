@@ -1,0 +1,176 @@
+diff --git a/astropy/utils/introspection.py b/astropy/utils/introspection.py
+index 3e784f9fc..30dd7cabc 100644
+--- a/astropy/utils/introspection.py
++++ b/astropy/utils/introspection.py
+@@ -6,6 +6,7 @@
+ import inspect
+ import types
+ import importlib
++import re
+ from distutils.version import LooseVersion
+ 
+ 
+@@ -16,6 +17,129 @@ __all__ = ['resolve_name', 'minversion', 'find_current_module',
+ __doctest_skip__ = ['find_current_module']
+ 
+ 
++# NOTE: distutils.version.LooseVersion has two problems for our purposes:
++# 1) It can raise TypeError on Python 3 when comparing versions like '1.14.3'
++#    and '1.14dev' (https://bugs.python.org/issue30272).
++# 2) It does not implement the expected ordering for "dev" versions:
++#    e.g. '1.14' should be newer than '1.14dev'.
++#
++# To keep `minversion` reliable without depending on setuptools/pkg_resources,
++# we implement a small PEP 440-like parser for the common version forms used in
++# our dependency checks.
++_VERSION_RE = re.compile(
++    r'^\s*v?'
++    r'(?:(?P<epoch>[0-9]+)!)?'
++    r'(?P<release>[0-9]+(?:\.[0-9]+)*)'
++    r'(?P<tail>.*)\s*$'
++)
++_PRE_RE = re.compile(r'^(?P<tag>a|b|rc)(?P<num>[0-9]*)')
++_POST_RE = re.compile(r'^(?P<tag>post|rev|r)(?P<num>[0-9]*)')
++_DEV_RE = re.compile(r'^(?P<tag>dev)(?P<num>[0-9]*)')
++
++
++def _pep440ish_version_key(version):
++    """
++    Turn a version string into a key suitable for comparisons.
++
++    This is intentionally a small subset of PEP 440 that handles:
++    - release segments: N(.N)*
++    - pre-releases: aN, bN, rcN
++    - post-releases: .postN / postN / rN / revN
++    - dev releases: .devN / devN
++
++    Any local version label (after '+') is ignored.
++    """
++    m = _VERSION_RE.match(str(version))
++    if m is None:
++        return None
++
++    epoch = int(m.group('epoch') or 0)
++    release = [int(p) for p in m.group('release').split('.')]
++    # Normalize away trailing zeros so '1.2' == '1.2.0'.
++    while len(release) > 1 and release[-1] == 0:
++        release.pop()
++    release = tuple(release)
++
++    tail = (m.group('tail') or '').lower()
++    # Ignore local version labels (PEP 440: '+local').
++    tail = tail.split('+', 1)[0]
++    tail = tail.strip()
++
++    pre_tag = None
++    pre_num = 0
++    post_num = None
++    dev_num = None
++
++    # Consume ".-_" separators and parse known suffixes in order.
++    # We accept forms like "1.2rc1.dev2" and "1.2dev".
++    while tail:
++        tail = tail.lstrip('._-')
++        if not tail:
++            break
++
++        mdev = _DEV_RE.match(tail)
++        if mdev and dev_num is None:
++            dev_num = int(mdev.group('num') or 0)
++            tail = tail[mdev.end():]
++            continue
++
++        mpre = _PRE_RE.match(tail)
++        if mpre and pre_tag is None:
++            pre_tag = mpre.group('tag')
++            pre_num = int(mpre.group('num') or 0)
++            tail = tail[mpre.end():]
++            continue
++
++        mpost = _POST_RE.match(tail)
++        if mpost and post_num is None:
++            post_num = int(mpost.group('num') or 0)
++            tail = tail[mpost.end():]
++            continue
++
++        # Unknown/legacy suffix: stop parsing here.
++        break
++
++    # Stage ordering (increasing):
++    # dev-only < a < b < rc < final < post
++    if post_num is not None:
++        stage = 5
++        stage_num = 0
++    elif pre_tag is not None:
++        stage = {'a': 1, 'b': 2, 'rc': 3}[pre_tag]
++        stage_num = pre_num
++    elif dev_num is not None:
++        stage = 0
++        stage_num = 0
++    else:
++        stage = 4
++        stage_num = 0
++
++    # Within a given stage/release, a dev release is always earlier than the
++    # corresponding non-dev release.
++    dev_key = (0, dev_num) if dev_num is not None else (1, 0)
++
++    return (epoch, release, stage, stage_num, post_num or 0, dev_key)
++
++
++def _version_ge(have, want, inclusive=True):
++    have_key = _pep440ish_version_key(have)
++    want_key = _pep440ish_version_key(want)
++    if have_key is not None and want_key is not None:
++        return have_key >= want_key if inclusive else have_key > want_key
++
++    # Fallback for non-standard version formats: keep behavior similar to the
++    # historical LooseVersion implementation, but avoid TypeError on py3.
++    have_lv = LooseVersion(str(have)).version
++    want_lv = LooseVersion(str(want)).version
++
++    def _safe_item(v):
++        return (0, v) if isinstance(v, int) else (1, str(v))
++
++    have_safe = tuple(_safe_item(v) for v in have_lv)
++    want_safe = tuple(_safe_item(v) for v in want_lv)
++    return have_safe >= want_safe if inclusive else have_safe > want_safe
++
++
+ def resolve_name(name, *additional_parts):
+     """Resolve a name like ``module.object`` to an object and return it.
+ 
+@@ -139,10 +263,7 @@ def minversion(module, version, inclusive=True, version_path='__version__'):
+     else:
+         have_version = resolve_name(module.__name__, version_path)
+ 
+-    if inclusive:
+-        return LooseVersion(have_version) >= LooseVersion(version)
+-    else:
+-        return LooseVersion(have_version) > LooseVersion(version)
++    return _version_ge(have_version, version, inclusive=inclusive)
+ 
+ 
+ def find_current_module(depth=1, finddiff=False):
+diff --git a/astropy/utils/tests/test_introspection.py b/astropy/utils/tests/test_introspection.py
+index d8262d458..be72dd19d 100644
+--- a/astropy/utils/tests/test_introspection.py
++++ b/astropy/utils/tests/test_introspection.py
+@@ -67,9 +67,16 @@ def test_minversion():
+     from types import ModuleType
+     test_module = ModuleType(str("test_module"))
+     test_module.__version__ = '0.12.2'
+-    good_versions = ['0.12', '0.12.1', '0.12.0.dev']
++    good_versions = ['0.12', '0.12.1', '0.12.0.dev', '0.12dev']
+     bad_versions = ['1', '1.2rc1']
+     for version in good_versions:
+         assert minversion(test_module, version)
+     for version in bad_versions:
+         assert not minversion(test_module, version)
++
++    # Regression tests: dev versions should compare as earlier than final
++    # versions, and comparisons should not error on Python 3.
++    test_module.__version__ = '0.12'
++    assert minversion(test_module, '0.12dev')
++    test_module.__version__ = '0.12dev'
++    assert not minversion(test_module, '0.12')

@@ -1,0 +1,92 @@
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 105dc93251..34668f850f 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -262,9 +262,20 @@ class Exact(FieldGetDbPrepValueMixin, BuiltinLookup):
+         from django.db.models.sql.query import Query
+         if isinstance(self.rhs, Query):
+             if self.rhs.has_limit_one():
+-                # The subquery must select only the pk.
+-                self.rhs.clear_select_clause()
+-                self.rhs.add_fields(['pk'])
++                # Ensure the subquery returns exactly one column.
++                #
++                # If the queryset doesn't define explicit select fields (e.g.
++                # Model.objects.all()[:1]), fall back to selecting the pk.
++                # Otherwise, preserve the existing selection (e.g. a values()
++                # + annotate() subquery) to avoid changing grouping/aggregation.
++                if not self.rhs.has_select_fields:
++                    self.rhs.clear_select_clause()
++                    self.rhs.add_fields(['pk'])
++                elif self.rhs.output_field is None:
++                    raise ValueError(
++                        'The QuerySet value for an exact lookup must have only '
++                        'one selected field.'
++                    )
+             else:
+                 raise ValueError(
+                     'The QuerySet value for an exact lookup must be limited to '
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index a603824c0d..3b9f8e5b29 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -1,3 +1,4 @@
++import re
+ import collections.abc
+ from datetime import datetime
+ from math import ceil
+@@ -5,8 +6,10 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import FieldError
+ from django.db import connection
++from django.db.models import Max
+ from django.db.models.expressions import Exists, OuterRef
+ from django.db.models.functions import Substr
++from django.db.models.sql.query import Query
+ from django.test import TestCase, skipUnlessDBFeature
+ 
+ from .models import (
+@@ -891,6 +894,43 @@ class LookupTests(TestCase):
+             [self.a5, self.a6, self.a7]
+         )
+ 
++    def test_exact_sliced_queryset_preserves_group_by(self):
++        """
++        An exact lookup with a sliced queryset shouldn't replace an explicit
++        select clause (e.g. values() + annotate()) with the pk as that can
++        change grouping/aggregation in the subquery.
++        """
++        Author.objects.create(name='Null 1', alias=None)
++        Author.objects.create(name='Null 2', alias=None)
++        inner = (
++            Author.objects.filter(alias__isnull=True)
++            .values('alias')
++            .annotate(m=Max('id'))
++            .values('m')[:1]
++        )
++        qs = Author.objects.filter(id=inner)
++
++        def find_rhs_query(node):
++            for child in node.children:
++                if hasattr(child, 'rhs') and isinstance(child.rhs, Query):
++                    return child.rhs
++                if hasattr(child, 'children'):
++                    found = find_rhs_query(child)
++                    if found is not None:
++                        return found
++            return None
++
++        # Force compilation so Exact.process_rhs() runs.
++        qs.query.sql_with_params()
++        rhs_query = find_rhs_query(qs.query.where)
++        self.assertIsNotNone(rhs_query)
++        rhs_sql, _ = rhs_query.get_compiler(connection=connection).as_sql()
++        match = re.search(r'\bGROUP BY\b (?P<cols>.*?)(?:\bLIMIT\b|\bFETCH FIRST\b|$)', rhs_sql)
++        self.assertIsNotNone(match, rhs_sql)
++        group_by = match.group('cols')
++        self.assertIn(connection.ops.quote_name('alias'), group_by)
++        self.assertNotIn(connection.ops.quote_name('id'), group_by)
++
+     def test_exact_sliced_queryset_not_limited_to_one(self):
+         msg = (
+             'The QuerySet value for an exact lookup must be limited to one '

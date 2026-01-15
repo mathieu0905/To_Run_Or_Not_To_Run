@@ -1,0 +1,51 @@
+diff --git a/django/db/models/aggregates.py b/django/db/models/aggregates.py
+index ac0b62d0bf..1c0d685a4d 100644
+--- a/django/db/models/aggregates.py
++++ b/django/db/models/aggregates.py
+@@ -68,7 +68,10 @@ class Aggregate(Func):
+         return []
+ 
+     def as_sql(self, compiler, connection, **extra_context):
+-        extra_context['distinct'] = 'DISTINCT' if self.distinct else ''
++        # Ensure there's a separator after DISTINCT for expressions that begin
++        # with a keyword (e.g. CASE). Some backends tolerate DISTINCT"col"
++        # without whitespace, but DISTINCTCASE is invalid SQL.
++        extra_context['distinct'] = 'DISTINCT ' if self.distinct else ''
+         if self.filter:
+             if connection.features.supports_aggregate_filter_clause:
+                 filter_sql, filter_params = self.filter.as_sql(compiler, connection)
+diff --git a/tests/aggregation/tests.py b/tests/aggregation/tests.py
+index 8cac90f020..6b3a98ce26 100644
+--- a/tests/aggregation/tests.py
++++ b/tests/aggregation/tests.py
+@@ -5,8 +5,8 @@ from decimal import Decimal
+ from django.core.exceptions import FieldError
+ from django.db import connection
+ from django.db.models import (
+-    Avg, Count, DecimalField, DurationField, F, FloatField, Func, IntegerField,
+-    Max, Min, Sum, Value,
++    Avg, Case, Count, DecimalField, DurationField, F, FloatField, Func,
++    IntegerField, Max, Min, Sum, Value, When,
+ )
+ from django.test import TestCase
+ from django.test.utils import Approximate, CaptureQueriesContext
+@@ -389,6 +389,19 @@ class AggregateTestCase(TestCase):
+         vals = Book.objects.aggregate(Count("rating", distinct=True))
+         self.assertEqual(vals, {"rating__count": 4})
+ 
++    def test_count_distinct_case(self):
++        """
++        DISTINCT must be separated from expressions starting with a keyword
++        (e.g. CASE), otherwise the database parses it as a single identifier.
++        """
++        vals = Book.objects.aggregate(
++            gt_four=Count(
++                Case(When(rating__gt=4.0, then=Value(1)), output_field=IntegerField()),
++                distinct=True,
++            )
++        )
++        self.assertEqual(vals, {'gt_four': 1})
++
+     def test_count_star(self):
+         with self.assertNumQueries(1) as ctx:
+             Book.objects.aggregate(n=Count("*"))

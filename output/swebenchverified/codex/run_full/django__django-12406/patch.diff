@@ -1,0 +1,56 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index dafc11f995..998ee8e782 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -13,7 +13,7 @@ from django.forms.forms import BaseForm, DeclarativeFieldsMetaclass
+ from django.forms.formsets import BaseFormSet, formset_factory
+ from django.forms.utils import ErrorList
+ from django.forms.widgets import (
+-    HiddenInput, MultipleHiddenInput, SelectMultiple,
++    HiddenInput, MultipleHiddenInput, RadioSelect, SelectMultiple,
+ )
+ from django.utils.text import capfirst, get_text_list
+ from django.utils.translation import gettext, gettext_lazy as _
+@@ -1185,7 +1185,15 @@ class ModelChoiceField(ChoiceField):
+                  required=True, widget=None, label=None, initial=None,
+                  help_text='', to_field_name=None, limit_choices_to=None,
+                  **kwargs):
+-        if required and (initial is not None):
++        # RadioSelect has an inherent unselected state, so for required fields
++        # don't present an "empty" choice (which would look like a valid option
++        # and be selected by default on unbound forms).
++        is_radioselect = (
++            isinstance(widget, RadioSelect) or
++            (isinstance(widget, type) and issubclass(widget, RadioSelect)) or
++            isinstance(getattr(widget, 'widget', None), RadioSelect)
++        )
++        if required and (initial is not None or is_radioselect):
+             self.empty_label = None
+         else:
+             self.empty_label = empty_label
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index 8259b3b8bd..2ac3fa3fae 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -259,6 +259,21 @@ class ModelFormBaseTest(TestCase):
+         award = form.save()
+         self.assertIsNone(award.character)
+ 
++    def test_required_foreign_key_with_radioselect_does_not_render_blank_choice(self):
++        class AwardForm(forms.ModelForm):
++            class Meta:
++                model = Award
++                fields = ['character']
++                widgets = {'character': forms.RadioSelect()}
++
++        Character.objects.create(username='user1', last_action=datetime.datetime.today())
++        Character.objects.create(username='user2', last_action=datetime.datetime.today())
++        form = AwardForm()
++        html = str(form['character'])
++        self.assertNotIn('value=""', html)
++        self.assertNotIn('---------', html)
++        self.assertNotIn('checked', html)
++
+     def test_save_blank_false_with_required_false(self):
+         """
+         A ModelForm with a model with a field set to blank=False and the form

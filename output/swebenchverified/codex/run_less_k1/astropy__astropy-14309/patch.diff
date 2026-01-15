@@ -1,0 +1,42 @@
+diff --git a/astropy/io/fits/connect.py b/astropy/io/fits/connect.py
+index 4b6150f4a..15861d5b3 100644
+--- a/astropy/io/fits/connect.py
++++ b/astropy/io/fits/connect.py
+@@ -69,6 +69,10 @@ def is_fits(origin, filepath, fileobj, *args, **kwargs):
+             (".fits", ".fits.gz", ".fit", ".fit.gz", ".fts", ".fts.gz")
+         ):
+             return True
++    # In some registry calls (e.g. identify_format('write', ...)) there may be no
++    # extra positional args, so guard against IndexError.
++    if not args:
++        return False
+     return isinstance(args[0], (HDUList, TableHDU, BinTableHDU, GroupsHDU))
+ 
+ 
+diff --git a/astropy/io/fits/tests/test_connect.py b/astropy/io/fits/tests/test_connect.py
+index c5c31033f..9980b25bb 100644
+--- a/astropy/io/fits/tests/test_connect.py
++++ b/astropy/io/fits/tests/test_connect.py
+@@ -8,6 +8,7 @@ from numpy.testing import assert_allclose, assert_array_equal
+ from astropy import units as u
+ from astropy.io import fits
+ from astropy.io.fits import BinTableHDU, HDUList, ImageHDU, PrimaryHDU, table_to_hdu
++from astropy.io.registry import identify_format
+ from astropy.io.fits.column import (
+     _fortran_to_python_format,
+     _parse_tdisp_format,
+@@ -53,6 +54,14 @@ def equal_data(a, b):
+     return all(np.all(a[name] == b[name]) for name in a.dtype.names)
+ 
+ 
++def test_identify_format_write_empty_args_does_not_error():
++    # Regression test for an IndexError in the FITS identifier when identify_format
++    # is called with no extra positional args (e.g. external packages calling
++    # identify_format('write', Table, 'file.ecsv', None, [], {})).
++    formats = identify_format("write", Table, "bububu.ecsv", None, [], {})
++    assert "ascii.ecsv" in formats
++
++
+ class TestSingleTable:
+     def setup_class(self):
+         self.data = np.array(

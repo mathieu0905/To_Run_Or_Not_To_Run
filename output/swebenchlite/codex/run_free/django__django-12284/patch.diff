@@ -1,0 +1,54 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 8ea6c05ef9..0ee8ab5eec 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -944,6 +944,8 @@ class Model(metaclass=ModelBase):
+     delete.alters_data = True
+ 
+     def _get_FIELD_display(self, field):
++        if isinstance(field, str):
++            field = self._meta.get_field(field)
+         value = getattr(self, field.attname)
+         choices_dict = dict(make_hashable(field.flatchoices))
+         # force_str() to coerce lazy strings.
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 1a55d3d417..940afea27a 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -768,7 +768,10 @@ class Field(RegisterLookupMixin):
+                 setattr(
+                     cls,
+                     'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self),
++                    # Use the field name rather than the Field instance so
++                    # inherited get_FOO_display() methods follow overridden
++                    # fields in subclasses (e.g. abstract base classes).
++                    partialmethod(cls._get_FIELD_display, field=self.name),
+                 )
+ 
+     def get_filter_kwargs_for_object(self, obj):
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index a3b805409c..32c6a6832f 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -178,6 +178,20 @@ class GetFieldDisplayTests(SimpleTestCase):
+         f = FooBar(foo_bar=1)
+         self.assertEqual(f.get_foo_bar_display(), 'something')
+ 
++    def test_inherited_choices_override(self):
++        class Base(models.Model):
++            foo_choice = [('A', 'output1'), ('B', 'output2')]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++            class Meta:
++                abstract = True
++
++        class Child(Base):
++            foo_choice = [('A', 'output1'), ('B', 'output2'), ('C', 'output3')]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++        self.assertEqual(Child(field_foo='C').get_field_foo_display(), 'output3')
++
+     def test_iterator_choices(self):
+         """
+         get_choices() works with Iterators.

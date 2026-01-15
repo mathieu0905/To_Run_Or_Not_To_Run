@@ -1,0 +1,101 @@
+diff --git a/django/db/backends/base/features.py b/django/db/backends/base/features.py
+index c2b92ecdee..4dadae5be2 100644
+--- a/django/db/backends/base/features.py
++++ b/django/db/backends/base/features.py
+@@ -6,6 +6,9 @@ class BaseDatabaseFeatures:
+     gis_enabled = False
+     allows_group_by_pk = False
+     allows_group_by_selected_pks = False
++    # Does the backend allow grouping by a SELECT clause alias (e.g.
++    # "SELECT ... AS alias GROUP BY alias")?
++    supports_group_by_select_alias = False
+     empty_fetchmany_value = []
+     update_can_self_select = True
+ 
+diff --git a/django/db/backends/mysql/features.py b/django/db/backends/mysql/features.py
+index e1d4ce726b..0dadddcda7 100644
+--- a/django/db/backends/mysql/features.py
++++ b/django/db/backends/mysql/features.py
+@@ -23,6 +23,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
+     supports_index_column_ordering = False
+     supports_timezones = False
+     requires_explicit_null_ordering_when_grouping = True
++    supports_group_by_select_alias = True
+     allows_auto_pk_0 = False
+     can_release_savepoints = True
+     atomic_transactions = False
+diff --git a/django/db/backends/sqlite3/features.py b/django/db/backends/sqlite3/features.py
+index 84eca98644..0a3ccfab79 100644
+--- a/django/db/backends/sqlite3/features.py
++++ b/django/db/backends/sqlite3/features.py
+@@ -44,5 +44,6 @@ class DatabaseFeatures(BaseDatabaseFeatures):
+     supports_over_clause = Database.sqlite_version_info >= (3, 25, 0)
+     supports_frame_range_fixed_distance = Database.sqlite_version_info >= (3, 28, 0)
+     supports_aggregate_filter_clause = Database.sqlite_version_info >= (3, 30, 1)
++    supports_group_by_select_alias = True
+     supports_order_by_nulls_modifier = Database.sqlite_version_info >= (3, 30, 0)
+     order_by_nulls_first = True
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 63ca817355..87ed7854a9 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -133,6 +133,11 @@ class SQLCompiler:
+         expressions = self.collapse_group_by(expressions, having_group_by)
+ 
+         for expr in expressions:
++            # Some backends (e.g. PostgreSQL) don't support grouping by a
++            # SELECT clause alias. Expand Ref() to its source expression in
++            # the GROUP BY clause for those backends.
++            if isinstance(expr, Ref) and not self.connection.features.supports_group_by_select_alias:
++                expr = expr.source
+             sql, params = self.compile(expr)
+             params_hash = make_hashable(params)
+             if (sql, params_hash) not in seen:
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index e57cad79ef..dcbe29cae3 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -6,7 +6,7 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import EmptyResultSet, FieldError
+ from django.db import DEFAULT_DB_ALIAS, connection
+-from django.db.models import Count, Exists, F, OuterRef, Q
++from django.db.models import Count, Exists, F, OuterRef, Q, Subquery
+ from django.db.models.sql.constants import LOUTER
+ from django.db.models.sql.where import NothingNode, WhereNode
+ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
+@@ -2910,6 +2910,34 @@ class ExcludeTest17600(TestCase):
+             Order.objects.exclude(~Q(items__status=1)).distinct(),
+             ['<Order: 1>'])
+ 
++    @skipUnlessDBFeature('supports_subqueries_in_group_by')
++    def test_group_by_subquery_annotation_avoids_alias_ambiguity(self):
++        """
++        Regression test for grouping by a Subquery annotation alias.
++
++        GROUP BY <alias> isn't supported by PostgreSQL and can be ambiguous
++        when joined tables have a column with the same name.
++        """
++        status_subquery = OrderItem.objects.filter(
++            order=OuterRef('pk'),
++            status=1,
++        ).values('status')[:1]
++        qs = Order.objects.filter(
++            Q(pk=self.o1.pk) | Q(items__status=1),
++        ).annotate(
++            status=Subquery(status_subquery),
++            items_count=Count('items'),
++        ).values('status').annotate(
++            total_count=Count('status'),
++        )
++        sql = str(qs.query)
++        quoted_status = connection.ops.quote_name('status')
++        if connection.features.supports_group_by_select_alias:
++            self.assertIn('GROUP BY %s' % quoted_status, sql)
++        else:
++            self.assertIn('GROUP BY (SELECT', sql)
++            self.assertNotIn('GROUP BY %s' % quoted_status, sql)
++
+ 
+ class Exclude15786(TestCase):
+     """Regression test for #15786"""

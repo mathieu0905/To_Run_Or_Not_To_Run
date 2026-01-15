@@ -1,0 +1,46 @@
+diff --git a/astropy/io/fits/fitsrec.py b/astropy/io/fits/fitsrec.py
+index 574b4073b1..7f8bf5b990 100644
+--- a/astropy/io/fits/fitsrec.py
++++ b/astropy/io/fits/fitsrec.py
+@@ -1261,7 +1261,11 @@ class FITS_rec(np.recarray):
+ 
+         # Replace exponent separator in floating point numbers
+         if 'D' in format:
+-            output_field.replace(encode_ascii('E'), encode_ascii('D'))
++            # NOTE: numpy.chararray.replace is not in-place; ensure we mutate
++            # the underlying output buffer (which may be a view into a larger
++            # recarray) by assigning the result back.
++            output_field[...] = output_field.replace(
++                encode_ascii('E'), encode_ascii('D'))
+ 
+ 
+ def _get_recarray_field(array, key):
+diff --git a/astropy/io/fits/tests/test_table.py b/astropy/io/fits/tests/test_table.py
+index 67fe21aa72..161efac2a3 100644
+--- a/astropy/io/fits/tests/test_table.py
++++ b/astropy/io/fits/tests/test_table.py
+@@ -300,6 +300,24 @@ class TestTableFunctions(FitsTestCase):
+         hdul.close()
+         a.close()
+ 
++    def test_ascii_table_d_exponent_separator(self):
++        c1 = fits.Column(
++            name='dcol', format='D25.17', array=np.array([1.0, 2.5], dtype='f8'))
++        hdu = fits.TableHDU.from_columns([c1])
++        path = self.temp('ascii_d_exponent.fits')
++        hdu.writeto(path, overwrite=True)
++
++        with fits.open(path) as hdul:
++            thdu = hdul[1]
++            with open(path, 'rb') as f:
++                f.seek(thdu._data_offset)
++                data = f.read(thdu._data_size)
++
++        # The ASCII table data area should use 'D' as the exponent separator
++        # for columns with a 'D' format code.
++        assert b'D' in data
++        assert b'E' not in data
++
+     def test_endianness(self):
+         x = np.ndarray((1,), dtype=object)
+         channelsIn = np.array([3], dtype='uint8')

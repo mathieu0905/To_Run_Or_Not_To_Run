@@ -1,0 +1,42 @@
+diff --git a/astropy/units/core.py b/astropy/units/core.py
+index e9bd986d3..43d575cd9 100644
+--- a/astropy/units/core.py
++++ b/astropy/units/core.py
+@@ -1710,7 +1710,20 @@ class UnrecognizedUnit(IrreducibleUnit):
+         _unrecognized_operator
+ 
+     def __eq__(self, other):
+-        other = Unit(other, parse_strict='silent')
++        if self is other:
++            return True
++
++        # Match UnitBase.__eq__ behavior: comparisons with non-unit-like
++        # objects (including None) should be False rather than raising.
++        try:
++            other = Unit(other, parse_strict='silent')
++        except (ValueError, UnitsError, TypeError):
++            return False
++
++        # If other is Unit-like but not a UnitBase, give it a chance to compare.
++        if not isinstance(other, UnitBase):
++            return NotImplemented
++
+         return isinstance(other, UnrecognizedUnit) and self.name == other.name
+ 
+     def __ne__(self, other):
+diff --git a/astropy/units/tests/test_units.py b/astropy/units/tests/test_units.py
+index 000c12d22..c3a391d89 100644
+--- a/astropy/units/tests/test_units.py
++++ b/astropy/units/tests/test_units.py
+@@ -181,6 +181,11 @@ def test_unknown_unit3():
+     assert unit == unit2
+     assert unit.is_equivalent(unit2)
+ 
++    # Comparisons with unrelated objects (including None) should be False,
++    # not raise.
++    assert (unit == None) is False  # noqa: E711
++    assert (unit != None) is True  # noqa: E711
++
+     unit3 = u.Unit("BAR", parse_strict='silent')
+     assert unit != unit3
+     assert not unit.is_equivalent(unit3)

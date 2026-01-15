@@ -1,0 +1,78 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 63ca817355..ee832e3266 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -131,9 +131,28 @@ class SQLCompiler:
+         result = []
+         seen = set()
+         expressions = self.collapse_group_by(expressions, having_group_by)
++        select_ref_map = None
++        # PostgreSQL resolves GROUP BY identifiers against FROM columns before
++        # SELECT aliases. If an annotation alias matches a column name from a
++        # joined table, grouping by the alias (e.g. GROUP BY "status") becomes
++        # ambiguous. Use the select index for Ref() expressions to ensure the
++        # grouping refers to the select clause.
++        if self.connection.vendor == 'postgresql':
++            select_ref_map = {
++                alias: idx
++                for idx, (_, _, alias) in enumerate(select, start=1)
++                if alias
++            }
+ 
+         for expr in expressions:
+-            sql, params = self.compile(expr)
++            if select_ref_map is not None and isinstance(expr, Ref):
++                select_idx = select_ref_map.get(expr.refs)
++                if select_idx is not None:
++                    sql, params = str(select_idx), []
++                else:
++                    sql, params = self.compile(expr)
++            else:
++                sql, params = self.compile(expr)
+             params_hash = make_hashable(params)
+             if (sql, params_hash) not in seen:
+                 result.append((sql, params))
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index da6e04e8fd..871b2ef00e 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -695,6 +695,39 @@ class BasicExpressionsTests(TestCase):
+         ).values('ceo')
+         self.assertIs(Employee.objects.filter(pk__in=Subquery(inner)).exists(), True)
+ 
++    def test_subquery_annotation_group_by_does_not_use_select_alias(self):
++        """
++        Regression test for grouping by a Subquery() annotation whose alias
++        matches column names from joined tables (e.g. "salary" on two joins).
++        """
++        ceo = Employee.objects.create(firstname='Alice', lastname='CEO', salary=10)
++        poc = Employee.objects.create(firstname='Bob', lastname='POC', salary=20)
++        company = Company.objects.create(
++            name='Ambiguous Group By',
++            num_employees=1,
++            num_chairs=1,
++            ceo=ceo,
++            point_of_contact=poc,
++        )
++        inner = Employee.objects.filter(pk=OuterRef('ceo_id')).values('salary')[:1]
++        qs = Company.objects.filter(
++            Q(pk=company.pk) |
++            Q(ceo__salary__gte=0) |
++            Q(point_of_contact__salary__gte=0)
++        ).annotate(
++            salary=Subquery(inner, output_field=IntegerField()),
++        ).values('salary').annotate(
++            total_count=Count('salary'),
++        )
++        sql = str(qs.query)
++        # Compiling populates query.group_by from a boolean into the final tuple.
++        self.assertIsInstance(qs.query.group_by, tuple)
++        if connection.vendor == 'postgresql':
++            # PostgreSQL can resolve GROUP BY identifiers against FROM columns
++            # which makes GROUP BY "salary" ambiguous with multiple joins. Use
++            # GROUP BY <select index> instead.
++            self.assertIn('GROUP BY 1', sql)
++
+     def test_case_in_filter_if_boolean_output_field(self):
+         is_ceo = Company.objects.filter(ceo=OuterRef('pk'))
+         is_poc = Company.objects.filter(point_of_contact=OuterRef('pk'))

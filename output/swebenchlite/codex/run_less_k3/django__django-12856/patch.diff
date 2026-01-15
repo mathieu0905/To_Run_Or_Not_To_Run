@@ -1,0 +1,61 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 7bb3fa4706..c523a35a96 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1866,6 +1866,12 @@ class Model(metaclass=ModelBase):
+     @classmethod
+     def _check_constraints(cls, databases):
+         errors = []
++        # Validate that field-based constraints (e.g. UniqueConstraint) refer to
++        # valid local fields. This matches the behavior of other field lists
++        # like unique_together and indexes.
++        for constraint in cls._meta.constraints:
++            if isinstance(constraint, UniqueConstraint):
++                errors.extend(cls._check_local_fields(constraint.fields, 'constraints'))
+         for db in databases:
+             if not router.allow_migrate_model(db, cls):
+                 continue
+diff --git a/tests/invalid_models_tests/test_models.py b/tests/invalid_models_tests/test_models.py
+index 6c062b2990..8d765db496 100644
+--- a/tests/invalid_models_tests/test_models.py
++++ b/tests/invalid_models_tests/test_models.py
+@@ -1385,6 +1385,39 @@ class JSONFieldTests(TestCase):
+ 
+ @isolate_apps('invalid_models_tests')
+ class ConstraintsTests(TestCase):
++    def test_unique_constraint_pointing_to_missing_field(self):
++        class Model(models.Model):
++            class Meta:
++                constraints = [
++                    models.UniqueConstraint(fields=['missing_field'], name='name'),
++                ]
++
++        self.assertEqual(Model.check(databases=self.databases), [
++            Error(
++                "'constraints' refers to the nonexistent field 'missing_field'.",
++                obj=Model,
++                id='models.E012',
++            ),
++        ])
++
++    def test_unique_constraint_pointing_to_m2m_field(self):
++        class Model(models.Model):
++            m2m = models.ManyToManyField('self')
++
++            class Meta:
++                constraints = [
++                    models.UniqueConstraint(fields=['m2m'], name='name'),
++                ]
++
++        self.assertEqual(Model.check(databases=self.databases), [
++            Error(
++                "'constraints' refers to a ManyToManyField 'm2m', but "
++                "ManyToManyFields are not permitted in 'constraints'.",
++                obj=Model,
++                id='models.E013',
++            ),
++        ])
++
+     def test_check_constraints(self):
+         class Model(models.Model):
+             age = models.IntegerField()

@@ -1,0 +1,127 @@
+diff --git a/django/db/backends/postgresql/client.py b/django/db/backends/postgresql/client.py
+index cf4df76882..02e45615a1 100644
+--- a/django/db/backends/postgresql/client.py
++++ b/django/db/backends/postgresql/client.py
+@@ -30,6 +30,18 @@ class DatabaseClient(BaseDatabaseClient):
+         subprocess_env = os.environ.copy()
+         if passwd:
+             subprocess_env['PGPASSWORD'] = str(passwd)
++        # Mirror libpq/psql SSL options supported by Django's PostgreSQL backend.
++        # See https://www.postgresql.org/docs/current/libpq-envars.html
++        ssl_env_vars = {
++            'sslmode': 'PGSSLMODE',
++            'sslrootcert': 'PGSSLROOTCERT',
++            'sslcert': 'PGSSLCERT',
++            'sslkey': 'PGSSLKEY',
++        }
++        for option, env_var in ssl_env_vars.items():
++            value = conn_params.get(option)
++            if value:
++                subprocess_env[env_var] = str(value)
+         try:
+             # Allow SIGINT to pass to psql to abort queries.
+             signal.signal(signal.SIGINT, signal.SIG_IGN)
+diff --git a/tests/dbshell/test_postgresql.py b/tests/dbshell/test_postgresql.py
+index a33e7f6482..41b54dbb60 100644
+--- a/tests/dbshell/test_postgresql.py
++++ b/tests/dbshell/test_postgresql.py
+@@ -14,15 +14,16 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+         That function invokes the runshell command, while mocking
+         subprocess.run(). It returns a 2-tuple with:
+         - The command line list
+-        - The the value of the PGPASSWORD environment variable, or None.
++        - A dict of selected environment variables passed to psql.
+         """
+         def _mock_subprocess_run(*args, env=os.environ, **kwargs):
+             self.subprocess_args = list(*args)
+-            self.pgpassword = env.get('PGPASSWORD')
++            self.subprocess_env = env
+             return subprocess.CompletedProcess(self.subprocess_args, 0)
+         with mock.patch('subprocess.run', new=_mock_subprocess_run):
+             DatabaseClient.runshell_db(dbinfo)
+-        return self.subprocess_args, self.pgpassword
++        env_vars = ('PGPASSWORD', 'PGSSLMODE', 'PGSSLROOTCERT', 'PGSSLCERT', 'PGSSLKEY')
++        return self.subprocess_args, {k: self.subprocess_env.get(k) for k in env_vars}
+ 
+     def test_basic(self):
+         self.assertEqual(
+@@ -34,7 +35,13 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+                 'port': '444',
+             }), (
+                 ['psql', '-U', 'someuser', '-h', 'somehost', '-p', '444', 'dbname'],
+-                'somepassword',
++                {
++                    'PGPASSWORD': 'somepassword',
++                    'PGSSLMODE': None,
++                    'PGSSLROOTCERT': None,
++                    'PGSSLCERT': None,
++                    'PGSSLKEY': None,
++                },
+             )
+         )
+ 
+@@ -47,7 +54,13 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+                 'port': '444',
+             }), (
+                 ['psql', '-U', 'someuser', '-h', 'somehost', '-p', '444', 'dbname'],
+-                None,
++                {
++                    'PGPASSWORD': None,
++                    'PGSSLMODE': None,
++                    'PGSSLROOTCERT': None,
++                    'PGSSLCERT': None,
++                    'PGSSLKEY': None,
++                },
+             )
+         )
+ 
+@@ -61,7 +74,13 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+                 'port': '444',
+             }), (
+                 ['psql', '-U', 'some:user', '-h', '::1', '-p', '444', 'dbname'],
+-                'some:password',
++                {
++                    'PGPASSWORD': 'some:password',
++                    'PGSSLMODE': None,
++                    'PGSSLROOTCERT': None,
++                    'PGSSLCERT': None,
++                    'PGSSLKEY': None,
++                },
+             )
+         )
+ 
+@@ -77,7 +96,33 @@ class PostgreSqlDbshellCommandTestCase(SimpleTestCase):
+                 'port': '444',
+             }), (
+                 ['psql', '-U', username, '-h', 'somehost', '-p', '444', 'dbname'],
+-                password,
++                {
++                    'PGPASSWORD': password,
++                    'PGSSLMODE': None,
++                    'PGSSLROOTCERT': None,
++                    'PGSSLCERT': None,
++                    'PGSSLKEY': None,
++                },
++            )
++        )
++
++    def test_ssl_options(self):
++        self.assertEqual(
++            self._run_it({
++                'database': 'dbname',
++                'sslmode': 'verify-ca',
++                'sslrootcert': '/path/to/ca.crt',
++                'sslcert': '/path/to/client.crt',
++                'sslkey': '/path/to/client.key',
++            }), (
++                ['psql', 'dbname'],
++                {
++                    'PGPASSWORD': None,
++                    'PGSSLMODE': 'verify-ca',
++                    'PGSSLROOTCERT': '/path/to/ca.crt',
++                    'PGSSLCERT': '/path/to/client.crt',
++                    'PGSSLKEY': '/path/to/client.key',
++                },
+             )
+         )
+ 

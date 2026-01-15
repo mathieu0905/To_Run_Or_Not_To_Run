@@ -1,0 +1,63 @@
+diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py
+index 5c2266ca1d..3a450e35d9 100644
+--- a/django/core/checks/model_checks.py
++++ b/django/core/checks/model_checks.py
+@@ -4,12 +4,17 @@ from collections import defaultdict
+ from itertools import chain
+ 
+ from django.apps import apps
++from django.conf import settings
+ from django.core.checks import Error, Tags, register
+ 
+ 
+ @register(Tags.models)
+ def check_all_models(app_configs=None, **kwargs):
+-    db_table_models = defaultdict(list)
++    from django.db import router
++
++    databases = kwargs.get('databases', None)
++    if databases is None:
++        databases = set(settings.DATABASES)
+     indexes = defaultdict(list)
+     constraints = defaultdict(list)
+     errors = []
+@@ -17,9 +22,8 @@ def check_all_models(app_configs=None, **kwargs):
+         models = apps.get_models()
+     else:
+         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
++    models = list(models)
+     for model in models:
+-        if model._meta.managed and not model._meta.proxy:
+-            db_table_models[model._meta.db_table].append(model._meta.label)
+         if not inspect.ismethod(model.check):
+             errors.append(
+                 Error(
+@@ -35,16 +39,22 @@ def check_all_models(app_configs=None, **kwargs):
+             indexes[model_index.name].append(model._meta.label)
+         for model_constraint in model._meta.constraints:
+             constraints[model_constraint.name].append(model._meta.label)
+-    for db_table, model_labels in db_table_models.items():
+-        if len(model_labels) != 1:
+-            errors.append(
+-                Error(
++    for db in databases:
++        db_table_models = defaultdict(list)
++        for model in models:
++            if model._meta.managed and not model._meta.proxy and router.allow_migrate_model(db, model):
++                db_table_models[model._meta.db_table].append(model._meta.label)
++        for db_table, model_labels in db_table_models.items():
++            if len(model_labels) != 1:
++                model_labels_str = ', '.join(model_labels)
++                error = Error(
+                     "db_table '%s' is used by multiple models: %s."
+-                    % (db_table, ', '.join(db_table_models[db_table])),
++                    % (db_table, model_labels_str),
+                     obj=db_table,
+                     id='models.E028',
+                 )
+-            )
++                if error not in errors:
++                    errors.append(error)
+     for index_name, model_labels in indexes.items():
+         if len(model_labels) > 1:
+             model_labels = set(model_labels)

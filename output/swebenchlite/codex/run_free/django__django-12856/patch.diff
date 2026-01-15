@@ -1,0 +1,47 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 7bb3fa4706..6921283f24 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1866,6 +1866,16 @@ class Model(metaclass=ModelBase):
+     @classmethod
+     def _check_constraints(cls, databases):
+         errors = []
++        # Validate that any fields referenced by UniqueConstraint exist and are
++        # permitted (e.g. not M2M, and local to the model). This mirrors the
++        # checks performed for 'unique_together' and 'indexes'.
++        fields = [
++            field_name
++            for constraint in cls._meta.constraints
++            if isinstance(constraint, UniqueConstraint)
++            for field_name in constraint.fields
++        ]
++        errors.extend(cls._check_local_fields(fields, 'constraints'))
+         for db in databases:
+             if not router.allow_migrate_model(db, cls):
+                 continue
+diff --git a/tests/invalid_models_tests/test_models.py b/tests/invalid_models_tests/test_models.py
+index 6c062b2990..babe2c2153 100644
+--- a/tests/invalid_models_tests/test_models.py
++++ b/tests/invalid_models_tests/test_models.py
+@@ -1414,6 +1414,21 @@ class ConstraintsTests(TestCase):
+                 constraints = [models.CheckConstraint(check=models.Q(age__gte=18), name='is_adult')]
+         self.assertEqual(Model.check(databases=self.databases), [])
+ 
++    def test_unique_constraint_pointing_to_missing_field(self):
++        class Model(models.Model):
++            class Meta:
++                constraints = [
++                    models.UniqueConstraint(fields=['missing_field'], name='missing_field_uc'),
++                ]
++
++        self.assertEqual(Model.check(databases=self.databases), [
++            Error(
++                "'constraints' refers to the nonexistent field 'missing_field'.",
++                obj=Model,
++                id='models.E012',
++            ),
++        ])
++
+     def test_unique_constraint_with_condition(self):
+         class Model(models.Model):
+             age = models.IntegerField()

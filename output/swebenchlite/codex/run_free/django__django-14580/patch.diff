@@ -1,0 +1,60 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index e19c881cda..bd319ff755 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -273,7 +273,9 @@ class TupleSerializer(BaseSequenceSerializer):
+ class TypeSerializer(BaseSerializer):
+     def serialize(self):
+         special_cases = [
+-            (models.Model, "models.Model", []),
++            # Avoid importing django.db.models.base.Model directly while still
++            # ensuring the generated migration has the required import.
++            (models.Model, "models.Model", ["from django.db import models"]),
+             (type(None), 'type(None)', []),
+         ]
+         for case, string, imports in special_cases:
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index a590ff4398..639e400561 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -48,6 +48,14 @@ class TestModel1:
+     thing = models.FileField(upload_to=upload_to)
+ 
+ 
++class CustomField(models.TextField):
++    pass
++
++
++class CustomMixin:
++    pass
++
++
+ class TextEnum(enum.Enum):
+     A = 'a-value'
+     B = 'value-b'
+@@ -691,6 +699,25 @@ class WriterTests(SimpleTestCase):
+         result = self.safe_exec(output)
+         self.assertIn("Migration", result)
+ 
++    def test_models_import_is_added_when_referenced_in_bases(self):
++        """
++        Ensure `models` is imported when `models.Model` only appears in `bases`.
++        Regression test for missing import in generated migrations.
++        """
++        migration = type("Migration", (migrations.Migration,), {
++            "operations": [
++                migrations.CreateModel(
++                    "MyModel",
++                    (("name", CustomField(primary_key=True)),),
++                    bases=(CustomMixin, models.Model),
++                ),
++            ],
++            "dependencies": [],
++        })
++        output = MigrationWriter(migration).as_string()
++        self.assertIn("from django.db import migrations, models\n", output)
++        self.assertIn("bases=(tests.migrations.test_writer.CustomMixin, models.Model)", output)
++
+     def test_migration_path(self):
+         test_apps = [
+             'migrations.migrations_test_apps.normal',

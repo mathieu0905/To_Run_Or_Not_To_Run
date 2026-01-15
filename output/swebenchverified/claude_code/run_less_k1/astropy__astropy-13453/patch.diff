@@ -1,13 +1,50 @@
 diff --git a/astropy/io/ascii/html.py b/astropy/io/ascii/html.py
-index 266cf229c..46bff2963 100644
+index 266cf229c..c5a110514 100644
 --- a/astropy/io/ascii/html.py
 +++ b/astropy/io/ascii/html.py
-@@ -424,6 +424,8 @@ class HTML(core.BaseReader):
-                         new_cols = []
+@@ -349,11 +349,13 @@ class HTML(core.BaseReader):
+         cols = list(table.columns.values())
  
-                         for col, col_escaped in zip(cols, cols_escaped):
-+                            if col.info.name in self.data.formats:
-+                                col.info.format = self.data.formats[col.info.name]
-                             if len(col.shape) > 1 and self.html['multicol']:
-                                 span = col.shape[1]
-                                 for i in range(span):
+         self.data.header.cols = cols
++        self.data.cols = cols
+ 
+         if isinstance(self.data.fill_values, tuple):
+             self.data.fill_values = [self.data.fill_values]
+ 
+         self.data._set_fill_values(cols)
++        self.data._set_col_formats()
+ 
+         lines = []
+ 
+diff --git a/astropy/io/ascii/tests/test_html.py b/astropy/io/ascii/tests/test_html.py
+index 0515efa06..5eba4b53c 100644
+--- a/astropy/io/ascii/tests/test_html.py
++++ b/astropy/io/ascii/tests/test_html.py
+@@ -717,6 +717,27 @@ def test_multi_column_write_table_html_fill_values_masked():
+     assert buffer_output.getvalue() == buffer_expected.getvalue()
+ 
+ 
++def test_write_table_html_with_formats():
++    """
++    Test that the formats parameter is respected when writing HTML tables.
++    This is a regression test for the bug where formats were ignored.
++    """
++    # Create a table with float values
++    t = Table([(1.23875234858e-24, 3.2348748432e-15), (2, 4)], names=('a', 'b'))
++
++    # Write with custom format for column 'a'
++    output = StringIO()
++    t.write(output, format='html', formats={'a': lambda x: f'{x:.2e}'})
++    html_output = output.getvalue()
++
++    # Check that the formatted values appear in the output
++    assert '1.24e-24' in html_output
++    assert '3.23e-15' in html_output
++    # Make sure the unformatted values don't appear
++    assert '1.23875234858e-24' not in html_output
++    assert '3.2348748432e-15' not in html_output
++
++
+ @pytest.mark.skipif('not HAS_BS4')
+ def test_read_html_unicode():
+     """

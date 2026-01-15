@@ -1,0 +1,56 @@
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+index c2623f099f..5ba0d031d8 100644
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -5,7 +5,6 @@ Factored out from django.db.models.query to avoid making the main module very
+ large and/or so that they can be used by other modules without getting into
+ circular import difficulties.
+ """
+-import copy
+ import functools
+ import inspect
+ from collections import namedtuple
+@@ -46,10 +45,13 @@ class Q(tree.Node):
+ 
+         # If the other Q() is empty, ignore it and just use `self`.
+         if not other:
+-            return copy.deepcopy(self)
++            # Preserve the historical behavior of returning a new Q instance
++            # while avoiding deepcopy() of potentially non-pickleable values
++            # (e.g. dict_keys()).
++            return self._new_instance(self.children, self.connector, self.negated)
+         # Or if this Q is empty, ignore it and just use `other`.
+         elif not self:
+-            return copy.deepcopy(other)
++            return other._new_instance(other.children, other.connector, other.negated)
+ 
+         obj = type(self)()
+         obj.connector = conn
+diff --git a/tests/queries/test_q.py b/tests/queries/test_q.py
+index 9adff07ef2..b6de58f63f 100644
+--- a/tests/queries/test_q.py
++++ b/tests/queries/test_q.py
+@@ -8,6 +8,11 @@ class QTests(SimpleTestCase):
+         self.assertEqual(q & Q(), q)
+         self.assertEqual(Q() & q, q)
+ 
++    def test_combine_and_empty_non_pickleable(self):
++        q = Q(x__in={}.keys())
++        self.assertEqual(q & Q(), q)
++        self.assertEqual(Q() & q, q)
++
+     def test_combine_and_both_empty(self):
+         self.assertEqual(Q() & Q(), Q())
+ 
+@@ -16,6 +21,11 @@ class QTests(SimpleTestCase):
+         self.assertEqual(q | Q(), q)
+         self.assertEqual(Q() | q, q)
+ 
++    def test_combine_or_empty_non_pickleable(self):
++        q = Q(x__in={}.keys())
++        self.assertEqual(q | Q(), q)
++        self.assertEqual(Q() | q, q)
++
+     def test_combine_or_both_empty(self):
+         self.assertEqual(Q() | Q(), Q())
+ 

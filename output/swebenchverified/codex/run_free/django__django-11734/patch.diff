@@ -1,0 +1,77 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 35f3c5e1ea..a8327f05f7 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1703,7 +1703,16 @@ class Query(BaseExpression):
+         """
+         filter_lhs, filter_rhs = filter_expr
+         if isinstance(filter_rhs, F):
+-            filter_expr = (filter_lhs, OuterRef(filter_rhs.name))
++            # When an exclude() (or ~Q()) spanning an N-to-many relation is
++            # transformed into a subquery, user-provided expressions on the RHS
++            # move one level deeper. OuterRef() must keep pointing at the same
++            # outer query, so preserve the existing OuterRef nesting by adding
++            # another layer (OuterRef(OuterRef(...))).
++            if isinstance(filter_rhs, OuterRef):
++                filter_rhs = OuterRef(filter_rhs)
++            else:
++                filter_rhs = OuterRef(filter_rhs.name)
++            filter_expr = (filter_lhs, filter_rhs)
+         # Generate the inner query.
+         query = Query(self.model)
+         query._filtered_relations = self._filtered_relations
+diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
+index 668d5e6ad6..0812cbb87d 100644
+--- a/tests/queries/test_qs_combinators.py
++++ b/tests/queries/test_qs_combinators.py
+@@ -1,9 +1,10 @@
+ from django.db import connection
+-from django.db.models import Exists, F, IntegerField, OuterRef, Value
++from django.db.models import Exists, F, IntegerField, OuterRef, Q, Value
+ from django.db.utils import DatabaseError, NotSupportedError
+ from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
++from django.utils import timezone
+ 
+-from .models import Number, ReservedName
++from .models import Author, ExtraInfo, Item, NamedCategory, Note, Number, ReservedName, Tag
+ 
+ 
+ @skipUnlessDBFeature('supports_select_union')
+@@ -285,3 +286,37 @@ class QuerySetSetOperationTests(TestCase):
+                         msg % (operation, combinator),
+                     ):
+                         getattr(getattr(qs, combinator)(qs), operation)()
++
++
++class OuterRefInExcludeTests(TestCase):
++    @classmethod
++    def setUpTestData(cls):
++        # Minimal dataset required to build a queryset with an EXISTS()
++        # subquery referencing an N-to-many relation.
++        note = Note.objects.create(note='n1', misc='m1')
++        extra = ExtraInfo.objects.create(info='e1', note=note, value=1)
++        author = Author.objects.create(name='a1', num=1, extra=extra)
++        item = Item.objects.create(
++            name='i1',
++            created=timezone.now(),
++            modified=None,
++            creator=author,
++            note=note,
++        )
++        category = NamedCategory.objects.create(name='c1')
++        tag = Tag.objects.create(name='t1', category=category)
++        item.tags.add(tag)
++        # Ensure there is at least one outer row to correlate against.
++        Number.objects.create(num=1, other_num=1)
++
++    def test_outerref_in_exclude_does_not_crash(self):
++        qs = Number.objects.annotate(
++            foo=Exists(Item.objects.exclude(tags__category_id=OuterRef('pk'))),
++        ).filter(foo=True)
++        str(qs.query)
++
++    def test_outerref_in_negated_q_does_not_crash(self):
++        qs = Number.objects.annotate(
++            foo=Exists(Item.objects.filter(~Q(tags__category_id=OuterRef('pk')))),
++        ).filter(foo=True)
++        str(qs.query)

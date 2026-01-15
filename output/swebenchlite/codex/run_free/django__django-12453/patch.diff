@@ -1,0 +1,49 @@
+diff --git a/django/db/backends/base/creation.py b/django/db/backends/base/creation.py
+index c50fc90171..39f5ff964f 100644
+--- a/django/db/backends/base/creation.py
++++ b/django/db/backends/base/creation.py
+@@ -5,7 +5,7 @@ from io import StringIO
+ from django.apps import apps
+ from django.conf import settings
+ from django.core import serializers
+-from django.db import router
++from django.db import router, transaction
+ 
+ # The prefix to put on the default database name when creating
+ # the test database.
+@@ -126,8 +126,33 @@ class BaseDatabaseCreation:
+         the serialize_db_to_string() method.
+         """
+         data = StringIO(data)
+-        for obj in serializers.deserialize("json", data, using=self.connection.alias):
+-            obj.save()
++        connection = self.connection
++        using = connection.alias
++        # Wrap in a transaction so that backends with deferred constraint
++        # checking can restore objects in an order that doesn't satisfy FK
++        # constraints at each individual INSERT.
++        with transaction.atomic(using=using):
++            # Also disable constraint checks when the backend supports it (e.g.
++            # SQLite/MySQL) and re-check at the end. This mirrors loaddata().
++            with connection.constraint_checks_disabled():
++                models = set()
++                objs_with_deferred_fields = []
++                for obj in serializers.deserialize(
++                    "json",
++                    data,
++                    using=using,
++                    handle_forward_references=True,
++                ):
++                    obj.save(using=using)
++                    models.add(obj.object.__class__)
++                    if obj.deferred_fields:
++                        objs_with_deferred_fields.append(obj)
++                for obj in objs_with_deferred_fields:
++                    obj.save_deferred_fields(using=using)
++            if models:
++                connection.check_constraints(
++                    table_names=[model._meta.db_table for model in models],
++                )
+ 
+     def _get_database_display_str(self, verbosity, database_name):
+         """

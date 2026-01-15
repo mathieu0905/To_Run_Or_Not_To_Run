@@ -1,0 +1,47 @@
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..0c707c8c06 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -388,6 +388,15 @@ def display_for_field(value, field, empty_value_display):
+         return _boolean_icon(value)
+     elif value is None:
+         return empty_value_display
++    elif isinstance(field, models.JSONField):
++        # Use the form field's serialization so that JSON is displayed as valid
++        # JSON (e.g. double quotes) and InvalidJSONInput is preserved.
++        try:
++            return field.formfield().prepare_value(value)
++        except Exception:
++            # If serialization fails for any reason, fall back to a plain
++            # string representation rather than breaking the admin.
++            return display_for_value(value, empty_value_display)
+     elif isinstance(field, models.DateTimeField):
+         return formats.localize(timezone.template_localtime(value))
+     elif isinstance(field, (models.DateField, models.TimeField)):
+diff --git a/tests/admin_utils/tests.py b/tests/admin_utils/tests.py
+index 463ba9556d..f01af86aad 100644
+--- a/tests/admin_utils/tests.py
++++ b/tests/admin_utils/tests.py
+@@ -9,6 +9,7 @@ from django.contrib.admin.utils import (
+     flatten_fieldsets, label_for_field, lookup_field, quote,
+ )
+ from django.db import DEFAULT_DB_ALIAS, models
++from django.forms.fields import InvalidJSONInput
+ from django.test import SimpleTestCase, TestCase, override_settings
+ from django.utils.formats import localize
+ from django.utils.safestring import mark_safe
+@@ -186,6 +187,14 @@ class UtilsTests(SimpleTestCase):
+         display_value = display_for_field(12345, models.IntegerField(), self.empty_value)
+         self.assertEqual(display_value, '12345')
+ 
++    def test_json_display_for_field(self):
++        display_value = display_for_field({"foo": "bar"}, models.JSONField(), self.empty_value)
++        self.assertEqual(display_value, '{"foo": "bar"}')
++
++        invalid = InvalidJSONInput('{not valid json')
++        display_value = display_for_field(invalid, models.JSONField(), self.empty_value)
++        self.assertEqual(display_value, invalid)
++
+     @override_settings(USE_L10N=True, USE_THOUSAND_SEPARATOR=True)
+     def test_number_formats_with_thousand_separator_display_for_field(self):
+         display_value = display_for_field(12345.6789, models.FloatField(), self.empty_value)

@@ -1,0 +1,33 @@
+diff --git a/django/utils/functional.py b/django/utils/functional.py
+index 9e1be0fe0f..0f5039bc85 100644
+--- a/django/utils/functional.py
++++ b/django/utils/functional.py
+@@ -353,6 +353,14 @@ class LazyObject:
+     __str__ = new_method_proxy(str)
+     __bool__ = new_method_proxy(bool)
+ 
++    def __radd__(self, other):
++        # A number of builtin types (e.g. int) return NotImplemented from
++        # __add__() for unknown types, which would normally fall back to the
++        # right operand's __radd__(). Ensure reverse-add works for lazy objects.
++        if self._wrapped is empty:
++            self._setup()
++        return other + self._wrapped
++
+     # Introspection support
+     __dir__ = new_method_proxy(dir)
+ 
+diff --git a/tests/utils_tests/test_lazyobject.py b/tests/utils_tests/test_lazyobject.py
+index 9ccae595f4..d02ba8cd04 100644
+--- a/tests/utils_tests/test_lazyobject.py
++++ b/tests/utils_tests/test_lazyobject.py
+@@ -78,6 +78,9 @@ class LazyObjectTestCase(TestCase):
+         obj2 = self.lazy_wrap(2)
+         self.assertGreater(obj2, obj1)
+ 
++    def test_radd(self):
++        self.assertEqual(3 + self.lazy_wrap(4), 7)
++
+     def test_bytes(self):
+         obj = self.lazy_wrap(b"foo")
+         self.assertEqual(bytes(obj), b"foo")

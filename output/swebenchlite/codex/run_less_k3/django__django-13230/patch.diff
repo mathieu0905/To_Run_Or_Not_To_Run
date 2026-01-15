@@ -1,0 +1,116 @@
+diff --git a/django/contrib/syndication/views.py b/django/contrib/syndication/views.py
+index 68ffb0bfe0..a7942b1d89 100644
+--- a/django/contrib/syndication/views.py
++++ b/django/contrib/syndication/views.py
+@@ -199,6 +199,19 @@ class Feed:
+             if updateddate and is_naive(updateddate):
+                 updateddate = make_aware(updateddate, tz)
+ 
++            # Copy to avoid mutating any dict instance that a subclass might
++            # cache and reuse across items.
++            extra_kwargs = dict(self.item_extra_kwargs(item))
++            comments = self._get_dynamic_attr('item_comments', item)
++            if comments is None:
++                # Preserve backward compatibility for passing 'comments' via
++                # item_extra_kwargs() while supporting item_comments().
++                comments = extra_kwargs.pop('comments', None)
++            else:
++                # Avoid passing 'comments' twice if item_extra_kwargs() also
++                # provides it.
++                extra_kwargs.pop('comments', None)
++
+             feed.add_item(
+                 title=title,
+                 link=link,
+@@ -209,11 +222,12 @@ class Feed:
+                 enclosures=enclosures,
+                 pubdate=pubdate,
+                 updateddate=updateddate,
++                comments=comments,
+                 author_name=author_name,
+                 author_email=author_email,
+                 author_link=author_link,
+                 categories=self._get_dynamic_attr('item_categories', item),
+                 item_copyright=self._get_dynamic_attr('item_copyright', item),
+-                **self.item_extra_kwargs(item)
++                **extra_kwargs
+             )
+         return feed
+diff --git a/tests/syndication_tests/feeds.py b/tests/syndication_tests/feeds.py
+index 4e9b1170b1..11013bfcf2 100644
+--- a/tests/syndication_tests/feeds.py
++++ b/tests/syndication_tests/feeds.py
+@@ -36,6 +36,24 @@ class TestRss2Feed(views.Feed):
+     item_copyright = 'Copyright (c) 2007, Sally Smith'
+ 
+ 
++class TestRss2FeedWithComments(TestRss2Feed):
++    def item_comments(self, item):
++        return '/comments/%s/' % item.pk
++
++
++class TestRss2FeedWithCommentsExtraKwargs(TestRss2Feed):
++    def item_extra_kwargs(self, item):
++        return {'comments': '/comments/%s/' % item.pk}
++
++
++class TestRss2FeedWithCommentsAndExtraKwargs(TestRss2Feed):
++    def item_comments(self, item):
++        return '/comments-from-method/%s/' % item.pk
++
++    def item_extra_kwargs(self, item):
++        return {'comments': '/comments-from-extra/%s/' % item.pk}
++
++
+ class TestRss2FeedWithGuidIsPermaLinkTrue(TestRss2Feed):
+     def item_guid_is_permalink(self, item):
+         return True
+diff --git a/tests/syndication_tests/tests.py b/tests/syndication_tests/tests.py
+index dab7ebab33..cddafb0e44 100644
+--- a/tests/syndication_tests/tests.py
++++ b/tests/syndication_tests/tests.py
+@@ -144,6 +144,30 @@ class SyndicationFeedTest(FeedTestCase):
+             self.assertIsNone(item.getElementsByTagName(
+                 'guid')[0].attributes.get('isPermaLink'))
+ 
++    def test_rss2_feed_item_comments_from_method(self):
++        response = self.client.get('/syndication/rss2/comments/')
++        doc = minidom.parseString(response.content)
++        chan = doc.getElementsByTagName('rss')[0].getElementsByTagName('channel')[0]
++        items = chan.getElementsByTagName('item')
++        self.assertEqual(items[0].getElementsByTagName('comments')[0].firstChild.wholeText, '/comments/1/')
++
++    def test_rss2_feed_item_comments_from_item_extra_kwargs(self):
++        response = self.client.get('/syndication/rss2/comments-extra-kwargs/')
++        doc = minidom.parseString(response.content)
++        chan = doc.getElementsByTagName('rss')[0].getElementsByTagName('channel')[0]
++        items = chan.getElementsByTagName('item')
++        self.assertEqual(items[0].getElementsByTagName('comments')[0].firstChild.wholeText, '/comments/1/')
++
++    def test_rss2_feed_item_comments_method_takes_precedence(self):
++        response = self.client.get('/syndication/rss2/comments-both/')
++        doc = minidom.parseString(response.content)
++        chan = doc.getElementsByTagName('rss')[0].getElementsByTagName('channel')[0]
++        items = chan.getElementsByTagName('item')
++        self.assertEqual(
++            items[0].getElementsByTagName('comments')[0].firstChild.wholeText,
++            '/comments-from-method/1/',
++        )
++
+     def test_rss2_feed_guid_permalink_false(self):
+         """
+         Test if the 'isPermaLink' attribute of <guid> element of an item
+diff --git a/tests/syndication_tests/urls.py b/tests/syndication_tests/urls.py
+index bff7bd0c8d..6b37abc50b 100644
+--- a/tests/syndication_tests/urls.py
++++ b/tests/syndication_tests/urls.py
+@@ -4,6 +4,9 @@ from . import feeds
+ 
+ urlpatterns = [
+     path('syndication/rss2/', feeds.TestRss2Feed()),
++    path('syndication/rss2/comments/', feeds.TestRss2FeedWithComments()),
++    path('syndication/rss2/comments-extra-kwargs/', feeds.TestRss2FeedWithCommentsExtraKwargs()),
++    path('syndication/rss2/comments-both/', feeds.TestRss2FeedWithCommentsAndExtraKwargs()),
+     path(
+         'syndication/rss2/guid_ispermalink_true/',
+         feeds.TestRss2FeedWithGuidIsPermaLinkTrue()),

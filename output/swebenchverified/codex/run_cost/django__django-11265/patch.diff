@@ -1,0 +1,58 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index d69c24419b..6ff86302fa 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1666,6 +1666,9 @@ class Query(BaseExpression):
+             filter_expr = (filter_lhs, OuterRef(filter_rhs.name))
+         # Generate the inner query.
+         query = Query(self.model)
++        # The inner query must be able to resolve lookups against any
++        # FilteredRelation aliases defined on the outer query.
++        query._filtered_relations = self._filtered_relations.copy()
+         query.add_filter(filter_expr)
+         query.clear_ordering(True)
+         # Try to have as simple as possible subquery -> trim leading joins from
+@@ -2141,8 +2144,10 @@ class Query(BaseExpression):
+         trimmed_prefix = LOOKUP_SEP.join(trimmed_prefix)
+         # Lets still see if we can trim the first join from the inner query
+         # (that is, self). We can't do this for LEFT JOINs because we would
+-        # miss those rows that have nothing on the outer side.
+-        if self.alias_map[lookup_tables[trimmed_paths + 1]].join_type != LOUTER:
++        # miss those rows that have nothing on the outer side. Also, don't
++        # trim joins with a FilteredRelation as its condition would be lost.
++        first_join = self.alias_map[lookup_tables[trimmed_paths + 1]]
++        if first_join.join_type != LOUTER and first_join.filtered_relation is None:
+             select_fields = [r[0] for r in join_field.related_fields]
+             select_alias = lookup_tables[trimmed_paths + 1]
+             self.unref_alias(lookup_tables[trimmed_paths])
+@@ -2150,6 +2155,11 @@ class Query(BaseExpression):
+                 self.where_class, None, lookup_tables[trimmed_paths + 1])
+             if extra_restriction:
+                 self.where.add(extra_restriction, AND)
++        elif first_join.join_type != LOUTER and first_join.filtered_relation is not None:
++            # If the join is trimmed, its ON clause (including the
++            # FilteredRelation condition) would be dropped.
++            select_fields = [r[0] for r in join_field.related_fields]
++            select_alias = lookup_tables[trimmed_paths + 1]
+         else:
+             # TODO: It might be possible to trim more joins from the start of the
+             # inner query if it happens to have a longer join chain containing the
+diff --git a/tests/filtered_relation/tests.py b/tests/filtered_relation/tests.py
+index 5e85dff16c..b64f0fda21 100644
+--- a/tests/filtered_relation/tests.py
++++ b/tests/filtered_relation/tests.py
+@@ -98,6 +98,14 @@ class FilteredRelationTests(TestCase):
+             [self.author1]
+         )
+ 
++    def test_with_join_exclude(self):
++        self.assertSequenceEqual(
++            Author.objects.annotate(
++                book_alice=FilteredRelation('book', condition=Q(book__title__iexact='poem by alice')),
++            ).exclude(book_alice__isnull=False),
++            [self.author2]
++        )
++
+     def test_with_join_and_complex_condition(self):
+         self.assertSequenceEqual(
+             Author.objects.annotate(

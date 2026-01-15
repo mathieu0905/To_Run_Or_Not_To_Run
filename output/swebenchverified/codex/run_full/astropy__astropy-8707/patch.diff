@@ -1,0 +1,88 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 8c1ac5d73..0caf2fb4e 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -5,7 +5,7 @@ import warnings
+ 
+ import numpy as np
+ 
+-from .util import _str_to_num, _is_int, translate, _words_group
++from .util import _str_to_num, _is_int, translate, _words_group, decode_ascii
+ from .verify import _Verify, _ErrList, VerifyError, VerifyWarning
+ 
+ from . import conf
+@@ -553,6 +553,10 @@ class Card(_Verify):
+         card(s).
+         """
+ 
++        if isinstance(image, (bytearray, memoryview)):
++            image = bytes(image)
++        image = decode_ascii(image)
++
+         card = cls()
+         card._image = _pad(image)
+         card._verified = False
+diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
+index ad07e6d52..7f31fb7b4 100644
+--- a/astropy/io/fits/header.py
++++ b/astropy/io/fits/header.py
+@@ -334,10 +334,11 @@ class Header:
+ 
+         Parameters
+         ----------
+-        data : str
+-           String containing the entire header.
++        data : str or bytes-like
++           String containing the entire header.  Bytes input is assumed to be
++           ASCII-encoded, as in a FITS file.
+ 
+-        sep : str, optional
++        sep : str or bytes-like, optional
+             The string separating cards from each other, such as a newline.  By
+             default there is no card separator (as is the case in a raw FITS
+             file).
+@@ -348,6 +349,17 @@ class Header:
+             A new `Header` instance.
+         """
+ 
++        # FITS headers are ASCII bytes on disk.  `Header.fromfile` already
++        # normalizes inputs to text, but `fromstring` historically accepted
++        # only text; accept bytes-like too for direct use on Python 3.
++        if isinstance(data, (bytearray, memoryview)):
++            data = bytes(data)
++        data = decode_ascii(data)
++
++        if isinstance(sep, (bytearray, memoryview)):
++            sep = bytes(sep)
++        sep = decode_ascii(sep)
++
+         cards = []
+ 
+         # If the card separator contains characters that may validly appear in
+diff --git a/astropy/io/fits/tests/test_header.py b/astropy/io/fits/tests/test_header.py
+index 7c1725aed..b29273d85 100644
+--- a/astropy/io/fits/tests/test_header.py
++++ b/astropy/io/fits/tests/test_header.py
+@@ -69,6 +69,22 @@ def test_init_with_ordereddict():
+ class TestHeaderFunctions(FitsTestCase):
+     """Test Header and Card objects."""
+ 
++    def test_card_fromstring_accepts_bytes(self):
++        c = fits.Card.fromstring(b'ABC     = 1')
++        assert c.keyword == 'ABC'
++        assert c.value == 1
++
++    def test_header_fromstring_accepts_bytes(self):
++        header = fits.Header([('FOO', 42), ('BAR', 'baz')])
++        header_bytes = encode_ascii(header.tostring(endcard=True, padding=False))
++        h2 = fits.Header.fromstring(header_bytes)
++        assert h2['FOO'] == 42
++        assert h2['BAR'] == 'baz'
++
++        # Also accept bytes separators for newline-delimited header strings.
++        h3 = fits.Header.fromstring(b"FOO     = 42\nEND\n", sep=b"\n")
++        assert h3['FOO'] == 42
++
+     def test_rename_keyword(self):
+         """Test renaming keyword with rename_keyword."""
+         header = fits.Header([('A', 'B', 'C'), ('D', 'E', 'F')])

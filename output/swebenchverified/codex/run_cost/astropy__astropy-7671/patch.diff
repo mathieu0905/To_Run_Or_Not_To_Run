@@ -1,0 +1,169 @@
+diff --git a/astropy/utils/introspection.py b/astropy/utils/introspection.py
+index 3e784f9fc..4a5add3cd 100644
+--- a/astropy/utils/introspection.py
++++ b/astropy/utils/introspection.py
+@@ -6,6 +6,7 @@
+ import inspect
+ import types
+ import importlib
++import re
+ from distutils.version import LooseVersion
+ 
+ 
+@@ -15,6 +16,129 @@ __all__ = ['resolve_name', 'minversion', 'find_current_module',
+ 
+ __doctest_skip__ = ['find_current_module']
+ 
++_NUMERIC_VERSION_RE = re.compile(r'^\d+(?:\.\d+)*$')
++_pkg_parse_version = None
++
++
++def _get_pkg_parse_version():
++    """
++    Lazily import and cache pkg_resources.parse_version.
++
++    Importing pkg_resources can be relatively slow, so we only use it for
++    "complex" version strings where distutils.version.LooseVersion is known
++    to be problematic on Python 3 (e.g., '1.14.3' vs '1.14dev').
++    """
++    global _pkg_parse_version
++
++    if _pkg_parse_version is False:
++        return None
++
++    if _pkg_parse_version is None:
++        try:
++            from pkg_resources import parse_version as _parse_version
++        except Exception:  # pragma: no cover - depends on runtime environment
++            _pkg_parse_version = False
++            return None
++        else:
++            _pkg_parse_version = _parse_version
++
++    return _pkg_parse_version
++
++
++def _normalize_numeric_version(version):
++    """
++    Convert a purely numeric version string (e.g., '1.2.0') into a tuple of ints.
++    """
++    return tuple(int(p) for p in version.split('.'))
++
++
++def _compare_versions(have_version, version, inclusive=True):
++    """
++    Compare two version strings.
++
++    This prefers a fast numeric-only comparison, otherwise it falls back to
++    pkg_resources.parse_version (if available) for robust ordering, and finally
++    uses distutils.version.LooseVersion as a last resort.
++    """
++    have_version = str(have_version)
++    version = str(version)
++
++    # Fast path: purely numeric versions
++    if (_NUMERIC_VERSION_RE.match(have_version) and
++            _NUMERIC_VERSION_RE.match(version)):
++        have = _normalize_numeric_version(have_version)
++        want = _normalize_numeric_version(version)
++        # Pad with zeros so that, e.g., 1.2 == 1.2.0
++        n = max(len(have), len(want))
++        have += (0,) * (n - len(have))
++        want += (0,) * (n - len(want))
++        return have >= want if inclusive else have > want
++
++    # Robust path for non-numeric versions (dev/rc/etc.)
++    parse_version = _get_pkg_parse_version()
++    if parse_version is not None:
++        have = parse_version(have_version)
++        want = parse_version(version)
++        return have >= want if inclusive else have > want
++
++    # Last resort: if either version contains letters (dev/rc/etc.), use a
++    # small PEP 440-inspired fallback ordering. Otherwise use LooseVersion.
++    if (re.search(r'[a-zA-Z]', have_version) or
++            re.search(r'[a-zA-Z]', version)):
++        def _fallback_key(v):
++            v = v.strip().lower()
++            if v.startswith('v'):
++                v = v[1:]
++
++            m = re.match(r'(?P<release>\d+(?:\.\d+)*)', v)
++            if not m:
++                # Fall back to a token-based key for truly irregular versions.
++                return ((), 0, 0, v)
++
++            release = _normalize_numeric_version(m.group('release'))
++            rest = v[m.end():]
++
++            # Find the first pre/dev/post tag in the remainder.
++            tag_m = re.search(
++                r'(?:[\._-]?)'
++                r'(?P<tag>dev|a|alpha|b|beta|rc|c|pre|preview|post|rev|r)'
++                r'(?P<num>\d*)',
++                rest)
++
++            tag = None
++            num = 0
++            if tag_m:
++                tag = tag_m.group('tag')
++                if tag_m.group('num'):
++                    num = int(tag_m.group('num'))
++
++            # Normalize tag aliases
++            if tag in ('a', 'alpha'):
++                tag = 'a'
++            elif tag in ('b', 'beta'):
++                tag = 'b'
++            elif tag in ('rc', 'c', 'pre', 'preview'):
++                tag = 'rc'
++            elif tag in ('post', 'rev', 'r'):
++                tag = 'post'
++
++            # Stage ordering for the same release segment
++            stage_rank = {'dev': 0, 'a': 1, 'b': 2, 'rc': 3, None: 4, 'post': 5}
++            return (release, stage_rank.get(tag, 4), num, v)
++
++        have = _fallback_key(have_version)
++        want = _fallback_key(version)
++        return have >= want if inclusive else have > want
++
++    try:
++        return (LooseVersion(have_version) >= LooseVersion(version)
++                if inclusive else
++                LooseVersion(have_version) > LooseVersion(version))
++    except TypeError:
++        # If LooseVersion still can't compare (rare), fall back to plain string
++        # comparison for determinism rather than raising.
++        return have_version >= version if inclusive else have_version > version
++
+ 
+ def resolve_name(name, *additional_parts):
+     """Resolve a name like ``module.object`` to an object and return it.
+@@ -139,10 +263,7 @@ def minversion(module, version, inclusive=True, version_path='__version__'):
+     else:
+         have_version = resolve_name(module.__name__, version_path)
+ 
+-    if inclusive:
+-        return LooseVersion(have_version) >= LooseVersion(version)
+-    else:
+-        return LooseVersion(have_version) > LooseVersion(version)
++    return _compare_versions(have_version, version, inclusive=inclusive)
+ 
+ 
+ def find_current_module(depth=1, finddiff=False):
+diff --git a/astropy/utils/tests/test_introspection.py b/astropy/utils/tests/test_introspection.py
+index d8262d458..684e4de31 100644
+--- a/astropy/utils/tests/test_introspection.py
++++ b/astropy/utils/tests/test_introspection.py
+@@ -67,7 +67,9 @@ def test_minversion():
+     from types import ModuleType
+     test_module = ModuleType(str("test_module"))
+     test_module.__version__ = '0.12.2'
+-    good_versions = ['0.12', '0.12.1', '0.12.0.dev']
++    # Include versions where "dev" is not dot-separated; these trigger a
++    # comparison bug in distutils.version.LooseVersion on Python 3.
++    good_versions = ['0.12', '0.12.1', '0.12.0.dev', '0.12dev', '0.12.0dev']
+     bad_versions = ['1', '1.2rc1']
+     for version in good_versions:
+         assert minversion(test_module, version)

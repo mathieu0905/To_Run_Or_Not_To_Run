@@ -1,0 +1,48 @@
+diff --git a/tests/admin_views/test_multidb.py b/tests/admin_views/test_multidb.py
+index a02b637d34..d79ca5876c 100644
+--- a/tests/admin_views/test_multidb.py
++++ b/tests/admin_views/test_multidb.py
+@@ -2,7 +2,6 @@ from unittest import mock
+ 
+ from django.contrib import admin
+ from django.contrib.auth.models import User
+-from django.db import connections
+ from django.test import TestCase, override_settings
+ from django.urls import path, reverse
+ 
+@@ -34,7 +33,7 @@ class MultiDatabaseTests(TestCase):
+     def setUpTestData(cls):
+         cls.superusers = {}
+         cls.test_book_ids = {}
+-        for db in connections:
++        for db in cls._databases_names():
+             Router.target_db = db
+             cls.superusers[db] = User.objects.create_superuser(
+                 username='admin', password='something', email='test@test.org',
+@@ -45,7 +44,7 @@ class MultiDatabaseTests(TestCase):
+ 
+     @mock.patch('django.contrib.admin.options.transaction')
+     def test_add_view(self, mock):
+-        for db in connections:
++        for db in self._databases_names():
+             with self.subTest(db=db):
+                 Router.target_db = db
+                 self.client.force_login(self.superusers[db])
+@@ -57,7 +56,7 @@ class MultiDatabaseTests(TestCase):
+ 
+     @mock.patch('django.contrib.admin.options.transaction')
+     def test_change_view(self, mock):
+-        for db in connections:
++        for db in self._databases_names():
+             with self.subTest(db=db):
+                 Router.target_db = db
+                 self.client.force_login(self.superusers[db])
+@@ -69,7 +68,7 @@ class MultiDatabaseTests(TestCase):
+ 
+     @mock.patch('django.contrib.admin.options.transaction')
+     def test_delete_view(self, mock):
+-        for db in connections:
++        for db in self._databases_names():
+             with self.subTest(db=db):
+                 Router.target_db = db
+                 self.client.force_login(self.superusers[db])

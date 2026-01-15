@@ -1,0 +1,89 @@
+diff --git a/django/contrib/admin/sites.py b/django/contrib/admin/sites.py
+index 837dabfea8..b27cfccdd1 100644
+--- a/django/contrib/admin/sites.py
++++ b/django/contrib/admin/sites.py
+@@ -430,7 +430,7 @@ class AdminSite:
+                     return HttpResponsePermanentRedirect(path)
+         raise Http404
+ 
+-    def _build_app_dict(self, request, label=None):
++    def build_app_dict(self, request, label=None):
+         """
+         Build the app dictionary. The optional `label` parameter filters models
+         of a specific app.
+@@ -463,6 +463,7 @@ class AdminSite:
+             model_dict = {
+                 'name': capfirst(model._meta.verbose_name_plural),
+                 'object_name': model._meta.object_name,
++                'model': model,
+                 'perms': perms,
+                 'admin_url': None,
+                 'add_url': None,
+@@ -498,12 +499,20 @@ class AdminSite:
+             return app_dict.get(label)
+         return app_dict
+ 
++    def _build_app_dict(self, request, label=None):
++        """
++        Backward-compatible wrapper for a previously private API.
++
++        Use build_app_dict() instead.
++        """
++        return self.build_app_dict(request, label)
++
+     def get_app_list(self, request):
+         """
+         Return a sorted list of all the installed apps that have been
+         registered in this site.
+         """
+-        app_dict = self._build_app_dict(request)
++        app_dict = self.build_app_dict(request)
+ 
+         # Sort the apps alphabetically.
+         app_list = sorted(app_dict.values(), key=lambda x: x['name'].lower())
+@@ -534,7 +543,7 @@ class AdminSite:
+         return TemplateResponse(request, self.index_template or 'admin/index.html', context)
+ 
+     def app_index(self, request, app_label, extra_context=None):
+-        app_dict = self._build_app_dict(request, app_label)
++        app_dict = self.build_app_dict(request, app_label)
+         if not app_dict:
+             raise Http404('The requested admin page does not exist.')
+         # Sort the models alphabetically within each app.
+diff --git a/tests/admin_views/test_adminsite.py b/tests/admin_views/test_adminsite.py
+index efee6f39c6..7a9fbc4496 100644
+--- a/tests/admin_views/test_adminsite.py
++++ b/tests/admin_views/test_adminsite.py
+@@ -56,6 +56,7 @@ class SiteEachContextTest(TestCase):
+         self.assertEqual(admin_views['app_label'], 'admin_views')
+         self.assertEqual(len(admin_views['models']), 1)
+         self.assertEqual(admin_views['models'][0]['object_name'], 'Article')
++        self.assertIs(admin_views['models'][0]['model'], Article)
+ 
+         # auth.User
+         auth = apps[1]
+@@ -63,6 +64,7 @@ class SiteEachContextTest(TestCase):
+         self.assertEqual(len(auth['models']), 1)
+         user = auth['models'][0]
+         self.assertEqual(user['object_name'], 'User')
++        self.assertIs(user['model'], User)
+ 
+         self.assertEqual(auth['app_url'], '/test_admin/admin/auth/')
+         self.assertIs(auth['has_module_perms'], True)
+@@ -75,6 +77,16 @@ class SiteEachContextTest(TestCase):
+         self.assertEqual(user['add_url'], '/test_admin/admin/auth/user/add/')
+         self.assertEqual(user['name'], 'Users')
+ 
++    def test_build_app_dict_includes_model_class(self):
++        request = self.request_factory.get(reverse('test_adminsite:index'))
++        request.user = self.u1
++        app_dict = site.build_app_dict(request)
++        self.assertIs(app_dict['admin_views']['models'][0]['model'], Article)
++        self.assertIs(app_dict['auth']['models'][0]['model'], User)
++        # The former private method remains available for backward
++        # compatibility.
++        self.assertEqual(site._build_app_dict(request), app_dict)
++
+ 
+ class SiteActionsTests(SimpleTestCase):
+     def setUp(self):

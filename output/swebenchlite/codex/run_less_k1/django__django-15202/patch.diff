@@ -1,0 +1,54 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+index 72fbe15551..604385340a 100644
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -98,6 +98,16 @@ class URLValidator(RegexValidator):
+             self.schemes = schemes
+ 
+     def __call__(self, value):
++        def safe_urlsplit(url):
++            """
++            urllib.parse.urlsplit() can raise ValueError for malformed URLs
++            (e.g. "Invalid IPv6 URL"). Treat those as validation failures.
++            """
++            try:
++                return urlsplit(url)
++            except ValueError:
++                raise ValidationError(self.message, code=self.code, params={'value': value})
++
+         if not isinstance(value, str):
+             raise ValidationError(self.message, code=self.code, params={'value': value})
+         if self.unsafe_chars.intersection(value):
+@@ -127,7 +137,8 @@ class URLValidator(RegexValidator):
+                 raise
+         else:
+             # Now verify IPv6 in the netloc part
+-            host_match = re.search(r'^\[(.+)\](?::\d{1,5})?$', urlsplit(value).netloc)
++            split_result = safe_urlsplit(value)
++            host_match = re.search(r'^\[(.+)\](?::\d{1,5})?$', split_result.netloc)
+             if host_match:
+                 potential_ip = host_match[1]
+                 try:
+@@ -139,7 +150,8 @@ class URLValidator(RegexValidator):
+         # section 3.1. It's defined to be 255 bytes or less, but this includes
+         # one byte for the length of the name and one byte for the trailing dot
+         # that's used to indicate absolute names in DNS.
+-        if len(urlsplit(value).hostname) > 253:
++        hostname = safe_urlsplit(value).hostname
++        if hostname is None or len(hostname) > 253:
+             raise ValidationError(self.message, code=self.code, params={'value': value})
+ 
+ 
+diff --git a/tests/forms_tests/field_tests/test_urlfield.py b/tests/forms_tests/field_tests/test_urlfield.py
+index 152456f216..37fb6a43e4 100644
+--- a/tests/forms_tests/field_tests/test_urlfield.py
++++ b/tests/forms_tests/field_tests/test_urlfield.py
+@@ -91,6 +91,8 @@ class URLFieldTest(FormFieldAssertionsMixin, SimpleTestCase):
+             'http://inv-.-alid.com',
+             '[a',
+             'http://[a',
++            # Regression test for urlsplit() raising ValueError ("Invalid IPv6 URL").
++            '////]@N.AN',
+             # Non-string.
+             23,
+             # Hangs "forever" before fixing a catastrophic backtracking,

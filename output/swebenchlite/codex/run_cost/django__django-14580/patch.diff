@@ -1,0 +1,53 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index e19c881cda..19125984ea 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -273,7 +273,9 @@ class TupleSerializer(BaseSequenceSerializer):
+ class TypeSerializer(BaseSerializer):
+     def serialize(self):
+         special_cases = [
+-            (models.Model, "models.Model", []),
++            # Ensure bases like (models.Model,) include the models import in the
++            # generated migration file.
++            (models.Model, "models.Model", ["from django.db import models"]),
+             (type(None), 'type(None)', []),
+         ]
+         for case, string, imports in special_cases:
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index a590ff4398..117e0039bc 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -68,6 +68,10 @@ class IntEnum(enum.IntEnum):
+     B = 2
+ 
+ 
++class SimpleMixin:
++    pass
++
++
+ class OperationWriterTests(SimpleTestCase):
+ 
+     def test_empty_signature(self):
+@@ -658,6 +662,22 @@ class WriterTests(SimpleTestCase):
+     def test_serialize_type_none(self):
+         self.assertSerializedEqual(type(None))
+ 
++    def test_models_import_added_for_model_base(self):
++        migration = type("Migration", (migrations.Migration,), {
++            "operations": [
++                migrations.CreateModel(
++                    name="MyModel",
++                    fields=[],
++                    bases=(SimpleMixin, models.Model),
++                ),
++            ],
++            "dependencies": [],
++        })
++        output = MigrationWriter(migration).as_string()
++        # "models.Model" appears only in bases. Ensure migrations can exec().
++        self.assertIn("from django.db import migrations, models\n", output)
++        self.safe_exec(output)
++
+     def test_simple_migration(self):
+         """
+         Tests serializing a simple migration.

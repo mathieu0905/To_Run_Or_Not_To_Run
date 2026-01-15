@@ -1,5 +1,5 @@
 diff --git a/astropy/utils/introspection.py b/astropy/utils/introspection.py
-index 3e784f9fc..eb95a086a 100644
+index 3e784f9fc..e0a36b8e2 100644
 --- a/astropy/utils/introspection.py
 +++ b/astropy/utils/introspection.py
 @@ -6,7 +6,7 @@
@@ -7,7 +7,7 @@ index 3e784f9fc..eb95a086a 100644
  import types
  import importlib
 -from distutils.version import LooseVersion
-+from pkg_resources import parse_version
++from packaging.version import parse as parse_version
  
  
  __all__ = ['resolve_name', 'minversion', 'find_current_module',

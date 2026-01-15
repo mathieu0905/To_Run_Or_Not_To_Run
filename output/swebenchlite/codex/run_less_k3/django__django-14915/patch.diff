@@ -1,0 +1,17 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index 5dcf923c12..bb2a798c44 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -1171,6 +1171,12 @@ class ModelChoiceIteratorValue:
+             other = other.value
+         return self.value == other
+ 
++    def __hash__(self):
++        # Make instances hashable so they can be used with dict/set membership
++        # (e.g. `value in {1: ...}`) while keeping hashing consistent with the
++        # underlying value used for comparisons.
++        return hash(self.value)
++
+ 
+ class ModelChoiceIterator:
+     def __init__(self, field):

@@ -1,0 +1,84 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: df46b329e0900e9e4dc1d60816c1dce6dfc1094e
+
+## Problem Description
+Autoreloader with StatReloader doesn't track changes in manage.py.
+Description
+	 
+		(last modified by Mariusz Felisiak)
+	 
+This is a bit convoluted, but here we go.
+Environment (OSX 10.11):
+$ python -V
+Python 3.6.2
+$ pip -V
+pip 19.1.1
+$ pip install Django==2.2.1
+Steps to reproduce:
+Run a server python manage.py runserver
+Edit the manage.py file, e.g. add print(): 
+def main():
+	print('sth')
+	os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ticket_30479.settings')
+	...
+Under 2.1.8 (and prior), this will trigger the auto-reloading mechanism. Under 2.2.1, it won't. As far as I can tell from the django.utils.autoreload log lines, it never sees the manage.py itself.
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 3 TEST EXECUTION(S) - USE THEM** 🎯
+
+This is a research experiment testing efficient debugging with limited executions.
+You have a budget of 3 test run(s). **Unused budget is wasted opportunity!**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 3 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 3
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 3 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

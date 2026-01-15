@@ -1,0 +1,111 @@
+diff --git a/django/conf/global_settings.py b/django/conf/global_settings.py
+index acee9887d2..bdeec80610 100644
+--- a/django/conf/global_settings.py
++++ b/django/conf/global_settings.py
+@@ -304,7 +304,7 @@ FILE_UPLOAD_TEMP_DIR = None
+ 
+ # The numeric mode to set newly-uploaded files to. The value should be a mode
+ # you'd pass directly to os.chmod; see https://docs.python.org/library/os.html#files-and-directories.
+-FILE_UPLOAD_PERMISSIONS = None
++FILE_UPLOAD_PERMISSIONS = 0o644
+ 
+ # The numeric mode to assign to newly-created directories, when uploading files.
+ # The value should be a mode as you'd pass to os.chmod;
+diff --git a/docs/howto/deployment/checklist.txt b/docs/howto/deployment/checklist.txt
+index c31bcac62a..2f62b7e1de 100644
+--- a/docs/howto/deployment/checklist.txt
++++ b/docs/howto/deployment/checklist.txt
+@@ -157,12 +157,11 @@ Now is a good time to check your backup strategy for these files.
+ :setting:`FILE_UPLOAD_PERMISSIONS`
+ ----------------------------------
+ 
+-With the default file upload settings, files smaller than
+-:setting:`FILE_UPLOAD_MAX_MEMORY_SIZE` may be stored with a different mode
+-than larger files as described in :setting:`FILE_UPLOAD_PERMISSIONS`.
+-
+-Setting :setting:`FILE_UPLOAD_PERMISSIONS` ensures all files are uploaded with
+-the same permissions.
++Uploaded files are saved with :setting:`FILE_UPLOAD_PERMISSIONS` (default:
++``0o644``). If you set :setting:`FILE_UPLOAD_PERMISSIONS` to ``None``, files
++smaller than :setting:`FILE_UPLOAD_MAX_MEMORY_SIZE` may be stored with a
++different mode than larger files (as described in
++:setting:`FILE_UPLOAD_PERMISSIONS`).
+ 
+ HTTPS
+ =====
+diff --git a/docs/ref/settings.txt b/docs/ref/settings.txt
+index 46e99af993..71065a4584 100644
+--- a/docs/ref/settings.txt
++++ b/docs/ref/settings.txt
+@@ -1484,16 +1484,15 @@ This value mirrors the functionality and caveats of the
+ ``FILE_UPLOAD_PERMISSIONS``
+ ---------------------------
+ 
+-Default: ``None``
++Default: ``0o644``
+ 
+ The numeric mode (i.e. ``0o644``) to set newly uploaded files to. For
+ more information about what these modes mean, see the documentation for
+ :func:`os.chmod`.
+ 
+-If this isn't given or is ``None``, you'll get operating-system
+-dependent behavior. On most platforms, temporary files will have a mode
+-of ``0o600``, and files saved from memory will be saved using the
+-system's standard umask.
++If this is set to ``None``, you'll get operating-system dependent behavior. On
++most platforms, temporary files will have a mode of ``0o600``, and files saved
++from memory will be saved using the system's standard umask.
+ 
+ For security reasons, these permissions aren't applied to the temporary files
+ that are stored in :setting:`FILE_UPLOAD_TEMP_DIR`.
+diff --git a/docs/releases/3.0.txt b/docs/releases/3.0.txt
+index 5d9bff086e..d8b35f8b59 100644
+--- a/docs/releases/3.0.txt
++++ b/docs/releases/3.0.txt
+@@ -290,6 +290,8 @@ Miscellaneous
+ * ``ContentType.__str__()`` now includes the model's ``app_label`` to
+   disambiguate model's with the same name in different apps.
+ 
++* The default value of :setting:`FILE_UPLOAD_PERMISSIONS` is now ``0o644``.
++
+ .. _deprecated-features-3.0:
+ 
+ Features deprecated in 3.0
+diff --git a/tests/file_storage/tests.py b/tests/file_storage/tests.py
+index 434869554c..4c5053fb46 100644
+--- a/tests/file_storage/tests.py
++++ b/tests/file_storage/tests.py
+@@ -892,6 +892,20 @@ class FileStoragePermissions(unittest.TestCase):
+         actual_mode = os.stat(self.storage.path(name))[0] & 0o777
+         self.assertEqual(actual_mode, 0o654)
+ 
++    def test_temporary_file_upload_default_permissions(self):
++        from django.conf import settings
++        from django.core.files.uploadedfile import TemporaryUploadedFile
++
++        self.assertEqual(settings.FILE_UPLOAD_PERMISSIONS, 0o644)
++        self.storage = FileSystemStorage(self.storage_dir)
++        uploaded = TemporaryUploadedFile('the_file.txt', 'text/plain', 4, None)
++        uploaded.write(b'data')
++        uploaded.seek(0)
++        name = self.storage.save("the_file", uploaded)
++        uploaded.close()  # The file may have been moved; TemporaryUploadedFile.close() handles that.
++        actual_mode = os.stat(self.storage.path(name))[0] & 0o777
++        self.assertEqual(actual_mode, 0o644)
++
+     @override_settings(FILE_UPLOAD_PERMISSIONS=None)
+     def test_file_upload_default_permissions(self):
+         self.storage = FileSystemStorage(self.storage_dir)
+diff --git a/tests/test_utils/tests.py b/tests/test_utils/tests.py
+index a1a113a26e..e953eb6609 100644
+--- a/tests/test_utils/tests.py
++++ b/tests/test_utils/tests.py
+@@ -1099,7 +1099,7 @@ class OverrideSettingsTests(SimpleTestCase):
+         the file_permissions_mode attribute of
+         django.core.files.storage.default_storage.
+         """
+-        self.assertIsNone(default_storage.file_permissions_mode)
++        self.assertEqual(default_storage.file_permissions_mode, 0o644)
+         with self.settings(FILE_UPLOAD_PERMISSIONS=0o777):
+             self.assertEqual(default_storage.file_permissions_mode, 0o777)
+ 

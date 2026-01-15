@@ -1,7 +1,16 @@
 diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
-index ded609cbe..5dd0f0266 100644
+index ded609cbe..9ff68bf88 100644
 --- a/astropy/units/quantity.py
 +++ b/astropy/units/quantity.py
+@@ -296,7 +296,7 @@ class Quantity(np.ndarray, metaclass=InheritDocstrings):
+                 if not copy:
+                     return value
+ 
+-                if not (np.can_cast(np.float32, value.dtype) or
++                if not (value.dtype.kind == 'f' or
+                         value.dtype.fields):
+                     dtype = float
+ 
 @@ -377,7 +377,7 @@ class Quantity(np.ndarray, metaclass=InheritDocstrings):
                              "Numpy numeric type.")
  

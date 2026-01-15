@@ -1,0 +1,43 @@
+diff --git a/astropy/io/fits/fitsrec.py b/astropy/io/fits/fitsrec.py
+index 574b4073b1..c749867e76 100644
+--- a/astropy/io/fits/fitsrec.py
++++ b/astropy/io/fits/fitsrec.py
+@@ -1261,7 +1261,11 @@ class FITS_rec(np.recarray):
+ 
+         # Replace exponent separator in floating point numbers
+         if 'D' in format:
+-            output_field.replace(encode_ascii('E'), encode_ascii('D'))
++            # Numpy chararray.replace returns a new array rather than operating
++            # in-place; write the result back into the output field so the
++            # underlying recarray is updated.
++            output_field[:] = output_field.replace(encode_ascii('E'),
++                                                   encode_ascii('D'))
+ 
+ 
+ def _get_recarray_field(array, key):
+diff --git a/astropy/io/fits/tests/test_table.py b/astropy/io/fits/tests/test_table.py
+index 67fe21aa72..92788df957 100644
+--- a/astropy/io/fits/tests/test_table.py
++++ b/astropy/io/fits/tests/test_table.py
+@@ -300,6 +300,21 @@ class TestTableFunctions(FitsTestCase):
+         hdul.close()
+         a.close()
+ 
++    def test_ascii_table_d_exponent(self):
++        # Regression test for writing ASCII table columns using the 'D'
++        # exponent separator (Fortran-style) instead of 'E'.
++        col = fits.Column(name='x', format='D', array=[1.0])
++        hdu = fits.TableHDU.from_columns([col])
++
++        # Ensure the raw ASCII representation uses 'D' (this exercises
++        # FITS_rec._scale_back_ascii).
++        _ = hdu.data['x']
++        hdu.data._scale_back()
++        raw = np.recarray.field(hdu.data, 'x')[0]
++        raw_str = raw.decode('ascii') if hasattr(raw, 'decode') else raw
++        assert 'D' in raw_str
++        assert 'E' not in raw_str
++
+     def test_endianness(self):
+         x = np.ndarray((1,), dtype=object)
+         channelsIn = np.array([3], dtype='uint8')

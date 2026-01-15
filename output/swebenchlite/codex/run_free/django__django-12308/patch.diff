@@ -1,0 +1,46 @@
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..2ded25dbb7 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -388,6 +388,20 @@ def display_for_field(value, field, empty_value_display):
+         return _boolean_icon(value)
+     elif value is None:
+         return empty_value_display
++    elif isinstance(field, models.JSONField):
++        # Use the form field's JSON serialization to display valid JSON and
++        # preserve invalid user input (InvalidJSONInput) when applicable.
++        from django import forms
++
++        try:
++            return forms.JSONField(
++                encoder=field.encoder,
++                decoder=field.decoder,
++            ).prepare_value(value)
++        except TypeError:
++            # If the value isn't JSON serializable (e.g. an unsaved/in-memory
++            # value), fall back to the generic string display.
++            return str(value)
+     elif isinstance(field, models.DateTimeField):
+         return formats.localize(timezone.template_localtime(value))
+     elif isinstance(field, (models.DateField, models.TimeField)):
+diff --git a/tests/admin_utils/tests.py b/tests/admin_utils/tests.py
+index 463ba9556d..dd010e012e 100644
+--- a/tests/admin_utils/tests.py
++++ b/tests/admin_utils/tests.py
+@@ -94,6 +94,16 @@ class UtilsTests(SimpleTestCase):
+ 
+     empty_value = '-empty-'
+ 
++    def test_json_display_for_field(self):
++        display_value = display_for_field({"foo": "bar"}, models.JSONField(), self.empty_value)
++        self.assertEqual(display_value, '{"foo": "bar"}')
++
++        from django.forms.fields import InvalidJSONInput
++
++        invalid_value = InvalidJSONInput('{"foo": bar}')
++        display_value = display_for_field(invalid_value, models.JSONField(), self.empty_value)
++        self.assertEqual(display_value, invalid_value)
++
+     def test_values_from_lookup_field(self):
+         """
+         Regression test for #12654: lookup_field

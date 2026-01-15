@@ -1,0 +1,46 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 7649c39262..6e14cdcc4e 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -32,7 +32,9 @@ class SQLCompiler:
+         self.select = None
+         self.annotation_col_map = None
+         self.klass_info = None
+-        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)')
++        # Match ASC/DESC even if the SQL contains newlines (e.g. multiline
++        # RawSQL used in QuerySet.order_by()).
++        self.ordering_parts = re.compile(r'(.*)\s(ASC|DESC)(.*)', re.DOTALL)
+         self._meta_ordering = None
+ 
+     def setup_query(self):
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index c22ff34ee8..0ebb29a65f 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -70,6 +70,26 @@ class BasicExpressionsTests(TestCase):
+             ['<Company: Example Inc.>', '<Company: Foobar Ltd.>', '<Company: Test GmbH>'],
+         )
+ 
++    def test_multiline_rawsql_order_by_not_deduped(self):
++        qs = Company.objects.order_by(
++            RawSQL(
++                '''
++                CASE WHEN num_employees > 0
++                     THEN 1 ELSE 0 END
++                ''',
++                [],
++            ).desc(),
++            RawSQL(
++                '''
++                CASE WHEN num_chairs > 0
++                     THEN 1 ELSE 0 END
++                ''',
++                [],
++            ).asc(),
++        )
++        sql, params = qs.query.sql_with_params()
++        self.assertEqual(sql.upper().count('CASE WHEN'), 2)
++
+     def test_annotate_values_count(self):
+         companies = Company.objects.annotate(foo=RawSQL('%s', ['value']))
+         self.assertEqual(companies.count(), 3)

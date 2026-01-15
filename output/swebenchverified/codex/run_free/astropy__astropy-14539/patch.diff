@@ -1,0 +1,85 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..c247868a1 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1444,21 +1444,48 @@ class TableDataDiff(_BaseDiff):
+ 
+             arra = self.a[col.name]
+             arrb = self.b[col.name]
++            col_format = col.format or ""
+ 
+             if np.issubdtype(arra.dtype, np.floating) and np.issubdtype(
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
+-                diffs = (
+-                    [
+-                        idx
+-                        for idx in range(len(arra))
+-                        if not np.allclose(
+-                            arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+-                        )
+-                    ],
+-                )
++            elif "P" in col_format or "Q" in col_format:
++                # Variable-length array columns ("P"/"Q" descriptors) are read
++                # back as object arrays. Direct vectorized comparisons on the
++                # object arrays can report false differences, even for
++                # identical files. Compare row-by-row instead.
++                diff_rows = []
++                for idx in range(len(arra)):
++                    arow = arra[idx]
++                    brow = arrb[idx]
++
++                    try:
++                        a_arr = np.asarray(arow)
++                        b_arr = np.asarray(brow)
++                    except Exception:
++                        if diff_values(arow, brow):
++                            diff_rows.append(idx)
++                        continue
++
++                    if np.issubdtype(a_arr.dtype, np.number) and np.issubdtype(
++                        b_arr.dtype, np.number
++                    ):
++                        try:
++                            row_diffs = where_not_allclose(
++                                a_arr, b_arr, rtol=self.rtol, atol=self.atol
++                            )
++                        except Exception:
++                            diff_rows.append(idx)
++                            continue
++
++                        if row_diffs[0].size:
++                            diff_rows.append(idx)
++                    else:
++                        if not np.array_equal(a_arr, b_arr):
++                            diff_rows.append(idx)
++
++                diffs = (diff_rows,)
+             else:
+                 diffs = np.where(arra != arrb)
+ 
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..1aeab88eb 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -419,6 +419,17 @@ class TestDiff(FitsTestCase):
+         assert diff.diff_ratio == 0
+         assert diff.diff_total == 0
+ 
++    def test_fitsdiff_identical_with_q_vla_column(self):
++        # Regression test for FITSDiff reporting false differences for
++        # variable-length array columns with "Q" descriptors.
++        col = fits.Column("a", format="QD", array=[[0], [0, 0]])
++        hdu = fits.BinTableHDU.from_columns([col])
++        path = self.temp("diffbug.fits")
++        hdu.writeto(path, overwrite=True)
++
++        diff = FITSDiff(path, path)
++        assert diff.identical, diff.report()
++
+     def test_diff_empty_tables(self):
+         """
+         Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/178

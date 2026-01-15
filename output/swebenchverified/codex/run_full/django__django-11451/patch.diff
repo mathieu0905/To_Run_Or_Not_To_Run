@@ -1,0 +1,37 @@
+diff --git a/django/contrib/auth/backends.py b/django/contrib/auth/backends.py
+index f4b1722757..8a3d9d9d7b 100644
+--- a/django/contrib/auth/backends.py
++++ b/django/contrib/auth/backends.py
+@@ -39,6 +39,10 @@ class ModelBackend(BaseBackend):
+     def authenticate(self, request, username=None, password=None, **kwargs):
+         if username is None:
+             username = kwargs.get(UserModel.USERNAME_FIELD)
++        # Username and password are required for ModelBackend. If either is
++        # missing, don't make a database query or run the password hasher.
++        if username is None or password is None:
++            return None
+         try:
+             user = UserModel._default_manager.get_by_natural_key(username)
+         except UserModel.DoesNotExist:
+diff --git a/tests/auth_tests/test_auth_backends.py b/tests/auth_tests/test_auth_backends.py
+index 6447edefc9..a1ab31a45a 100644
+--- a/tests/auth_tests/test_auth_backends.py
++++ b/tests/auth_tests/test_auth_backends.py
+@@ -261,6 +261,17 @@ class ModelBackendTest(BaseModelBackendTest, TestCase):
+         )
+         self.assertEqual(authenticate(username='test', password='test'), user)
+ 
++    @override_settings(PASSWORD_HASHERS=['auth_tests.test_auth_backends.CountingMD5PasswordHasher'])
++    def test_authenticate_with_missing_credentials_skips_work(self):
++        backend = ModelBackend()
++        CountingMD5PasswordHasher.calls = 0
++        with self.assertNumQueries(0):
++            self.assertIsNone(backend.authenticate(None))
++            self.assertIsNone(backend.authenticate(None, token='sesame'))
++            self.assertIsNone(backend.authenticate(None, password='test'))
++            self.assertIsNone(backend.authenticate(None, username='test'))
++        self.assertEqual(CountingMD5PasswordHasher.calls, 0)
++
+ 
+ @override_settings(AUTH_USER_MODEL='auth_tests.ExtensionUser')
+ class ExtensionUserModelBackendTest(BaseModelBackendTest, TestCase):
