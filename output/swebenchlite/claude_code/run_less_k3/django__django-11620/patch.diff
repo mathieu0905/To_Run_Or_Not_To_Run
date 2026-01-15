@@ -1,0 +1,37 @@
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 2154a46320..143d392a7c 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -17,6 +17,7 @@ from django.conf import settings
+ from django.core.checks import Error, Warning
+ from django.core.checks.urls import check_resolver
+ from django.core.exceptions import ImproperlyConfigured, ViewDoesNotExist
++from django.http import Http404
+ from django.utils.datastructures import MultiValueDict
+ from django.utils.functional import cached_property
+ from django.utils.http import RFC3986_SUBDELIMS, escape_leading_slashes
+@@ -258,7 +259,7 @@ class RoutePattern(CheckURLMixin):
+                 converter = self.converters[key]
+                 try:
+                     kwargs[key] = converter.to_python(value)
+-                except ValueError:
++                except (ValueError, Http404):
+                     return None
+             return path[match.end():], (), kwargs
+         return None
+diff --git a/tests/urlpatterns/tests.py b/tests/urlpatterns/tests.py
+index 214739f678..c3063cfdcd 100644
+--- a/tests/urlpatterns/tests.py
++++ b/tests/urlpatterns/tests.py
+@@ -225,3 +225,11 @@ class ConversionExceptionTests(SimpleTestCase):
+             raise ValueError('This value error propagates.')
+         with self.assertRaisesMessage(ValueError, 'This value error propagates.'):
+             reverse('dynamic', kwargs={'value': object()})
++
++    def test_resolve_http404_means_no_match(self):
++        from django.http import Http404
++        @DynamicConverter.register_to_python
++        def raises_http404(value):
++            raise Http404('Object not found in converter')
++        with self.assertRaises(Resolver404):
++            resolve('/dynamic/abc/')

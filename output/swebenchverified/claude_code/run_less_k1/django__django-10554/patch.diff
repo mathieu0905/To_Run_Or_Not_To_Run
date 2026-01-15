@@ -1,13 +1,12 @@
-diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
-index 08d7faf194..d516148002 100644
---- a/django/db/models/sql/query.py
-+++ b/django/db/models/sql/query.py
-@@ -328,6 +328,8 @@ class Query(BaseExpression):
-             obj.subq_aliases = self.subq_aliases.copy()
-         obj.used_aliases = self.used_aliases.copy()
-         obj._filtered_relations = self._filtered_relations.copy()
-+        if self.combined_queries:
-+            obj.combined_queries = tuple(query.clone() for query in self.combined_queries)
-         # Clear the cached_property
-         try:
-             del obj.base_table
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index a791908caf..edd6d1c4ff 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -353,6 +353,7 @@ class SQLCompiler:
+                     elif col_alias:
+                         continue
+                     if src == sel_expr:
++                        resolved = resolved.copy()
+                         resolved.set_source_expressions([RawSQL('%d' % (idx + 1), ())])
+                         break
+                 else:

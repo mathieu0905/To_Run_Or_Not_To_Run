@@ -1,0 +1,23 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index e287a6f55a..b06b6feb1a 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -107,10 +107,14 @@ class SQLCompiler:
+         # Note that even if the group_by is set, it is only the minimal
+         # set to group by. So, we need to add cols in select, order_by, and
+         # having into the select in any case.
+-        for expr, _, _ in select:
+-            cols = expr.get_group_by_cols()
+-            for col in cols:
+-                expressions.append(col)
++        # However, if this is a subquery with an explicit GROUP BY, we should
++        # not add select columns to the GROUP BY clause to avoid overriding
++        # the explicit grouping.
++        if not (self.query.subquery and isinstance(self.query.group_by, tuple)):
++            for expr, _, _ in select:
++                cols = expr.get_group_by_cols()
++                for col in cols:
++                    expressions.append(col)
+         for expr, (sql, params, is_ref) in order_by:
+             # Skip References to the select clause, as all expressions in the
+             # select clause are already part of the group by.

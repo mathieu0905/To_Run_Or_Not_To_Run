@@ -1,0 +1,55 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 8dd5877f58f84f2b11126afbd0813e24545919ed
+
+## Problem Description
+order_by() a parent model crash when Meta.ordering contains expressions.
+Description
+	 
+		(last modified by Jonny Fuller)
+	 
+Hi friends,
+During testing I discovered a strange bug when using a query expression for ordering during multi-table inheritance. You can find the full write up as well as reproducible test repository ​https://github.com/JonnyWaffles/djangoordermetabug. The bug occurs because the field is an OrderBy object, not a string, during get_order_dir. The linked stacktrace should make the issue obvious, but what I don't understand is why it only fails during test db setup, not during repl or script use. I wish I could help more and come up with a real solution. Hopefully, this is enough for someone wiser to find the culprit.
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+你不能执行/运行任何 Python 代码（不能运行测试）。  
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+Any attempt to execute Python code will be blocked by the sandbox.
+
+## ALLOWED Operations
+You may ONLY use these commands:
+- `ls` - list directory contents
+- `cat` - view file contents
+- `grep` - search text patterns
+- `find` - locate files
+- `head` / `tail` - view file portions
+- `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `python` / `python3` - ANY Python execution
+❌ `pytest` / `unittest` / `tox` / `nose` - Test frameworks
+❌ `pip` / `pip3` - Package management
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Reason deeply about the code based on what you read
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

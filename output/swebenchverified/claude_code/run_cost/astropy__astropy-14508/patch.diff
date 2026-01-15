@@ -1,33 +1,21 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 118bfced8..e0c2a7933 100644
+index 118bfced8..513816f8c 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
-@@ -1299,6 +1299,28 @@ def _format_value(value):
+@@ -1299,7 +1299,15 @@ def _format_value(value):
  
  def _format_float(value):
      """Format a floating number to make sure it gets the decimal point."""
-+    # Try using Python's str() first for a shorter representation
+-    value_str = f"{value:.16G}"
++    # Try Python's default str() first as it often gives a shorter representation
++    # that still round-trips correctly (e.g., 0.009125 instead of 0.009124999999999999)
 +    value_str = str(value)
-+
-+    # Ensure it has a decimal point for FITS format
-+    if "." not in value_str and "e" not in value_str:
-+        value_str += ".0"
-+
-+    # If str() produces a short enough result, use it
-+    if len(value_str) <= 20:
-+        # Normalize scientific notation if present
-+        if "e" in value_str:
-+            value_str = value_str.replace("e", "E")
-+            significand, exponent = value_str.split("E")
-+            if exponent[0] in ("+", "-"):
-+                sign = exponent[0]
-+                exponent = exponent[1:]
-+            else:
-+                sign = ""
-+            value_str = f"{significand}E{sign}{int(exponent):02d}"
-+        return value_str
-+
-+    # Fall back to .16G format if str() is too long
-     value_str = f"{value:.16G}"
++    if "e" in value_str:
++        value_str = value_str.upper()
++    if "." not in value_str and "E" not in value_str:
++        value_str = f"{value:.16G}"
++    elif len(value_str) > 20:
++        value_str = f"{value:.16G}"
      if "." not in value_str and "E" not in value_str:
          value_str += ".0"
+     elif "E" in value_str:

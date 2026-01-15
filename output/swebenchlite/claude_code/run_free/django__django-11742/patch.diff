@@ -1,0 +1,106 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 9ce46e3f73..295c6d2774 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -955,6 +955,7 @@ class CharField(Field):
+         return [
+             *super().check(**kwargs),
+             *self._check_max_length_attribute(**kwargs),
++            *self._check_max_length_fits_choices(**kwargs),
+         ]
+ 
+     def _check_max_length_attribute(self, **kwargs):
+@@ -978,6 +979,24 @@ class CharField(Field):
+         else:
+             return []
+ 
++    def _check_max_length_fits_choices(self, **kwargs):
++        if self.choices and self.max_length is not None and isinstance(self.max_length, int):
++            choice_max_length = 0
++            for choice_value, _ in self.flatchoices:
++                choice_length = len(str(choice_value))
++                if choice_length > choice_max_length:
++                    choice_max_length = choice_length
++            if choice_max_length > self.max_length:
++                return [
++                    checks.Error(
++                        "'max_length' is too small to fit the longest choice.",
++                        hint=f'The longest choice is {choice_max_length} characters, but max_length is {self.max_length}.',
++                        obj=self,
++                        id='fields.E122',
++                    )
++                ]
++        return []
++
+     def cast_db_type(self, connection):
+         if self.max_length is None:
+             return connection.ops.cast_char_field_without_max_length
+diff --git a/tests/invalid_models_tests/test_ordinary_fields.py b/tests/invalid_models_tests/test_ordinary_fields.py
+index 5bb1847a70..f4a1b77945 100644
+--- a/tests/invalid_models_tests/test_ordinary_fields.py
++++ b/tests/invalid_models_tests/test_ordinary_fields.py
+@@ -237,6 +237,64 @@ class CharFieldTests(SimpleTestCase):
+ 
+         self.assertEqual(Model._meta.get_field('field').check(), [])
+ 
++    def test_max_length_too_short_for_choices(self):
++        class Model(models.Model):
++            field = models.CharField(
++                max_length=5,
++                choices=[
++                    ('short', 'Short'),
++                    ('verylongvalue', 'Very Long Value'),
++                ]
++            )
++
++        field = Model._meta.get_field('field')
++        self.assertEqual(field.check(), [
++            Error(
++                "'max_length' is too small to fit the longest choice.",
++                hint='The longest choice is 13 characters, but max_length is 5.',
++                obj=field,
++                id='fields.E122',
++            ),
++        ])
++
++    def test_max_length_too_short_for_grouped_choices(self):
++        class Model(models.Model):
++            field = models.CharField(
++                max_length=3,
++                choices=[
++                    ('Group 1', [
++                        ('a', 'Option A'),
++                        ('b', 'Option B'),
++                    ]),
++                    ('Group 2', [
++                        ('toolong', 'Too Long'),
++                    ]),
++                ]
++            )
++
++        field = Model._meta.get_field('field')
++        self.assertEqual(field.check(), [
++            Error(
++                "'max_length' is too small to fit the longest choice.",
++                hint='The longest choice is 7 characters, but max_length is 3.',
++                obj=field,
++                id='fields.E122',
++            ),
++        ])
++
++    def test_max_length_fits_choices(self):
++        class Model(models.Model):
++            field = models.CharField(
++                max_length=20,
++                choices=[
++                    ('short', 'Short'),
++                    ('medium', 'Medium'),
++                ]
++            )
++
++        field = Model._meta.get_field('field')
++        self.assertEqual(field.check(), [])
++
+     def test_lazy_choices(self):
+         class Model(models.Model):
+             field = models.CharField(max_length=10, choices=lazy(lambda: [[1, '1'], [2, '2']], tuple)())

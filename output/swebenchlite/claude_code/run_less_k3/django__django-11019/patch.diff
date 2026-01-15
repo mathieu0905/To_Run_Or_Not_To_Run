@@ -1,0 +1,119 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..2ce183c6a7 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -70,11 +70,21 @@ class Media:
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+         # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        lists = [obj for obj in self._js_lists if obj]
++        if not lists:
++            return []
++        if len(lists) == 1:
++            # Even with a single list, we need to deduplicate
++            seen = set()
++            result = []
++            for item in lists[0]:
++                if item not in seen:
++                    seen.add(item)
++                    result.append(item)
++            # Return as list if there were duplicates, otherwise preserve original type
++            return result if len(result) < len(lists[0]) else lists[0]
++        return self.merge_lists(lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -149,6 +159,88 @@ class Media:
+                 last_insert_index = index
+         return combined_list
+ 
++    @staticmethod
++    def merge_lists(lists):
++        """
++        Merge multiple lists while preserving the relative order of elements
++        within each list. This avoids the issue of sequential pairwise merging
++        creating artificial ordering constraints.
++
++        The algorithm works by:
++        1. Collecting all unique items and their ordering constraints
++        2. Building a stable topological sort that respects all constraints
++        3. Warning only about genuine conflicts (not artifacts of merge order)
++        """
++        if not lists:
++            return []
++        if len(lists) == 1:
++            return list(lists[0])
++
++        # Collect all unique items while preserving first occurrence order
++        seen = set()
++        items = []
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    seen.add(item)
++                    items.append(item)
++
++        # Build ordering constraints: for each list, item at index i must come
++        # before item at index j if i < j
++        order_constraints = {}  # item -> set of items that must come after it
++        for lst in lists:
++            for i, item in enumerate(lst):
++                if item not in order_constraints:
++                    order_constraints[item] = set()
++                for j in range(i + 1, len(lst)):
++                    order_constraints[item].add(lst[j])
++
++        # Check for conflicts: if A must come before B in one list and B must
++        # come before A in another list, we have a real conflict
++        conflicts = []
++        for item_a in order_constraints:
++            for item_b in order_constraints.get(item_a, set()):
++                if item_a in order_constraints.get(item_b, set()):
++                    # Real conflict: A before B and B before A
++                    if (item_b, item_a) not in conflicts:
++                        conflicts.append((item_a, item_b))
++
++        # Warn about genuine conflicts
++        for item_a, item_b in conflicts:
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (item_a, item_b),
++                MediaOrderConflictWarning,
++            )
++
++        # Perform stable topological sort
++        # Start with items in the order they first appeared
++        result = []
++        remaining = items[:]
++
++        while remaining:
++            # Find an item with no unsatisfied dependencies among remaining items
++            for item in remaining:
++                # Check if all items that must come before this one are already in result
++                dependencies = set()
++                for lst in lists:
++                    if item in lst:
++                        idx = lst.index(item)
++                        for i in range(idx):
++                            if lst[i] in remaining:
++                                dependencies.add(lst[i])
++
++                if not dependencies:
++                    result.append(item)
++                    remaining.remove(item)
++                    break
++            else:
++                # If we get here, there's a cycle (shouldn't happen with valid input)
++                # Just take the first remaining item to avoid infinite loop
++                result.append(remaining.pop(0))
++
++        return result
++
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists

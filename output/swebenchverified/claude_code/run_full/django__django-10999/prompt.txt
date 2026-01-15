@@ -27,6 +27,8 @@ that doesn't match to negative durations, because of the <hours> definition fina
 
 ✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
 
+你可以自由运行测试和脚本。  
+
 This is a research experiment. Feel free to run tests and scripts as many times as needed.
 
 ## Cost Table

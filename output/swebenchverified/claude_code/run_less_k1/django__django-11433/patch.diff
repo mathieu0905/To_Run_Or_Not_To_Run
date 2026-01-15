@@ -1,0 +1,31 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index 5edbbd376f..8e44e2ab86 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -50,7 +50,25 @@ def construct_instance(form, instance, fields=None, exclude=None):
+         # checkbox inputs because they don't appear in POST data if not checked.
+         if (f.has_default() and
+                 form[f.name].field.widget.value_omitted_from_data(form.data, form.files, form.add_prefix(f.name))):
+-            continue
++            # If the value in cleaned_data differs from the initial value,
++            # use the cleaned_data value (e.g., set in clean() method).
++            try:
++                if form[f.name].field.has_changed(form[f.name].initial, cleaned_data[f.name]):
++                    # Value was modified in cleaned_data, so use it
++                    pass
++                else:
++                    # Value unchanged, use model default
++                    continue
++            except (TypeError, ValueError):
++                # has_changed() may fail for some field types when initial is None
++                # In this case, if cleaned_data has a non-empty value, use it
++                field = form[f.name].field
++                if cleaned_data[f.name] not in field.empty_values:
++                    # Non-empty value in cleaned_data, use it
++                    pass
++                else:
++                    # Empty value, use model default
++                    continue
+         # Defer saving file-type fields until after the other fields, so a
+         # callable upload_to can use the values from other fields.
+         if isinstance(f, models.FileField):

@@ -1,0 +1,28 @@
+diff --git a/django/template/autoreload.py b/django/template/autoreload.py
+index cf1b20ba95..5924eee6aa 100644
+--- a/django/template/autoreload.py
++++ b/django/template/autoreload.py
+@@ -19,16 +19,17 @@ def get_template_directories():
+         if not isinstance(backend, DjangoTemplates):
+             continue
+ 
+-        items.update(cwd / to_path(dir) for dir in backend.engine.dirs)
++        for dir in backend.engine.dirs:
++            path = to_path(dir)
++            items.add(path.resolve() if path.is_absolute() else (cwd / path).resolve())
+ 
+         for loader in backend.engine.template_loaders:
+             if not hasattr(loader, 'get_dirs'):
+                 continue
+-            items.update(
+-                cwd / to_path(directory)
+-                for directory in loader.get_dirs()
+-                if not is_django_path(directory)
+-            )
++            for directory in loader.get_dirs():
++                if not is_django_path(directory):
++                    path = to_path(directory)
++                    items.add(path.resolve() if path.is_absolute() else (cwd / path).resolve())
+     return items
+ 
+ 

@@ -1,0 +1,19 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 7ca0d68fae..59d3d03c0c 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -114,7 +114,13 @@ def iter_modules_and_files(modules, extra_files):
+         # During debugging (with PyDev) the 'typing.io' and 'typing.re' objects
+         # are added to sys.modules, however they are types not modules and so
+         # cause issues here.
+-        if not isinstance(module, ModuleType) or getattr(module, '__spec__', None) is None:
++        if not isinstance(module, ModuleType):
++            continue
++        if getattr(module, '__spec__', None) is None:
++            # Module has no spec (e.g., __main__ when running a script directly).
++            # Try to get the file path from __file__ attribute.
++            if hasattr(module, '__file__'):
++                sys_file_paths.append(module.__file__)
+             continue
+         spec = module.__spec__
+         # Modules could be loaded from places without a concrete location. If

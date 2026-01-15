@@ -1,8 +1,8 @@
 diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
-index 3a462f1c4c..355881aac6 100644
+index 3a462f1c4c..cb2f3b9fa8 100644
 --- a/django/db/models/deletion.py
 +++ b/django/db/models/deletion.py
-@@ -232,9 +232,21 @@ class Collector:
+@@ -232,9 +232,23 @@ class Collector:
          """
          Get a QuerySet of objects related to `objs` via the relation `related`.
          """
@@ -10,17 +10,19 @@ index 3a462f1c4c..355881aac6 100644
 +        qs = related.related_model._base_manager.using(self.using).filter(
              **{"%s__in" % related.field.name: objs}
          )
-+        # Only fetch fields needed for deletion: pk, parent link fields, and
-+        # foreign key fields (for signal handlers and cascade operations)
++        # Fetch only fields needed for deletion to avoid issues with
++        # corrupted/invalid data in unused fields (e.g. UnicodeDecodeError).
++        # We need: pk, fk fields, and parent link fields for multi-table inheritance.
 +        model = related.related_model
 +        fields = [model._meta.pk.name]
-+        for parent, field in model._meta.parents.items():
-+            if field:
-+                fields.append(field.name)
-+        # Include foreign key fields (attname gives us the actual db column like 'parent_id')
-+        for field in model._meta.fields:
-+            if field.is_relation and field.many_to_one:
++        # Add all foreign key fields
++        for field in model._meta.get_fields():
++            if field.concrete and field.many_to_one:
 +                fields.append(field.attname)
++        # Add parent link fields for multi-table inheritance
++        for ptr in model._meta.parents.values():
++            if ptr and ptr.name not in fields:
++                fields.append(ptr.name)
 +        return qs.only(*fields)
  
      def instances_with_model(self):

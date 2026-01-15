@@ -1,0 +1,22 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 1a55d3d417..a0123ee898 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -764,10 +764,15 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            if not hasattr(cls, 'get_%s_display' % self.name):
++            # Check if a custom display method exists (not a partialmethod from a field)
++            # We need to check __dict__ directly to see if it's a partialmethod
++            method_name = 'get_%s_display' % self.name
++            existing = cls.__dict__.get(method_name)
++            if not existing or isinstance(existing, partialmethod):
++                # Set or override the display method if it doesn't exist or is from a field
+                 setattr(
+                     cls,
+-                    'get_%s_display' % self.name,
++                    method_name,
+                     partialmethod(cls._get_FIELD_display, field=self),
+                 )
+ 

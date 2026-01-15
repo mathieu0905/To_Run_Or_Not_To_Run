@@ -1,0 +1,58 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index ee45bb941e..7754ffc646 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -763,8 +763,9 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            setattr(cls, 'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self))
++            if not hasattr(cls, 'get_%s_display' % self.name):
++                setattr(cls, 'get_%s_display' % self.name,
++                        partialmethod(cls._get_FIELD_display, field=self))
+ 
+     def get_filter_kwargs_for_object(self, obj):
+         """
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index 98b32d0c1e..ebf24df811 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -68,6 +68,17 @@ class WhizIterEmpty(models.Model):
+     c = models.CharField(choices=iter(()), blank=True, max_length=1)
+ 
+ 
++class CustomGetDisplayOverride(models.Model):
++    """Model that overrides get_FIELD_display()."""
++    choice_field = models.CharField(
++        max_length=10,
++        choices=[('a', 'Option A'), ('b', 'Option B')]
++    )
++
++    def get_choice_field_display(self):
++        return 'custom_display'
++
++
+ class Choiceful(models.Model):
+     no_choices = models.IntegerField(null=True)
+     empty_choices = models.IntegerField(choices=(), null=True)
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index 0d6e930b06..cd39b46471 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -186,6 +186,15 @@ class GetFieldDisplayTests(SimpleTestCase):
+         self.assertIsNone(WhizIterEmpty(c=None).c)         # Blank value
+         self.assertEqual(WhizIterEmpty(c='').c, '')        # Empty value
+ 
++    def test_get_FIELD_display_override(self):
++        """
++        Custom get_FIELD_display() methods can be defined in models to override
++        the default behavior.
++        """
++        from .models import CustomGetDisplayOverride
++        obj = CustomGetDisplayOverride(choice_field='a')
++        self.assertEqual(obj.get_choice_field_display(), 'custom_display')
++
+ 
+ class GetChoicesTests(SimpleTestCase):
+ 

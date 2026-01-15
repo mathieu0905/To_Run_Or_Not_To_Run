@@ -53,6 +53,7 @@ def build_one(base_image: str) -> tuple[str, bool, str]:
         log.flush()
         r = subprocess.run([
             "docker", "build",
+            "--network", "host",
             "--build-arg", f"BASE_IMAGE={base_tag}",
             "-t", agent_tag,
             "-f", str(DOCKERFILE),

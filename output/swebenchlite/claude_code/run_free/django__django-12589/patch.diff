@@ -1,0 +1,24 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 84960d77e1..f5011ca17c 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1050,11 +1050,17 @@ class Subquery(Expression):
+         return sql, sql_params
+ 
+     def get_group_by_cols(self, alias=None):
+-        if alias:
+-            return [Ref(alias, self)]
+         external_cols = self.query.get_external_cols()
+         if any(col.possibly_multivalued for col in external_cols):
+             return [self]
++        if not external_cols:
++            # If there are no external columns, the subquery itself should be
++            # used in the GROUP BY clause, not a reference to an alias.
++            return [self]
++        # If there are external columns, use them for GROUP BY, but only
++        # return a Ref if an alias is provided.
++        if alias:
++            return [Ref(alias, self)]
+         return external_cols
+ 
+ 

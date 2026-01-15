@@ -120,11 +120,61 @@ def clean_error_instances(base_dir: str):
 
 
 if __name__ == "__main__":
-    # 清理 output 目录
+    # 可选的目录列表
+    available_dirs = [
+        "output/swebenchlite/claude_code",
+        "output/swebenchlite/codex",
+        "output/swebenchverified/claude_code",
+        "output/swebenchverified/codex",
+    ]
+
     print("=" * 60)
     print("清理 output 目录中的错误实例")
     print("=" * 60)
-    clean_error_instances("output/swebenchlite/claude_code")
-    clean_error_instances("output/swebenchverified/claude_code")
-    clean_error_instances("output/swebenchlite/codex")
-    clean_error_instances("output/swebenchverified/codex")
+    print("\n可选的目录：")
+
+    # 显示可选目录
+    for i, dir_path in enumerate(available_dirs, 1):
+        exists = Path(dir_path).exists()
+        status = "✓" if exists else "✗"
+        print(f"  {i}. [{status}] {dir_path}")
+
+    # 获取用户输入
+    print("\n请输入要清理的目录编号（多个编号用逗号或空格分隔，输入 'all' 清理所有）：")
+    user_input = input("> ").strip()
+
+    # 解析用户输入
+    selected_dirs = []
+    if user_input.lower() == 'all':
+        selected_dirs = [d for d in available_dirs if Path(d).exists()]
+    else:
+        # 支持逗号或空格分隔
+        numbers = user_input.replace(',', ' ').split()
+        for num_str in numbers:
+            try:
+                num = int(num_str)
+                if 1 <= num <= len(available_dirs):
+                    dir_path = available_dirs[num - 1]
+                    if Path(dir_path).exists():
+                        selected_dirs.append(dir_path)
+                    else:
+                        print(f"警告: 目录 {dir_path} 不存在，跳过")
+                else:
+                    print(f"警告: 编号 {num} 超出范围，跳过")
+            except ValueError:
+                print(f"警告: 无效的输入 '{num_str}'，跳过")
+
+    # 确认清理
+    if not selected_dirs:
+        print("\n没有选择任何目录，退出")
+    else:
+        print(f"\n将清理以下 {len(selected_dirs)} 个目录：")
+        for dir_path in selected_dirs:
+            print(f"  - {dir_path}")
+
+        confirm = input("\n确认清理？(y/N): ").strip().lower()
+        if confirm == 'y':
+            for dir_path in selected_dirs:
+                clean_error_instances(dir_path)
+        else:
+            print("已取消清理")

@@ -1,0 +1,109 @@
+diff --git a/django/contrib/contenttypes/fields.py b/django/contrib/contenttypes/fields.py
+index ed98ecb48c..6098b71a39 100644
+--- a/django/contrib/contenttypes/fields.py
++++ b/django/contrib/contenttypes/fields.py
+@@ -202,7 +202,7 @@ class GenericForeignKey(FieldCacheMixin):
+             else:
+                 model = self.get_content_type(id=ct_id,
+                                               using=obj._state.db).model_class()
+-                return (model._meta.pk.get_prep_value(getattr(obj, self.fk_field)),
++                return (model._meta.pk.to_python(getattr(obj, self.fk_field)),
+                         model)
+ 
+         return (
+diff --git a/tests/generic_relations/models.py b/tests/generic_relations/models.py
+index eec40e87a4..8a58ff4128 100644
+--- a/tests/generic_relations/models.py
++++ b/tests/generic_relations/models.py
+@@ -8,6 +8,7 @@ object, be it animal, vegetable, or mineral.
+ The canonical example is tags (although this example implementation is *far*
+ from complete).
+ """
++import uuid
+ 
+ from django.contrib.contenttypes.fields import (
+     GenericForeignKey, GenericRelation,
+@@ -146,3 +147,21 @@ class AllowsNullGFK(models.Model):
+     content_type = models.ForeignKey(ContentType, models.SET_NULL, null=True)
+     object_id = models.PositiveIntegerField(null=True)
+     content_object = GenericForeignKey()
++
++
++class UUIDTaggedItem(models.Model):
++    """A tag on an item with a UUID primary key."""
++    tag = models.SlugField()
++    content_type = models.ForeignKey(ContentType, models.CASCADE)
++    object_id = models.CharField(max_length=255)
++    content_object = GenericForeignKey()
++
++    class Meta:
++        ordering = ["tag"]
++
++
++class ModelWithUUID(models.Model):
++    """A model with UUID as primary key."""
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
++    name = models.CharField(max_length=100)
++    tags = GenericRelation(UUIDTaggedItem)
+diff --git a/tests/generic_relations/tests.py b/tests/generic_relations/tests.py
+index 2e99c5b5cf..55066ae201 100644
+--- a/tests/generic_relations/tests.py
++++ b/tests/generic_relations/tests.py
+@@ -7,8 +7,8 @@ from django.test import SimpleTestCase, TestCase
+ from .models import (
+     AllowsNullGFK, Animal, Carrot, Comparison, ConcreteRelatedModel,
+     ForConcreteModelModel, ForProxyModelModel, Gecko, ManualPK, Mineral,
+-    ProxyRelatedModel, Rock, TaggedItem, ValuableRock, ValuableTaggedItem,
+-    Vegetable,
++    ModelWithUUID, ProxyRelatedModel, Rock, TaggedItem, UUIDTaggedItem,
++    ValuableRock, ValuableTaggedItem, Vegetable,
+ )
+ 
+ 
+@@ -546,6 +546,46 @@ class GenericRelationsTests(TestCase):
+         platypus.tags.remove(weird_tag)
+         self.assertSequenceEqual(platypus.tags.all(), [furry_tag])
+ 
++    def test_prefetch_related_with_uuid_pk(self):
++        """
++        Test that prefetch_related works correctly with GenericForeignKey
++        when the related model uses a UUID primary key.
++        """
++        # Create models with UUID primary keys
++        obj1 = ModelWithUUID.objects.create(name="Object 1")
++        obj2 = ModelWithUUID.objects.create(name="Object 2")
++
++        # Create tags pointing to these objects
++        tag1 = UUIDTaggedItem.objects.create(
++            content_object=obj1,
++            tag="tag1"
++        )
++        tag2 = UUIDTaggedItem.objects.create(
++            content_object=obj2,
++            tag="tag2"
++        )
++
++        # Test prefetch_related on the reverse side (GenericRelation)
++        objs = ModelWithUUID.objects.all().prefetch_related('tags')
++        obj1_prefetched = objs.get(pk=obj1.pk)
++        obj2_prefetched = objs.get(pk=obj2.pk)
++
++        self.assertSequenceEqual(obj1_prefetched.tags.all(), [tag1])
++        self.assertSequenceEqual(obj2_prefetched.tags.all(), [tag2])
++
++        # Test prefetch_related on the forward side (GenericForeignKey)
++        tags = UUIDTaggedItem.objects.all().prefetch_related('content_object')
++        tag1_prefetched = tags.get(pk=tag1.pk)
++        tag2_prefetched = tags.get(pk=tag2.pk)
++
++        # This is the critical test - content_object should not be None
++        self.assertIsNotNone(tag1_prefetched.content_object)
++        self.assertIsNotNone(tag2_prefetched.content_object)
++        self.assertEqual(tag1_prefetched.content_object.pk, obj1.pk)
++        self.assertEqual(tag2_prefetched.content_object.pk, obj2.pk)
++        self.assertEqual(tag1_prefetched.content_object.name, "Object 1")
++        self.assertEqual(tag2_prefetched.content_object.name, "Object 2")
++
+ 
+ class ProxyRelatedModelTest(TestCase):
+     def test_default_behavior(self):

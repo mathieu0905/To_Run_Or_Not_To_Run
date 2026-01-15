@@ -1,22 +1,18 @@
 diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
-index b98abfafb..e4f55c9ec 100644
+index b98abfafb..0f111c0b7 100644
 --- a/astropy/units/quantity.py
 +++ b/astropy/units/quantity.py
-@@ -667,7 +667,16 @@ class Quantity(np.ndarray):
+@@ -667,7 +667,12 @@ class Quantity(np.ndarray):
          arrays = []
          for input_, converter in zip(inputs, converters):
              input_ = getattr(input_, "value", input_)
 -            arrays.append(converter(input_) if converter else input_)
-+            if converter:
-+                try:
-+                    arrays.append(converter(input_))
-+                except (ValueError, TypeError):
-+                    # If we cannot convert the input (e.g., it's an incompatible
-+                    # duck type), return NotImplemented to allow the other operand
-+                    # to handle the operation via its reflected method.
-+                    return NotImplemented
-+            else:
-+                arrays.append(input_)
++            try:
++                arrays.append(converter(input_) if converter else input_)
++            except (TypeError, ValueError):
++                # If the input can't be converted, return NotImplemented
++                # to allow other classes to handle the operation.
++                return NotImplemented
  
          # Call our superclass's __array_ufunc__
          result = super().__array_ufunc__(function, method, *arrays, **kwargs)

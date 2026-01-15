@@ -1,48 +1,19 @@
 diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
-index de3fb01d1..ad94982f6 100644
+index de3fb01d1..1dbccb17c 100644
 --- a/astropy/utils/misc.py
 +++ b/astropy/utils/misc.py
-@@ -536,6 +536,15 @@ class InheritDocstrings(type):
+@@ -536,6 +536,14 @@ class InheritDocstrings(type):
                      if super_method is not None:
                          val.__doc__ = super_method.__doc__
                          break
 +            elif (isinstance(val, property) and
 +                  is_public_member(key) and
-+                  val.fget is not None and
 +                  val.fget.__doc__ is None):
 +                for base in cls.__mro__[1:]:
 +                    super_property = getattr(base, key, None)
-+                    if super_property is not None and isinstance(super_property, property):
-+                        val.fget.__doc__ = super_property.fget.__doc__
++                    if super_property is not None:
++                        val.fget.__doc__ = super_property.__doc__
 +                        break
  
          super().__init__(name, bases, dct)
  
-diff --git a/astropy/utils/tests/test_misc.py b/astropy/utils/tests/test_misc.py
-index 4f632e8d1..d3b2ffaa1 100644
---- a/astropy/utils/tests/test_misc.py
-+++ b/astropy/utils/tests/test_misc.py
-@@ -89,6 +89,23 @@ def test_inherit_docstrings():
-         assert Subclass.__call__.__doc__ == "FOO"
- 
- 
-+def test_inherit_docstrings_for_properties():
-+    """Test that InheritDocstrings works for properties."""
-+    class Base(metaclass=misc.InheritDocstrings):
-+        @property
-+        def value(self):
-+            "Base value property"
-+            return 1
-+
-+    class Derived(Base):
-+        @property
-+        def value(self):
-+            return 2
-+
-+    if Base.value.fget.__doc__ is not None:
-+        assert Derived.value.fget.__doc__ == "Base value property"
-+
-+
- def test_set_locale():
-     # First, test if the required locales are available
-     current = locale.setlocale(locale.LC_ALL)

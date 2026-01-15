@@ -1,0 +1,120 @@
+diff --git a/django/contrib/contenttypes/fields.py b/django/contrib/contenttypes/fields.py
+index ed98ecb48c..6098b71a39 100644
+--- a/django/contrib/contenttypes/fields.py
++++ b/django/contrib/contenttypes/fields.py
+@@ -202,7 +202,7 @@ class GenericForeignKey(FieldCacheMixin):
+             else:
+                 model = self.get_content_type(id=ct_id,
+                                               using=obj._state.db).model_class()
+-                return (model._meta.pk.get_prep_value(getattr(obj, self.fk_field)),
++                return (model._meta.pk.to_python(getattr(obj, self.fk_field)),
+                         model)
+ 
+         return (
+diff --git a/tests/generic_relations/models.py b/tests/generic_relations/models.py
+index eec40e87a4..0885f3ed87 100644
+--- a/tests/generic_relations/models.py
++++ b/tests/generic_relations/models.py
+@@ -146,3 +146,19 @@ class AllowsNullGFK(models.Model):
+     content_type = models.ForeignKey(ContentType, models.SET_NULL, null=True)
+     object_id = models.PositiveIntegerField(null=True)
+     content_object = GenericForeignKey()
++
++
++# To test UUID primary key with GenericForeignKey
++import uuid
++
++
++class UUIDModel(models.Model):
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
++    name = models.CharField(max_length=100)
++
++
++class UUIDTaggedItem(models.Model):
++    tag = models.SlugField()
++    content_type = models.ForeignKey(ContentType, models.CASCADE)
++    object_id = models.CharField(max_length=255)
++    content_object = GenericForeignKey()
+diff --git a/tests/generic_relations/tests.py b/tests/generic_relations/tests.py
+index 2e99c5b5cf..2b8f2df13d 100644
+--- a/tests/generic_relations/tests.py
++++ b/tests/generic_relations/tests.py
+@@ -7,8 +7,8 @@ from django.test import SimpleTestCase, TestCase
+ from .models import (
+     AllowsNullGFK, Animal, Carrot, Comparison, ConcreteRelatedModel,
+     ForConcreteModelModel, ForProxyModelModel, Gecko, ManualPK, Mineral,
+-    ProxyRelatedModel, Rock, TaggedItem, ValuableRock, ValuableTaggedItem,
+-    Vegetable,
++    ProxyRelatedModel, Rock, TaggedItem, UUIDModel, UUIDTaggedItem,
++    ValuableRock, ValuableTaggedItem, Vegetable,
+ )
+ 
+ 
+@@ -627,3 +627,67 @@ class TestInitWithNoneArgument(SimpleTestCase):
+         # TaggedItem requires a content_type but initializing with None should
+         # be allowed.
+         TaggedItem(content_object=None)
++
++
++class UUIDPrimaryKeyTests(TestCase):
++    """
++    Tests for GenericForeignKey with models that use UUID as primary key.
++    Regression test for the issue where prefetch_related returns None.
++    """
++
++    def test_prefetch_related_with_uuid_pk(self):
++        """
++        Test that prefetch_related works correctly when the related model
++        uses a UUID primary key.
++        """
++        # Create a UUIDModel instance
++        uuid_obj = UUIDModel.objects.create(name="Test Object")
++
++        # Create a UUIDTaggedItem pointing to the UUIDModel
++        tag = UUIDTaggedItem.objects.create(
++            tag="test-tag",
++            content_type=ContentType.objects.get_for_model(UUIDModel),
++            object_id=str(uuid_obj.id),
++        )
++
++        # Test WITHOUT prefetch_related (should work)
++        result_no_prefetch = UUIDTaggedItem.objects.get(pk=tag.pk)
++        self.assertIsNotNone(result_no_prefetch.content_object)
++        self.assertEqual(result_no_prefetch.content_object.id, uuid_obj.id)
++
++        # Test WITH prefetch_related (this was the bug)
++        result_with_prefetch = UUIDTaggedItem.objects.prefetch_related(
++            'content_object'
++        ).get(pk=tag.pk)
++        self.assertIsNotNone(result_with_prefetch.content_object)
++        self.assertEqual(result_with_prefetch.content_object.id, uuid_obj.id)
++        self.assertEqual(result_with_prefetch.content_object.name, "Test Object")
++
++    def test_prefetch_related_multiple_uuid_objects(self):
++        """
++        Test prefetch_related with multiple objects having UUID primary keys.
++        """
++        # Create multiple UUIDModel instances
++        uuid_obj1 = UUIDModel.objects.create(name="Object 1")
++        uuid_obj2 = UUIDModel.objects.create(name="Object 2")
++
++        # Create UUIDTaggedItems pointing to them
++        tag1 = UUIDTaggedItem.objects.create(
++            tag="tag1",
++            content_type=ContentType.objects.get_for_model(UUIDModel),
++            object_id=str(uuid_obj1.id),
++        )
++        tag2 = UUIDTaggedItem.objects.create(
++            tag="tag2",
++            content_type=ContentType.objects.get_for_model(UUIDModel),
++            object_id=str(uuid_obj2.id),
++        )
++
++        # Prefetch all at once
++        results = list(UUIDTaggedItem.objects.prefetch_related('content_object').all())
++
++        # Verify both objects are correctly prefetched
++        self.assertEqual(len(results), 2)
++        for result in results:
++            self.assertIsNotNone(result.content_object)
++            self.assertIn(result.content_object.name, ["Object 1", "Object 2"])

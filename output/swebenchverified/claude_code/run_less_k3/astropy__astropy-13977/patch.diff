@@ -1,5 +1,5 @@
 diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
-index b98abfafb..43ba3e4f1 100644
+index b98abfafb..34d2473ff 100644
 --- a/astropy/units/quantity.py
 +++ b/astropy/units/quantity.py
 @@ -665,9 +665,15 @@ class Quantity(np.ndarray):
@@ -14,9 +14,9 @@ index b98abfafb..43ba3e4f1 100644
 +                input_ = getattr(input_, "value", input_)
 +                arrays.append(converter(input_) if converter else input_)
 +        except (ValueError, TypeError):
-+            # If we cannot convert the inputs (e.g., they are incompatible
-+            # duck types), return NotImplemented to allow other operands
-+            # to handle the operation via their reflected methods.
++            # If we cannot convert the inputs (e.g., because they are
++            # incompatible duck types), return NotImplemented to allow
++            # the other operand's __array_ufunc__ to handle it.
 +            return NotImplemented
  
          # Call our superclass's __array_ufunc__

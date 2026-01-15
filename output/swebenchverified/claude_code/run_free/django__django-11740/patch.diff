@@ -1,0 +1,71 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 0dc1c77c53..493f458552 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -963,6 +963,10 @@ class MigrationAutodetector:
+                             preserve_default = False
+                     else:
+                         field = new_field
++                    # Handle dependencies for new foreign keys
++                    dependencies = []
++                    if new_field.remote_field and new_field.remote_field.model:
++                        dependencies.extend(self._get_dependencies_for_foreign_key(new_field))
+                     self.add_operation(
+                         app_label,
+                         operations.AlterField(
+@@ -970,7 +974,8 @@ class MigrationAutodetector:
+                             name=field_name,
+                             field=field,
+                             preserve_default=preserve_default,
+-                        )
++                        ),
++                        dependencies=dependencies,
+                     )
+                 else:
+                     # We cannot alter between m2m and concrete fields
+diff --git a/tests/migrations/test_autodetector.py b/tests/migrations/test_autodetector.py
+index e9926ba3bf..a5619defac 100644
+--- a/tests/migrations/test_autodetector.py
++++ b/tests/migrations/test_autodetector.py
+@@ -821,6 +821,41 @@ class AutodetectorTests(TestCase):
+         self.assertOperationAttributes(changes, "testapp", 0, 0, name="name", preserve_default=False)
+         self.assertOperationFieldAttributes(changes, "testapp", 0, 0, default="Some Name")
+ 
++    def test_alter_field_to_fk_dependency(self):
++        """
++        Changing a field to a ForeignKey should add a dependency on the
++        related model.
++        """
++        # Model with a UUID field
++        before = [
++            ModelState('otherapp', 'Book', [
++                ('id', models.AutoField(primary_key=True)),
++                ('title', models.CharField(max_length=200)),
++            ]),
++            ModelState('testapp', 'Author', [
++                ('id', models.AutoField(primary_key=True)),
++                ('book_id', models.UUIDField(null=True)),
++            ]),
++        ]
++        # Change UUID field to ForeignKey
++        after = [
++            ModelState('otherapp', 'Book', [
++                ('id', models.AutoField(primary_key=True)),
++                ('title', models.CharField(max_length=200)),
++            ]),
++            ModelState('testapp', 'Author', [
++                ('id', models.AutoField(primary_key=True)),
++                ('book_id', models.ForeignKey('otherapp.Book', models.SET_NULL, null=True)),
++            ]),
++        ]
++        changes = self.get_changes(before, after)
++        # Right number/type of migrations?
++        self.assertNumberMigrations(changes, 'testapp', 1)
++        self.assertOperationTypes(changes, 'testapp', 0, ["AlterField"])
++        self.assertOperationAttributes(changes, "testapp", 0, 0, name="book_id")
++        # Check that the migration has a dependency on otherapp
++        self.assertMigrationDependencies(changes, 'testapp', 0, [("otherapp", "__first__")])
++
+     def test_rename_field(self):
+         """Tests autodetection of renamed fields."""
+         changes = self.get_changes(

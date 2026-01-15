@@ -54,3 +54,26 @@ index 880a2cc17b..a15e05d151 100644
          return super().has_delete_permission(request, obj)
  
      def has_view_permission(self, request, obj=None):
+diff --git a/tests/admin_inlines/tests.py b/tests/admin_inlines/tests.py
+index 5272d44f35..8053c4540c 100644
+--- a/tests/admin_inlines/tests.py
++++ b/tests/admin_inlines/tests.py
+@@ -665,6 +665,18 @@ class TestInlinePermissions(TestCase):
+         self.assertNotContains(response, 'id="id_Author_books-TOTAL_FORMS"')
+         self.assertNotContains(response, 'id="id_Author_books-0-DELETE"')
+ 
++    def test_inline_change_m2m_view_only_perm(self):
++        permission = Permission.objects.get(codename='view_book', content_type=self.book_ct)
++        self.user.user_permissions.add(permission)
++        response = self.client.get(self.author_change_url)
++        # View-only permission on books, inline should be shown but without edit capabilities
++        self.assertContains(response, '<h2>Author-book relationships</h2>')
++        # Should NOT be able to delete existing relationships
++        self.assertNotContains(response, 'id="id_Author_books-0-DELETE"')
++        # Should show existing relationships in read-only mode (only 1 form for existing, no extras)
++        self.assertContains(response, '<input type="hidden" id="id_Author_books-TOTAL_FORMS" '
++                            'value="1" name="Author_books-TOTAL_FORMS">', html=True)
++
+     def test_inline_change_m2m_change_perm(self):
+         permission = Permission.objects.get(codename='change_book', content_type=self.book_ct)
+         self.user.user_permissions.add(permission)

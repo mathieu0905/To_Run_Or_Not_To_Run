@@ -1,0 +1,104 @@
+diff --git a/django/contrib/auth/migrations/0011_update_proxy_permissions.py b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+index 0e66649695..d71cbb9675 100644
+--- a/django/contrib/auth/migrations/0011_update_proxy_permissions.py
++++ b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+@@ -24,10 +24,19 @@ def update_proxy_model_permissions(apps, schema_editor, reverse=False):
+         proxy_content_type = ContentType.objects.get_for_model(Model, for_concrete_model=False)
+         old_content_type = proxy_content_type if reverse else concrete_content_type
+         new_content_type = concrete_content_type if reverse else proxy_content_type
+-        Permission.objects.filter(
++        old_permissions = Permission.objects.filter(
+             permissions_query,
+             content_type=old_content_type,
+-        ).update(content_type=new_content_type)
++        )
++        new_permissions = Permission.objects.filter(
++            permissions_query,
++            content_type=new_content_type,
++        )
++        # Delete old permissions if new permissions already exist
++        if new_permissions.exists():
++            old_permissions.delete()
++        else:
++            old_permissions.update(content_type=new_content_type)
+ 
+ 
+ def revert_proxy_model_permissions(apps, schema_editor):
+diff --git a/tests/auth_tests/test_migrations.py b/tests/auth_tests/test_migrations.py
+index 5ff2f6b4b3..73b7734822 100644
+--- a/tests/auth_tests/test_migrations.py
++++ b/tests/auth_tests/test_migrations.py
+@@ -152,3 +152,73 @@ class ProxyModelWithSameAppLabelTests(TestCase):
+         user = User._default_manager.get(pk=user.pk)
+         for permission in [self.default_permission, self.custom_permission]:
+             self.assertTrue(user.has_perm('auth_tests.' + permission.codename))
++
++
++class ProxyModelWithDuplicatePermissionsTests(TestCase):
++    """
++    Test the case where a model was recreated as a proxy and permissions
++    already exist for both the concrete and proxy content types.
++    """
++    available_apps = [
++        'auth_tests',
++        'django.contrib.auth',
++        'django.contrib.contenttypes',
++    ]
++
++    def setUp(self):
++        """
++        Create permissions for both the concrete and proxy content types.
++        This simulates the case where a model was recreated as a proxy.
++        """
++        Permission.objects.all().delete()
++        self.concrete_content_type = ContentType.objects.get_for_model(Proxy, for_concrete_model=True)
++        self.proxy_content_type = ContentType.objects.get_for_model(Proxy, for_concrete_model=False)
++        # Create permissions for the concrete model
++        self.concrete_default_permission = Permission.objects.create(
++            content_type=self.concrete_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++        # Create permissions for the proxy model (duplicates)
++        self.proxy_default_permission = Permission.objects.create(
++            content_type=self.proxy_content_type,
++            codename='add_proxy',
++            name='Can add proxy',
++        )
++
++    def test_update_proxy_permissions_with_duplicates(self):
++        """
++        Test that the migration handles the case where permissions already
++        exist for both the concrete and proxy content types.
++        """
++        # Should not raise IntegrityError
++        update_proxy_permissions.update_proxy_model_permissions(apps, None)
++        # Only the proxy permission should remain
++        self.assertEqual(Permission.objects.filter(codename='add_proxy').count(), 1)
++        permission = Permission.objects.get(codename='add_proxy')
++        self.assertEqual(permission.content_type, self.proxy_content_type)
++
++    def test_update_custom_permissions_with_duplicates(self):
++        """
++        Test that custom permissions are also handled correctly when duplicates exist.
++        """
++        Permission.objects.all().delete()
++        concrete_content_type = ContentType.objects.get_for_model(Proxy, for_concrete_model=True)
++        proxy_content_type = ContentType.objects.get_for_model(Proxy, for_concrete_model=False)
++        # Create custom permissions for both concrete and proxy
++        Permission.objects.create(
++            content_type=concrete_content_type,
++            codename='display_proxys',
++            name='May display proxys information',
++        )
++        Permission.objects.create(
++            content_type=proxy_content_type,
++            codename='display_proxys',
++            name='May display proxys information',
++        )
++        # Should not raise IntegrityError
++        update_proxy_permissions.update_proxy_model_permissions(apps, None)
++        # Only the proxy permission should remain
++        self.assertEqual(Permission.objects.filter(codename='display_proxys').count(), 1)
++        permission = Permission.objects.get(codename='display_proxys')
++        self.assertEqual(permission.content_type, proxy_content_type)

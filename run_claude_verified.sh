@@ -22,16 +22,51 @@ SCRIPT_DIR="$(pwd)"
 # 切换到 experiments 目录运行
 cd experiments
 
+# 清理函数：终止所有子进程和 Docker 容器
+cleanup() {
+    echo ""
+    echo "=========================================="
+    echo "收到终止信号，正在清理资源..."
+    echo "=========================================="
+
+    # 终止所有子进程
+    if [ ${#PIDS[@]} -gt 0 ]; then
+        echo "正在终止 ${#PIDS[@]} 个后台进程..."
+        for pid in "${PIDS[@]}"; do
+            kill -TERM "$pid" 2>/dev/null || true
+        done
+        sleep 2
+        for pid in "${PIDS[@]}"; do
+            kill -KILL "$pid" 2>/dev/null || true
+        done
+        echo "✓ 已终止所有后台进程"
+    fi
+
+    # 清理 SWE-bench Docker 容器
+    echo "正在清理 Docker 容器..."
+    CONTAINERS=$(docker ps -aq --filter "ancestor=swebench" 2>/dev/null || true)
+    if [ -n "$CONTAINERS" ]; then
+        echo "$CONTAINERS" | xargs docker rm -f 2>/dev/null || true
+        echo "✓ 已清理 Docker 容器"
+    fi
+
+    echo "清理完成！"
+    exit 1
+}
+
+# 注册信号处理器
+trap cleanup SIGINT SIGTERM
+
 # ========== 配置区域 ==========
 # 实验配置
 NUM_INSTANCES=100  # 取前 n 个实例
-WORKERS=30  # 每个配置内部的并发数
+WORKERS=10  # 每个配置内部的并发数
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Verified"
 
 # Claude Code 配置
 export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"  # 可选: opus, sonnet, haiku
-export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://uk.frp.one:60660}"
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://vip.xg.frp.one:60660}"
 
 # Codex 配置
 export CODEX_MODEL="${CODEX_MODEL:-gpt-5.2}"

@@ -1,12 +1,13 @@
 diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
-index 5e7b23f9a0..b588653f2d 100644
+index 5e7b23f9a0..0f1d18ad4e 100644
 --- a/django/contrib/admin/options.py
 +++ b/django/contrib/admin/options.py
-@@ -580,9 +580,12 @@ class ModelAdmin(BaseModelAdmin):
+@@ -580,9 +580,13 @@ class ModelAdmin(BaseModelAdmin):
      def __str__(self):
          return "%s.%s" % (self.model._meta.app_label, self.__class__.__name__)
  
 +    def get_inlines(self, request, obj=None):
++        """Hook for specifying inlines based on the request or model instance."""
 +        return self.inlines
 +
      def get_inline_instances(self, request, obj=None):

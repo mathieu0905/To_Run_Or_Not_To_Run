@@ -1,5 +1,5 @@
 diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
-index 880a2cc17b..9be63a731f 100644
+index 880a2cc17b..8b4613a319 100644
 --- a/django/contrib/admin/options.py
 +++ b/django/contrib/admin/options.py
 @@ -2115,27 +2115,45 @@ class InlineModelAdmin(BaseModelAdmin):
@@ -9,14 +9,14 @@ index 880a2cc17b..9be63a731f 100644
 -            # to have the view permission for the related model in order to
 -            # be able to do anything with the intermediate model.
 -            return self.has_view_permission(request, obj)
-+            # to have the add permission for the related model in order to
-+            # be able to add the intermediate model.
++            # to have the change permission for the related model in order to
++            # be able to add to the intermediate model.
 +            opts = self.opts
 +            for field in opts.fields:
 +                if field.remote_field and field.remote_field.model != self.parent_model:
 +                    opts = field.remote_field.model._meta
 +                    break
-+            codename = get_permission_codename('add', opts)
++            codename = get_permission_codename('change', opts)
 +            return request.user.has_perm('%s.%s' % (opts.app_label, codename))
          return super().has_add_permission(request)
  
@@ -45,14 +45,14 @@ index 880a2cc17b..9be63a731f 100644
 -            # to have the view permission for the related model in order to
 -            # be able to do anything with the intermediate model.
 -            return self.has_view_permission(request, obj)
-+            # to have the delete permission for the related model in order to
-+            # be able to delete the intermediate model.
++            # to have the change permission for the related model in order to
++            # be able to delete from the intermediate model.
 +            opts = self.opts
 +            for field in opts.fields:
 +                if field.remote_field and field.remote_field.model != self.parent_model:
 +                    opts = field.remote_field.model._meta
 +                    break
-+            codename = get_permission_codename('delete', opts)
++            codename = get_permission_codename('change', opts)
 +            return request.user.has_perm('%s.%s' % (opts.app_label, codename))
          return super().has_delete_permission(request, obj)
  

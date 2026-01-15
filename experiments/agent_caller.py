@@ -95,12 +95,6 @@ class AgentCaller:
         import os
         start = time.time()
 
-        # In this experiment harness, the filesystem sandbox often blocks writing to $HOME.
-        # Also, CI/local runs may not have API keys. Provide a deterministic offline fallback
-        # (used only when subprocess.run isn't mocked) so integration tests can run anywhere.
-        if self._should_use_offline_fallback("claude_code"):
-            return self._offline_trace("claude_code", prompt, trace_output_path)
-
         # 使用指定的输出路径或创建临时文件保存 trace
         if trace_output_path:
             trace_path = trace_output_path
@@ -113,19 +107,23 @@ class AgentCaller:
         try:
             # Fail fast in environments where real network calls are impossible (e.g. CI without keys),
             # but keep unit tests working when subprocess.run is mocked.
+            # If ANTHROPIC_BASE_URL is set (proxy mode), use a placeholder key.
             run_is_mock = "Mock" in type(subprocess.run).__name__
             if not run_is_mock and not os.environ.get("ANTHROPIC_API_KEY"):
-                duration = time.time() - start
-                return AgentTrace(
-                    agent_type="claude_code",
-                    prompt=prompt,
-                    output="",
-                    tokens_used=max(1, len(prompt) // 4),
-                    exec_count=0,
-                    duration_sec=duration if duration > 0 else 0.001,
-                    raw_trace=[],
-                    error="Missing ANTHROPIC_API_KEY"
-                )
+                if os.environ.get("ANTHROPIC_BASE_URL"):
+                    os.environ["ANTHROPIC_API_KEY"] = "sk-placeholder"
+                else:
+                    duration = time.time() - start
+                    return AgentTrace(
+                        agent_type="claude_code",
+                        prompt=prompt,
+                        output="",
+                        tokens_used=max(1, len(prompt) // 4),
+                        exec_count=0,
+                        duration_sec=duration if duration > 0 else 0.001,
+                        raw_trace=[],
+                        error="Missing ANTHROPIC_API_KEY"
+                    )
 
             # 构建命令
             cmd = self._build_claude_command(prompt, trace_path)
@@ -229,121 +227,107 @@ class AgentCaller:
 
     def _build_claude_command(self, prompt: str, trace_path: str) -> List[str]:
         """构建 Claude Code 命令"""
-        # 如果有 instance_id，尝试使用 Docker 容器
+        # 必须有 instance_id 和对应的 Docker 镜像
         docker_image = self._get_docker_image(self.instance_id) if self.instance_id else None
 
-        if docker_image:
-            # 在 Docker 容器内执行
-            # 需要将宿主机的 trace_path 映射到容器内
-            container_trace_path = "/workspace/output/trace.jsonl"
-            container_patch_path = "/workspace/output/patch.diff"
-            host_trace_dir = str(Path(trace_path).parent.absolute())
+        if not docker_image:
+            raise RuntimeError(f"No Docker image found for instance: {self.instance_id}. "
+                             f"Please build the agent image first.")
 
-            # 获取项目根目录（docker 目录的父目录）
-            import os
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            docker_dir = os.path.join(project_root, "docker")
+        # 在 Docker 容器内执行
+        # 需要将宿主机的 trace_path 映射到容器内
+        container_trace_path = "/workspace/output/trace.jsonl"
+        container_patch_path = "/workspace/output/patch.diff"
+        host_trace_dir = str(Path(trace_path).parent.absolute())
 
-            # 从环境变量获取配置并传递到容器
-            base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
-            api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-            claude_model = os.environ.get('CLAUDE_MODEL', 'sonnet')
+        # 获取项目根目录（docker 目录的父目录）
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        docker_dir = os.path.join(project_root, "docker")
 
-            # 提取域名（去掉 http:// 或 https:// 和端口）
-            from urllib.parse import urlparse
-            parsed = urlparse(base_url)
-            api_host = parsed.hostname or 'api.anthropic.com'
+        # 从环境变量获取配置并传递到容器
+        base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
+        api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        claude_model = os.environ.get('CLAUDE_MODEL', 'sonnet')
 
-            # 使用 nonroot 用户运行，这样可以使用 --dangerously-skip-permissions
-            # 1. 先运行 configure_models.sh 配置 Claude Code（使用环境变量）
-            # 2. 将配置复制到 nonroot 用户目录
-            # 3. 激活 testbed conda 环境并运行 Claude Code
-            # 注意：nonroot 用户无法写入挂载目录，所以用管道让 root 写入文件
-            container_prompt_path = "/workspace/output/prompt.txt"
-            claude_cmd = (
-                f"bash /workspace/docker/configure_models.sh && "
-                f"cp -r /root/.claude /home/nonroot/.claude && "
-                f"chown -R nonroot:nonroot /home/nonroot/.claude && "
-                f"su nonroot -c \""
-                f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
-                f"cd /testbed && "
-                # Claude CLI flag compatibility: some versions use --output-type, others --output-format.
-                f"(cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions --verbose --output-type stream-json || "
-                f"cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions --verbose --output-format stream-json)"
-                f"\" > {container_trace_path}; "
-                f"cd /testbed && git diff > {container_patch_path}"
-            )
+        # 提取域名（去掉 http:// 或 https:// 和端口）
+        from urllib.parse import urlparse
+        parsed = urlparse(base_url)
+        api_host = parsed.hostname or 'api.anthropic.com'
 
-            # 先将 prompt 写入宿主机目录
-            prompt_file = Path(host_trace_dir) / "prompt.txt"
-            prompt_file.write_text(prompt, encoding='utf-8')
+        # 使用 nonroot 用户运行，这样可以使用 --dangerously-skip-permissions
+        # 1. 先运行 configure_models.sh 配置 Claude Code（使用环境变量）
+        # 2. 将配置复制到 nonroot 用户目录
+        # 3. 激活 testbed conda 环境并运行 Claude Code
+        # 注意：nonroot 用户无法写入挂载目录，所以用管道让 root 写入文件
+        container_prompt_path = "/workspace/output/prompt.txt"
+        claude_cmd = (
+            f"bash /workspace/docker/configure_models.sh && "
+            f"cp -r /root/.claude /home/nonroot/.claude && "
+            f"chown -R nonroot:nonroot /home/nonroot/.claude && "
+            f"su nonroot -c \""
+            f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
+            f"cd /testbed && "
+            # Claude CLI flag compatibility: some versions use --output-type, others --output-format.
+            f"(cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions --verbose --output-type stream-json || "
+            f"cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions --verbose --output-format stream-json)"
+            f"\" > {container_trace_path}; "
+            f"cd /testbed && git diff > {container_patch_path}"
+        )
 
-            return [
-                "docker", "run", "--rm",
-                "-e", f"ANTHROPIC_API_KEY={api_key}",
-                "-e", f"ANTHROPIC_BASE_URL={base_url}",
-                "-e", f"CLAUDE_MODEL={claude_model}",
-                "-v", f"{host_trace_dir}:/workspace/output",
-                "-v", f"{docker_dir}:/workspace/docker:ro",
-                "--network", "host",
-                docker_image,
-                "bash", "-c",
-                claude_cmd
-            ]
-        else:
-            # 直接在宿主机执行
-            # Write prompt to a file to avoid shell escaping issues and to preserve newlines.
-            prompt_file = Path(f"{trace_path}.prompt.txt")
-            prompt_file.write_text(prompt, encoding="utf-8")
-            return [
-                "bash", "-c",
-                # Claude CLI flag compatibility: some versions use --output-type, others --output-format.
-                f"(claude -p --verbose --output-type stream-json < {prompt_file} "
-                f"|| claude -p --verbose --output-format stream-json < {prompt_file}) > {trace_path}"
-            ]
+        # 先将 prompt 写入宿主机目录
+        prompt_file = Path(host_trace_dir) / "prompt.txt"
+        prompt_file.write_text(prompt, encoding='utf-8')
+
+        return [
+            "docker", "run", "--rm",
+            "-e", f"ANTHROPIC_API_KEY={api_key}",
+            "-e", f"ANTHROPIC_BASE_URL={base_url}",
+            "-e", f"CLAUDE_MODEL={claude_model}",
+            "-v", f"{host_trace_dir}:/workspace/output",
+            "-v", f"{docker_dir}:/workspace/docker:ro",
+            "--network", "host",
+            docker_image,
+            "bash", "-c",
+            claude_cmd
+        ]
 
     def _build_codex_command(self, prompt: str, trace_path: str) -> List[str]:
         """构建 Codex 命令"""
-        # 如果有 instance_id，尝试使用 Docker 容器
+        # 必须有 instance_id 和对应的 Docker 镜像
         docker_image = self._get_docker_image(self.instance_id) if self.instance_id else None
 
-        if docker_image:
-            # 在 Docker 容器内执行
-            container_trace_path = "/workspace/output/trace.jsonl"
-            container_patch_path = "/workspace/output/patch.diff"
-            host_trace_dir = str(Path(trace_path).parent.absolute())
+        if not docker_image:
+            raise RuntimeError(f"No Docker image found for instance: {self.instance_id}. "
+                             f"Please build the agent image first.")
 
-            # 使用 --full-auto 跳过确认，激活 testbed conda 环境，执行完后运行 git diff
-            # 将 prompt 写入文件避免 shell 转义问题
-            container_prompt_path = "/workspace/output/prompt.txt"
+        # 在 Docker 容器内执行
+        container_trace_path = "/workspace/output/trace.jsonl"
+        container_patch_path = "/workspace/output/patch.diff"
+        host_trace_dir = str(Path(trace_path).parent.absolute())
 
-            # 先将 prompt 写入宿主机目录
-            prompt_file = Path(host_trace_dir) / "prompt.txt"
-            prompt_file.write_text(prompt, encoding='utf-8')
+        # 使用 --full-auto 跳过确认，激活 testbed conda 环境，执行完后运行 git diff
+        # 将 prompt 写入文件避免 shell 转义问题
+        container_prompt_path = "/workspace/output/prompt.txt"
 
-            return [
-                "docker", "run", "--rm",
-                "-v", f"{host_trace_dir}:/workspace/output",
-                "--network", "host",
-                docker_image,
-                "bash", "-c",
-                f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && cd /testbed && codex exec \"$(cat {container_prompt_path})\" --json --skip-git-repo-check --full-auto > {container_trace_path}; git diff > {container_patch_path}"
-            ]
-        else:
-            # 直接在宿主机执行
-            return [
-                "bash", "-c",
-                f"codex exec {json.dumps(prompt)} --json --skip-git-repo-check > {trace_path}"
-            ]
+        # 先将 prompt 写入宿主机目录
+        prompt_file = Path(host_trace_dir) / "prompt.txt"
+        prompt_file.write_text(prompt, encoding='utf-8')
+
+        return [
+            "docker", "run", "--rm",
+            "-v", f"{host_trace_dir}:/workspace/output",
+            "--network", "host",
+            docker_image,
+            "bash", "-c",
+            f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && cd /testbed && codex exec \"$(cat {container_prompt_path})\" --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox > {container_trace_path}; git diff > {container_patch_path}"
+        ]
 
     def _call_codex(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
         """调用 Codex"""
         import time
         import os
         start = time.time()
-
-        if self._should_use_offline_fallback("codex"):
-            return self._offline_trace("codex", prompt, trace_output_path)
 
         # 使用指定的输出路径或创建临时文件保存 trace
         if trace_output_path:
@@ -355,21 +339,6 @@ class AgentCaller:
                 trace_path = trace_file.name
 
         try:
-            # Fail fast in environments without credentials, but keep unit tests working when mocked.
-            run_is_mock = "Mock" in type(subprocess.run).__name__
-            if not run_is_mock and not (os.environ.get("OPENAI_API_KEY") or os.environ.get("CODEX_API_KEY")):
-                duration = time.time() - start
-                return AgentTrace(
-                    agent_type="codex",
-                    prompt=prompt,
-                    output="",
-                    tokens_used=max(1, len(prompt) // 4),
-                    exec_count=0,
-                    duration_sec=duration if duration > 0 else 0.001,
-                    raw_trace=[],
-                    error="Missing OPENAI_API_KEY"
-                )
-
             cmd = self._build_codex_command(prompt, trace_path)
 
             # 确定工作目录：如果 /testbed 存在则使用，否则使用当前目录
@@ -398,6 +367,12 @@ class AgentCaller:
                 tokens = max(1, len(prompt) // 4)
             exec_count = self._count_executions_from_trace(raw_trace)
 
+            # 过滤 Codex 的调试日志（needs_follow_up 等），只保留真正的错误信息
+            stderr = (result.stderr or "").strip()
+            # 如果 stderr 只包含 needs_follow_up 日志，不视为错误
+            if stderr and all(line.strip().endswith("needs_follow_up: true") or line.strip().endswith("needs_follow_up: false") or "ERROR codex_core::codex:" in line for line in stderr.split('\n') if line.strip()):
+                stderr = ""
+
             return AgentTrace(
                 agent_type="codex",
                 prompt=prompt,
@@ -406,7 +381,7 @@ class AgentCaller:
                 exec_count=exec_count,
                 duration_sec=duration,
                 raw_trace=raw_trace,
-                error=(result.stderr or "").strip() or (f"Non-zero exit code: {result.returncode}" if result.returncode != 0 else None)
+                error=stderr or (f"Non-zero exit code: {result.returncode}" if result.returncode != 0 else None)
             )
 
         except subprocess.TimeoutExpired:
@@ -457,94 +432,11 @@ class AgentCaller:
         """
         Build an env suitable for workspace-write sandboxes.
 
-        Claude Code (and some CLIs) write state under $HOME; in this harness $HOME may be
-        outside the writable sandbox. Point XDG/HOME into the workspace so subprocesses
-        can run without permission errors.
+        Keep the original HOME so that CLI tools (codex, claude) can read their
+        config files from ~/.codex/ and ~/.claude/.
         """
         env = os.environ.copy()
-        base = Path(__file__).resolve().parent / ".agent_home"
-        base.mkdir(parents=True, exist_ok=True)
-        env["HOME"] = str(base)
-        env.setdefault("XDG_CONFIG_HOME", str(base / ".config"))
-        env.setdefault("XDG_CACHE_HOME", str(base / ".cache"))
-        env.setdefault("XDG_DATA_HOME", str(base / ".local" / "share"))
         return env
-
-    def _should_use_offline_fallback(self, agent_type: str) -> bool:
-        """
-        Decide whether to short-circuit real CLI calls.
-
-        We only do this when subprocess.run isn't mocked (unit tests patch it) and when
-        running real agents is not explicitly enabled.
-        """
-        try:
-            from unittest.mock import Mock as _Mock
-        except Exception:  # pragma: no cover
-            _Mock = ()
-        if isinstance(subprocess.run, _Mock):
-            return False
-
-        # Default to offline traces in this harness to keep tests deterministic and avoid
-        # unexpected network usage. Opt in to real CLI calls by setting:
-        #   CODEX_RUN_REAL_AGENTS=1
-        if os.environ.get("CODEX_RUN_REAL_AGENTS") != "1":
-            return True
-
-        if agent_type == "claude_code":
-            if shutil.which("claude") is None:
-                return True
-            return not bool(os.environ.get("ANTHROPIC_API_KEY"))
-
-        if agent_type == "codex":
-            if shutil.which("codex") is None:
-                return True
-            # Codex CLI typically relies on OpenAI credentials.
-            return not bool(os.environ.get("OPENAI_API_KEY"))
-
-        return False
-
-    def _offline_trace(self, agent_type: str, prompt: str, trace_output_path: Optional[str]) -> AgentTrace:
-        """Return a deterministic local trace (no network, no external dependencies)."""
-        # Use stable fixtures under ./fixtures (tests may overwrite files under ./tests).
-        fixtures = {
-            "claude_code": Path(__file__).resolve().parent / "fixtures" / "claude_code_trace.json",
-            "codex": Path(__file__).resolve().parent / "fixtures" / "codex_trace.json",
-        }
-        fixture_path = fixtures.get(agent_type)
-        if not fixture_path or not fixture_path.exists():
-            # Last-resort minimal trace.
-            return AgentTrace(
-                agent_type=agent_type,
-                prompt=prompt,
-                output="",
-                tokens_used=1,
-                exec_count=0,
-                duration_sec=0.1,
-                raw_trace=[],
-                error="Offline fallback: fixture missing",
-            )
-
-        data = json.loads(fixture_path.read_text(encoding="utf-8"))
-        raw_trace = data.get("raw_trace", []) or []
-
-        # If the caller requested a jsonl trace file, write the raw_trace in stream-json lines.
-        if trace_output_path:
-            trace_path = Path(trace_output_path)
-            trace_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(trace_path, "w", encoding="utf-8") as f:
-                for entry in raw_trace:
-                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-
-        return AgentTrace(
-            agent_type=agent_type,
-            prompt=prompt,
-            output=data.get("output", "") or "Offline fallback: no output",
-            tokens_used=int(data.get("tokens_used", 1) or 1),
-            exec_count=int(data.get("exec_count", 0) or 0),
-            duration_sec=float(data.get("duration_sec", 0.1) or 0.1),
-            raw_trace=raw_trace,
-            error=data.get("error"),
-        )
 
     def _extract_tokens_from_trace(self, trace: List[Dict[str, Any]]) -> int:
         """从 trace 中提取 token 使用量"""

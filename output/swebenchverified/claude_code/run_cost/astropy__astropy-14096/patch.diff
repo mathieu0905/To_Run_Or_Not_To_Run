@@ -1,24 +1,17 @@
 diff --git a/astropy/coordinates/sky_coordinate.py b/astropy/coordinates/sky_coordinate.py
-index ab475f7d0..b4696a1bc 100644
+index ab475f7d0..323664a7f 100644
 --- a/astropy/coordinates/sky_coordinate.py
 +++ b/astropy/coordinates/sky_coordinate.py
-@@ -871,6 +871,19 @@ class SkyCoord(ShapedLikeNDArray):
-         Overrides getattr to return coordinates that this can be transformed
-         to, based on the alias attr in the primary transform graph.
-         """
-+        # Check if this attribute is defined on the class (e.g., as a property).
-+        # If so, Python's normal attribute lookup found it but it raised an
-+        # AttributeError. We should call the descriptor directly to let the
-+        # original error propagate with the correct attribute name.
+@@ -895,6 +895,12 @@ class SkyCoord(ShapedLikeNDArray):
+                 return self.transform_to(attr)
+ 
+         # Fail
++        # Check if attr is a descriptor (like a property) on the class.
++        # If so, invoke it directly to get the original AttributeError.
 +        for cls in type(self).__mro__:
-+            if attr in cls.__dict__:
-+                descriptor = cls.__dict__[attr]
-+                if hasattr(descriptor, '__get__'):
-+                    return descriptor.__get__(self, type(self))
-+                raise AttributeError(
-+                    f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-+                )
++            if attr in getattr(cls, "__dict__", {}):
++                return cls.__dict__[attr].__get__(self, type(self))
 +
-         if "_sky_coord_frame" in self.__dict__:
-             if self._is_name(attr):
-                 return self  # Should this be a deepcopy of self?
+         raise AttributeError(
+             f"'{self.__class__.__name__}' object has no attribute '{attr}'"
+         )

@@ -1,0 +1,110 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 7d226955d5..d4faa238e2 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -91,11 +91,31 @@ class DeconstructableSerializer(BaseSerializer):
+     @staticmethod
+     def _serialize_path(path):
+         module, name = path.rsplit(".", 1)
+-        if module == "django.db.models":
++        # For nested classes, the path format is module.qualname where qualname
++        # can contain dots (e.g., "myapp.models.Outer.Inner").
++        # We need to import only the actual module, not any class names.
++        # We use a heuristic: split from the left and stop at the first component
++        # that starts with an uppercase letter (likely a class name).
++        parts = module.split('.')
++        module_parts = []
++        for part in parts:
++            # If this part starts with uppercase, it's likely a class name
++            if part and part[0].isupper():
++                break
++            module_parts.append(part)
++
++        # If we found class parts, use only the module parts
++        if module_parts and len(module_parts) < len(parts):
++            import_module = '.'.join(module_parts)
++        else:
++            # No uppercase parts found, use the whole module string
++            import_module = module
++
++        if import_module == "django.db.models":
+             imports = {"from django.db import models"}
+             name = "models.%s" % name
+         else:
+-            imports = {"import %s" % module}
++            imports = {"import %s" % import_module}
+             name = path
+         return name, imports
+ 
+@@ -267,9 +287,15 @@ class TypeSerializer(BaseSerializer):
+         if hasattr(self.value, "__module__"):
+             module = self.value.__module__
+             if module == builtins.__name__:
+-                return self.value.__name__, set()
++                return self.value.__qualname__, set()
+             else:
+-                return "%s.%s" % (module, self.value.__name__), {"import %s" % module}
++                # Use __qualname__ for proper handling of nested classes,
++                # but fall back to __name__ for local classes (which have '<locals>' in qualname)
++                qualname = self.value.__qualname__
++                if '<locals>' in qualname:
++                    # Local classes aren't really serializable, use __name__ for backwards compatibility
++                    qualname = self.value.__name__
++                return "%s.%s" % (module, qualname), {"import %s" % module}
+ 
+ 
+ class UUIDSerializer(BaseSerializer):
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index ca924f35ec..93f2351bf7 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -61,6 +61,15 @@ class IntEnum(enum.IntEnum):
+     B = 2
+ 
+ 
++class OuterClass:
++    """Test class for inner class serialization."""
++    class InnerCharField(models.CharField):
++        pass
++
++    class InnerClass:
++        pass
++
++
+ class OperationWriterTests(SimpleTestCase):
+ 
+     def test_empty_signature(self):
+@@ -747,3 +756,33 @@ class WriterTests(SimpleTestCase):
+     def test_register_non_serializer(self):
+         with self.assertRaisesMessage(ValueError, "'TestModel1' must inherit from 'BaseSerializer'."):
+             MigrationWriter.register_serializer(complex, TestModel1)
++
++    def test_serialize_inner_class_field(self):
++        """
++        Test that inner classes are serialized correctly with proper imports.
++        Regression test for #24455.
++        """
++        field = OuterClass.InnerCharField(max_length=20)
++        serialized, imports = MigrationWriter.serialize(field)
++
++        # The serialized field should include the full path with OuterClass.InnerCharField
++        self.assertIn('OuterClass.InnerCharField', serialized)
++        self.assertIn('max_length=20', serialized)
++
++        # The import should be for the module only, not including class names
++        self.assertEqual(imports, {'import migrations.test_writer'})
++
++        # Verify the serialized form can be executed
++        self.assertSerializedFieldEqual(field)
++
++    def test_serialize_inner_class_type(self):
++        """
++        Test that inner class types are serialized correctly.
++        """
++        serialized, imports = MigrationWriter.serialize(OuterClass.InnerClass)
++
++        # The serialized type should include the full path with OuterClass.InnerClass
++        self.assertIn('OuterClass.InnerClass', serialized)
++
++        # The import should be for the module only, not including class names
++        self.assertEqual(imports, {'import migrations.test_writer'})

@@ -1,0 +1,88 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..750170c7c 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -55,6 +55,45 @@ _COL_ATTRS = [
+ ]
+ 
+ 
++def _is_vla_format(format_):
++    """
++    Return True if a FITS TFORM string denotes a variable-length array (VLA).
++
++    In FITS binary tables VLAs are indicated by a 'P' (32-bit) or 'Q' (64-bit)
++    descriptor, optionally preceded by a repeat count (e.g. 'PI(2)', '1QD').
++    """
++    if not format_:
++        return False
++
++    fmt = str(format_).strip().upper()
++    i = 0
++    # Strip an optional leading repeat count.
++    while i < len(fmt) and fmt[i].isdigit():
++        i += 1
++    return i < len(fmt) and fmt[i] in ("P", "Q")
++
++
++def _vla_rows_equal(a_row, b_row, *, rtol, atol):
++    """Compare two VLA row values."""
++    # Preserve old semantics for missing values.
++    if a_row is None or b_row is None:
++        return a_row == b_row
++
++    a_arr = np.asarray(a_row)
++    b_arr = np.asarray(b_row)
++
++    if a_arr.shape != b_arr.shape:
++        return False
++
++    # For inexact types (float/complex), respect rtol/atol like elsewhere in fitsdiff.
++    if np.issubdtype(a_arr.dtype, np.inexact) or np.issubdtype(
++        b_arr.dtype, np.inexact
++    ):
++        return np.allclose(a_arr, b_arr, rtol=rtol, atol=atol)
++
++    return np.array_equal(a_arr, b_arr)
++
++
+ class _BaseDiff:
+     """
+     Base class for all FITS diff objects.
+@@ -1449,12 +1488,12 @@ class TableDataDiff(_BaseDiff):
+                 arrb.dtype, np.floating
+             ):
+                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)
+-            elif "P" in col.format:
++            elif _is_vla_format(col.format):
+                 diffs = (
+                     [
+                         idx
+                         for idx in range(len(arra))
+-                        if not np.allclose(
++                        if not _vla_rows_equal(
+                             arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+                         )
+                     ],
+diff --git a/astropy/io/fits/tests/test_diff.py b/astropy/io/fits/tests/test_diff.py
+index adfebe6a5..6562f9945 100644
+--- a/astropy/io/fits/tests/test_diff.py
++++ b/astropy/io/fits/tests/test_diff.py
+@@ -419,6 +419,18 @@ class TestDiff(FitsTestCase):
+         assert diff.diff_ratio == 0
+         assert diff.diff_total == 0
+ 
++    def test_fitsdiff_identical_file_with_q_vla(self):
++        """
++        Regression test: Q-format VLAs should not spuriously differ (or crash)
++        when comparing identical files.
++        """
++        col = Column("a", format="QD", array=[[0], [0, 0]])
++        hdu = BinTableHDU.from_columns([col])
++        path = self.temp("diffbug.fits")
++        hdu.writeto(path, overwrite=True)
++
++        assert FITSDiff(path, path).identical
++
+     def test_diff_empty_tables(self):
+         """
+         Regression test for https://aeon.stsci.edu/ssb/trac/pyfits/ticket/178

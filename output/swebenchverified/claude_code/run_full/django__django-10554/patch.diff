@@ -1,39 +1,42 @@
 diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
-index 08d7faf194..431f9cbc11 100644
+index 08d7faf194..f8d22f75f0 100644
 --- a/django/db/models/sql/query.py
 +++ b/django/db/models/sql/query.py
 @@ -328,6 +328,9 @@ class Query(BaseExpression):
              obj.subq_aliases = self.subq_aliases.copy()
          obj.used_aliases = self.used_aliases.copy()
          obj._filtered_relations = self._filtered_relations.copy()
-+        # Clone combined queries to avoid mutating the original queries
-+        if hasattr(self, 'combined_queries'):
-+            obj.combined_queries = tuple(q.clone() for q in self.combined_queries)
++        # Clone combined_queries to avoid sharing references between clones.
++        if self.combined_queries:
++            obj.combined_queries = tuple(query.clone() for query in self.combined_queries)
          # Clear the cached_property
          try:
              del obj.base_table
 diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
-index 227972e8c4..2774da8662 100644
+index 227972e8c4..5219be954a 100644
 --- a/tests/queries/test_qs_combinators.py
 +++ b/tests/queries/test_qs_combinators.py
-@@ -228,3 +228,20 @@ class QuerySetSetOperationTests(TestCase):
+@@ -228,3 +228,23 @@ class QuerySetSetOperationTests(TestCase):
          qs1 = Number.objects.all()
          qs2 = Number.objects.intersection(Number.objects.filter(num__gt=1))
          self.assertEqual(qs1.difference(qs2).count(), 2)
 +
 +    def test_union_with_ordering_and_derived_queryset(self):
-+        # Regression test for #30408
-+        # Creating a derived queryset from a union queryset with ordering
-+        # should not mutate the original queryset's combined_queries.
-+        qs = (
-+            Number.objects.filter(num__lte=1)
-+            .union(Number.objects.filter(num__gte=8))
-+            .order_by('num')
-+        )
-+        # Evaluate the union queryset
++        """
++        Test that creating a derived queryset with order_by().values_list()
++        doesn't break the original union queryset.
++        Regression test for #29692.
++        """
++        qs1 = Number.objects.filter(num__lte=1)
++        qs2 = Number.objects.filter(num__gte=8)
++        qs = qs1.union(qs2).order_by('num')
++
++        # Evaluate the original queryset
 +        list(qs)
-+        # Create a derived queryset with different select list
++
++        # Create a derived queryset with order_by().values_list()
 +        derived_qs = qs.order_by().values_list('num', flat=True)
 +        list(derived_qs)
-+        # Re-evaluate the original queryset - should not raise an error
-+        list(qs)
++
++        # Re-evaluate the original queryset - this should not fail
++        self.assertNumbersEqual(qs, [0, 1, 8, 9])

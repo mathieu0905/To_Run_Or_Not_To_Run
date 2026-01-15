@@ -1,0 +1,62 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 0a5e5ff673..41c58ed59a 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -431,6 +431,8 @@ class Model(metaclass=ModelBase):
+             for val, field in zip(args, fields_iter):
+                 if val is _DEFERRED:
+                     continue
++                if hasattr(val, 'value'):
++                    val = val.value
+                 _setattr(self, field.attname, val)
+         else:
+             # Slower, kwargs-ready version.
+@@ -438,6 +440,8 @@ class Model(metaclass=ModelBase):
+             for val, field in zip(args, fields_iter):
+                 if val is _DEFERRED:
+                     continue
++                if hasattr(val, 'value'):
++                    val = val.value
+                 _setattr(self, field.attname, val)
+                 kwargs.pop(field.name, None)
+ 
+@@ -482,6 +486,8 @@ class Model(metaclass=ModelBase):
+                     _setattr(self, field.name, rel_obj)
+             else:
+                 if val is not _DEFERRED:
++                    if hasattr(val, 'value'):
++                        val = val.value
+                     _setattr(self, field.attname, val)
+ 
+         if kwargs:
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index d610dc86f0..6d50185451 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -792,6 +792,8 @@ class Field(RegisterLookupMixin):
+         """Perform preliminary non-db specific value checks and conversions."""
+         if isinstance(value, Promise):
+             value = value._proxy____cast()
++        if hasattr(value, 'value'):
++            value = value.value
+         return value
+ 
+     def get_db_prep_value(self, value, connection, prepared=False):
+@@ -1010,6 +1012,8 @@ class CharField(Field):
+     def to_python(self, value):
+         if isinstance(value, str) or value is None:
+             return value
++        if hasattr(value, 'value'):
++            value = value.value
+         return str(value)
+ 
+     def get_prep_value(self, value):
+@@ -1769,6 +1773,8 @@ class IntegerField(Field):
+     def to_python(self, value):
+         if value is None:
+             return value
++        if hasattr(value, 'value'):
++            value = value.value
+         try:
+             return int(value)
+         except (TypeError, ValueError):

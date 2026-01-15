@@ -17,3 +17,57 @@ index 5e7b23f9a0..4c2e552e5f 100644
              inline = inline_class(self.model, self.admin_site)
              if request:
                  if not (inline.has_view_or_change_permission(request, obj) or
+diff --git a/tests/modeladmin/tests.py b/tests/modeladmin/tests.py
+index 6934bf2b3c..4ebbd4a351 100644
+--- a/tests/modeladmin/tests.py
++++ b/tests/modeladmin/tests.py
+@@ -793,6 +793,49 @@ class ModelAdminPermissionTests(SimpleTestCase):
+         self.assertEqual(len(inline_instances), 1)
+         self.assertIsInstance(inline_instances[0], ConcertInline)
+ 
++    def test_get_inlines(self):
++        """
++        get_inlines() returns the inlines attribute by default and can be
++        overridden to customize inlines based on request or obj.
++        """
++        class ConcertInline(TabularInline):
++            model = Concert
++
++        class SongInline(TabularInline):
++            model = Song
++
++        # Test default behavior
++        class BandAdmin(ModelAdmin):
++            inlines = [ConcertInline, SongInline]
++
++        ma = BandAdmin(Band, AdminSite())
++        request = MockRequest()
++        request.user = MockSuperUser()
++        self.assertEqual(ma.get_inlines(request), [ConcertInline, SongInline])
++
++        # Test custom get_inlines based on obj
++        class CustomBandAdmin(ModelAdmin):
++            inlines = [ConcertInline, SongInline]
++
++            def get_inlines(self, request, obj=None):
++                if obj is None:
++                    return [ConcertInline]
++                return self.inlines
++
++        ma = CustomBandAdmin(Band, AdminSite())
++        # On add form (obj=None), only ConcertInline
++        self.assertEqual(ma.get_inlines(request, obj=None), [ConcertInline])
++        # On change form (obj exists), both inlines
++        band = Band(name='The Doors', bio='', sign_date=date(1965, 1, 1))
++        self.assertEqual(ma.get_inlines(request, obj=band), [ConcertInline, SongInline])
++
++        # Verify get_inline_instances uses get_inlines
++        inline_instances = ma.get_inline_instances(request, obj=None)
++        self.assertEqual(len(inline_instances), 1)
++        self.assertIsInstance(inline_instances[0], ConcertInline)
++        inline_instances = ma.get_inline_instances(request, obj=band)
++        self.assertEqual(len(inline_instances), 2)
++
+     def test_has_change_permission(self):
+         """
+         has_change_permission returns True for users who can edit objects and

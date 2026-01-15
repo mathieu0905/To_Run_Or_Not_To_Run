@@ -11,28 +11,3 @@ index dfaa67ba12..ff9ce58d59 100644
  
      def select_template(self, template_name_list):
          """
-diff --git a/tests/template_tests/test_engine.py b/tests/template_tests/test_engine.py
-index 2bb8601fbb..c6a0d598c9 100644
---- a/tests/template_tests/test_engine.py
-+++ b/tests/template_tests/test_engine.py
-@@ -21,6 +21,20 @@ class RenderToStringTest(SimpleTestCase):
-             'obj:test\n',
-         )
- 
-+    def test_autoescape_off(self):
-+        engine = Engine(dirs=[TEMPLATE_DIR], autoescape=False)
-+        self.assertEqual(
-+            engine.render_to_string('test_context.html', {'obj': '<script>'}),
-+            'obj:<script>\n',
-+        )
-+
-+    def test_autoescape_on(self):
-+        engine = Engine(dirs=[TEMPLATE_DIR], autoescape=True)
-+        self.assertEqual(
-+            engine.render_to_string('test_context.html', {'obj': '<script>'}),
-+            'obj:&lt;script&gt;\n',
-+        )
-+
- 
- class GetDefaultTests(SimpleTestCase):
- 

@@ -45,6 +45,8 @@ Somewhat related: #6389
 
 🎯 **YOU HAVE 1 TEST EXECUTION(S) - USE THEM** 🎯
 
+你只有 1 次执行机会（请谨慎但不要浪费执行次数）。  
+
 This is a research experiment testing efficient debugging with limited executions.
 You have a budget of 1 test run(s). **Unused budget is wasted opportunity!**
 

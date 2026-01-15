@@ -1,0 +1,105 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 50c3ac6fa9b7c8a94a6d1dc87edf775e3bc4d575
+
+## Problem Description
+shell command crashes when passing (with -c) the python code with functions.
+Description
+	
+The examples below use Python 3.7 and Django 2.2.16, but I checked that the code is the same on master and works the same in Python 3.8.
+Here's how ​python -c works:
+$ python -c <<EOF " 
+import django
+def f():
+		print(django.__version__)
+f()"
+EOF
+2.2.16
+Here's how ​python -m django shell -c works (paths shortened for clarify):
+$ python -m django shell -c <<EOF "
+import django
+def f():
+		print(django.__version__)
+f()"
+EOF
+Traceback (most recent call last):
+ File "{sys.base_prefix}/lib/python3.7/runpy.py", line 193, in _run_module_as_main
+	"__main__", mod_spec)
+ File "{sys.base_prefix}/lib/python3.7/runpy.py", line 85, in _run_code
+	exec(code, run_globals)
+ File "{sys.prefix}/lib/python3.7/site-packages/django/__main__.py", line 9, in <module>
+	management.execute_from_command_line()
+ File "{sys.prefix}/lib/python3.7/site-packages/django/core/management/__init__.py", line 381, in execute_from_command_line
+	utility.execute()
+ File "{sys.prefix}/lib/python3.7/site-packages/django/core/management/__init__.py", line 375, in execute
+	self.fetch_command(subcommand).run_from_argv(self.argv)
+ File "{sys.prefix}/lib/python3.7/site-packages/django/core/management/base.py", line 323, in run_from_argv
+	self.execute(*args, **cmd_options)
+ File "{sys.prefix}/lib/python3.7/site-packages/django/core/management/base.py", line 364, in execute
+	output = self.handle(*args, **options)
+ File "{sys.prefix}/lib/python3.7/site-packages/django/core/management/commands/shell.py", line 86, in handle
+	exec(options['command'])
+ File "<string>", line 5, in <module>
+ File "<string>", line 4, in f
+NameError: name 'django' is not defined
+The problem is in the ​usage of ​exec:
+	def handle(self, **options):
+		# Execute the command and exit.
+		if options['command']:
+			exec(options['command'])
+			return
+		# Execute stdin if it has anything to read and exit.
+		# Not supported on Windows due to select.select() limitations.
+		if sys.platform != 'win32' and not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0)[0]:
+			exec(sys.stdin.read())
+			return
+exec should be passed a dictionary containing a minimal set of globals. This can be done by just passing a new, empty dictionary as the second argument of exec.
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+你可以自由运行测试和脚本。  
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

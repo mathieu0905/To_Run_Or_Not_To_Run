@@ -1,0 +1,69 @@
+diff --git a/django/utils/tree.py b/django/utils/tree.py
+index 302cd37d5f..9bd6426800 100644
+--- a/django/utils/tree.py
++++ b/django/utils/tree.py
+@@ -50,9 +50,31 @@ class Node:
+     def __deepcopy__(self, memodict):
+         obj = Node(connector=self.connector, negated=self.negated)
+         obj.__class__ = self.__class__
+-        obj.children = copy.deepcopy(self.children, memodict)
++        obj.children = copy.deepcopy(self._prepare_children(), memodict)
+         return obj
+ 
++    def _prepare_children(self):
++        """
++        Prepare children for deepcopy by converting non-pickleable iterables
++        to lists.
++        """
++        prepared = []
++        for child in self.children:
++            if isinstance(child, tuple) and len(child) == 2:
++                key, value = child
++                # Convert dict_keys, dict_values, dict_items to list
++                if hasattr(value, '__iter__') and not isinstance(value, (str, bytes, list, tuple)):
++                    try:
++                        # Check if it's a dict view object
++                        if type(value).__name__ in ('dict_keys', 'dict_values', 'dict_items'):
++                            value = list(value)
++                    except (TypeError, AttributeError):
++                        pass
++                prepared.append((key, value))
++            else:
++                prepared.append(child)
++        return prepared
++
+     def __len__(self):
+         """Return the number of children this node has."""
+         return len(self.children)
+diff --git a/tests/queries/test_q.py b/tests/queries/test_q.py
+index 9adff07ef2..ce3f8ac2e7 100644
+--- a/tests/queries/test_q.py
++++ b/tests/queries/test_q.py
+@@ -103,3 +103,27 @@ class QTests(SimpleTestCase):
+         q = q1 & q2
+         path, args, kwargs = q.deconstruct()
+         self.assertEqual(Q(*args, **kwargs), q)
++
++    def test_combine_with_dict_keys(self):
++        # Regression test for #XXXXX - Q objects with dict_keys should not
++        # raise TypeError when combined with | or & operators
++        q1 = Q() | Q(x__in={}.keys())
++        self.assertEqual(repr(q1), "<Q: (AND: ('x__in', []))>")
++
++        d = {'a': 1, 'b': 2}
++        q2 = Q(x__in=d.keys()) | Q(y__in=d.values())
++        # The combined Q should work without raising TypeError
++        self.assertIn('x__in', str(q2))
++        self.assertIn('y__in', str(q2))
++
++    def test_combine_with_dict_values(self):
++        d = {'a': 1, 'b': 2}
++        q = Q() | Q(x__in=d.values())
++        # Should not raise TypeError
++        self.assertIn('x__in', str(q))
++
++    def test_combine_with_dict_items(self):
++        d = {'a': 1, 'b': 2}
++        q = Q() | Q(x__in=d.items())
++        # Should not raise TypeError
++        self.assertIn('x__in', str(q))

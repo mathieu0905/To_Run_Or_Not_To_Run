@@ -15,10 +15,10 @@ index 8c308621d2..d075fcc5df 100644
                  if not hasattr(module, '__path__'):
                      self.unmigrated_apps.add(app_config.label)
 diff --git a/tests/migrations/test_loader.py b/tests/migrations/test_loader.py
-index 0f0a590e7c..34b15a2749 100644
+index 0f0a590e7c..16f426fafd 100644
 --- a/tests/migrations/test_loader.py
 +++ b/tests/migrations/test_loader.py
-@@ -193,8 +193,8 @@ class LoaderTests(TestCase):
+@@ -193,8 +193,13 @@ class LoaderTests(TestCase):
          with override_settings(MIGRATION_MODULES={"migrations": "migrations.faulty_migrations.namespace"}):
              loader = MigrationLoader(connection)
              self.assertIn(
@@ -26,6 +26,11 @@ index 0f0a590e7c..34b15a2749 100644
 -                "App missing __init__.py in migrations module not in unmigrated apps."
 +                "migrations", loader.migrated_apps,
 +                "Namespace package migrations module should be in migrated apps."
++            )
++            # Ensure no migrations were loaded from the empty namespace package
++            self.assertEqual(
++                [key for key in loader.disk_migrations if key[0] == "migrations"],
++                []
              )
  
      @override_settings(

@@ -98,6 +98,8 @@ What does everyone think?  I am more than happy to open a PR to try and solve th
 
 ✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
 
+你可以自由运行测试和脚本。  
+
 This is a research experiment. Feel free to run tests and scripts as many times as needed.
 
 ## Cost Table

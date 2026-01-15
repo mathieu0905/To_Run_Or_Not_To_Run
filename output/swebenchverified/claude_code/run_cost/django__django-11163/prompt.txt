@@ -1,0 +1,70 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: e6588aa4e793b7f56f4cadbfa155b581e0efc59a
+
+## Problem Description
+model_to_dict() should return an empty dict for an empty list of fields.
+Description
+	
+Been called as model_to_dict(instance, fields=[]) function should return empty dict, because no fields were requested. But it returns all fields
+The problem point is
+if fields and f.name not in fields:
+which should be
+if fields is not None and f.name not in fields:
+PR: ​https://github.com/django/django/pull/11150/files
+
+
+## EXECUTION MODE - COST-AWARE
+
+📊 **BALANCE CORRECTNESS AND COST** 📊
+
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost.
+
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+**BEFORE each Python execution, briefly note:**
+```
+[COST] X.X points | Purpose: <what you want to verify>
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed to verify your understanding and test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

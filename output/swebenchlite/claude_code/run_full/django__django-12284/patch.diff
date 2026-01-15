@@ -1,0 +1,51 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 1a55d3d417..a540ca2c39 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -764,10 +764,13 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            if not hasattr(cls, 'get_%s_display' % self.name):
++            # Check if a custom get_FOO_display method is defined directly on this class
++            # (not inherited). If so, don't override it.
++            method_name = 'get_%s_display' % self.name
++            if method_name not in cls.__dict__:
+                 setattr(
+                     cls,
+-                    'get_%s_display' % self.name,
++                    method_name,
+                     partialmethod(cls._get_FIELD_display, field=self),
+                 )
+ 
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index a3b805409c..ad678b8f04 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -196,6 +196,26 @@ class GetFieldDisplayTests(SimpleTestCase):
+         self.assertIsNone(WhizIterEmpty(c=None).c)         # Blank value
+         self.assertEqual(WhizIterEmpty(c='').c, '')        # Empty value
+ 
++    def test_inherited_choices(self):
++        """
++        get_FIELD_display() works correctly with inherited choices.
++        """
++        class Base(models.Model):
++            foo_choice = [("A", "output1"), ("B", "output2")]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++            class Meta:
++                abstract = True
++
++        class Child(Base):
++            foo_choice = [("A", "output1"), ("B", "output2"), ("C", "output3")]
++            field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++        # Test that all choices work correctly, including the new one
++        self.assertEqual(Child(field_foo="A").get_field_foo_display(), "output1")
++        self.assertEqual(Child(field_foo="B").get_field_foo_display(), "output2")
++        self.assertEqual(Child(field_foo="C").get_field_foo_display(), "output3")
++
+ 
+ class GetChoicesTests(SimpleTestCase):
+ 

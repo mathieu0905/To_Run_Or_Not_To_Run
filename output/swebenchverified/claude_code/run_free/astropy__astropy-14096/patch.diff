@@ -1,34 +1,16 @@
 diff --git a/astropy/coordinates/sky_coordinate.py b/astropy/coordinates/sky_coordinate.py
-index ab475f7d0..831afbb4e 100644
+index ab475f7d0..bd994d90b 100644
 --- a/astropy/coordinates/sky_coordinate.py
 +++ b/astropy/coordinates/sky_coordinate.py
-@@ -1,6 +1,7 @@
- import copy
- import operator
- import re
-+import sys
- import warnings
+@@ -895,6 +895,11 @@ class SkyCoord(ShapedLikeNDArray):
+                 return self.transform_to(attr)
  
- import erfa
-@@ -871,6 +872,21 @@ class SkyCoord(ShapedLikeNDArray):
-         Overrides getattr to return coordinates that this can be transformed
-         to, based on the alias attr in the primary transform graph.
-         """
-+        # Check if this is a descriptor in the class (e.g., property, classmethod, staticmethod)
-+        # If so, the AttributeError came from within the descriptor, not from a missing attribute
-+        # We should not mask that error with our own generic message
-+        for cls in self.__class__.__mro__:
+         # Fail
++        # Check if attr is a property or method defined in the class hierarchy.
++        # If so, an AttributeError was raised inside it, so re-raise that.
++        for cls in type(self).__mro__:
 +            if attr in cls.__dict__:
-+                # Attribute exists in class as a descriptor, so we should not have been called
-+                # This means the AttributeError came from within the descriptor itself
-+                # Check if there's an exception context (Python 3) and re-raise it
-+                if sys.exc_info()[1] is not None:
-+                    raise
-+                # If no exception context, raise a generic error
-+                raise AttributeError(
-+                    f"'{self.__class__.__name__}' object has no attribute '{attr}'"
-+                )
-+
-         if "_sky_coord_frame" in self.__dict__:
-             if self._is_name(attr):
-                 return self  # Should this be a deepcopy of self?
++                raise
+         raise AttributeError(
+             f"'{self.__class__.__name__}' object has no attribute '{attr}'"
+         )

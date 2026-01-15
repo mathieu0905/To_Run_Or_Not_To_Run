@@ -1,23 +1,20 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 8c1ac5d73..e4056a802 100644
+index 8c1ac5d73..44b3f763c 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
-@@ -1269,6 +1269,13 @@ def _format_float(value):
- def _pad(input):
-     """Pad blank space to the input string to be multiple of 80."""
+@@ -553,8 +553,9 @@ class Card(_Verify):
+         card(s).
+         """
  
-+    # Import here to avoid circular import
-+    from .util import decode_ascii
-+
-+    # Decode bytes to str if necessary
-+    if isinstance(input, bytes):
-+        input = decode_ascii(input)
-+
-     _len = len(input)
-     if _len == Card.length:
-         return input
++        from .util import decode_ascii
+         card = cls()
+-        card._image = _pad(image)
++        card._image = _pad(decode_ascii(image))
+         card._verified = False
+         return card
+ 
 diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
-index ad07e6d52..20a5c9a61 100644
+index ad07e6d52..d90e9c40c 100644
 --- a/astropy/io/fits/header.py
 +++ b/astropy/io/fits/header.py
 @@ -334,8 +334,8 @@ class Header:
@@ -31,14 +28,12 @@ index ad07e6d52..20a5c9a61 100644
  
          sep : str, optional
              The string separating cards from each other, such as a newline.  By
-@@ -348,6 +348,10 @@ class Header:
+@@ -348,6 +348,8 @@ class Header:
              A new `Header` instance.
          """
  
-+        # Decode bytes to str if necessary
-+        if isinstance(data, bytes):
-+            data = decode_ascii(data)
-+
++        # Accept bytes or str; convert bytes to str
++        data = decode_ascii(data)
          cards = []
  
          # If the card separator contains characters that may validly appear in

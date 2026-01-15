@@ -28,51 +28,39 @@ index c1afb2ed5e..841eea4dca 100644
      def datetime_cast_date_sql(self, field_name, tzname):
          field_name = self._convert_field_to_tz(field_name, tzname)
 diff --git a/django/db/backends/sqlite3/base.py b/django/db/backends/sqlite3/base.py
-index 6a19236c48..60c5417005 100644
+index 6a19236c48..9a5511cf70 100644
 --- a/django/db/backends/sqlite3/base.py
 +++ b/django/db/backends/sqlite3/base.py
-@@ -199,6 +199,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
-         conn.create_function("django_datetime_cast_time", 2, _sqlite_datetime_cast_time)
-         conn.create_function("django_datetime_extract", 3, _sqlite_datetime_extract)
-         conn.create_function("django_datetime_trunc", 3, _sqlite_datetime_trunc)
-+        conn.create_function("django_datetime_cast_date", 3, _sqlite_datetime_cast_date)
-+        conn.create_function("django_datetime_cast_time", 3, _sqlite_datetime_cast_time)
-+        conn.create_function("django_datetime_extract", 4, _sqlite_datetime_extract)
-+        conn.create_function("django_datetime_trunc", 4, _sqlite_datetime_trunc)
-         conn.create_function("django_time_extract", 2, _sqlite_time_extract)
-         conn.create_function("django_time_trunc", 2, _sqlite_time_trunc)
-         conn.create_function("django_time_diff", 2, _sqlite_time_diff)
-@@ -398,7 +402,7 @@ class SQLiteCursorWrapper(Database.Cursor):
+@@ -398,7 +398,7 @@ class SQLiteCursorWrapper(Database.Cursor):
          return FORMAT_QMARK_REGEX.sub('?', query).replace('%%', '%')
  
  
 -def _sqlite_datetime_parse(dt, tzname=None):
-+def _sqlite_datetime_parse(dt, tzname=None, tzname_from=None):
++def _sqlite_datetime_parse(dt, tzname=None, tzname_db=None):
      if dt is None:
          return None
      try:
-@@ -406,6 +410,13 @@ def _sqlite_datetime_parse(dt, tzname=None):
+@@ -406,6 +406,12 @@ def _sqlite_datetime_parse(dt, tzname=None):
      except (TypeError, ValueError):
          return None
      if tzname is not None:
-+        # Make the naive datetime aware using the source timezone (database timezone)
-+        if tzname_from:
-+            dt = timezone.make_aware(dt, pytz.timezone(tzname_from))
++        # Make the naive datetime aware in the database timezone first
++        if tzname_db is not None:
++            dt = timezone.make_aware(dt, pytz.timezone(tzname_db))
 +        else:
-+            # Fallback to UTC for backwards compatibility
 +            dt = timezone.make_aware(dt, timezone.utc)
-+        # Convert to the target timezone
++        # Then convert to the target timezone
          dt = timezone.localtime(dt, pytz.timezone(tzname))
      return dt
  
-@@ -443,22 +454,22 @@ def _sqlite_time_trunc(lookup_type, dt):
+@@ -443,22 +449,22 @@ def _sqlite_time_trunc(lookup_type, dt):
          return "%02i:%02i:%02i" % (dt.hour, dt.minute, dt.second)
  
  
 -def _sqlite_datetime_cast_date(dt, tzname):
 -    dt = _sqlite_datetime_parse(dt, tzname)
-+def _sqlite_datetime_cast_date(dt, tzname, tzname_from=None):
-+    dt = _sqlite_datetime_parse(dt, tzname, tzname_from)
++def _sqlite_datetime_cast_date(dt, tzname, tzname_db=None):
++    dt = _sqlite_datetime_parse(dt, tzname, tzname_db)
      if dt is None:
          return None
      return dt.date().isoformat()
@@ -80,8 +68,8 @@ index 6a19236c48..60c5417005 100644
  
 -def _sqlite_datetime_cast_time(dt, tzname):
 -    dt = _sqlite_datetime_parse(dt, tzname)
-+def _sqlite_datetime_cast_time(dt, tzname, tzname_from=None):
-+    dt = _sqlite_datetime_parse(dt, tzname, tzname_from)
++def _sqlite_datetime_cast_time(dt, tzname, tzname_db=None):
++    dt = _sqlite_datetime_parse(dt, tzname, tzname_db)
      if dt is None:
          return None
      return dt.time().isoformat()
@@ -89,34 +77,55 @@ index 6a19236c48..60c5417005 100644
  
 -def _sqlite_datetime_extract(lookup_type, dt, tzname=None):
 -    dt = _sqlite_datetime_parse(dt, tzname)
-+def _sqlite_datetime_extract(lookup_type, dt, tzname=None, tzname_from=None):
-+    dt = _sqlite_datetime_parse(dt, tzname, tzname_from)
++def _sqlite_datetime_extract(lookup_type, dt, tzname=None, tzname_db=None):
++    dt = _sqlite_datetime_parse(dt, tzname, tzname_db)
      if dt is None:
          return None
      if lookup_type == 'week_day':
-@@ -473,8 +484,8 @@ def _sqlite_datetime_extract(lookup_type, dt, tzname=None):
+@@ -473,8 +479,8 @@ def _sqlite_datetime_extract(lookup_type, dt, tzname=None):
          return getattr(dt, lookup_type)
  
  
 -def _sqlite_datetime_trunc(lookup_type, dt, tzname):
 -    dt = _sqlite_datetime_parse(dt, tzname)
-+def _sqlite_datetime_trunc(lookup_type, dt, tzname, tzname_from=None):
-+    dt = _sqlite_datetime_parse(dt, tzname, tzname_from)
++def _sqlite_datetime_trunc(lookup_type, dt, tzname, tzname_db=None):
++    dt = _sqlite_datetime_parse(dt, tzname, tzname_db)
      if dt is None:
          return None
      if lookup_type == 'year':
 diff --git a/django/db/backends/sqlite3/operations.py b/django/db/backends/sqlite3/operations.py
-index c4b02e5c60..cac0f19370 100644
+index c4b02e5c60..dc617644db 100644
 --- a/django/db/backends/sqlite3/operations.py
 +++ b/django/db/backends/sqlite3/operations.py
-@@ -85,7 +85,9 @@ class DatabaseOperations(BaseDatabaseOperations):
-         return "django_time_trunc('%s', %s)" % (lookup_type.lower(), field_name)
- 
-     def _convert_tzname_to_sql(self, tzname):
--        return "'%s'" % tzname if settings.USE_TZ else 'NULL'
-+        if settings.USE_TZ:
-+            return "'%s', '%s'" % (tzname, self.connection.timezone_name)
-+        return 'NULL, NULL'
+@@ -88,23 +88,23 @@ class DatabaseOperations(BaseDatabaseOperations):
+         return "'%s'" % tzname if settings.USE_TZ else 'NULL'
  
      def datetime_cast_date_sql(self, field_name, tzname):
-         return "django_datetime_cast_date(%s, %s)" % (
+-        return "django_datetime_cast_date(%s, %s)" % (
+-            field_name, self._convert_tzname_to_sql(tzname),
++        return "django_datetime_cast_date(%s, %s, %s)" % (
++            field_name, self._convert_tzname_to_sql(tzname), self._convert_tzname_to_sql(self.connection.timezone_name),
+         )
+ 
+     def datetime_cast_time_sql(self, field_name, tzname):
+-        return "django_datetime_cast_time(%s, %s)" % (
+-            field_name, self._convert_tzname_to_sql(tzname),
++        return "django_datetime_cast_time(%s, %s, %s)" % (
++            field_name, self._convert_tzname_to_sql(tzname), self._convert_tzname_to_sql(self.connection.timezone_name),
+         )
+ 
+     def datetime_extract_sql(self, lookup_type, field_name, tzname):
+-        return "django_datetime_extract('%s', %s, %s)" % (
+-            lookup_type.lower(), field_name, self._convert_tzname_to_sql(tzname),
++        return "django_datetime_extract('%s', %s, %s, %s)" % (
++            lookup_type.lower(), field_name, self._convert_tzname_to_sql(tzname), self._convert_tzname_to_sql(self.connection.timezone_name),
+         )
+ 
+     def datetime_trunc_sql(self, lookup_type, field_name, tzname):
+-        return "django_datetime_trunc('%s', %s, %s)" % (
+-            lookup_type.lower(), field_name, self._convert_tzname_to_sql(tzname),
++        return "django_datetime_trunc('%s', %s, %s, %s)" % (
++            lookup_type.lower(), field_name, self._convert_tzname_to_sql(tzname), self._convert_tzname_to_sql(self.connection.timezone_name),
+         )
+ 
+     def time_extract_sql(self, lookup_type, field_name):

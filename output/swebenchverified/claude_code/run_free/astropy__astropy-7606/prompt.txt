@@ -37,6 +37,8 @@ TypeError: None is not a valid Unit
 
 ⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
 
+你不能执行/运行任何 Python 代码（不能运行测试）。  
+
 This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
 Any attempt to execute Python code will be blocked by the sandbox.
 

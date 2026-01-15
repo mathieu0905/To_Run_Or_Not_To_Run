@@ -1,8 +1,8 @@
 diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
-index 3a462f1c4c..9c96682e94 100644
+index 3a462f1c4c..8bc99d8654 100644
 --- a/django/db/models/deletion.py
 +++ b/django/db/models/deletion.py
-@@ -232,9 +232,17 @@ class Collector:
+@@ -232,9 +232,19 @@ class Collector:
          """
          Get a QuerySet of objects related to `objs` via the relation `related`.
          """
@@ -10,14 +10,16 @@ index 3a462f1c4c..9c96682e94 100644
 +        qs = related.related_model._base_manager.using(self.using).filter(
              **{"%s__in" % related.field.name: objs}
          )
-+        # Only fetch fields required for deletion: pk and foreign keys.
-+        # Defer all other fields to avoid fetching unnecessary data.
++        # Fetch only the fields required for deletion: the primary key and
++        # all foreign key fields. This avoids fetching unnecessary data like
++        # large text fields, which can cause performance issues and errors
++        # when the data is corrupted.
 +        model = related.related_model
-+        fields_to_load = [model._meta.pk.name]
-+        for field in model._meta.get_fields():
-+            if field.concrete and field.many_to_one:
-+                fields_to_load.append(field.name)
-+        return qs.only(*fields_to_load)
++        fields = [model._meta.pk.name]
++        for f in model._meta.get_fields():
++            if f.concrete and f.many_to_one:
++                fields.append(f.attname)
++        return qs.only(*fields)
  
      def instances_with_model(self):
          for model, instances in self.data.items():

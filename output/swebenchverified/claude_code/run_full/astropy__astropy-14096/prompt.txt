@@ -37,6 +37,8 @@ AttributeError: 'custom_coord' object has no attribute 'prop'
 
 ✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
 
+你可以自由运行测试和脚本。  
+
 This is a research experiment. Feel free to run tests and scripts as many times as needed.
 
 ## Cost Table

@@ -1,0 +1,94 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 89e2dceeaf..152cef2534 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -392,6 +392,11 @@ class MigrationAutodetector:
+                     isinstance(operation, operations.AddField) and
+                     operation.model_name_lower == dependency[1].lower() and
+                     operation.name_lower == dependency[2].lower()
++                ) or
++                (
++                    isinstance(operation, operations.AlterOrderWithRespectTo) and
++                    operation.name_lower == dependency[1].lower() and
++                    dependency[2] == '_order'
+                 )
+             )
+         # Removed field
+@@ -618,7 +623,16 @@ class MigrationAutodetector:
+                 for name in sorted(related_fields)
+             ]
+             related_dependencies.append((app_label, model_name, None, True))
++            # Separate indexes that reference _order field
++            order_indexes = []
++            regular_indexes = []
+             for index in indexes:
++                if '_order' in index.fields:
++                    order_indexes.append(index)
++                else:
++                    regular_indexes.append(index)
++            # Add regular indexes first
++            for index in regular_indexes:
+                 self.add_operation(
+                     app_label,
+                     operations.AddIndex(
+@@ -666,6 +680,19 @@ class MigrationAutodetector:
+                         (app_label, model_name, None, True),
+                     ]
+                 )
++            # Add indexes that reference _order after AlterOrderWithRespectTo
++            for index in order_indexes:
++                self.add_operation(
++                    app_label,
++                    operations.AddIndex(
++                        model_name=model_name,
++                        index=index,
++                    ),
++                    dependencies=[
++                        (app_label, model_name, '_order', True),
++                        (app_label, model_name, None, True),
++                    ],
++                )
+ 
+             # Fix relationships if the model changed from a proxy model to a
+             # concrete model.
+diff --git a/tests/migrations/test_autodetector.py b/tests/migrations/test_autodetector.py
+index 236af43834..3ef564f283 100644
+--- a/tests/migrations/test_autodetector.py
++++ b/tests/migrations/test_autodetector.py
+@@ -2151,6 +2151,36 @@ class AutodetectorTests(TestCase):
+         )
+         self.assertNotIn("_order", [name for name, field in changes['testapp'][0].operations[0].fields])
+ 
++    def test_add_model_order_with_respect_to_index_constraint(self):
++        """
++        Setting order_with_respect_to when adding the whole model with
++        indexes/constraints that reference _order should work correctly.
++        The index referencing _order should be added after AlterOrderWithRespectTo.
++        Regression test for #29880.
++        """
++        author_with_book_order_wrt_index = ModelState("testapp", "Author", [
++            ("id", models.AutoField(primary_key=True)),
++            ("name", models.CharField(max_length=200)),
++            ("book", models.ForeignKey("otherapp.Book", models.CASCADE)),
++        ], {
++            "order_with_respect_to": "book",
++            "indexes": [
++                models.Index(fields=["name"], name="name_idx"),
++                models.Index(fields=["book", "_order"], name="book_order_idx"),
++            ],
++        })
++        changes = self.get_changes([], [self.book, author_with_book_order_wrt_index])
++        self.assertNumberMigrations(changes, 'testapp', 1)
++        operations = changes['testapp'][0].operations
++        # Should have: CreateModel, AddIndex(name), AlterOrderWithRespectTo, AddIndex(_order)
++        self.assertEqual(len(operations), 4)
++        self.assertOperationTypes(changes, 'testapp', 0,
++            ["CreateModel", "AddIndex", "AlterOrderWithRespectTo", "AddIndex"])
++        # Verify first AddIndex is for 'name' field (no _order)
++        self.assertNotIn('_order', operations[1].index.fields)
++        # Verify second AddIndex is for '_order' field
++        self.assertIn('_order', operations[3].index.fields)
++
+     def test_alter_model_managers(self):
+         """
+         Changing the model managers adds a new operation.

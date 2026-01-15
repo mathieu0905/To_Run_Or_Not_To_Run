@@ -1,0 +1,63 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 25c3b44250..db5a4974b5 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -139,9 +139,9 @@ def iter_modules_and_files(modules, extra_files):
+         path = Path(filename)
+         try:
+             resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
++        except (FileNotFoundError, ValueError):
+             # The module could have been removed, don't fail loudly if this
+-            # is the case.
++            # is the case. ValueError is raised when the path contains null bytes.
+             continue
+         results.add(resolved_path)
+     return frozenset(results)
+@@ -187,7 +187,8 @@ def sys_path_directories():
+         path = Path(path)
+         try:
+             resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
++        except (FileNotFoundError, ValueError):
++            # Ignore paths that don't exist or contain null bytes.
+             continue
+         # If the path is a file (like a zip file), watch the parent directory.
+         if resolved_path.is_file():
+diff --git a/tests/utils_tests/test_autoreload.py b/tests/utils_tests/test_autoreload.py
+index 1ea019ac7a..1184f34354 100644
+--- a/tests/utils_tests/test_autoreload.py
++++ b/tests/utils_tests/test_autoreload.py
+@@ -140,6 +140,18 @@ class TestIterModulesAndFiles(SimpleTestCase):
+         fake_main = types.ModuleType('__main__')
+         self.assertEqual(autoreload.iter_modules_and_files((fake_main,), frozenset()), frozenset())
+ 
++    def test_path_with_null_byte(self):
++        """Null bytes in file paths are handled gracefully."""
++        module = types.ModuleType('test_null_byte')
++        module.__spec__ = types.SimpleNamespace(
++            has_location=True,
++            origin='/path/with\x00null.py',
++            loader=None,
++        )
++        # Should not raise ValueError
++        result = autoreload.iter_modules_and_files((module,), frozenset())
++        self.assertIsInstance(result, frozenset)
++
+ 
+ class TestCommonRoots(SimpleTestCase):
+     def test_common_roots(self):
+@@ -184,6 +196,13 @@ class TestSysPathDirectories(SimpleTestCase):
+             paths = list(autoreload.sys_path_directories())
+         self.assertIn(self.directory, paths)
+ 
++    def test_sys_paths_with_null_byte(self):
++        """Null bytes in sys.path are handled gracefully."""
++        with extend_sys_path('/path/with\x00null'):
++            # Should not raise ValueError
++            paths = list(autoreload.sys_path_directories())
++        self.assertIsInstance(paths, list)
++
+ 
+ class GetReloaderTests(SimpleTestCase):
+     @mock.patch('django.utils.autoreload.WatchmanReloader')

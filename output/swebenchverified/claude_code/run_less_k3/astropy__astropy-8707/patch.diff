@@ -1,11 +1,12 @@
 diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
-index 8c1ac5d73..ff75a3fac 100644
+index 8c1ac5d73..1d6943183 100644
 --- a/astropy/io/fits/card.py
 +++ b/astropy/io/fits/card.py
-@@ -553,6 +553,10 @@ class Card(_Verify):
+@@ -553,6 +553,11 @@ class Card(_Verify):
          card(s).
          """
  
++        # Handle bytes input by decoding to string
 +        if isinstance(image, bytes):
 +            from .util import decode_ascii
 +            image = decode_ascii(image)
@@ -14,7 +15,7 @@ index 8c1ac5d73..ff75a3fac 100644
          card._image = _pad(image)
          card._verified = False
 diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py
-index ad07e6d52..9e62d0eee 100644
+index ad07e6d52..a289c684a 100644
 --- a/astropy/io/fits/header.py
 +++ b/astropy/io/fits/header.py
 @@ -334,8 +334,8 @@ class Header:
@@ -28,10 +29,11 @@ index ad07e6d52..9e62d0eee 100644
  
          sep : str, optional
              The string separating cards from each other, such as a newline.  By
-@@ -348,6 +348,9 @@ class Header:
+@@ -348,6 +348,10 @@ class Header:
              A new `Header` instance.
          """
  
++        # Handle bytes input by decoding to string
 +        if isinstance(data, bytes):
 +            data = decode_ascii(data)
 +

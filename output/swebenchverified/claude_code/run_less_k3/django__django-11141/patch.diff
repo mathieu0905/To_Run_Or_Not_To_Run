@@ -15,24 +15,17 @@ index 8c308621d2..d075fcc5df 100644
                  if not hasattr(module, '__path__'):
                      self.unmigrated_apps.add(app_config.label)
 diff --git a/tests/migrations/test_loader.py b/tests/migrations/test_loader.py
-index 0f0a590e7c..b8f58bf06e 100644
+index 0f0a590e7c..88d6713c64 100644
 --- a/tests/migrations/test_loader.py
 +++ b/tests/migrations/test_loader.py
-@@ -190,11 +190,15 @@ class LoaderTests(TestCase):
-             )
- 
-     def test_load_empty_dir(self):
-+        """
-+        Tests that an empty migrations directory without __init__.py is loaded.
-+        Namespace packages are now supported per #29091.
-+        """
+@@ -193,8 +193,8 @@ class LoaderTests(TestCase):
          with override_settings(MIGRATION_MODULES={"migrations": "migrations.faulty_migrations.namespace"}):
              loader = MigrationLoader(connection)
              self.assertIn(
 -                "migrations", loader.unmigrated_apps,
 -                "App missing __init__.py in migrations module not in unmigrated apps."
 +                "migrations", loader.migrated_apps,
-+                "App with migrations namespace package should be in migrated apps."
++                "Namespace package (without __init__.py) should be treated as migrated."
              )
  
      @override_settings(

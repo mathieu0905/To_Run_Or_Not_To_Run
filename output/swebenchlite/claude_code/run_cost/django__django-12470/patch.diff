@@ -1,0 +1,18 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 78c4f47b5b..8038cc972b 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1437,7 +1437,12 @@ class Query(BaseExpression):
+         for pos, name in enumerate(names):
+             cur_names_with_path = (name, [])
+             if name == 'pk':
+-                name = opts.pk.name
++                # For inherited models, follow the chain of parent_ptr fields
++                # to find the actual primary key field name.
++                pk_field = opts.pk
++                while pk_field.remote_field and pk_field.remote_field.parent_link:
++                    pk_field = pk_field.target_field
++                name = pk_field.name
+ 
+             field = None
+             filtered_relation = None

@@ -14,7 +14,7 @@ from prompt_builder import PromptBuilder
 
 
 # Where we persist prompts/traces/results. Tests patch this constant.
-RESULTS_DIR = Path(__file__).parent / "results"
+RESULTS_DIR = Path(__file__).parent.parent / "output"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -92,8 +92,14 @@ def run_experiment(
     # 构建模式标识（run_less 需要包含 k 值）
     mode_suffix = f"{mode}_k{k}" if mode == "run_less" else mode
 
-    # 结果输出目录（避免不同实验互相覆盖）
-    instance_output_dir = RESULTS_DIR / instance_id / agent_type / mode_suffix
+    # 从 dataset_name 提取简称
+    if "Verified" in dataset_name:
+        dataset_short = "swebenchverified"
+    else:
+        dataset_short = "swebenchlite"
+
+    # 结果输出目录：output/dataset/agent/mode/instance
+    instance_output_dir = RESULTS_DIR / dataset_short / agent_type / mode_suffix / instance_id
     instance_output_dir.mkdir(parents=True, exist_ok=True)
 
     # 2. 构建 prompt
@@ -145,17 +151,30 @@ def run_experiment(
 
 def save_result(result: ExperimentResult, dataset_name: str = "princeton-nlp/SWE-bench_Lite"):
     """保存实验结果到 JSON 文件"""
-    # Tests expect a flat file in RESULTS_DIR named:
-    #   {instance_id}_{mode}_result.json
-    #   {instance_id}_run_less_k{k}_result.json
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    # 从 dataset_name 提取简称
+    if "Verified" in dataset_name:
+        dataset_short = "swebenchverified"
+    else:
+        dataset_short = "swebenchlite"
+
     mode_suffix = f"{result.mode}_k{result.k}" if result.mode == "run_less" else result.mode
-    result_file = RESULTS_DIR / f"{result.instance_id}_{mode_suffix}_result.json"
 
-    with open(result_file, 'w', encoding='utf-8') as f:
-        json.dump(asdict(result), f, indent=2, ensure_ascii=False)
+    payload = asdict(result)
 
-    print(f"Result saved to: {result_file}")
+    # Backward-compatible flat filename used by unit tests.
+    flat_result_file = RESULTS_DIR / f"{result.instance_id}_{mode_suffix}_result.json"
+    flat_result_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(flat_result_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    # Also write into the per-instance output directory used by the CLI runner.
+    result_dir = RESULTS_DIR / dataset_short / result.agent_type / mode_suffix / result.instance_id
+    result_dir.mkdir(parents=True, exist_ok=True)
+    nested_result_file = result_dir / "result.json"
+    with open(nested_result_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    print(f"Result saved to: {nested_result_file}")
 
 
 def print_summary(result: ExperimentResult):

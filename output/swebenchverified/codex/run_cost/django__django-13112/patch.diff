@@ -1,0 +1,111 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index dddf7c679c..7b35ccb4e9 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -52,11 +52,17 @@ class CreateModel(ModelOperation):
+         # Sanity-check that there are no duplicated field names, bases, or
+         # manager names
+         _check_for_duplicates('fields', (name for name, _ in self.fields))
+-        _check_for_duplicates('bases', (
+-            base._meta.label_lower if hasattr(base, '_meta') else
+-            base.lower() if isinstance(base, str) else base
+-            for base in self.bases
+-        ))
++        def normalize_base(base):
++            if hasattr(base, '_meta'):
++                return "%s.%s" % (base._meta.app_label, base._meta.model_name)
++            if isinstance(base, str):
++                if '.' in base:
++                    app_label, model_name = base.split('.', 1)
++                    return "%s.%s" % (app_label, model_name.lower())
++                return base.lower()
++            return base
++
++        _check_for_duplicates('bases', (normalize_base(base) for base in self.bases))
+         _check_for_duplicates('managers', (name for name, _ in self.managers))
+ 
+     def deconstruct(self):
+diff --git a/django/db/migrations/state.py b/django/db/migrations/state.py
+index c8cb704aee..c1c87fb641 100644
+--- a/django/db/migrations/state.py
++++ b/django/db/migrations/state.py
+@@ -476,7 +476,7 @@ class ModelState:
+         # Make our record
+         bases = tuple(
+             (
+-                base._meta.label_lower
++                "%s.%s" % (base._meta.app_label, base._meta.model_name)
+                 if hasattr(base, "_meta") else
+                 base
+             )
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index c2aea9c730..65661bcc24 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -582,9 +582,21 @@ class ForeignObject(RelatedField):
+         if self.remote_field.parent_link:
+             kwargs['parent_link'] = self.remote_field.parent_link
+         if isinstance(self.remote_field.model, str):
+-            kwargs['to'] = self.remote_field.model.lower()
++            # Preserve the app label casing while normalizing the model name.
++            # This avoids unresolved lazy references when an app has a
++            # mixed-case label (e.g. "DJ_RegLogin").
++            if self.remote_field.model == RECURSIVE_RELATIONSHIP_CONSTANT:
++                kwargs['to'] = RECURSIVE_RELATIONSHIP_CONSTANT
++            elif "." in self.remote_field.model:
++                app_label, model_name = self.remote_field.model.split(".", 1)
++                kwargs['to'] = "%s.%s" % (app_label, model_name.lower())
++            else:
++                kwargs['to'] = self.remote_field.model.lower()
+         else:
+-            kwargs['to'] = self.remote_field.model._meta.label_lower
++            kwargs['to'] = "%s.%s" % (
++                self.remote_field.model._meta.app_label,
++                self.remote_field.model._meta.model_name,
++            )
+         # If swappable is True, then see if we're actually pointing to the target
+         # of a swap.
+         swappable_setting = self.swappable_setting
+diff --git a/tests/migrations/test_state.py b/tests/migrations/test_state.py
+index 40277bf506..ae70ec0361 100644
+--- a/tests/migrations/test_state.py
++++ b/tests/migrations/test_state.py
+@@ -22,6 +22,38 @@ class StateTests(SimpleTestCase):
+     Tests state construction, rendering and modification by operations.
+     """
+ 
++    def test_mixed_case_app_label_foreign_key(self):
++        """
++        Mixed-case app labels must not break rendering migration states.
++
++        Regression test for a crash where ForeignKey deconstruction lowered the
++        app label, leaving StateApps with unresolved lazy references.
++        """
++        registry = Apps([])
++
++        class Category(models.Model):
++            class Meta:
++                app_label = "DJ_RegLogin"
++                apps = registry
++
++        class Content(models.Model):
++            category = models.ForeignKey(Category, models.CASCADE)
++
++            class Meta:
++                app_label = "DJ_RegLogin"
++                apps = registry
++
++        project_state = ProjectState()
++        project_state.add_model(ModelState.from_model(Category))
++        project_state.add_model(ModelState.from_model(Content))
++        content_state = project_state.models["DJ_RegLogin", "content"]
++        self.assertEqual(
++            content_state.fields["category"].remote_field.model,
++            "DJ_RegLogin.category",
++        )
++        # Accessing apps triggers rendering and the lazy reference check.
++        self.assertIsNotNone(project_state.apps.get_model("DJ_RegLogin", "Content"))
++
+     def test_create(self):
+         """
+         Tests making a ProjectState from an Apps
