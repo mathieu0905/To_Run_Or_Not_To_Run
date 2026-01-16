@@ -30,10 +30,6 @@ def count_tokens_and_execs(trace_path):
     max_item_id = -1
     cost_points = 0.0  # run_cost 模式的成本点数
 
-    # 备用方案：使用文件时间戳计算运行时间
-    trace_path_obj = Path(trace_path)
-    prompt_path = trace_path_obj.parent / "prompt.txt"
-
     # 高成本执行：测试框架（运行整个测试套件）
     high_cost_patterns = [
         "pytest", "python -m pytest", "python -m unittest",
@@ -109,17 +105,6 @@ def count_tokens_and_execs(trace_path):
     if max_item_id >= 0:
         turns = max_item_id + 1
 
-    # 如果 trace 中没有时间信息，使用文件时间戳计算（适用于 Codex）
-    if duration_ms == 0 and prompt_path.exists() and trace_path_obj.exists():
-        try:
-            prompt_mtime = prompt_path.stat().st_mtime
-            trace_mtime = trace_path_obj.stat().st_mtime
-            duration_sec = trace_mtime - prompt_mtime
-            if duration_sec > 0:
-                duration_ms = int(duration_sec * 1000)
-        except Exception:
-            pass
-
     return tokens, exec_count, high_cost_exec, low_cost_exec, turns, duration_ms
 
 def check_patch(patch_path):
@@ -187,45 +172,11 @@ def _get_eval_status(
     }
 
 
-def _load_sb_cli_report(sb_cli_reports_dir: Path, dataset: str, agent: str, mode: str) -> dict | None:
-    """从 sb-cli-reports 目录加载评估报告"""
-    if not sb_cli_reports_dir.exists():
-        return None
-
-    # 根据数据集名称构建匹配模式
-    if "lite" in dataset.lower():
-        dataset_pattern = "swe-bench_lite"
-    elif "verified" in dataset.lower():
-        dataset_pattern = "swe-bench_verified"
-    else:
-        dataset_pattern = "*"
-
-    # 尝试匹配文件名模式
-    patterns = [
-        f"{dataset_pattern}*{agent}*{mode}*.json",
-        f"{dataset_pattern}*{agent}_{mode}.json",
-        f"{dataset_pattern}*{agent}__{mode}.json",
-    ]
-
-    for pattern in patterns:
-        matches = list(sb_cli_reports_dir.glob(pattern))
-        if matches:
-            report = _read_json(matches[0])
-            if isinstance(report, dict):
-                return report
-    return None
-
-
-def analyze(output_dir: str, eval_root: str | None = None, eval_run_id: str | None = None, sb_cli_reports: str | None = None):
+def analyze(output_dir: str, eval_root: str | None = None, eval_run_id: str | None = None):
     """分析输出目录"""
     output_dir = Path(output_dir)
     eval_root_path = Path(eval_root) if eval_root else (Path(__file__).parent.parent / "logs" / "run_evaluation")
-    sb_cli_reports_path = Path(sb_cli_reports) if sb_cli_reports else None
     results = defaultdict(lambda: defaultdict(dict))
-    sb_reports = defaultdict(dict)  # 存储 sb-cli 报告
-
-    # 从 output_dir 提取数据集名称
-    dataset_name = output_dir.name
 
     for agent_dir in output_dir.iterdir():
         if not agent_dir.is_dir():
@@ -236,12 +187,6 @@ def analyze(output_dir: str, eval_root: str | None = None, eval_run_id: str | No
             if not mode_dir.is_dir():
                 continue
             mode = mode_dir.name
-
-            # 加载 sb-cli 报告，传递数据集名称
-            if sb_cli_reports_path:
-                sb_report = _load_sb_cli_report(sb_cli_reports_path, dataset_name, agent, mode)
-                if sb_report:
-                    sb_reports[agent][mode] = sb_report
 
             for instance_dir in mode_dir.iterdir():
                 if not instance_dir.is_dir():
@@ -267,9 +212,9 @@ def analyze(output_dir: str, eval_root: str | None = None, eval_run_id: str | No
                         "eval": eval_status,
                     }
 
-    return results, sb_reports
+    return results
 
-def print_summary(results, sb_reports=None, show_eval: bool = False):
+def print_summary(results, show_eval: bool = False):
     """打印汇总"""
     print("=" * 110)
     print("实验结果分析")
@@ -277,14 +222,12 @@ def print_summary(results, sb_reports=None, show_eval: bool = False):
 
     for agent, modes in sorted(results.items()):
         print(f"\n### Agent: {agent}")
-        print("-" * 140)
-        if sb_reports:
-            print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'High-Cost':<11} {'Low-Cost':<10} {'Avg Time':<12} {'Patch':<12} {'Pass Rate'}")
-        elif show_eval:
+        print("-" * 130)
+        if show_eval:
             print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'High-Cost':<11} {'Low-Cost':<10} {'Avg Time':<12} {'Patch':<9} {'Applied':<9} {'Resolved'}")
         else:
             print(f"{'Mode':<15} {'N':<5} {'Avg Input':<12} {'Avg Output':<12} {'Avg Total':<12} {'Avg Turns':<10} {'High-Cost':<11} {'Low-Cost':<10} {'Avg Time':<12} {'Patch'}")
-        print("-" * 140)
+        print("-" * 130)
 
         for mode, instances in sorted(modes.items()):
             n = len(instances)
@@ -307,14 +250,7 @@ def print_summary(results, sb_reports=None, show_eval: bool = False):
             avg_low_cost = total_low_cost / patches if patches > 0 else 0
             avg_duration_sec = (total_duration / patches / 1000) if patches > 0 else 0
 
-            if sb_reports and agent in sb_reports and mode in sb_reports[agent]:
-                report = sb_reports[agent][mode]
-                resolved = report.get("resolved_instances", 0)
-                completed = report.get("completed_instances", 0)
-                pass_rate = f"{resolved}/{completed}" if completed > 0 else "0/0"
-                pass_pct = f"({resolved*100//completed}%)" if completed > 0 else "(0%)"
-                print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_high_cost:<11.1f} {avg_low_cost:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n:<12} {pass_rate} {pass_pct}")
-            elif show_eval:
+            if show_eval:
                 applied = 0
                 resolved = 0
                 evaluated = 0
@@ -352,7 +288,6 @@ if __name__ == "__main__":
     parser.add_argument("output_dir", nargs="?", default=None, help="Output directory to analyze (default: both datasets under ./output)")
     parser.add_argument("--eval-run-id", default=None, help="SWE-bench harness run_id (enables Applied/Resolved columns)")
     parser.add_argument("--eval-root", default=None, help="Path to logs/run_evaluation (default: ./logs/run_evaluation)")
-    parser.add_argument("--sb-cli-reports", default="sb-cli-reports", help="Path to sb-cli-reports directory (enables Pass Rate column)")
     args = parser.parse_args()
 
     # 默认分析两个数据集
@@ -375,5 +310,5 @@ if __name__ == "__main__":
         print(f"数据集: {os.path.basename(output_dir)}")
         print(f"{'='*120}")
 
-        results, sb_reports = analyze(output_dir, eval_root=args.eval_root, eval_run_id=args.eval_run_id, sb_cli_reports=args.sb_cli_reports)
-        print_summary(results, sb_reports=sb_reports if args.sb_cli_reports else None, show_eval=bool(args.eval_run_id))
+        results = analyze(output_dir, eval_root=args.eval_root, eval_run_id=args.eval_run_id)
+        print_summary(results, show_eval=bool(args.eval_run_id))
