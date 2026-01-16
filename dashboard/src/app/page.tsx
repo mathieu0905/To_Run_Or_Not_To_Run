@@ -538,11 +538,8 @@ export default function Home() {
 
                       const res = await fetch(`/api/get-report?dataset=${dataset}&runId=${encodeURIComponent(runId)}`);
                       const data = await res.json();
-                      if (data.success && data.report) {
-                        setReportContent(data.report);
-                        setShowReportModal(true);
-                      } else if (data.output) {
-                        alert(data.output);
+                      if (data.success) {
+                        alert(`${data.message}\n\n日志文件: ${data.logFile}`);
                       } else {
                         alert(`获取报告失败: ${data.error || "未知错误"}`);
                       }

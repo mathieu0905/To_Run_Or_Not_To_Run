@@ -66,55 +66,32 @@ export async function POST(req: NextRequest) {
     // 加载环境变量
     const envVars = loadEnvFile();
 
-    return new Promise<Response>((resolve) => {
-      const command = `source /data/zhihao/miniconda3/etc/profile.d/conda.sh && conda activate swebench && sb-cli submit "${sbDataset}" test --predictions_path "${predictionsFile}" --run_id "${finalRunId}"`;
-      const proc = spawn("bash", ["-c", command], {
-        cwd: PROJECT_DIR,
-        env: { ...process.env, ...envVars }
-      });
+    // 在后台运行提交任务，立即返回响应
+    const logFile = path.join(PROJECT_DIR, "logs", `submit_${finalRunId}_${Date.now()}.log`);
 
-      let output = "";
-      let error = "";
+    // 确保 logs 目录存在
+    const logsDir = path.join(PROJECT_DIR, "logs");
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
 
-      proc.stdout.on("data", (data) => {
-        output += data.toString();
-      });
+    const command = `source /data/zhihao/miniconda3/etc/profile.d/conda.sh && conda activate swebench && sb-cli submit "${sbDataset}" test --predictions_path "${predictionsFile}" --run_id "${finalRunId}" > "${logFile}" 2>&1`;
 
-      proc.stderr.on("data", (data) => {
-        error += data.toString();
-      });
+    const proc = spawn("bash", ["-c", command], {
+      cwd: PROJECT_DIR,
+      env: { ...process.env, ...envVars },
+      detached: true,
+      stdio: "ignore"
+    });
 
-      proc.on("close", (code) => {
-        if (code === 0) {
-          resolve(
-            NextResponse.json({
-              success: true,
-              runId: finalRunId,
-              dataset: sbDataset,
-              output,
-            })
-          );
-        } else {
-          const errorMsg = error || output || "Unknown error";
-          console.error("sb-cli submit failed:", errorMsg);
-          resolve(
-            NextResponse.json(
-              { success: false, error: errorMsg, code },
-              { status: 200 }
-            )
-          );
-        }
-      });
+    proc.unref();
 
-      proc.on("error", (err) => {
-        console.error("Process error:", err);
-        resolve(
-          NextResponse.json(
-            { success: false, error: err.message },
-            { status: 200 }
-          )
-        );
-      });
+    return NextResponse.json({
+      success: true,
+      runId: finalRunId,
+      dataset: sbDataset,
+      message: "提交任务已在后台启动",
+      logFile,
     });
   } catch (error: any) {
     return NextResponse.json(

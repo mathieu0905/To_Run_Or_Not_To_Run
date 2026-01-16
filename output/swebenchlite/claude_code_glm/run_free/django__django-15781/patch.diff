@@ -1,0 +1,17 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index d37d43d5c5..a6162019d3 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -130,6 +130,12 @@ class DjangoHelpFormatter(HelpFormatter):
+     def add_arguments(self, actions):
+         super().add_arguments(self._reordered_actions(actions))
+ 
++    def _fill_text(self, text, width, indent):
++        import textwrap
++        text = self._whitespace_matcher.sub(' ', text).strip()
++        return textwrap.fill(text, width, initial_indent=indent,
++                            subsequent_indent=indent)
++
+ 
+ class OutputWrapper(TextIOBase):
+     """

@@ -203,7 +203,7 @@ export function getDetailLogDir(id: string): string | null {
 export function scanTraceFiles(scriptId: string): TraceInfo[] {
   const traces: TraceInfo[] = [];
   const dataset = scriptId.includes("verified") ? "swebenchverified" : "swebenchlite";
-  const agent = scriptId.includes("glm") ? "glm" : scriptId.includes("claude") ? "claude_code" : "codex";
+  const agent = scriptId.includes("glm") ? "claude_code_glm" : scriptId.includes("claude") ? "claude_code" : "codex";
   const baseDir = `${PROJECT_DIR}/output/${dataset}/${agent}`;
 
   try {

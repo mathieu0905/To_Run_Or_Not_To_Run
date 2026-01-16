@@ -51,41 +51,32 @@ export async function GET(req: NextRequest): Promise<Response> {
     const sbDataset = mapDataset(dataset);
     const envVars = loadEnvFile();
 
-    return new Promise<Response>((resolve) => {
-      const command = `source /data/zhihao/miniconda3/etc/profile.d/conda.sh && conda activate swebench && sb-cli get-report "${sbDataset}" test "${runId}"`;
-      const proc = spawn("bash", ["-c", command], {
-        cwd: PROJECT_DIR,
-        env: { ...process.env, ...envVars }
-      });
+    // 在后台运行获取报告任务，立即返回响应
+    const logFile = path.join(PROJECT_DIR, "logs", `report_${runId}_${Date.now()}.log`);
 
-      let output = "";
-      let error = "";
+    // 确保 logs 目录存在
+    const logsDir = path.join(PROJECT_DIR, "logs");
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
 
-      proc.stdout.on("data", (data) => {
-        output += data.toString();
-      });
+    const command = `source /data/zhihao/miniconda3/etc/profile.d/conda.sh && conda activate swebench && sb-cli get-report "${sbDataset}" test "${runId}" > "${logFile}" 2>&1`;
 
-      proc.stderr.on("data", (data) => {
-        error += data.toString();
-      });
+    const proc = spawn("bash", ["-c", command], {
+      cwd: PROJECT_DIR,
+      env: { ...process.env, ...envVars },
+      detached: true,
+      stdio: "ignore"
+    });
 
-      proc.on("close", (code) => {
-        if (code === 0) {
-          try {
-            const report = JSON.parse(output);
-            resolve(NextResponse.json({ success: true, report }));
-          } catch (e) {
-            resolve(NextResponse.json({ success: true, output }));
-          }
-        } else {
-          resolve(
-            NextResponse.json(
-              { success: false, error: error || output },
-              { status: 500 }
-            )
-          );
-        }
-      });
+    proc.unref();
+
+    return NextResponse.json({
+      success: true,
+      runId,
+      dataset: sbDataset,
+      message: "获取报告任务已在后台启动",
+      logFile,
     });
   } catch (error: any) {
     return NextResponse.json(
