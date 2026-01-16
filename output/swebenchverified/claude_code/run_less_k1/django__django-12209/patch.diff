@@ -1,0 +1,85 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index e3b14a41a0..12adb87be7 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -399,6 +399,8 @@ class ModelState:
+     # on the actual save.
+     adding = True
+     fields_cache = ModelStateFieldsCacheDescriptor()
++    # If true, the primary key was explicitly set by the user (not from default).
++    pk_explicitly_set = False
+ 
+ 
+ class Model(metaclass=ModelBase):
+@@ -423,6 +425,15 @@ class Model(metaclass=ModelBase):
+             # Daft, but matches old exception sans the err msg.
+             raise IndexError("Number of args exceeds number of fields")
+ 
++        # Track if pk was explicitly provided
++        pk_name = opts.pk.name if opts.pk else None
++        pk_attname = opts.pk.attname if opts.pk else None
++        # Check if 'pk' or the actual pk field name/attname was provided
++        pk_in_kwargs = 'pk' in kwargs or (pk_name and pk_name in kwargs) or (pk_attname and pk_attname in kwargs)
++
++        if pk_in_kwargs:
++            self._state.pk_explicitly_set = True
++
+         if not kwargs:
+             fields_iter = iter(opts.concrete_fields)
+             # The ordering of the zip calls matter - zip throws StopIteration
+@@ -433,6 +444,8 @@ class Model(metaclass=ModelBase):
+                 if val is _DEFERRED:
+                     continue
+                 _setattr(self, field.attname, val)
++                if pk_attname and field.attname == pk_attname:
++                    self._state.pk_explicitly_set = True
+         else:
+             # Slower, kwargs-ready version.
+             fields_iter = iter(opts.fields)
+@@ -441,6 +454,8 @@ class Model(metaclass=ModelBase):
+                     continue
+                 _setattr(self, field.attname, val)
+                 kwargs.pop(field.name, None)
++                if pk_attname and field.attname == pk_attname:
++                    self._state.pk_explicitly_set = True
+ 
+         # Now we're left with the unprocessed fields that *must* come from
+         # keywords, or default.
+@@ -456,15 +471,21 @@ class Model(metaclass=ModelBase):
+                         # Assume object instance was passed in.
+                         rel_obj = kwargs.pop(field.name)
+                         is_related_object = True
++                        if pk_name and field.name == pk_name:
++                            self._state.pk_explicitly_set = True
+                     except KeyError:
+                         try:
+                             # Object instance wasn't passed in -- must be an ID.
+                             val = kwargs.pop(field.attname)
++                            if pk_attname and field.attname == pk_attname:
++                                self._state.pk_explicitly_set = True
+                         except KeyError:
+                             val = field.get_default()
+                 else:
+                     try:
+                         val = kwargs.pop(field.attname)
++                        if pk_attname and field.attname == pk_attname:
++                            self._state.pk_explicitly_set = True
+                     except KeyError:
+                         # This is done with an exception rather than the
+                         # default argument on pop because we don't want
+@@ -840,6 +861,7 @@ class Model(metaclass=ModelBase):
+                        if f.name in update_fields or f.attname in update_fields]
+ 
+         pk_val = self._get_pk_val(meta)
++        pk_set_before_save = pk_val is not None
+         if pk_val is None:
+             pk_val = meta.pk.get_pk_value_on_save(self)
+             setattr(self, meta.pk.attname, pk_val)
+@@ -851,6 +873,7 @@ class Model(metaclass=ModelBase):
+         if (
+             not force_insert and
+             self._state.adding and
++            not self._state.pk_explicitly_set and
+             self._meta.pk.default and
+             self._meta.pk.default is not NOT_PROVIDED
+         ):

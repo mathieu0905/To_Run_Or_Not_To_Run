@@ -1,0 +1,57 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 2bce85beef..a37c0d8332 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -883,6 +883,7 @@ class Field(RegisterLookupMixin):
+         qs = rel_model._default_manager.complex_filter(limit_choices_to)
+         if ordering:
+             qs = qs.order_by(*ordering)
++        qs = qs.distinct()
+         return (blank_choice if include_blank else []) + [
+             (choice_func(x), str(x)) for x in qs
+         ]
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index 9e900e35f4..7d2b812c86 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -2829,6 +2829,40 @@ class LimitChoicesToTests(TestCase):
+             StumpJokeForm()
+             self.assertEqual(today_callable_dict.call_count, 3)
+ 
++    def test_limit_choices_to_q_with_join_no_duplicates(self):
++        """
++        Regression test: limit_choices_to with Q objects involving joins
++        should not produce duplicate options in formfield.
++        """
++        # Create multiple students with the same character to test for duplicates
++        student1 = Student.objects.create(character=self.threepwood, study='Math')
++        student2 = Student.objects.create(character=self.threepwood, study='Science')
++        Student.objects.create(character=self.marley, study='History')
++
++        # Create a model with limit_choices_to using Q object with join
++        class TestModel(models.Model):
++            student = models.ForeignKey(
++                Student,
++                models.CASCADE,
++                limit_choices_to=models.Q(character__username='threepwood')
++            )
++            class Meta:
++                app_label = 'model_forms'
++
++        # Get the field and its choices
++        field = TestModel._meta.get_field('student')
++        choices = field.get_choices(include_blank=True)
++
++        # Extract student IDs from choices (skip blank choice)
++        choice_ids = [choice[0] for choice in choices if choice[0] != '']
++
++        # Verify no duplicates
++        self.assertEqual(len(choice_ids), len(set(choice_ids)),
++                         "Duplicate options found in formfield choices")
++
++        # Verify correct students are returned
++        self.assertEqual(set(choice_ids), {student1.id, student2.id})
++
+ 
+ class FormFieldCallbackTests(SimpleTestCase):
+ 

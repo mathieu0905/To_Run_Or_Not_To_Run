@@ -1,0 +1,41 @@
+diff --git a/django/db/backends/base/creation.py b/django/db/backends/base/creation.py
+index 503f7f56fd..093bb59943 100644
+--- a/django/db/backends/base/creation.py
++++ b/django/db/backends/base/creation.py
+@@ -74,7 +74,7 @@ class BaseDatabaseCreation:
+         # and store it on the connection. This slightly horrific process is so people
+         # who are testing on databases without transactions or who are using
+         # a TransactionTestCase still get a clean database on every test run.
+-        if serialize:
++        if serialize and self.connection.settings_dict['TEST']['MIGRATE']:
+             self.connection._test_serialized_contents = self.serialize_db_to_string()
+ 
+         call_command('createcachetable', database=self.connection.alias)
+diff --git a/tests/backends/base/test_creation.py b/tests/backends/base/test_creation.py
+index 01215a9a5b..8acb068536 100644
+--- a/tests/backends/base/test_creation.py
++++ b/tests/backends/base/test_creation.py
+@@ -78,6 +78,23 @@ class TestDbCreationTests(SimpleTestCase):
+             with mock.patch.object(creation, '_destroy_test_db'):
+                 creation.destroy_test_db(old_database_name, verbosity=0)
+ 
++    def test_migrate_test_setting_false_with_serialize(self, mocked_migrate, mocked_ensure_connection):
++        test_connection = get_connection_copy()
++        test_connection.settings_dict['TEST']['MIGRATE'] = False
++        creation = test_connection.creation_class(test_connection)
++        old_database_name = test_connection.settings_dict['NAME']
++        try:
++            with mock.patch.object(creation, '_create_test_db'):
++                with mock.patch.object(creation, 'serialize_db_to_string'):
++                    # serialize=True (the default) should not crash when MIGRATE=False
++                    creation.create_test_db(verbosity=0, autoclobber=True, serialize=True)
++                    # serialize_db_to_string should not be called when MIGRATE=False
++                    creation.serialize_db_to_string.assert_not_called()
++            mocked_migrate.assert_not_called()
++        finally:
++            with mock.patch.object(creation, '_destroy_test_db'):
++                creation.destroy_test_db(old_database_name, verbosity=0)
++
+ 
+ class TestDeserializeDbFromString(TransactionTestCase):
+     available_apps = ['backends']

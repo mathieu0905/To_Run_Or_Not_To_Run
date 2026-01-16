@@ -1,0 +1,32 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 4038859cfa..9b36a18ef4 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1302,6 +1302,10 @@ class Model(metaclass=ModelBase):
+             not settings.is_overridden('DEFAULT_AUTO_FIELD') and
+             not cls._meta.app_config._is_default_auto_field_overridden
+         ):
++            # Ignore auto-created primary keys that are parent links in
++            # multi-table inheritance, as they inherit the PK from the parent.
++            if getattr(cls._meta.pk, 'remote_field', None) and cls._meta.pk.remote_field.parent_link:
++                return []
+             return [
+                 checks.Warning(
+                     f"Auto-created primary key used when not defining a "
+diff --git a/tests/check_framework/test_model_checks.py b/tests/check_framework/test_model_checks.py
+index d4342ada07..499a27d591 100644
+--- a/tests/check_framework/test_model_checks.py
++++ b/tests/check_framework/test_model_checks.py
+@@ -415,3 +415,12 @@ class ModelDefaultAutoFieldTests(SimpleTestCase):
+                 app_label = 'check_framework.apps.CheckPKConfig'
+ 
+         self.assertEqual(checks.run_checks(app_configs=apps.get_app_configs()), [])
++
++    def test_inherited_pk(self):
++        class Parent(models.Model):
++            id = models.AutoField(primary_key=True)
++
++        class Child(Parent):
++            pass
++
++        self.assertEqual(checks.run_checks(app_configs=self.apps.get_app_configs()), [])

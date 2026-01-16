@@ -1,0 +1,66 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 84633905273fc916e3d17883810d9969c03f73c2
+
+## Problem Description
+Cannot override get_FOO_display() in Django 2.2+.
+Description
+	
+I cannot override the get_FIELD_display function on models since version 2.2. It works in version 2.1.
+Example:
+class FooBar(models.Model):
+	foo_bar = models.CharField(_("foo"), choices=[(1, 'foo'), (2, 'bar')])
+	def __str__(self):
+		return self.get_foo_bar_display() # This returns 'foo' or 'bar' in 2.2, but 'something' in 2.1
+	def get_foo_bar_display(self):
+		return "something"
+What I expect is that I should be able to override this function.
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+你可以自由运行测试和脚本。  
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

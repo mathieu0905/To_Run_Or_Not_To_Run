@@ -1,0 +1,47 @@
+diff --git a/django/db/backends/mysql/operations.py b/django/db/backends/mysql/operations.py
+index af8cfd86b5..0d894b98e4 100644
+--- a/django/db/backends/mysql/operations.py
++++ b/django/db/backends/mysql/operations.py
+@@ -3,6 +3,7 @@ import uuid
+ from django.conf import settings
+ from django.db.backends.base.operations import BaseDatabaseOperations
+ from django.utils import timezone
++from django.utils.dateparse import parse_duration
+ from django.utils.duration import duration_microseconds
+ from django.utils.encoding import force_str
+ 
+@@ -315,6 +316,14 @@ class DatabaseOperations(BaseDatabaseOperations):
+             value = uuid.UUID(value)
+         return value
+ 
++    def convert_durationfield_value(self, value, expression, connection):
++        if value is not None:
++            # MySQL returns a timedelta or an integer (microseconds).
++            # If it's already a timedelta, return it as-is.
++            if not isinstance(value, datetime.timedelta):
++                value = datetime.timedelta(0, 0, value)
++        return value
++
+     def binary_placeholder_sql(self, value):
+         return '_binary %s' if value is not None and not hasattr(value, 'as_sql') else '%s'
+ 
+diff --git a/django/db/backends/sqlite3/operations.py b/django/db/backends/sqlite3/operations.py
+index 9510b5edd9..1b51249a75 100644
+--- a/django/db/backends/sqlite3/operations.py
++++ b/django/db/backends/sqlite3/operations.py
+@@ -321,6 +321,15 @@ class DatabaseOperations(BaseDatabaseOperations):
+     def convert_booleanfield_value(self, value, expression, connection):
+         return bool(value) if value in (1, 0) else value
+ 
++    def convert_durationfield_value(self, value, expression, connection):
++        if value is not None:
++            # If the value is a string, it's from a duration expression.
++            # Parse it back to a timedelta.
++            if isinstance(value, str):
++                return parse_duration(value)
++            # Otherwise, it's microseconds as an integer.
++            return datetime.timedelta(0, 0, value)
++
+     def bulk_insert_sql(self, fields, placeholder_rows):
+         return " UNION ALL ".join(
+             "SELECT %s" % ", ".join(row)

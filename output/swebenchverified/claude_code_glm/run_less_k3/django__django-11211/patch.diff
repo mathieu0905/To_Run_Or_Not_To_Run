@@ -1,0 +1,38 @@
+diff --git a/tests/prefetch_related/models.py b/tests/prefetch_related/models.py
+index 091d600475..6d1e67ded5 100644
+--- a/tests/prefetch_related/models.py
++++ b/tests/prefetch_related/models.py
+@@ -295,3 +295,21 @@ class Flea(models.Model):
+     current_room = models.ForeignKey(Room, models.SET_NULL, related_name='fleas', null=True)
+     pets_visited = models.ManyToManyField(Pet, related_name='fleas_hosted')
+     people_visited = models.ManyToManyField(Person, related_name='fleas_hosted')
++
++
++# Models for GenericForeignKey with UUID pk test:
++
++class UUIDBook(models.Model):
++    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
++    name = models.CharField(max_length=50)
++
++
++class UUIDTaggedItem(models.Model):
++    tag = models.SlugField()
++    content_type = models.ForeignKey(
++        ContentType,
++        models.CASCADE,
++        related_name="uuid_taggeditem_set",
++    )
++    object_id = models.CharField(max_length=255)
++    content_object = GenericForeignKey('content_type', 'object_id')
+diff --git a/tests/prefetch_related/test_uuid.py b/tests/prefetch_related/test_uuid.py
+index 11a2474f4a..47812b29b9 100644
+--- a/tests/prefetch_related/test_uuid.py
++++ b/tests/prefetch_related/test_uuid.py
+@@ -1,6 +1,6 @@
+ from django.test import TestCase
+ 
+-from .models import Flea, House, Person, Pet, Room
++from .models import Flea, House, Person, Pet, Room, UUIDBook, UUIDTaggedItem
+ 
+ 
+ class UUIDPrefetchRelated(TestCase):

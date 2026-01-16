@@ -1,0 +1,17 @@
+diff --git a/django/utils/functional.py b/django/utils/functional.py
+index 6d38f932f9..c9f6f38590 100644
+--- a/django/utils/functional.py
++++ b/django/utils/functional.py
+@@ -324,6 +324,12 @@ class LazyObject:
+     __str__ = new_method_proxy(str)
+     __bool__ = new_method_proxy(bool)
+ 
++    # Numeric conversion support
++    __int__ = new_method_proxy(int)
++    __float__ = new_method_proxy(float)
++    __complex__ = new_method_proxy(complex)
++    __index__ = new_method_proxy(operator.index)
++
+     # Introspection support
+     __dir__ = new_method_proxy(dir)
+ 

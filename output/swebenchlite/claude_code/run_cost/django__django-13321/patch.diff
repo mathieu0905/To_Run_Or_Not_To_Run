@@ -1,0 +1,17 @@
+diff --git a/django/contrib/sessions/backends/base.py b/django/contrib/sessions/backends/base.py
+index 187e14b1b7..73e3eec255 100644
+--- a/django/contrib/sessions/backends/base.py
++++ b/django/contrib/sessions/backends/base.py
+@@ -122,7 +122,11 @@ class SessionBase:
+         # RemovedInDjango40Warning: when the deprecation ends, handle here
+         # exceptions similar to what _legacy_decode() does now.
+         except Exception:
+-            return self._legacy_decode(session_data)
++            try:
++                return self._legacy_decode(session_data)
++            except Exception:
++                # If _legacy_decode also fails, return an empty session.
++                return {}
+ 
+     def _legacy_encode(self, session_dict):
+         # RemovedInDjango40Warning.

@@ -1,0 +1,13 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index d37d43d5c5..7c5e3ad710 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -102,7 +102,7 @@ def no_translations(handle_func):
+     return wrapper
+ 
+ 
+-class DjangoHelpFormatter(HelpFormatter):
++class DjangoHelpFormatter(argparse.RawDescriptionHelpFormatter):
+     """
+     Customized formatter so that command-specific arguments appear in the
+     --help output before arguments common to all commands.

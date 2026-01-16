@@ -1,0 +1,44 @@
+diff --git a/django/core/mail/message.py b/django/core/mail/message.py
+index e393b4cf5c..ec4c2478fb 100644
+--- a/django/core/mail/message.py
++++ b/django/core/mail/message.py
+@@ -257,7 +257,12 @@ class EmailMessage:
+             msg['Date'] = formatdate(localtime=settings.EMAIL_USE_LOCALTIME)
+         if 'message-id' not in header_names:
+             # Use cached DNS_NAME for performance
+-            msg['Message-ID'] = make_msgid(domain=DNS_NAME)
++            domain = str(DNS_NAME)
++            try:
++                domain.encode('ascii')
++            except UnicodeEncodeError:
++                domain = domain.encode('idna').decode('ascii')
++            msg['Message-ID'] = make_msgid(domain=domain)
+         for name, value in self.extra_headers.items():
+             if name.lower() != 'from':  # From is already handled
+                 msg[name] = value
+diff --git a/tests/mail/tests.py b/tests/mail/tests.py
+index 15593dc3f7..2ac8c5c644 100644
+--- a/tests/mail/tests.py
++++ b/tests/mail/tests.py
+@@ -403,6 +403,21 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
+             payload1.as_bytes().endswith(b'\n\n<p>Firstname S=FCrname is a <strong>great</strong> guy.</p>')
+         )
+ 
++    def test_non_ascii_dns_name(self):
++        """
++        Regression test for non-ASCII domain names in Message-ID header.
++        When the DNS name contains non-ASCII characters and the email encoding
++        is set to a non-unicode encoding like iso-8859-1, the domain should be
++        converted to punycode (IDNA encoding) to avoid UnicodeEncodeError.
++        """
++        from unittest.mock import patch
++        with patch('django.core.mail.message.DNS_NAME', '漢字'):
++            email = EmailMessage('subject', '', 'from@example.com', ['to@example.com'])
++            email.encoding = 'iso-8859-1'
++            message = email.message()
++            # The domain should be converted to punycode
++            self.assertIn('xn--p8s937b', message['Message-ID'])
++
+     def test_attachments(self):
+         """Regression test for #9367"""
+         headers = {"Date": "Fri, 09 Nov 2001 01:08:47 -0000", "Message-ID": "foo"}

@@ -13,9 +13,9 @@ export async function GET(req: NextRequest) {
 
   const traces = scanTraceFiles(scriptId);
 
-  // 返回最近更新的 50 个 trace 文件
+  // 返回所有 trace 文件（不再限制数量）
   return NextResponse.json({
     total: traces.length,
-    traces: traces.slice(0, 50),
+    traces: traces,
   });
 }

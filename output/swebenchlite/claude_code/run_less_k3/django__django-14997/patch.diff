@@ -1,0 +1,24 @@
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index c06386a2fa..aa16234595 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -2,6 +2,7 @@
+ Helpers to manipulate deferred DDL statements that might need to be adjusted or
+ discarded within when executing a migration.
+ """
++import re
+ from copy import deepcopy
+ 
+ 
+@@ -233,4 +234,11 @@ class Expressions(TableColumns):
+     def __str__(self):
+         sql, params = self.compiler.compile(self.expressions)
+         params = map(self.quote_value, params)
++        # For SQLite, we need to remove table qualifiers from column references
++        # in index expressions, as SQLite doesn't allow the "." operator.
++        # Replace quoted table references like "table"."column" with just "column"
++        if hasattr(self.compiler.connection, 'vendor') and self.compiler.connection.vendor == 'sqlite':
++            # Remove table qualifiers: "table"."column" -> "column"
++            # Match: "any_table_name"."column_name" and replace with just "column_name"
++            sql = re.sub(r'"[^"]+"\."([^"]+)"', r'"\1"', sql)
+         return sql % tuple(params)

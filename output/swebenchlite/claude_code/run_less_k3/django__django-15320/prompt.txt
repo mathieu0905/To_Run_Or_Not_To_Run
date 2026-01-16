@@ -1,0 +1,85 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: b55ebe32417e0884b6b8b3e1bc0379033aa221af
+
+## Problem Description
+Subquery.as_sql() generates invalid SQL.
+Description
+	 
+		(last modified by M1ha Shvn)
+	 
+Since ​this commit Subquery.as_sql(...) method returns incorrect SQL removing first and last symbols instead of absent breakets. Adding Subquery().query.subquery = True attribute fixes the problem. From my point of view, it should be set in Subquery constructor.
+from django.db import connection
+from apps.models import App
+q = Subquery(App.objects.all())
+print(str(q.query))
+# Output SQL is valid:
+# 'SELECT "apps_app"."id", "apps_app"."name" FROM "apps_app"'
+print(q.as_sql(q.query.get_compiler('default'), connection))
+# Outptut SQL is invalid (no S letter at the beggining and " symbol at the end):
+# ('(ELECT "apps_app"."id", "apps_app"."name" FROM "apps_app)', ())
+q.query.subquery = True
+print(q.as_sql(q.query.get_compiler('default'), connection))
+# Outputs correct result
+('(SELECT "apps_app"."id", "apps_app"."name" FROM "apps_app")', ())
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 3 TEST EXECUTION(S) - USE THEM** 🎯
+
+你只有 3 次执行机会（请谨慎但不要浪费执行次数）。  
+
+This is a research experiment testing efficient debugging with limited executions.
+You have a budget of 3 test run(s). **Unused budget is wasted opportunity!**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 3 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 3
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 3 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

@@ -1,0 +1,130 @@
+diff --git a/django/contrib/syndication/views.py b/django/contrib/syndication/views.py
+index 68ffb0bfe0..13f2be9b21 100644
+--- a/django/contrib/syndication/views.py
++++ b/django/contrib/syndication/views.py
+@@ -199,21 +199,26 @@ class Feed:
+             if updateddate and is_naive(updateddate):
+                 updateddate = make_aware(updateddate, tz)
+ 
+-            feed.add_item(
+-                title=title,
+-                link=link,
+-                description=description,
+-                unique_id=self._get_dynamic_attr('item_guid', item, link),
+-                unique_id_is_permalink=self._get_dynamic_attr(
++            # Build kwargs for add_item, only including comments if set
++            item_kwargs = {
++                'title': title,
++                'link': link,
++                'description': description,
++                'unique_id': self._get_dynamic_attr('item_guid', item, link),
++                'unique_id_is_permalink': self._get_dynamic_attr(
+                     'item_guid_is_permalink', item),
+-                enclosures=enclosures,
+-                pubdate=pubdate,
+-                updateddate=updateddate,
+-                author_name=author_name,
+-                author_email=author_email,
+-                author_link=author_link,
+-                categories=self._get_dynamic_attr('item_categories', item),
+-                item_copyright=self._get_dynamic_attr('item_copyright', item),
+-                **self.item_extra_kwargs(item)
+-            )
++                'enclosures': enclosures,
++                'pubdate': pubdate,
++                'updateddate': updateddate,
++                'author_name': author_name,
++                'author_email': author_email,
++                'author_link': author_link,
++                'categories': self._get_dynamic_attr('item_categories', item),
++                'item_copyright': self._get_dynamic_attr('item_copyright', item),
++            }
++            comments = self._get_dynamic_attr('item_comments', item)
++            if comments is not None:
++                item_kwargs['comments'] = comments
++
++            feed.add_item(**item_kwargs, **self.item_extra_kwargs(item))
+         return feed
+diff --git a/tests/syndication_tests/feeds.py b/tests/syndication_tests/feeds.py
+index 4e9b1170b1..a1ccfc5c8d 100644
+--- a/tests/syndication_tests/feeds.py
++++ b/tests/syndication_tests/feeds.py
+@@ -213,3 +213,20 @@ class TestMultipleEnclosureAtomFeed(TestAtomFeed):
+             feedgenerator.Enclosure('http://example.com/hello.png', '0', 'image/png'),
+             feedgenerator.Enclosure('http://example.com/goodbye.png', '0', 'image/png'),
+         ]
++
++
++class TestItemCommentsFeed(TestRss2Feed):
++    """
++    A feed to test item_comments support.
++    """
++    def item_comments(self, item):
++        return 'http://example.com/comments/%s/' % item.pk
++
++
++class TestItemCommentsViaExtraKwargsFeed(TestRss2Feed):
++    """
++    A feed to test item_comments via item_extra_kwargs (old method).
++    """
++    def item_extra_kwargs(self, item):
++        return {'comments': 'http://example.com/extra-comments/%s/' % item.pk}
++
+diff --git a/tests/syndication_tests/tests.py b/tests/syndication_tests/tests.py
+index dab7ebab33..9f63966f53 100644
+--- a/tests/syndication_tests/tests.py
++++ b/tests/syndication_tests/tests.py
+@@ -193,6 +193,42 @@ class SyndicationFeedTest(FeedTestCase):
+         ):
+             self.client.get('/syndication/rss2/multiple-enclosure/')
+ 
++    def test_rss2_item_comments(self):
++        """
++        Test that item_comments is properly included in RSS feeds.
++        """
++        response = self.client.get('/syndication/rss2/item-comments/')
++        doc = minidom.parseString(response.content)
++        chan = doc.getElementsByTagName('rss')[0].getElementsByTagName('channel')[0]
++        items = chan.getElementsByTagName('item')
++
++        # Verify that each item has a comments element
++        for item in items:
++            comments = item.getElementsByTagName('comments')
++            self.assertEqual(len(comments), 1)
++            # Verify the comments URL format
++            comments_url = comments[0].firstChild.wholeText
++            self.assertTrue(comments_url.startswith('http://example.com/comments/'))
++            self.assertTrue(comments_url.endswith('/'))
++
++    def test_rss2_item_comments_via_extra_kwargs(self):
++        """
++        Test that item_comments can still be set via item_extra_kwargs (backward compatibility).
++        """
++        response = self.client.get('/syndication/rss2/item-comments-extra-kwargs/')
++        doc = minidom.parseString(response.content)
++        chan = doc.getElementsByTagName('rss')[0].getElementsByTagName('channel')[0]
++        items = chan.getElementsByTagName('item')
++
++        # Verify that each item has a comments element
++        for item in items:
++            comments = item.getElementsByTagName('comments')
++            self.assertEqual(len(comments), 1)
++            # Verify the comments URL format
++            comments_url = comments[0].firstChild.wholeText
++            self.assertTrue(comments_url.startswith('http://example.com/extra-comments/'))
++            self.assertTrue(comments_url.endswith('/'))
++
+     def test_rss091_feed(self):
+         """
+         Test the structure and content of feeds generated by RssUserland091Feed.
+diff --git a/tests/syndication_tests/urls.py b/tests/syndication_tests/urls.py
+index bff7bd0c8d..59602dd305 100644
+--- a/tests/syndication_tests/urls.py
++++ b/tests/syndication_tests/urls.py
+@@ -26,4 +26,6 @@ urlpatterns = [
+     path('syndication/rss2/multiple-enclosure/', feeds.TestMultipleEnclosureRSSFeed()),
+     path('syndication/atom/single-enclosure/', feeds.TestSingleEnclosureAtomFeed()),
+     path('syndication/atom/multiple-enclosure/', feeds.TestMultipleEnclosureAtomFeed()),
++    path('syndication/rss2/item-comments/', feeds.TestItemCommentsFeed()),
++    path('syndication/rss2/item-comments-extra-kwargs/', feeds.TestItemCommentsViaExtraKwargsFeed()),
+ ]

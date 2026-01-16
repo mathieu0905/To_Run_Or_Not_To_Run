@@ -1,0 +1,52 @@
+diff --git a/django/core/checks/templates.py b/django/core/checks/templates.py
+index 5214276987..e24f4c8b09 100644
+--- a/django/core/checks/templates.py
++++ b/django/core/checks/templates.py
+@@ -61,12 +61,20 @@ def check_for_template_tags_with_the_same_name(app_configs, **kwargs):
+         libraries[module_name].append(module_path)
+ 
+     for library_name, items in libraries.items():
+-        if len(items) > 1:
++        # Deduplicate while preserving order
++        seen = set()
++        unique_items = []
++        for item in items:
++            if item not in seen:
++                seen.add(item)
++                unique_items.append(item)
++
++        if len(unique_items) > 1:
+             errors.append(
+                 Error(
+                     E003.msg.format(
+                         repr(library_name),
+-                        ", ".join(repr(item) for item in items),
++                        ", ".join(repr(item) for item in unique_items),
+                     ),
+                     id=E003.id,
+                 )
+diff --git a/tests/check_framework/test_templates.py b/tests/check_framework/test_templates.py
+index 352a017e55..822cbee0da 100644
+--- a/tests/check_framework/test_templates.py
++++ b/tests/check_framework/test_templates.py
+@@ -207,3 +207,20 @@ class CheckTemplateTagLibrariesWithSameName(SimpleTestCase):
+     )
+     def test_template_tags_with_different_name(self):
+         self.assertEqual(check_for_template_tags_with_the_same_name(None), [])
++
++    @override_settings(
++        INSTALLED_APPS=["check_framework.template_test_apps.same_tags_app_1"]
++    )
++    def test_template_tags_same_library_in_config_and_installed_apps(self):
++        """
++        A library can be listed in TEMPLATES['OPTIONS']['libraries'] and also
++        be auto-discovered from INSTALLED_APPS without causing a false positive.
++        """
++        with self.settings(
++            TEMPLATES=[
++                self.get_settings(
++                    "same_tags", "same_tags_app_1.templatetags.same_tags"
++                ),
++            ]
++        ):
++            self.assertEqual(check_for_template_tags_with_the_same_name(None), [])

@@ -1,0 +1,15 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index eaccc96d7d..576cd7139c 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -722,6 +722,10 @@ class SQLCompiler:
+ 
+             results = []
+             for item in opts.ordering:
++                if hasattr(item, 'resolve_expression'):
++                    # Skip expressions - they can't be used for related model ordering
++                    # as they reference fields in a different model context
++                    continue
+                 results.extend(self.find_ordering_name(item, opts, alias,
+                                                        order, already_seen))
+             return results

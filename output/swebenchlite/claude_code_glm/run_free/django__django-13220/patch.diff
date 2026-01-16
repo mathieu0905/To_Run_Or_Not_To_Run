@@ -1,0 +1,53 @@
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..f98ad9bb0c 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,48 @@ class ValidationError(Exception):
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return NotImplemented
++        if hasattr(self, 'error_dict') and hasattr(other, 'error_dict'):
++            # Compare error_dict - order-independent comparison
++            if self.error_dict.keys() != other.error_dict.keys():
++                return False
++            for key in self.error_dict:
++                self_errors = self.error_dict[key]
++                other_errors = other.error_dict[key]
++                # Compare error lists for this key - order-independent
++                if not self._error_list_equals(self_errors, other_errors):
++                    return False
++            return True
++        if hasattr(self, 'error_dict') or hasattr(other, 'error_dict'):
++            # One has error_dict, the other doesn't
++            return False
++        if hasattr(self, 'error_list') and hasattr(other, 'error_list'):
++            # Compare error_list - order-independent
++            return self._error_list_equals(self.error_list, other.error_list)
++        return True
++
++    def _error_list_equals(self, errors1, errors2):
++        """Compare two lists of ValidationError instances for equality, ignoring order."""
++        if len(errors1) != len(errors2):
++            return False
++        # For order-independent comparison, we need to check if each error in errors1
++        # has a matching error in errors2
++        unmatched = list(errors2)
++        for error1 in errors1:
++            found = False
++            for i, error2 in enumerate(unmatched):
++                if (error1.message == error2.message and
++                        error1.code == error2.code and
++                        error1.params == error2.params):
++                    found = True
++                    unmatched.pop(i)
++                    break
++            if not found:
++                return False
++        return True
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""

@@ -1,0 +1,57 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 2428218696..fb9adc2281 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -933,14 +933,12 @@ class Model(metaclass=ModelBase):
+                         "%s() prohibited to prevent data loss due to unsaved "
+                         "related object '%s'." % (operation_name, field.name)
+                     )
+-                elif getattr(self, field.attname) is None:
+-                    # Use pk from related object if it has been saved after
+-                    # an assignment.
+-                    setattr(self, field.attname, obj.pk)
+-                # If the relationship's pk/to_field was changed, clear the
+-                # cached relationship.
+-                if getattr(obj, field.target_field.attname) != getattr(self, field.attname):
+-                    field.delete_cached_value(self)
++                # If the related object's pk/to_field was changed, update the
++                # local field to match and clear the cached relationship.
++                elif getattr(obj, field.target_field.attname) != getattr(self, field.attname):
++                    setattr(self, field.attname, getattr(obj, field.target_field.attname))
++                    if field.is_cached(self):
++                        field.delete_cached_value(self)
+ 
+     def delete(self, using=None, keep_parents=False):
+         using = using or router.db_for_write(self.__class__, instance=self)
+diff --git a/tests/model_fields/test_foreignkey.py b/tests/model_fields/test_foreignkey.py
+index d30cca9b5c..ef1b84fdf9 100644
+--- a/tests/model_fields/test_foreignkey.py
++++ b/tests/model_fields/test_foreignkey.py
+@@ -147,3 +147,27 @@ class ForeignKeyTests(TestCase):
+         )
+         with self.assertRaisesMessage(FieldError, msg):
+             Related._meta.get_field('child').related_fields
++
++    @skipIfDBFeature('interprets_empty_strings_as_nulls')
++    def test_foreign_key_to_non_numeric_pk_syncs_on_save(self):
++        """
++        Foreign key fields should update when the related object's non-numeric
++        primary key is changed after assignment (#28147).
++        """
++        # Test case 1: Setting pk after assignment
++        order = FkToChar()
++        order.out = PrimaryKeyCharModel()
++        order.out.string = "foo"
++        order.out.save()
++        order.save()
++        self.assertEqual(order.out_id, "foo")
++        self.assertTrue(FkToChar.objects.filter(out=order.out).exists())
++
++        # Test case 2: Changing pk after assignment
++        order2 = FkToChar()
++        order2.out = PrimaryKeyCharModel(string="bar")
++        order2.out.save()
++        order2.out.string = "baz"
++        order2.out.save()
++        order2.save()
++        self.assertEqual(order2.out_id, "baz")

@@ -1,7 +1,15 @@
 {
-  "/api/scripts/route": "app/api/scripts/route.js",
-  "/api/traces/route": "app/api/traces/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/config/route": "app/api/config/route.js",
   "/api/generate-predictions/route": "app/api/generate-predictions/route.js",
+  "/api/logs/route": "app/api/logs/route.js",
+  "/api/reports/route": "app/api/reports/route.js",
+  "/api/scripts/route": "app/api/scripts/route.js",
   "/api/submit-evaluation/route": "app/api/submit-evaluation/route.js",
-  "/api/get-report/route": "app/api/get-report/route.js"
+  "/api/trace-content/route": "app/api/trace-content/route.js",
+  "/api/evaluate/route": "app/api/evaluate/route.js",
+  "/api/list-runs/route": "app/api/list-runs/route.js",
+  "/api/traces/route": "app/api/traces/route.js",
+  "/api/get-report/route": "app/api/get-report/route.js",
+  "/page": "app/page.js"
 }

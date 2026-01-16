@@ -1,0 +1,101 @@
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..101a0496f0 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,23 @@ class ValidationError(Exception):
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return NotImplemented
++        if hasattr(self, 'error_dict') and hasattr(other, 'error_dict'):
++            if self.error_dict.keys() != other.error_dict.keys():
++                return False
++            return all(
++                sorted((e.message, e.code, e.params) for e in self.error_dict[key])
++                == sorted((e.message, e.code, e.params) for e in other.error_dict[key])
++                for key in self.error_dict.keys()
++            )
++        if hasattr(self, 'error_dict') or hasattr(other, 'error_dict'):
++            return False
++        return sorted((e.message, e.code, e.params) for e in self.error_list) == sorted(
++            (e.message, e.code, e.params) for e in other.error_list
++        )
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+diff --git a/tests/test_exceptions/test_validation_error.py b/tests/test_exceptions/test_validation_error.py
+index a0bbfaf77e..bf2eb0c2dd 100644
+--- a/tests/test_exceptions/test_validation_error.py
++++ b/tests/test_exceptions/test_validation_error.py
+@@ -14,3 +14,68 @@ class TestValidationError(unittest.TestCase):
+         message_dict['field2'] = ['E3', 'E4']
+         exception = ValidationError(message_dict)
+         self.assertEqual(sorted(exception.messages), ['E1', 'E2', 'E3', 'E4'])
++
++    def test_eq_simple_messages(self):
++        self.assertEqual(
++            ValidationError('Error message'),
++            ValidationError('Error message')
++        )
++        self.assertNotEqual(
++            ValidationError('Error 1'),
++            ValidationError('Error 2')
++        )
++
++    def test_eq_list_messages(self):
++        self.assertEqual(
++            ValidationError(['Error 1', 'Error 2']),
++            ValidationError(['Error 1', 'Error 2'])
++        )
++
++    def test_eq_list_messages_order_independent(self):
++        self.assertEqual(
++            ValidationError(['Error 1', 'Error 2']),
++            ValidationError(['Error 2', 'Error 1'])
++        )
++
++    def test_eq_dict_messages(self):
++        self.assertEqual(
++            ValidationError({'field1': ['Error 1'], 'field2': ['Error 2']}),
++            ValidationError({'field1': ['Error 1'], 'field2': ['Error 2']})
++        )
++
++    def test_eq_dict_messages_order_independent(self):
++        self.assertEqual(
++            ValidationError({'field1': ['Error 1', 'Error 2']}),
++            ValidationError({'field1': ['Error 2', 'Error 1']})
++        )
++
++    def test_eq_dict_vs_list(self):
++        self.assertNotEqual(
++            ValidationError({'field1': ['Error 1']}),
++            ValidationError(['Error 1'])
++        )
++
++    def test_eq_with_code(self):
++        self.assertEqual(
++            ValidationError('Error', code='invalid'),
++            ValidationError('Error', code='invalid')
++        )
++        self.assertNotEqual(
++            ValidationError('Error', code='invalid'),
++            ValidationError('Error', code='required')
++        )
++
++    def test_eq_with_params(self):
++        self.assertEqual(
++            ValidationError('Error %(value)s', params={'value': 'test'}),
++            ValidationError('Error %(value)s', params={'value': 'test'})
++        )
++        self.assertNotEqual(
++            ValidationError('Error %(value)s', params={'value': 'a'}),
++            ValidationError('Error %(value)s', params={'value': 'b'})
++        )
++
++    def test_eq_non_validation_error(self):
++        self.assertNotEqual(ValidationError('Error'), 'Error')
++        self.assertNotEqual(ValidationError('Error'), ['Error'])
++        self.assertNotEqual(ValidationError('Error'), {'field': ['Error']})

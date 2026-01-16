@@ -1,0 +1,28 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index a44adfc760..8c31823f3c 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -425,12 +425,17 @@ class SQLCompiler:
+                 # If the columns list is limited, then all combined queries
+                 # must have the same columns list. Set the selects defined on
+                 # the query on all combined queries, if not already set.
+-                if not compiler.query.values_select and self.query.values_select:
+-                    compiler.query.set_values((
+-                        *self.query.extra_select,
+-                        *self.query.values_select,
+-                        *self.query.annotation_select,
+-                    ))
++                if self.query.values_select and (
++                    not compiler.query.values_select or
++                    compiler.query.values_select != self.query.values_select
++                ):
++                    # Only update if the combined query is for the same model
++                    if compiler.query.model == self.query.model:
++                        compiler.query.set_values((
++                            *self.query.extra_select,
++                            *self.query.values_select,
++                            *self.query.annotation_select,
++                        ))
+                 part_sql, part_args = compiler.as_sql()
+                 if compiler.query.combinator:
+                     # Wrap in a subquery if wrapping in parentheses isn't

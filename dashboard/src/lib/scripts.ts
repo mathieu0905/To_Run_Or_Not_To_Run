@@ -9,6 +9,7 @@ export interface ScriptConfig {
   claudeModel: string;
   codexModel: string;
   anthropicBaseUrl: string;
+  anthropicAuthToken: string;
   modes: string[];
 }
 
@@ -35,6 +36,8 @@ const PROJECT_DIR = "/home/zhihao/hdd/run_free_run_less_run_full";
 export const SCRIPTS: ScriptInfo[] = [
   { id: "claude_lite", name: "Claude + Lite", scriptPath: `${PROJECT_DIR}/run_claude.sh`, status: "idle" },
   { id: "claude_verified", name: "Claude + Verified", scriptPath: `${PROJECT_DIR}/run_claude_verified.sh`, status: "idle" },
+  { id: "glm_lite", name: "GLM + Lite", scriptPath: `${PROJECT_DIR}/run_glm.sh`, status: "idle" },
+  { id: "glm_verified", name: "GLM + Verified", scriptPath: `${PROJECT_DIR}/run_glm_verified.sh`, status: "idle" },
   { id: "codex_lite", name: "Codex + Lite", scriptPath: `${PROJECT_DIR}/run_codex.sh`, status: "idle" },
   { id: "codex_verified", name: "Codex + Verified", scriptPath: `${PROJECT_DIR}/run_codex_verified.sh`, status: "idle" },
 ];
@@ -47,8 +50,10 @@ export function detectRunningScripts(): Record<string, boolean> {
   const result: Record<string, boolean> = {};
   try {
     const ps = execSync("ps aux | grep batch_runner | grep -v grep", { encoding: "utf-8" });
-    result.claude_lite = ps.includes("SWE-bench_Lite") && ps.includes("claude_code");
-    result.claude_verified = ps.includes("SWE-bench_Verified") && ps.includes("claude_code");
+    result.claude_lite = ps.includes("SWE-bench_Lite") && ps.includes("claude_code") && !ps.includes("glm");
+    result.claude_verified = ps.includes("SWE-bench_Verified") && ps.includes("claude_code") && !ps.includes("glm");
+    result.glm_lite = ps.includes("SWE-bench_Lite") && ps.includes("glm");
+    result.glm_verified = ps.includes("SWE-bench_Verified") && ps.includes("glm");
     result.codex_lite = ps.includes("SWE-bench_Lite") && ps.includes("codex");
     result.codex_verified = ps.includes("SWE-bench_Verified") && ps.includes("codex");
   } catch {
@@ -75,14 +80,30 @@ export function startScript(id: string, config: ScriptConfig): { success: boolea
     return { success: false, error: "Script already running" };
   }
 
+  // 根据脚本 ID 自动选择配置
+  let finalConfig = { ...config };
+  if (id.includes("glm")) {
+    // GLM 脚本使用 GLM 配置
+    finalConfig.claudeModel = "glm-4.7";
+    finalConfig.anthropicBaseUrl = "https://open.bigmodel.cn/api/anthropic";
+    finalConfig.anthropicAuthToken = "22d3e2814dd24bf1943ced46dc817067.KyGdWHcuJo0EXs0o";
+  } else if (id.includes("claude")) {
+    // Claude 脚本使用 Claude 配置
+    finalConfig.claudeModel = config.claudeModel || "sonnet";
+    finalConfig.anthropicBaseUrl = config.anthropicBaseUrl || "https://api.anthropic.com";
+    finalConfig.anthropicAuthToken = config.anthropicAuthToken || "";
+  }
+  // Codex 脚本保持原配置
+
   const env = {
     ...process.env,
-    NUM_INSTANCES: String(config.numInstances),
-    WORKERS: String(config.workers),
-    TIMEOUT: String(config.timeout),
-    CLAUDE_MODEL: config.claudeModel,
-    CODEX_MODEL: config.codexModel,
-    ANTHROPIC_BASE_URL: config.anthropicBaseUrl,
+    NUM_INSTANCES: String(finalConfig.numInstances),
+    WORKERS: String(finalConfig.workers),
+    TIMEOUT: String(finalConfig.timeout),
+    CLAUDE_MODEL: finalConfig.claudeModel,
+    CODEX_MODEL: finalConfig.codexModel,
+    ANTHROPIC_BASE_URL: finalConfig.anthropicBaseUrl,
+    ANTHROPIC_AUTH_TOKEN: finalConfig.anthropicAuthToken,
   };
 
   const proc = spawn("bash", [script.scriptPath, "-f"], {
@@ -141,13 +162,16 @@ export function stopAllScripts(): void {
 
 // 返回日志文件匹配模式
 export function getLogPattern(id: string): string | null {
-  const patterns: Record<string, string> = {
-    claude_lite: "run_claude_2*.log",
-    claude_verified: "run_claude_verified_*.log",
-    codex_lite: "run_codex_2*.log",
-    codex_verified: "run_codex_verified_*.log",
+  const patterns: Record<string, { dir: string; pattern: string }> = {
+    claude_lite: { dir: "logs", pattern: "run_claude_2*.log" },
+    claude_verified: { dir: "logs", pattern: "run_claude_verified_*.log" },
+    glm_lite: { dir: "logs/claude_code_glm", pattern: "*.log" },
+    glm_verified: { dir: "logs/claude_code_glm", pattern: "*.log" },
+    codex_lite: { dir: "logs", pattern: "run_codex_2*.log" },
+    codex_verified: { dir: "logs", pattern: "run_codex_verified_*.log" },
   };
-  return patterns[id] ? `${PROJECT_DIR}/logs/${patterns[id]}` : null;
+  const config = patterns[id];
+  return config ? `${PROJECT_DIR}/${config.dir}/${config.pattern}` : null;
 }
 
 // 获取最新的日志文件
@@ -171,7 +195,7 @@ export function getLatestLogFile(id: string): string | null {
 
 // 返回详细日志目录（各模式的日志）
 export function getDetailLogDir(id: string): string | null {
-  const agent = id.includes("claude") ? "claude_code" : "codex";
+  const agent = id.includes("glm") ? "glm" : id.includes("claude") ? "claude_code" : "codex";
   return `${PROJECT_DIR}/logs/${agent}`;
 }
 
@@ -179,7 +203,7 @@ export function getDetailLogDir(id: string): string | null {
 export function scanTraceFiles(scriptId: string): TraceInfo[] {
   const traces: TraceInfo[] = [];
   const dataset = scriptId.includes("verified") ? "swebenchverified" : "swebenchlite";
-  const agent = scriptId.includes("claude") ? "claude_code" : "codex";
+  const agent = scriptId.includes("glm") ? "glm" : scriptId.includes("claude") ? "claude_code" : "codex";
   const baseDir = `${PROJECT_DIR}/output/${dataset}/${agent}`;
 
   try {

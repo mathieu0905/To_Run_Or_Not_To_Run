@@ -1,0 +1,92 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 58c1acb1d6054dfec29d0f30b1033bae6ef62aec
+
+## Problem Description
+Use proper whitespace in CREATE INDEX statements
+Description
+	 
+		(last modified by Hannes Ljungberg)
+	 
+Creating an index through:
+index = Index(
+	fields=['-name’],
+	name='idx'
+)
+Will generate the valid but not so pretty CREATE INDEX statement: 
+CREATE INDEX "idx" ON "schema_author" ("name"DESC)
+The following would be expected:
+CREATE INDEX "idx" ON "schema_author" ("name" DESC)
+This was partially fixed for indexes using opclasses in https://code.djangoproject.com/ticket/30903#ticket but it introduced a new quirk when opclasses is used without explicit ordering:
+index = Index(
+	fields=['name’],
+	name='idx'
+	opclasses=['text_pattern_ops’]
+)
+Will result in:
+CREATE INDEX "idx" ON "schema_author" (“name” text_pattern_ops )
+Note the whitespace after text_pattern_ops. When used with a descending order it will look correct. 
+Unfortunately in the fix in #30903 it was assumed that the col_suffixes passed to django.db.backends.ddl_references.Columns would be empty for ascending order but instead it will contain empty strings and thus causing this bug. See: ​https://github.com/django/django/blob/master/django/db/backends/ddl_references.py#L87
+The expected output would be:
+CREATE INDEX "idx" ON "schema_author" (“name” text_pattern_ops)
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 3 TEST EXECUTION(S) - USE THEM** 🎯
+
+你只有 3 次执行机会（请谨慎但不要浪费执行次数）。  
+
+This is a research experiment testing efficient debugging with limited executions.
+You have a budget of 3 test run(s). **Unused budget is wasted opportunity!**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 3 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 3
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 3 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

@@ -1,0 +1,84 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 0773837e15bb632afffb6848a58c59a791008fa1
+
+## Problem Description
+ManagementUtility instantiates CommandParser without passing already-computed prog argument
+Description
+	
+ManagementUtility ​goes to the trouble to parse the program name from the argv it's passed rather than from sys.argv: 
+	def __init__(self, argv=None):
+		self.argv = argv or sys.argv[:]
+		self.prog_name = os.path.basename(self.argv[0])
+		if self.prog_name == '__main__.py':
+			self.prog_name = 'python -m django'
+But then when it needs to parse --pythonpath and --settings, it ​uses the program name from sys.argv: 
+		parser = CommandParser(usage='%(prog)s subcommand [options] [args]', add_help=False, allow_abbrev=False)
+Above "%(prog)s" ​refers to sys.argv[0]. Instead, it should refer to self.prog_name. This can fixed as follows:
+		parser = CommandParser(
+			prog=self.prog_name,
+			usage='%(prog)s subcommand [options] [args]',
+			add_help=False,
+			allow_abbrev=False)
+I'm aware that execute_from_command_line is a private API, but it'd be really convenient for me if it worked properly in my weird embedded environment where sys.argv[0] is ​incorrectly None. If passing my own argv to execute_from_command_line avoided all the ensuing exceptions, I wouldn't have to modify sys.argv[0] globally as I'm doing in the meantime.
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 1 TEST EXECUTION(S) - USE THEM** 🎯
+
+你只有 1 次执行机会（请谨慎但不要浪费执行次数）。  
+
+This is a research experiment testing efficient debugging with limited executions.
+You have a budget of 1 test run(s). **Unused budget is wasted opportunity!**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 1 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 1
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 1 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

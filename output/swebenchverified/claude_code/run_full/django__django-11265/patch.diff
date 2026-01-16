@@ -1,0 +1,50 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index d69c24419b..f2de324747 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1666,7 +1666,24 @@ class Query(BaseExpression):
+             filter_expr = (filter_lhs, OuterRef(filter_rhs.name))
+         # Generate the inner query.
+         query = Query(self.model)
+-        query.add_filter(filter_expr)
++        query._filtered_relations = self._filtered_relations.copy()
++
++        # If the filter uses a FilteredRelation, we need to replace it with the
++        # underlying relation and add the FilteredRelation condition to the WHERE clause.
++        filter_lhs_parts = filter_lhs.split(LOOKUP_SEP)
++        if filter_lhs_parts and filter_lhs_parts[0] in self._filtered_relations:
++            filtered_relation = self._filtered_relations[filter_lhs_parts[0]]
++            # Replace the FilteredRelation alias with the underlying relation name
++            filter_lhs_parts[0] = filtered_relation.relation_name
++            filter_lhs = LOOKUP_SEP.join(filter_lhs_parts)
++            filter_expr = (filter_lhs, filter_rhs)
++            # Add the filter
++            query.add_filter(filter_expr)
++            # Add the FilteredRelation condition to the WHERE clause
++            query.add_q(filtered_relation.condition)
++        else:
++            query.add_filter(filter_expr)
++
+         query.clear_ordering(True)
+         # Try to have as simple as possible subquery -> trim leading joins from
+         # the subquery.
+diff --git a/tests/filtered_relation/tests.py b/tests/filtered_relation/tests.py
+index 5e85dff16c..ee9d3f559c 100644
+--- a/tests/filtered_relation/tests.py
++++ b/tests/filtered_relation/tests.py
+@@ -98,6 +98,15 @@ class FilteredRelationTests(TestCase):
+             [self.author1]
+         )
+ 
++    def test_with_join_exclude(self):
++        """Test that exclude() works with FilteredRelation."""
++        self.assertSequenceEqual(
++            Author.objects.annotate(
++                book_alice=FilteredRelation('book', condition=Q(book__title__iexact='poem by alice')),
++            ).exclude(book_alice__isnull=False),
++            [self.author2]
++        )
++
+     def test_with_join_and_complex_condition(self):
+         self.assertSequenceEqual(
+             Author.objects.annotate(

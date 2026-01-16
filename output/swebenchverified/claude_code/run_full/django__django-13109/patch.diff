@@ -1,0 +1,74 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index d517d7269b..c2aea9c730 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -914,7 +914,7 @@ class ForeignKey(ForeignObject):
+             return
+ 
+         using = router.db_for_read(self.remote_field.model, instance=model_instance)
+-        qs = self.remote_field.model._default_manager.using(using).filter(
++        qs = self.remote_field.model._base_manager.using(using).filter(
+             **{self.remote_field.field_name: value}
+         )
+         qs = qs.complex_filter(self.get_limit_choices_to())
+diff --git a/tests/validation/models.py b/tests/validation/models.py
+index 47fb895ec5..5c59cb682f 100644
+--- a/tests/validation/models.py
++++ b/tests/validation/models.py
+@@ -118,6 +118,21 @@ class GenericIPAddrUnpackUniqueTest(models.Model):
+     generic_v4unpack_ip = models.GenericIPAddressField(null=True, blank=True, unique=True, unpack_ipv4=True)
+ 
+ 
++class PublishedArticleManager(models.Manager):
++    def get_queryset(self):
++        return super().get_queryset().filter(published=True)
++
++
++class ArticleWithManager(models.Model):
++    title = models.CharField(max_length=100)
++    published = models.BooleanField(default=True)
++    objects = PublishedArticleManager()
++
++
++class FavoriteArticle(models.Model):
++    article = models.ForeignKey(ArticleWithManager, models.CASCADE)
++
++
+ # A model can't have multiple AutoFields
+ # Refs #12467.
+ assertion_error = None
+diff --git a/tests/validation/tests.py b/tests/validation/tests.py
+index 46fe2f0c7b..aed60af1c5 100644
+--- a/tests/validation/tests.py
++++ b/tests/validation/tests.py
+@@ -75,6 +75,30 @@ class BaseModelValidationTests(ValidationAssertions, TestCase):
+         self.assertEqual(len(exclude), 1)
+         self.assertEqual(exclude[0], 'number')
+ 
++    def test_fk_validation_uses_base_manager(self):
++        """
++        ForeignKey.validate() should use the base manager instead of the
++        default manager to avoid issues with custom managers that filter
++        querysets.
++        """
++        from .models import ArticleWithManager, FavoriteArticle
++
++        # Create an unpublished article using the base manager
++        unpublished = ArticleWithManager._base_manager.create(
++            title='Unpublished Article',
++            published=False
++        )
++
++        # Verify it's filtered out by the default manager
++        self.assertEqual(ArticleWithManager.objects.filter(pk=unpublished.pk).count(), 0)
++
++        # Verify it's accessible via base manager
++        self.assertEqual(ArticleWithManager._base_manager.filter(pk=unpublished.pk).count(), 1)
++
++        # ForeignKey validation should use base manager and pass
++        favorite = FavoriteArticle(article_id=unpublished.pk)
++        self.assertIsNone(favorite.full_clean())
++
+ 
+ class ArticleForm(forms.ModelForm):
+     class Meta:

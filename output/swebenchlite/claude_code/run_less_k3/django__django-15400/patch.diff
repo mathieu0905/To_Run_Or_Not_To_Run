@@ -1,0 +1,44 @@
+diff --git a/django/utils/functional.py b/django/utils/functional.py
+index 9e1be0fe0f..9b22e1de55 100644
+--- a/django/utils/functional.py
++++ b/django/utils/functional.py
+@@ -373,6 +373,11 @@ class LazyObject:
+     __len__ = new_method_proxy(len)
+     __contains__ = new_method_proxy(operator.contains)
+ 
++    def __radd__(self, other):
++        if self._wrapped is empty:
++            self._setup()
++        return other + self._wrapped
++
+ 
+ def unpickle_lazyobject(wrapped):
+     """
+diff --git a/tests/utils_tests/test_lazyobject.py b/tests/utils_tests/test_lazyobject.py
+index 9ccae595f4..e35ed1342f 100644
+--- a/tests/utils_tests/test_lazyobject.py
++++ b/tests/utils_tests/test_lazyobject.py
+@@ -132,6 +132,23 @@ class LazyObjectTestCase(TestCase):
+             self.assertIn(self.lazy_wrap(needle), haystack)
+             self.assertIn(self.lazy_wrap(needle), self.lazy_wrap(haystack))
+ 
++    def test_radd(self):
++        # Test __radd__ with string concatenation
++        obj = self.lazy_wrap(" world")
++        self.assertEqual("hello" + obj, "hello world")
++
++        # Test __radd__ with list concatenation
++        obj = self.lazy_wrap([3, 4])
++        self.assertEqual([1, 2] + obj, [1, 2, 3, 4])
++
++        # Test __radd__ with tuple concatenation
++        obj = self.lazy_wrap((3, 4))
++        self.assertEqual((1, 2) + obj, (1, 2, 3, 4))
++
++        # Test __radd__ with numeric addition
++        obj = self.lazy_wrap(5)
++        self.assertEqual(10 + obj, 15)
++
+     def test_getitem(self):
+         obj_list = self.lazy_wrap([1, 2, 3])
+         obj_dict = self.lazy_wrap({"a": 1, "b": 2, "c": 3})

@@ -1,0 +1,84 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index febaadbb5b..3bafa59c55 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -1258,6 +1258,16 @@ class ManyToManyField(RelatedField):
+                 )
+             )
+ 
++        if self.remote_field.symmetrical and self._related_name is not None:
++            warnings.append(
++                checks.Error(
++                    'related_name has no effect on ManyToManyField '
++                    'with symmetrical=True.',
++                    obj=self,
++                    id='fields.E344',
++                )
++            )
++
+         return warnings
+ 
+     def _check_relationship_model(self, from_model=None, **kwargs):
+diff --git a/tests/model_fields/test_manytomanyfield.py b/tests/model_fields/test_manytomanyfield.py
+index 0ddf57ceaf..0dba20fdee 100644
+--- a/tests/model_fields/test_manytomanyfield.py
++++ b/tests/model_fields/test_manytomanyfield.py
+@@ -87,6 +87,58 @@ class ManyToManyFieldTests(SimpleTestCase):
+                     db_table='custom_name',
+                 )
+ 
++    @isolate_apps('model_fields')
++    def test_symmetrical_with_related_name(self):
++        class Person(models.Model):
++            friends = models.ManyToManyField('self', related_name='friend_set')
++
++        errors = Person.check()
++        expected_error = [
++            e for e in errors
++            if e.id == 'fields.E344'
++        ]
++        self.assertEqual(len(expected_error), 1)
++        self.assertEqual(
++            expected_error[0].msg,
++            'related_name has no effect on ManyToManyField with symmetrical=True.'
++        )
++
++    @isolate_apps('model_fields')
++    def test_symmetrical_with_related_name_explicit(self):
++        class Person(models.Model):
++            friends = models.ManyToManyField('self', symmetrical=True, related_name='friend_set')
++
++        errors = Person.check()
++        expected_error = [
++            e for e in errors
++            if e.id == 'fields.E344'
++        ]
++        self.assertEqual(len(expected_error), 1)
++
++    @isolate_apps('model_fields')
++    def test_non_symmetrical_with_related_name(self):
++        class Person(models.Model):
++            friends = models.ManyToManyField('self', symmetrical=False, related_name='friend_set')
++
++        errors = Person.check()
++        expected_error = [
++            e for e in errors
++            if e.id == 'fields.E344'
++        ]
++        self.assertEqual(len(expected_error), 0)
++
++    @isolate_apps('model_fields')
++    def test_symmetrical_without_related_name(self):
++        class Person(models.Model):
++            friends = models.ManyToManyField('self')
++
++        errors = Person.check()
++        expected_error = [
++            e for e in errors
++            if e.id == 'fields.E344'
++        ]
++        self.assertEqual(len(expected_error), 0)
++
+ 
+ class ManyToManyFieldDBTests(TestCase):
+ 

@@ -1,0 +1,65 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index febaadbb5b..1298691d6f 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -1258,6 +1258,17 @@ class ManyToManyField(RelatedField):
+                 )
+             )
+ 
++        if self.remote_field.symmetrical and self._related_name is not None:
++            warnings.append(
++                checks.Error(
++                    'related_name has no effect on ManyToManyField '
++                    'with symmetrical=True.',
++                    hint='Remove the related_name argument or set symmetrical=False.',
++                    obj=self,
++                    id='fields.E344',
++                )
++            )
++
+         return warnings
+ 
+     def _check_relationship_model(self, from_model=None, **kwargs):
+diff --git a/tests/invalid_models_tests/test_relative_fields.py b/tests/invalid_models_tests/test_relative_fields.py
+index 8909b12214..7a97ac65cd 100644
+--- a/tests/invalid_models_tests/test_relative_fields.py
++++ b/tests/invalid_models_tests/test_relative_fields.py
+@@ -128,6 +128,38 @@ class RelativeFieldTests(SimpleTestCase):
+             ),
+         ])
+ 
++    def test_symmetrical_many_to_many_with_related_name(self):
++        class Person(models.Model):
++            # Explicit symmetrical=True with related_name
++            friends = models.ManyToManyField('self', symmetrical=True, related_name='friend_of')
++
++        field = Person._meta.get_field('friends')
++        self.assertEqual(field.check(from_model=Person), [
++            Error(
++                'related_name has no effect on ManyToManyField '
++                'with symmetrical=True.',
++                hint='Remove the related_name argument or set symmetrical=False.',
++                obj=field,
++                id='fields.E344',
++            ),
++        ])
++
++    def test_symmetrical_many_to_many_with_related_name_implicit(self):
++        class Person(models.Model):
++            # Implicit symmetrical=True (to 'self') with related_name
++            friends = models.ManyToManyField('self', related_name='friend_of')
++
++        field = Person._meta.get_field('friends')
++        self.assertEqual(field.check(from_model=Person), [
++            Error(
++                'related_name has no effect on ManyToManyField '
++                'with symmetrical=True.',
++                hint='Remove the related_name argument or set symmetrical=False.',
++                obj=field,
++                id='fields.E344',
++            ),
++        ])
++
+     def test_ambiguous_relationship_model_from(self):
+         class Person(models.Model):
+             pass

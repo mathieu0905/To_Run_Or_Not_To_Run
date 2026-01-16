@@ -1,0 +1,43 @@
+diff --git a/django/db/models/enums.py b/django/db/models/enums.py
+index f48143ddaf..85b0b5cf4b 100644
+--- a/django/db/models/enums.py
++++ b/django/db/models/enums.py
+@@ -7,6 +7,7 @@ __all__ = ['Choices', 'IntegerChoices', 'TextChoices']
+ 
+ class ChoicesMeta(enum.EnumMeta):
+     """A metaclass for creating a enum choices."""
++    do_not_call_in_templates = True
+ 
+     def __new__(metacls, classname, bases, classdict):
+         labels = []
+diff --git a/tests/template_tests/test_callables.py b/tests/template_tests/test_callables.py
+index b72b122deb..cada2c2854 100644
+--- a/tests/template_tests/test_callables.py
++++ b/tests/template_tests/test_callables.py
+@@ -1,5 +1,6 @@
+ from unittest import TestCase
+ 
++from django.db import models
+ from django.template import Context, Engine
+ 
+ 
+@@ -123,3 +124,19 @@ class CallableVariablesTests(TestCase):
+         # Double-check that the object was really never called during the
+         # template rendering.
+         self.assertEqual(my_doodad.num_calls, 0)
++
++    def test_enum_choices_not_called(self):
++        # Enum choices should not be called in templates.
++        class YearInSchool(models.TextChoices):
++            FRESHMAN = 'FR', 'Freshman'
++            SOPHOMORE = 'SO', 'Sophomore'
++
++        c = Context({'YearInSchool': YearInSchool, 'year': 'FR'})
++
++        # Enum class members should be accessible without being called
++        t = self.engine.from_string('{{ YearInSchool.FRESHMAN }}')
++        self.assertEqual(t.render(c), 'FR')
++
++        # Enum class members should work in comparisons
++        t = self.engine.from_string('{% if year == YearInSchool.FRESHMAN %}match{% endif %}')
++        self.assertEqual(t.render(c), 'match')

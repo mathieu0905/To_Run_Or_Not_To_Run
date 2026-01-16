@@ -1,0 +1,16 @@
+diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py
+index c06386a2fa..b4286c26cf 100644
+--- a/django/db/backends/ddl_references.py
++++ b/django/db/backends/ddl_references.py
+@@ -215,7 +215,10 @@ class Expressions(TableColumns):
+         expressions = deepcopy(self.expressions)
+         self.columns = []
+         for col in self.compiler.query._gen_cols([expressions]):
+-            col.alias = new_table
++            # Don't set alias to avoid table-qualified column names in
++            # index expressions, which SQLite doesn't support.
++            if self.compiler.query.alias_cols:
++                col.alias = new_table
+         self.expressions = expressions
+         super().rename_table_references(old_table, new_table)
+ 

@@ -1,0 +1,41 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index e3b14a41a0..1d63f164a2 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -399,6 +399,8 @@ class ModelState:
+     # on the actual save.
+     adding = True
+     fields_cache = ModelStateFieldsCacheDescriptor()
++    # Track whether pk was explicitly provided during initialization
++    pk_set_on_init = False
+ 
+ 
+ class Model(metaclass=ModelBase):
+@@ -414,6 +416,13 @@ class Model(metaclass=ModelBase):
+ 
+         # Set up the storage for instance state
+         self._state = ModelState()
++        # Track whether pk was explicitly provided in args or kwargs
++        self._state.pk_set_on_init = bool(
++            'pk' in kwargs or
++            opts.pk.attname in kwargs or
++            opts.pk.name in kwargs or
++            (args and len(args) > 0 and opts.pk in list(opts.concrete_fields)[:len(args)])
++        )
+ 
+         # There is a rather weird disparity here; if kwargs, it's set, then args
+         # overrides it. It should be one or the other; don't duplicate the work
+@@ -847,10 +856,12 @@ class Model(metaclass=ModelBase):
+         if not pk_set and (force_update or update_fields):
+             raise ValueError("Cannot force an update in save() with no primary key.")
+         updated = False
+-        # Skip an UPDATE when adding an instance and primary key has a default.
++        # Skip an UPDATE when adding an instance and primary key has a default
++        # but was not explicitly set during initialization.
+         if (
+             not force_insert and
+             self._state.adding and
++            not self._state.pk_set_on_init and
+             self._meta.pk.default and
+             self._meta.pk.default is not NOT_PROVIDED
+         ):

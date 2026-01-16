@@ -1,0 +1,72 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 844c01e95e..b4805ae582 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -806,7 +806,16 @@ class Model(metaclass=ModelBase):
+             # Make sure the link fields are synced between parent and self.
+             if (field and getattr(self, parent._meta.pk.attname) is None and
+                     getattr(self, field.attname) is not None):
+-                setattr(self, parent._meta.pk.attname, getattr(self, field.attname))
++                # If the parent's pk is None but the link field has a value,
++                # only sync them if we're not trying to create a new parent.
++                # Check if this is an existing instance being reset by seeing
++                # if the field value matches what would be in the database.
++                if self._state.adding:
++                    # New instance, sync the parent pk from the field
++                    setattr(self, parent._meta.pk.attname, getattr(self, field.attname))
++                else:
++                    # Existing instance with parent pk set to None - reset the field too
++                    setattr(self, field.attname, None)
+             parent_inserted = self._save_parents(cls=parent, using=using, update_fields=update_fields)
+             updated = self._save_table(
+                 cls=parent, using=using, update_fields=update_fields,
+diff --git a/tests/model_inheritance/tests.py b/tests/model_inheritance/tests.py
+index 5eef0f5bfa..8933d8e3ab 100644
+--- a/tests/model_inheritance/tests.py
++++ b/tests/model_inheritance/tests.py
+@@ -460,6 +460,45 @@ class ModelInheritanceDataTests(TestCase):
+             attrgetter("name")
+         )
+ 
++    def test_reset_parent_pk_creates_new_object(self):
++        """
++        Resetting the primary key on a child model should create a new object
++        when saved, not update the existing one.
++        """
++        # Create an initial restaurant
++        restaurant = Restaurant.objects.create(
++            name="Original",
++            address="123 Main St",
++            serves_hot_dogs=True,
++            serves_pizza=False,
++            rating=3,
++        )
++        original_pk = restaurant.pk
++        initial_count = Restaurant.objects.count()
++
++        # Get the object back to simulate the bug scenario
++        place = Place.objects.get(pk=original_pk)
++        restaurant = place.restaurant
++
++        # Reset the parent's primary key attribute directly (not via pk property)
++        # This is the key to reproducing the bug - setting the parent's
++        # pk attribute directly doesn't automatically reset the OneToOneField
++        parent_model = list(restaurant._meta.parents.keys())[0]
++        setattr(restaurant, parent_model._meta.pk.attname, None)
++        restaurant.name = "Copy"
++        restaurant.save()
++
++        # Should have created a new object
++        self.assertNotEqual(restaurant.pk, original_pk)
++        self.assertEqual(Restaurant.objects.count(), initial_count + 1)
++
++        # Original should still exist with original values
++        original = Restaurant.objects.get(pk=original_pk)
++        self.assertEqual(original.name, "Original")
++
++        # New object should have new values
++        self.assertEqual(restaurant.name, "Copy")
++
+ 
+ @isolate_apps('model_inheritance', 'model_inheritance.tests')
+ class InheritanceSameModelNameTests(SimpleTestCase):

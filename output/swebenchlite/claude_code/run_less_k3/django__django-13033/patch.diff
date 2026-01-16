@@ -1,0 +1,101 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index abbb1e37cb..a8f5b61fbe 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -727,7 +727,7 @@ class SQLCompiler:
+         # If we get to this point and the field is a relation to another model,
+         # append the default ordering for that model unless it is the pk
+         # shortcut or the attribute name of the field that is specified.
+-        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name and name != 'pk':
++        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != pieces[-1] and name != 'pk':
+             # Firstly, avoid infinite loops.
+             already_seen = already_seen or set()
+             join_tuple = tuple(getattr(self.query.alias_map[j], 'join_cols', None) for j in joins)
+diff --git a/tests/ordering/models.py b/tests/ordering/models.py
+index 2efb743e44..6bc1de49e4 100644
+--- a/tests/ordering/models.py
++++ b/tests/ordering/models.py
+@@ -59,3 +59,18 @@ class Reference(models.Model):
+ 
+     class Meta:
+         ordering = ('article',)
++
++
++class SelfRefModel(models.Model):
++    """Model with self-referencing foreign key for testing ordering."""
++    name = models.CharField(max_length=100)
++    parent = models.ForeignKey('self', models.CASCADE, null=True, blank=True)
++
++    class Meta:
++        ordering = ('-pk',)
++
++
++class RelatedToSelfRefModel(models.Model):
++    """Model related to SelfRefModel for testing ordering by self-ref FK."""
++    name = models.CharField(max_length=100)
++    self_ref = models.ForeignKey(SelfRefModel, models.CASCADE)
+diff --git a/tests/ordering/tests.py b/tests/ordering/tests.py
+index a9cc729c45..9ce0d55def 100644
+--- a/tests/ordering/tests.py
++++ b/tests/ordering/tests.py
+@@ -8,7 +8,10 @@ from django.db.models import (
+ from django.db.models.functions import Upper
+ from django.test import TestCase
+ 
+-from .models import Article, Author, ChildArticle, OrderedByFArticle, Reference
++from .models import (
++    Article, Author, ChildArticle, OrderedByFArticle, Reference,
++    RelatedToSelfRefModel, SelfRefModel,
++)
+ 
+ 
+ class OrderingTests(TestCase):
+@@ -480,3 +483,48 @@ class OrderingTests(TestCase):
+         ca4 = ChildArticle.objects.create(headline='h1', pub_date=datetime(2005, 7, 28))
+         articles = ChildArticle.objects.order_by('article_ptr')
+         self.assertSequenceEqual(articles, [ca4, ca2, ca1, ca3])
++
++    def test_order_by_self_referencing_fk_attname(self):
++        """
++        Ordering by a self-referencing foreign key's _id attribute should not
++        apply the related model's default ordering and should not create
++        unnecessary joins.
++        """
++        # Create test data
++        parent1 = SelfRefModel.objects.create(name='Parent 1', parent=None)
++        parent2 = SelfRefModel.objects.create(name='Parent 2', parent=None)
++        child1 = SelfRefModel.objects.create(name='Child 1', parent=parent1)
++        child2 = SelfRefModel.objects.create(name='Child 2', parent=parent2)
++        
++        rel1 = RelatedToSelfRefModel.objects.create(name='Rel 1', self_ref=child1)
++        rel2 = RelatedToSelfRefModel.objects.create(name='Rel 2', self_ref=child2)
++        
++        # Test ordering by self_ref__parent_id (should order ASC without extra join)
++        qs = RelatedToSelfRefModel.objects.order_by('self_ref__parent_id')
++        query_str = str(qs.query)
++        
++        # Should not have LEFT OUTER JOIN for the parent
++        self.assertNotIn('LEFT OUTER JOIN', query_str)
++        # Should order by parent_id ASC (not DESC from SelfRefModel's default ordering)
++        self.assertIn('ORDER BY', query_str)
++        order_clause = query_str.split('ORDER BY')[1].strip()
++        self.assertIn('parent_id', order_clause)
++        self.assertNotIn('DESC', order_clause)
++        
++        # Verify the actual ordering is correct
++        self.assertSequenceEqual(qs, [rel1, rel2])
++        
++        # Test ordering by -self_ref__parent_id (should order DESC without extra join)
++        qs_desc = RelatedToSelfRefModel.objects.order_by('-self_ref__parent_id')
++        query_str_desc = str(qs_desc.query)
++        
++        # Should not have LEFT OUTER JOIN
++        self.assertNotIn('LEFT OUTER JOIN', query_str_desc)
++        # Should order by parent_id DESC
++        self.assertIn('ORDER BY', query_str_desc)
++        order_clause_desc = query_str_desc.split('ORDER BY')[1].strip()
++        self.assertIn('parent_id', order_clause_desc)
++        self.assertIn('DESC', order_clause_desc)
++        
++        # Verify the actual ordering is correct
++        self.assertSequenceEqual(qs_desc, [rel2, rel1])

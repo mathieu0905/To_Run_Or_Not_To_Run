@@ -1,0 +1,13 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 84960d77e1..e7e000a351 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1050,8 +1050,6 @@ class Subquery(Expression):
+         return sql, sql_params
+ 
+     def get_group_by_cols(self, alias=None):
+-        if alias:
+-            return [Ref(alias, self)]
+         external_cols = self.query.get_external_cols()
+         if any(col.possibly_multivalued for col in external_cols):
+             return [self]

@@ -15,8 +15,25 @@ interface Config {
   claudeModel: string;
   codexModel: string;
   anthropicBaseUrl: string;
+  anthropicAuthToken: string;
   modes: string[];
 }
+
+// 预设配置
+const CONFIG_PRESETS = {
+  glm: {
+    name: "GLM 配置",
+    anthropicBaseUrl: "https://open.bigmodel.cn/api/anthropic",
+    anthropicAuthToken: "22d3e2814dd24bf1943ced46dc817067.KyGdWHcuJo0EXs0o",
+    claudeModel: "GLM-4.7",
+  },
+  claude: {
+    name: "Claude 配置",
+    anthropicBaseUrl: "https://api.anthropic.com",
+    anthropicAuthToken: "",
+    claudeModel: "sonnet",
+  },
+};
 
 interface TraceInfo {
   path: string;
@@ -33,6 +50,8 @@ export default function Home() {
   const [scripts, setScripts] = useState<Script[]>([
     { id: "claude_lite", name: "Claude + Lite", status: "idle" },
     { id: "claude_verified", name: "Claude + Verified", status: "idle" },
+    { id: "glm_lite", name: "GLM + Lite", status: "idle" },
+    { id: "glm_verified", name: "GLM + Verified", status: "idle" },
     { id: "codex_lite", name: "Codex + Lite", status: "idle" },
     { id: "codex_verified", name: "Codex + Verified", status: "idle" },
   ]);
@@ -45,11 +64,14 @@ export default function Home() {
     claudeModel: "sonnet",
     codexModel: "gpt-5.2",
     anthropicBaseUrl: "http://uk.frp.one:60660",
+    anthropicAuthToken: "",
     modes: [...ALL_MODES],
   });
+  const [selectedPreset, setSelectedPreset] = useState<"glm" | "claude" | "custom">("custom");
+  const [activeConfigCard, setActiveConfigCard] = useState<string>("claude_lite"); // 当前查看配置的卡片
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [traces, setTraces] = useState<Record<string, TraceInfo[]>>({});
-  const [showConfig, setShowConfig] = useState(false);
+  const [showConfig, setShowConfig] = useState(true);
   const [activeLogTab, setActiveLogTab] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<string | null>(null);
   const [selectedTrace, setSelectedTrace] = useState<TraceInfo | null>(null);
@@ -73,6 +95,7 @@ export default function Home() {
           claudeModel: data.claudeModel,
           codexModel: data.codexModel,
           anthropicBaseUrl: data.anthropicBaseUrl,
+          anthropicAuthToken: "",
           modes: data.modes.map((m: string) => {
             const parts = m.split(" ");
             return parts[0] === "run_less" ? `${parts[0]}_k${parts[1]}` : parts[0];
@@ -88,10 +111,32 @@ export default function Home() {
     setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   };
 
+  // 切换激活的配置卡片并应用对应配置
+  const switchConfigCard = (cardId: string) => {
+    setActiveConfigCard(cardId);
+    if (cardId.includes("glm")) {
+      applyPreset("glm");
+    } else if (cardId.includes("claude")) {
+      applyPreset("claude");
+    } else {
+      setSelectedPreset("custom");
+    }
+  };
+
   const toggleMode = (mode: string) => {
     setConfig((prev) => ({
       ...prev,
       modes: prev.modes.includes(mode) ? prev.modes.filter((m) => m !== mode) : [...prev.modes, mode],
+    }));
+  };
+
+  const applyPreset = (preset: "glm" | "claude") => {
+    setSelectedPreset(preset);
+    setConfig((prev) => ({
+      ...prev,
+      anthropicBaseUrl: CONFIG_PRESETS[preset].anthropicBaseUrl,
+      anthropicAuthToken: CONFIG_PRESETS[preset].anthropicAuthToken,
+      claudeModel: CONFIG_PRESETS[preset].claudeModel,
     }));
   };
 
@@ -292,6 +337,18 @@ export default function Home() {
         </button>
         {showConfig && (
           <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+            <div>
+              <span className="text-sm">查看/编辑配置</span>
+              <select
+                value={activeConfigCard}
+                onChange={(e) => switchConfigCard(e.target.value)}
+                className="w-full mt-1 p-2 bg-gray-700 rounded"
+              >
+                {scripts.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-3 gap-4">
               <label className="block">
                 <span className="text-sm">实例数</span>
@@ -321,26 +378,59 @@ export default function Home() {
                 />
               </label>
             </div>
+            <div>
+              <span className="text-sm">API 配置预设</span>
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => applyPreset("glm")}
+                  className={`px-4 py-2 rounded ${selectedPreset === "glm" ? "bg-blue-600" : "bg-gray-700 hover:bg-gray-600"}`}
+                >
+                  GLM 配置
+                </button>
+                <button
+                  onClick={() => applyPreset("claude")}
+                  className={`px-4 py-2 rounded ${selectedPreset === "claude" ? "bg-blue-600" : "bg-gray-700 hover:bg-gray-600"}`}
+                >
+                  Claude 配置
+                </button>
+                <button
+                  onClick={() => setSelectedPreset("custom")}
+                  className={`px-4 py-2 rounded ${selectedPreset === "custom" ? "bg-blue-600" : "bg-gray-700 hover:bg-gray-600"}`}
+                >
+                  自定义
+                </button>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <label className="block">
                 <span className="text-sm">Claude Model</span>
-                <select
+                <input
+                  type="text"
                   value={config.claudeModel}
                   onChange={(e) => setConfig({ ...config, claudeModel: e.target.value })}
                   className="w-full mt-1 p-2 bg-gray-700 rounded"
-                >
-                  <option value="sonnet">sonnet</option>
-                  <option value="opus">opus</option>
-                  <option value="haiku">haiku</option>
-                </select>
+                  placeholder="sonnet / opus / haiku / GLM-4.7"
+                />
               </label>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <label className="block">
                 <span className="text-sm">Base URL</span>
                 <input
                   type="text"
                   value={config.anthropicBaseUrl}
-                  onChange={(e) => setConfig({ ...config, anthropicBaseUrl: e.target.value })}
+                  onChange={(e) => { setConfig({ ...config, anthropicBaseUrl: e.target.value }); setSelectedPreset("custom"); }}
                   className="w-full mt-1 p-2 bg-gray-700 rounded"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm">Auth Token</span>
+                <input
+                  type="password"
+                  value={config.anthropicAuthToken}
+                  onChange={(e) => { setConfig({ ...config, anthropicAuthToken: e.target.value }); setSelectedPreset("custom"); }}
+                  className="w-full mt-1 p-2 bg-gray-700 rounded"
+                  placeholder="留空使用 API Key"
                 />
               </label>
             </div>
@@ -440,27 +530,21 @@ export default function Home() {
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch("/api/reports?action=list");
+                      // 根据当前脚本和模式构造 run_id（与提交评测时一致）
+                      const dataset = activeLogTab.includes("verified") ? "swebenchverified" : "swebenchlite";
+                      const agent = activeLogTab.includes("claude") ? "claude_code" : activeLogTab.includes("glm") ? "glm" : "codex";
+                      const mode = activeMode || "run_free";
+                      const runId = `${dataset}_${agent}_${mode}`;
+
+                      const res = await fetch(`/api/get-report?dataset=${dataset}&runId=${encodeURIComponent(runId)}`);
                       const data = await res.json();
-                      if (data.reports && data.reports.length > 0) {
-                        const reportList = data.reports.map((r: any, i: number) =>
-                          `${i + 1}. ${r.filename} (${(r.size / 1024).toFixed(1)} KB)`
-                        ).join("\n");
-                        const choice = prompt(`选择报告（输入序号）:\n${reportList}`);
-                        if (choice) {
-                          const idx = parseInt(choice) - 1;
-                          if (idx >= 0 && idx < data.reports.length) {
-                            const filename = data.reports[idx].filename;
-                            const reportRes = await fetch(`/api/reports?action=read&filename=${filename}`);
-                            const reportData = await reportRes.json();
-                            if (reportData.report) {
-                              setReportContent(reportData.report);
-                              setShowReportModal(true);
-                            }
-                          }
-                        }
+                      if (data.success && data.report) {
+                        setReportContent(data.report);
+                        setShowReportModal(true);
+                      } else if (data.output) {
+                        alert(data.output);
                       } else {
-                        alert("暂无本地报告");
+                        alert(`获取报告失败: ${data.error || "未知错误"}`);
                       }
                     } catch (error: any) {
                       alert(`错误: ${error.message}`);
@@ -574,7 +658,6 @@ export default function Home() {
           </div>
         </div>
       )}
-    </div>
 
       {/* Report Modal */}
       {showReportModal && reportContent && (

@@ -1,0 +1,76 @@
+diff --git a/django/db/models/query.py b/django/db/models/query.py
+index d9c9b0db04..9856fd83dc 100644
+--- a/django/db/models/query.py
++++ b/django/db/models/query.py
+@@ -690,7 +690,16 @@ class QuerySet:
+         assert not self.query.is_sliced, \
+             "Cannot use 'limit' or 'offset' with in_bulk"
+         if field_name != 'pk' and not self.model._meta.get_field(field_name).unique:
+-            raise ValueError("in_bulk()'s field_name must be a unique field but %r isn't." % field_name)
++            from django.db.models import UniqueConstraint
++            # Check if field is unique via a UniqueConstraint
++            unique_constraint_exists = any(
++                isinstance(constraint, UniqueConstraint) and
++                constraint.fields == (field_name,) and
++                constraint.condition is None
++                for constraint in self.model._meta.constraints
++            )
++            if not unique_constraint_exists:
++                raise ValueError("in_bulk()'s field_name must be a unique field but %r isn't." % field_name)
+         if id_list is not None:
+             if not id_list:
+                 return {}
+diff --git a/tests/lookup/models.py b/tests/lookup/models.py
+index fbc9fa606f..79135017af 100644
+--- a/tests/lookup/models.py
++++ b/tests/lookup/models.py
+@@ -108,3 +108,13 @@ class Freebie(models.Model):
+         to_fields=['id', 'product'],
+         on_delete=models.CASCADE,
+     )
++
++
++class ArticleWithUniqueConstraint(models.Model):
++    headline = models.CharField(max_length=100)
++    slug = models.CharField(max_length=100)
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(fields=['slug'], name='article_slug_uniq'),
++        ]
+diff --git a/tests/lookup/tests.py b/tests/lookup/tests.py
+index baefdf9701..9cfc463ce5 100644
+--- a/tests/lookup/tests.py
++++ b/tests/lookup/tests.py
+@@ -194,6 +194,31 @@ class LookupTests(TestCase):
+         with self.assertRaisesMessage(ValueError, msg):
+             Article.objects.in_bulk([self.au1], field_name='author')
+ 
++    def test_in_bulk_unique_constraint(self):
++        from .models import ArticleWithUniqueConstraint
++        # Test that in_bulk works with fields that have UniqueConstraint
++        a1 = ArticleWithUniqueConstraint.objects.create(headline='Article 1', slug='article-1')
++        a2 = ArticleWithUniqueConstraint.objects.create(headline='Article 2', slug='article-2')
++        a3 = ArticleWithUniqueConstraint.objects.create(headline='Article 3', slug='article-3')
++
++        # Test in_bulk with all objects
++        result = ArticleWithUniqueConstraint.objects.in_bulk(field_name='slug')
++        self.assertEqual(len(result), 3)
++        self.assertEqual(result['article-1'], a1)
++        self.assertEqual(result['article-2'], a2)
++        self.assertEqual(result['article-3'], a3)
++
++        # Test in_bulk with specific slugs
++        result = ArticleWithUniqueConstraint.objects.in_bulk(['article-1', 'article-3'], field_name='slug')
++        self.assertEqual(len(result), 2)
++        self.assertEqual(result['article-1'], a1)
++        self.assertEqual(result['article-3'], a3)
++
++        # Test that non-unique field still raises error
++        msg = "in_bulk()'s field_name must be a unique field but 'headline' isn't."
++        with self.assertRaisesMessage(ValueError, msg):
++            ArticleWithUniqueConstraint.objects.in_bulk(field_name='headline')
++
+     def test_values(self):
+         # values() returns a list of dictionaries instead of object instances --
+         # and you can specify which fields you want to retrieve.

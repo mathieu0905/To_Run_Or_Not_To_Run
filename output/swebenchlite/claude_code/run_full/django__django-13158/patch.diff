@@ -1,0 +1,33 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 686e75c979..a8168aa6f3 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -504,6 +504,8 @@ class SQLCompiler:
+             if combinator:
+                 if not getattr(features, 'supports_select_{}'.format(combinator)):
+                     raise NotSupportedError('{} is not supported on this database backend.'.format(combinator))
++                if self.query.is_empty():
++                    raise EmptyResultSet
+                 result, params = self.get_combinator_sql(combinator, self.query.combinator_all)
+             else:
+                 distinct_fields, distinct_params = self.get_distinct()
+diff --git a/tests/queries/test_qs_combinators.py b/tests/queries/test_qs_combinators.py
+index 9c6fd474ca..ad2f4865bc 100644
+--- a/tests/queries/test_qs_combinators.py
++++ b/tests/queries/test_qs_combinators.py
+@@ -314,3 +314,15 @@ class QuerySetSetOperationTests(TestCase):
+                         msg % (operation, combinator),
+                     ):
+                         getattr(getattr(qs, combinator)(qs), operation)()
++
++    def test_none_on_combined_queries(self):
++        qs1 = Number.objects.filter(num__lte=1)
++        qs2 = Number.objects.filter(num__gte=8)
++        # Test union().none() returns empty queryset
++        self.assertSequenceEqual(qs1.union(qs2).none(), [])
++        # Test intersection().none() returns empty queryset
++        if connection.features.supports_select_intersection:
++            self.assertSequenceEqual(qs1.intersection(qs2).none(), [])
++        # Test difference().none() returns empty queryset
++        if connection.features.supports_select_difference:
++            self.assertSequenceEqual(qs1.difference(qs2).none(), [])

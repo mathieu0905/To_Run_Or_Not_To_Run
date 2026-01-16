@@ -1,0 +1,57 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index 5dcf923c12..bc7e6959e7 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -1171,6 +1171,9 @@ class ModelChoiceIteratorValue:
+             other = other.value
+         return self.value == other
+ 
++    def __hash__(self):
++        return hash(self.value)
++
+ 
+ class ModelChoiceIterator:
+     def __init__(self, field):
+diff --git a/tests/model_forms/test_modelchoicefield.py b/tests/model_forms/test_modelchoicefield.py
+index 2a0c05d803..addad20cd9 100644
+--- a/tests/model_forms/test_modelchoicefield.py
++++ b/tests/model_forms/test_modelchoicefield.py
+@@ -373,3 +373,38 @@ class ModelChoiceFieldTests(TestCase):
+         )
+         with self.assertNumQueries(2):
+             template.render(Context({'form': CategoriesForm()}))
++
++    def test_modelchoiceiteratorvalue_hashable(self):
++        """
++        ModelChoiceIteratorValue should be hashable to allow it to be used
++        as a dictionary key or in a set. This is useful for custom widgets
++        that need to check if a value is in a dictionary.
++        """
++        from django.forms.models import ModelChoiceIteratorValue
++
++        # Test basic hash functionality
++        value1 = ModelChoiceIteratorValue(self.c1.pk, self.c1)
++        value2 = ModelChoiceIteratorValue(self.c1.pk, self.c1)
++        value3 = ModelChoiceIteratorValue(self.c2.pk, self.c2)
++
++        # Objects with the same value should have the same hash
++        self.assertEqual(hash(value1), hash(value2))
++        # Objects with different values should (usually) have different hashes
++        self.assertNotEqual(hash(value1), hash(value3))
++
++        # Test dictionary key usage (the main use case from the bug report)
++        show_fields = {self.c1.pk: ['field1', 'field2'], self.c2.pk: ['field3']}
++        self.assertIn(value1, show_fields)
++        self.assertIn(value3, show_fields)
++
++        # Test set usage
++        value_set = {value1, value2, value3}
++        # value1 and value2 have the same value, so the set should have 2 elements
++        self.assertEqual(len(value_set), 2)
++        self.assertIn(value1, value_set)
++        self.assertIn(value3, value_set)
++
++        # Test that equality still works as expected
++        self.assertEqual(value1, value2)
++        self.assertEqual(value1, self.c1.pk)
++        self.assertNotEqual(value1, value3)

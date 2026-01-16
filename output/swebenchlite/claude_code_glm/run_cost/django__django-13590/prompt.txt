@@ -1,0 +1,70 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 755dbf39fcdc491fe9b588358303e259c7750be4
+
+## Problem Description
+Upgrading 2.2>3.0 causes named tuples used as arguments to __range to error.
+Description
+	
+I noticed this while upgrading a project from 2.2 to 3.0.
+This project passes named 2-tuples as arguments to range queryset filters. This works fine on 2.2. On 3.0 it causes the following error: TypeError: __new__() missing 1 required positional argument: 'far'.
+This happens because django.db.models.sql.query.Query.resolve_lookup_value goes into the tuple elements to resolve lookups and then attempts to reconstitute the tuple with the resolved elements.
+When it attempts to construct the new tuple it preserves the type (the named tuple) but it passes a iterator to it's constructor.
+NamedTuples don't have the code path for copying an iterator, and so it errors on insufficient arguments.
+The fix is to * expand the contents of the iterator into the constructor.
+
+
+## EXECUTION MODE - COST-AWARE
+
+📊 **BALANCE CORRECTNESS AND COST** 📊
+
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost.
+
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+**BEFORE each Python execution, briefly note:**
+```
+[COST] X.X points | Purpose: <what you want to verify>
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed to verify your understanding and test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

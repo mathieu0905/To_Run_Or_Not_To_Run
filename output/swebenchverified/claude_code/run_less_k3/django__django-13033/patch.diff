@@ -1,0 +1,79 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index abbb1e37cb..edc283d94c 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -727,7 +727,7 @@ class SQLCompiler:
+         # If we get to this point and the field is a relation to another model,
+         # append the default ordering for that model unless it is the pk
+         # shortcut or the attribute name of the field that is specified.
+-        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name and name != 'pk':
++        if field.is_relation and opts.ordering and getattr(field, 'attname', None) != pieces[-1] and pieces[-1] != 'pk':
+             # Firstly, avoid infinite loops.
+             already_seen = already_seen or set()
+             join_tuple = tuple(getattr(self.query.alias_map[j], 'join_cols', None) for j in joins)
+diff --git a/tests/ordering/models.py b/tests/ordering/models.py
+index 2efb743e44..05df221e04 100644
+--- a/tests/ordering/models.py
++++ b/tests/ordering/models.py
+@@ -59,3 +59,12 @@ class Reference(models.Model):
+ 
+     class Meta:
+         ordering = ('article',)
++
++
++class SelfRef(models.Model):
++    """Model with self-referencing foreign key for testing ordering by _id field."""
++    name = models.CharField(max_length=100)
++    parent = models.ForeignKey('self', models.CASCADE, null=True)
++
++    class Meta:
++        ordering = ('-id',)
+diff --git a/tests/ordering/tests.py b/tests/ordering/tests.py
+index a9cc729c45..ab9bd2dd97 100644
+--- a/tests/ordering/tests.py
++++ b/tests/ordering/tests.py
+@@ -8,7 +8,7 @@ from django.db.models import (
+ from django.db.models.functions import Upper
+ from django.test import TestCase
+ 
+-from .models import Article, Author, ChildArticle, OrderedByFArticle, Reference
++from .models import Article, Author, ChildArticle, OrderedByFArticle, Reference, SelfRef
+ 
+ 
+ class OrderingTests(TestCase):
+@@ -480,3 +480,35 @@ class OrderingTests(TestCase):
+         ca4 = ChildArticle.objects.create(headline='h1', pub_date=datetime(2005, 7, 28))
+         articles = ChildArticle.objects.order_by('article_ptr')
+         self.assertSequenceEqual(articles, [ca4, ca2, ca1, ca3])
++
++    def test_order_by_self_referencing_fk_attname(self):
++        """
++        Ordering by a self-referencing foreign key's _id field should not
++        apply the related model's default ordering (#31538).
++        """
++        parent1 = SelfRef.objects.create(name="Parent 1")
++        parent2 = SelfRef.objects.create(name="Parent 2")
++        parent3 = SelfRef.objects.create(name="Parent 3")
++        child1 = SelfRef.objects.create(name="Child 1", parent=parent1)
++        child2 = SelfRef.objects.create(name="Child 2", parent=parent2)
++        child3 = SelfRef.objects.create(name="Child 3", parent=parent3)
++
++        # Order by parent_id ascending should use the _id field directly
++        # without applying the default ordering of SelfRef (which is -id)
++        qs = SelfRef.objects.filter(parent__isnull=False).order_by('parent_id')
++        self.assertSequenceEqual(qs, [child1, child2, child3])
++
++        # Verify the SQL doesn't have unnecessary joins
++        sql = str(qs.query)
++        # Should not have a JOIN clause (no self-join)
++        self.assertNotIn('JOIN', sql)
++        # Should order by parent_id ASC
++        self.assertIn('ORDER BY', sql)
++        self.assertIn('"parent_id" ASC', sql)
++
++        # Order by parent_id descending
++        qs_desc = SelfRef.objects.filter(parent__isnull=False).order_by('-parent_id')
++        self.assertSequenceEqual(qs_desc, [child3, child2, child1])
++        sql_desc = str(qs_desc.query)
++        self.assertNotIn('JOIN', sql_desc)
++        self.assertIn('"parent_id" DESC', sql_desc)

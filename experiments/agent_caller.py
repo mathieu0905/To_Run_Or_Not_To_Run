@@ -50,7 +50,7 @@ class AgentCaller:
         Returns:
             AgentTrace 对象
         """
-        if self.agent_type == "claude_code":
+        if self.agent_type == "claude_code" or self.agent_type == "claude_code_glm":
             return self._call_claude_code(prompt, timeout, trace_output_path)
         elif self.agent_type == "codex":
             return self._call_codex(prompt, timeout, trace_output_path)
@@ -109,7 +109,7 @@ class AgentCaller:
             # but keep unit tests working when subprocess.run is mocked.
             # If ANTHROPIC_BASE_URL is set (proxy mode), use a placeholder key.
             run_is_mock = "Mock" in type(subprocess.run).__name__
-            if not run_is_mock and not os.environ.get("ANTHROPIC_API_KEY"):
+            if not run_is_mock and not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
                 if os.environ.get("ANTHROPIC_BASE_URL"):
                     os.environ["ANTHROPIC_API_KEY"] = "sk-placeholder"
                 else:
@@ -122,7 +122,7 @@ class AgentCaller:
                         exec_count=0,
                         duration_sec=duration if duration > 0 else 0.001,
                         raw_trace=[],
-                        error="Missing ANTHROPIC_API_KEY"
+                        error="Missing ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN"
                     )
 
             # 构建命令
@@ -248,6 +248,7 @@ class AgentCaller:
         # 从环境变量获取配置并传递到容器
         base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
         api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        auth_token = os.environ.get('ANTHROPIC_AUTH_TOKEN', '')
         claude_model = os.environ.get('CLAUDE_MODEL', 'sonnet')
 
         # 提取域名（去掉 http:// 或 https:// 和端口）
@@ -282,6 +283,7 @@ class AgentCaller:
         return [
             "docker", "run", "--rm",
             "-e", f"ANTHROPIC_API_KEY={api_key}",
+            "-e", f"ANTHROPIC_AUTH_TOKEN={auth_token}",
             "-e", f"ANTHROPIC_BASE_URL={base_url}",
             "-e", f"CLAUDE_MODEL={claude_model}",
             "-v", f"{host_trace_dir}:/workspace/output",

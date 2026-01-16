@@ -1,0 +1,91 @@
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..25baddac1a 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,28 @@ class ValidationError(Exception):
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return NotImplemented
++        if hasattr(self, 'error_dict') and hasattr(other, 'error_dict'):
++            if self.error_dict.keys() != other.error_dict.keys():
++                return False
++            for key in self.error_dict:
++                if len(self.error_dict[key]) != len(other.error_dict[key]):
++                    return False
++                self_errors = sorted((e.message, e.code, str(e.params)) for e in self.error_dict[key])
++                other_errors = sorted((e.message, e.code, str(e.params)) for e in other.error_dict[key])
++                if self_errors != other_errors:
++                    return False
++            return True
++        if hasattr(self, 'error_dict') or hasattr(other, 'error_dict'):
++            return False
++        if len(self.error_list) != len(other.error_list):
++            return False
++        self_errors = sorted((e.message, e.code, str(e.params)) for e in self.error_list)
++        other_errors = sorted((e.message, e.code, str(e.params)) for e in other.error_list)
++        return self_errors == other_errors
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+diff --git a/tests/test_exceptions/test_validation_error.py b/tests/test_exceptions/test_validation_error.py
+index a0bbfaf77e..65642befb0 100644
+--- a/tests/test_exceptions/test_validation_error.py
++++ b/tests/test_exceptions/test_validation_error.py
+@@ -14,3 +14,53 @@ class TestValidationError(unittest.TestCase):
+         message_dict['field2'] = ['E3', 'E4']
+         exception = ValidationError(message_dict)
+         self.assertEqual(sorted(exception.messages), ['E1', 'E2', 'E3', 'E4'])
++
++    def test_equality_simple_messages(self):
++        e1 = ValidationError('message')
++        e2 = ValidationError('message')
++        e3 = ValidationError('other')
++        self.assertEqual(e1, e2)
++        self.assertNotEqual(e1, e3)
++
++    def test_equality_list_messages(self):
++        e1 = ValidationError(['message1', 'message2'])
++        e2 = ValidationError(['message1', 'message2'])
++        e3 = ValidationError(['message2', 'message1'])
++        e4 = ValidationError(['message1'])
++        self.assertEqual(e1, e2)
++        self.assertEqual(e1, e3)
++        self.assertNotEqual(e1, e4)
++
++    def test_equality_dict_messages(self):
++        e1 = ValidationError({'field1': ['message1'], 'field2': ['message2']})
++        e2 = ValidationError({'field1': ['message1'], 'field2': ['message2']})
++        e3 = ValidationError({'field1': ['message1']})
++        self.assertEqual(e1, e2)
++        self.assertNotEqual(e1, e3)
++
++    def test_equality_dict_order_independence(self):
++        e1 = ValidationError({'field1': ['message1', 'message2']})
++        e2 = ValidationError({'field1': ['message2', 'message1']})
++        self.assertEqual(e1, e2)
++
++    def test_equality_with_code_and_params(self):
++        e1 = ValidationError('message %(param)s', code='code1', params={'param': 'value'})
++        e2 = ValidationError('message %(param)s', code='code1', params={'param': 'value'})
++        e3 = ValidationError('message %(param)s', code='code2', params={'param': 'value'})
++        e4 = ValidationError('message %(param)s', code='code1', params={'param': 'other'})
++        self.assertEqual(e1, e2)
++        self.assertNotEqual(e1, e3)
++        self.assertNotEqual(e1, e4)
++
++    def test_equality_different_types(self):
++        e1 = ValidationError('message')
++        e2 = ValidationError(['message'])
++        e3 = ValidationError({'field': ['message']})
++        self.assertNotEqual(e1, e3)
++        self.assertNotEqual(e2, e3)
++
++    def test_equality_non_validation_error(self):
++        e = ValidationError('message')
++        self.assertNotEqual(e, 'message')
++        self.assertNotEqual(e, ['message'])
++        self.assertNotEqual(e, Exception('message'))

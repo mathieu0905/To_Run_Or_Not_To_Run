@@ -1,0 +1,25 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 35f3c5e1ea..a91e585b91 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -23,7 +23,7 @@ from django.db import DEFAULT_DB_ALIAS, NotSupportedError, connections
+ from django.db.models.aggregates import Count
+ from django.db.models.constants import LOOKUP_SEP
+ from django.db.models.expressions import (
+-    BaseExpression, Col, F, OuterRef, Ref, SimpleCol,
++    BaseExpression, Col, F, OuterRef, Ref, ResolvedOuterRef, SimpleCol,
+ )
+ from django.db.models.fields import Field
+ from django.db.models.fields.related_lookups import MultiColSource
+@@ -1702,7 +1702,10 @@ class Query(BaseExpression):
+         handle.
+         """
+         filter_lhs, filter_rhs = filter_expr
+-        if isinstance(filter_rhs, F):
++        if isinstance(filter_rhs, OuterRef):
++            # Wrap OuterRef in another OuterRef to reference one level further out
++            filter_expr = (filter_lhs, OuterRef(filter_rhs))
++        elif isinstance(filter_rhs, F) and not isinstance(filter_rhs, ResolvedOuterRef):
+             filter_expr = (filter_lhs, OuterRef(filter_rhs.name))
+         # Generate the inner query.
+         query = Query(self.model)

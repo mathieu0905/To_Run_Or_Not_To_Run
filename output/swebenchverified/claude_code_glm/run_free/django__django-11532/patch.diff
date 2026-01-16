@@ -1,0 +1,41 @@
+diff --git a/django/core/mail/message.py b/django/core/mail/message.py
+index e393b4cf5c..4208203535 100644
+--- a/django/core/mail/message.py
++++ b/django/core/mail/message.py
+@@ -256,8 +256,11 @@ class EmailMessage:
+             # will get picked up by formatdate().
+             msg['Date'] = formatdate(localtime=settings.EMAIL_USE_LOCALTIME)
+         if 'message-id' not in header_names:
+-            # Use cached DNS_NAME for performance
+-            msg['Message-ID'] = make_msgid(domain=DNS_NAME)
++            # Use cached DNS_NAME for performance. Since headers must be ASCII,
++            # we use the IDNA-encoded version of the domain if it contains non-ASCII
++            # characters.
++            domain = DNS_NAME.get_fqdn_encoded()
++            msg['Message-ID'] = make_msgid(domain=domain)
+         for name, value in self.extra_headers.items():
+             if name.lower() != 'from':  # From is already handled
+                 msg[name] = value
+diff --git a/django/core/mail/utils.py b/django/core/mail/utils.py
+index d18dfe4667..f0b2382865 100644
+--- a/django/core/mail/utils.py
++++ b/django/core/mail/utils.py
+@@ -16,5 +16,18 @@ class CachedDnsName:
+             self._fqdn = socket.getfqdn()
+         return self._fqdn
+ 
++    def get_fqdn_encoded(self):
++        """
++        Return the FQDN encoded to ASCII (IDNA-encoded if necessary).
++        Email headers must be ASCII, so non-ASCII domain names must be
++        encoded to punycode/IDNA.
++        """
++        fqdn = self.get_fqdn()
++        try:
++            fqdn.encode('ascii')
++        except UnicodeEncodeError:
++            fqdn = fqdn.encode('idna').decode('ascii')
++        return fqdn
++
+ 
+ DNS_NAME = CachedDnsName()

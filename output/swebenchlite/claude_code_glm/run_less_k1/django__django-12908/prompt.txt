@@ -1,0 +1,94 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 49ae7ce50a874f8a04cd910882fb9571ff3a0d7a
+
+## Problem Description
+Union queryset should raise on distinct().
+Description
+	 
+		(last modified by Sielc Technologies)
+	 
+After using
+.annotate() on 2 different querysets
+and then .union()
+.distinct() will not affect the queryset
+	def setUp(self) -> None:
+		user = self.get_or_create_admin_user()
+		Sample.h.create(user, name="Sam1")
+		Sample.h.create(user, name="Sam2 acid")
+		Sample.h.create(user, name="Sam3")
+		Sample.h.create(user, name="Sam4 acid")
+		Sample.h.create(user, name="Dub")
+		Sample.h.create(user, name="Dub")
+		Sample.h.create(user, name="Dub")
+		self.user = user
+	def test_union_annotated_diff_distinct(self):
+		qs = Sample.objects.filter(user=self.user)
+		qs1 = qs.filter(name='Dub').annotate(rank=Value(0, IntegerField()))
+		qs2 = qs.filter(name='Sam1').annotate(rank=Value(1, IntegerField()))
+		qs = qs1.union(qs2)
+		qs = qs.order_by('name').distinct('name') # THIS DISTINCT DOESN'T WORK
+		self.assertEqual(qs.count(), 2)
+expected to get wrapped union
+	SELECT DISTINCT ON (siebox_sample.name) * FROM (SELECT ... UNION SELECT ...) AS siebox_sample
+
+
+## EXECUTION MODE - LIMITED BUDGET
+
+🎯 **YOU HAVE 1 TEST EXECUTION(S) - USE THEM** 🎯
+
+你只有 1 次执行机会（请谨慎但不要浪费执行次数）。  
+
+This is a research experiment testing efficient debugging with limited executions.
+You have a budget of 1 test run(s). **Unused budget is wasted opportunity!**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## FREE Operations (No Cost)
+✅ `ls` - list directory contents
+✅ `cat` - view file contents
+✅ `grep` - search text patterns
+✅ `find` - locate files
+✅ `head` / `tail` - view file portions
+✅ `wc` - count lines/words
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+**BEFORE each execution, note:**
+```
+[BUDGET] Using 1 of 1 | Purpose: <what you want to verify>
+```
+
+**AFTER each execution, note:**
+```
+[BUDGET] Remaining: X of 1
+```
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. **Use your 1 execution(s)** to verify your understanding or test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## Output Format
+**You MUST use the Edit tool to actually modify the source files.**
+Do NOT just output a diff as text - make real changes to the files.

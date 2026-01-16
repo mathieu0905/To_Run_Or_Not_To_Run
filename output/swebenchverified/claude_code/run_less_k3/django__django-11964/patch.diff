@@ -1,0 +1,50 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index d610dc86f0..57bf2c070d 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -2,6 +2,7 @@ import collections.abc
+ import copy
+ import datetime
+ import decimal
++import enum
+ import operator
+ import uuid
+ import warnings
+@@ -1008,6 +1009,8 @@ class CharField(Field):
+         return "CharField"
+ 
+     def to_python(self, value):
++        if isinstance(value, enum.Enum):
++            return value.value
+         if isinstance(value, str) or value is None:
+             return value
+         return str(value)
+@@ -1769,6 +1772,8 @@ class IntegerField(Field):
+     def to_python(self, value):
+         if value is None:
+             return value
++        if isinstance(value, enum.Enum):
++            value = value.value
+         try:
+             return int(value)
+         except (TypeError, ValueError):
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+index 189fb4fa44..08018f98bb 100644
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -138,6 +138,15 @@ class DeferredAttribute:
+             data[field_name] = val
+         return data[field_name]
+ 
++    def __set__(self, instance, value):
++        """
++        Set the value on the instance, converting enum members to their values.
++        """
++        import enum
++        if isinstance(value, enum.Enum):
++            value = value.value
++        instance.__dict__[self.field.attname] = value
++
+     def _check_parent_chain(self, instance):
+         """
+         Check if the field value can be fetched from a parent field already

@@ -123,8 +123,10 @@ if __name__ == "__main__":
     # 可选的目录列表
     available_dirs = [
         "output/swebenchlite/claude_code",
+        "output/swebenchlite/claude_code_glm",
         "output/swebenchlite/codex",
         "output/swebenchverified/claude_code",
+        "output/swebenchverified/claude_code_glm",
         "output/swebenchverified/codex",
     ]
 

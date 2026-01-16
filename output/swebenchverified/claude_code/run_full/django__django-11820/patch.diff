@@ -1,0 +1,53 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 3ce711f3f1..ef152dfd1e 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1707,6 +1707,10 @@ class Model(metaclass=ModelBase):
+             _cls = cls
+             fld = None
+             for part in field.split(LOOKUP_SEP):
++                # Skip ordering on pk. This is always a valid order_by field
++                # but is an alias and therefore won't be found by opts.get_field.
++                if part == 'pk':
++                    continue
+                 try:
+                     fld = _cls._meta.get_field(part)
+                     if fld.is_relation:
+diff --git a/tests/invalid_models_tests/test_models.py b/tests/invalid_models_tests/test_models.py
+index 0f1d1e4dc3..71293e3c14 100644
+--- a/tests/invalid_models_tests/test_models.py
++++ b/tests/invalid_models_tests/test_models.py
+@@ -836,6 +836,33 @@ class OtherModelTests(SimpleTestCase):
+ 
+         self.assertFalse(Child.check())
+ 
++    def test_ordering_pointing_to_related_model_pk(self):
++        class Parent(models.Model):
++            pass
++
++        class Child(models.Model):
++            parent = models.ForeignKey(Parent, models.CASCADE)
++
++            class Meta:
++                ordering = ('parent__pk',)
++
++        self.assertFalse(Child.check())
++
++    def test_ordering_pointing_to_two_related_model_pk(self):
++        class Parent2(models.Model):
++            pass
++
++        class Parent1(models.Model):
++            parent2 = models.ForeignKey(Parent2, models.CASCADE)
++
++        class Child(models.Model):
++            parent1 = models.ForeignKey(Parent1, models.CASCADE)
++
++            class Meta:
++                ordering = ('parent1__parent2__pk',)
++
++        self.assertFalse(Child.check())
++
+     def test_name_beginning_with_underscore(self):
+         class _Model(models.Model):
+             pass

@@ -1,0 +1,54 @@
+diff --git a/django/core/management/__init__.py b/django/core/management/__init__.py
+index 5f2e64761e..30d2c17aa2 100644
+--- a/django/core/management/__init__.py
++++ b/django/core/management/__init__.py
+@@ -132,9 +132,15 @@ def call_command(command_name, *args, **options):
+     parser_actions = list(get_actions(parser))
+     # Any required arguments which are passed in via **options must be passed
+     # to parse_args().
++    # Collect actions that are part of required mutually exclusive groups.
++    mutually_exclusive_required_actions = set()
++    for group in parser._mutually_exclusive_groups:
++        if group.required:
++            mutually_exclusive_required_actions.update(group._group_actions)
+     parse_args += [
+         '{}={}'.format(min(opt.option_strings), arg_options[opt.dest])
+-        for opt in parser_actions if opt.required and opt.dest in options
++        for opt in parser_actions
++        if (opt.required or opt in mutually_exclusive_required_actions) and opt.dest in options
+     ]
+     defaults = parser.parse_args(args=parse_args)
+     defaults = dict(defaults._get_kwargs(), **arg_options)
+diff --git a/tests/user_commands/tests.py b/tests/user_commands/tests.py
+index a53c781ac6..23624c571e 100644
+--- a/tests/user_commands/tests.py
++++ b/tests/user_commands/tests.py
+@@ -254,6 +254,28 @@ class CommandTests(SimpleTestCase):
+         parser = BaseCommand().create_parser('prog_name', 'subcommand', epilog=epilog)
+         self.assertEqual(parser.epilog, epilog)
+ 
++    def test_call_command_with_required_mutually_exclusive_group(self):
++        """
++        call_command() should handle required mutually exclusive groups properly
++        when passing arguments via kwargs.
++        """
++        out = StringIO()
++        # Test passing one option from the mutually exclusive group
++        management.call_command('mutually_exclusive', shop_id=1, stdout=out)
++        self.assertIn('Shop ID: 1', out.getvalue())
++
++        out = StringIO()
++        management.call_command('mutually_exclusive', shop_name='test', stdout=out)
++        self.assertIn('Shop name: test', out.getvalue())
++
++        # Test that passing both options raises an error
++        with self.assertRaisesMessage(CommandError, 'not allowed with argument'):
++            management.call_command('mutually_exclusive', shop_id=1, shop_name='test')
++
++        # Test that passing neither option raises an error
++        with self.assertRaisesMessage(CommandError, 'one of the arguments --shop-id --shop is required'):
++            management.call_command('mutually_exclusive')
++
+ 
+ class CommandRunTests(AdminScriptTestCase):
+     """
