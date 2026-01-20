@@ -1,47 +1,47 @@
 #!/bin/bash
 
-# 切换到脚本所在目录
+# Switch to script directory
 cd "$(dirname "$0")"
 
-# 加载环境变量
+# Load environment variables
 if [ -f .env ]; then
     export $(cat .env | grep -v '^#' | xargs)
 else
-    echo "错误: .env 文件不存在"
+    echo "Error: .env file does not exist"
     exit 1
 fi
 
-# 检查 API key 是否设置
+# Check if API key is set
 if [ -z "$SWEBENCH_API_KEY" ]; then
-    echo "错误: SWEBENCH_API_KEY 未设置"
+    echo "Error: SWEBENCH_API_KEY is not set"
     exit 1
 fi
 
-# 激活 conda 环境
+# Activate conda environment
 source /data/zhihao/miniconda3/etc/profile.d/conda.sh
 conda activate swebench
 
-# 显示帮助
+# Show help
 show_help() {
-    echo "用法: $0 [选项]"
+    echo "Usage: $0 [options]"
     echo ""
-    echo "选项:"
-    echo "  --list                    列出所有可用的 dataset/agent/mode 组合"
-    echo "  --dataset <name>          数据集名称 (swebenchlite, swebenchverified)"
-    echo "  --agent <name>            agent 名称 (claude_code, codex)"
-    echo "  --mode <name>             模式名称 (run_free, run_less_k1, run_less_k3, run_cost, run_full)"
-    echo "  --run-id <id>             运行 ID (可选，默认为 agent_mode)"
-    echo "  --all                     生成并提交所有组合"
-    echo "  --gen-only                只生成 predictions 文件，不提交"
-    echo "  --help                    显示帮助"
+    echo "Options:"
+    echo "  --list                    List all available dataset/agent/mode combinations"
+    echo "  --dataset <name>          Dataset name (swebenchlite, swebenchverified)"
+    echo "  --agent <name>            Agent name (claude_code, codex)"
+    echo "  --mode <name>             Mode name (run_free, run_less_k1, run_less_k3, run_cost, run_full)"
+    echo "  --run-id <id>             Run ID (optional, defaults to agent_mode)"
+    echo "  --all                     Generate and submit all combinations"
+    echo "  --gen-only                Only generate predictions file, do not submit"
+    echo "  --help                    Show help"
     echo ""
-    echo "示例:"
+    echo "Examples:"
     echo "  $0 --list"
     echo "  $0 --dataset swebenchverified --agent codex --mode run_free"
     echo "  $0 --dataset swebenchverified --agent codex --mode run_free --run-id my_run_001"
 }
 
-# 解析参数
+# Parse arguments
 LIST=false
 GEN_ONLY=false
 ALL=false
@@ -85,20 +85,20 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            echo "未知选项: $1"
+            echo "Unknown option: $1"
             show_help
             exit 1
             ;;
     esac
 done
 
-# 列出所有组合
+# List all combinations
 if [ "$LIST" = true ]; then
     python3 generate_predictions.py --list
     exit 0
 fi
 
-# 映射数据集名称到 sb-cli 格式
+# Map dataset name to sb-cli format
 map_dataset() {
     case $1 in
         swebenchlite)
@@ -113,82 +113,82 @@ map_dataset() {
     esac
 }
 
-# 提交单个组合
+# Submit single combination
 submit_one() {
     local dataset=$1
     local agent=$2
     local mode=$3
     local run_id=$4
 
-    # 生成 predictions 文件
-    echo "生成 predictions 文件: ${dataset}/${agent}/${mode}"
+    # Generate predictions file
+    echo "Generating predictions file: ${dataset}/${agent}/${mode}"
     python3 generate_predictions.py --dataset "$dataset" --agent "$agent" --mode "$mode"
 
     if [ "$GEN_ONLY" = true ]; then
-        echo "只生成文件，跳过提交"
+        echo "Only generating file, skipping submission"
         return 0
     fi
 
-    # 确定 predictions 文件路径
+    # Determine predictions file path
     local predictions_file="predictions/${dataset}_${agent}_${mode}.json"
 
     if [ ! -f "$predictions_file" ]; then
-        echo "错误: predictions 文件不存在: $predictions_file"
+        echo "Error: predictions file does not exist: $predictions_file"
         return 1
     fi
 
-    # 确定 run_id
+    # Determine run_id
     if [ -z "$run_id" ]; then
         run_id="${dataset}_${agent}_${mode}"
     fi
 
-    # 映射数据集名称
+    # Map dataset name
     local sb_dataset=$(map_dataset "$dataset")
 
     echo ""
-    echo "提交到 SWE-bench..."
-    echo "  数据集: $sb_dataset"
+    echo "Submitting to SWE-bench..."
+    echo "  Dataset: $sb_dataset"
     echo "  Split: test"
     echo "  Run ID: $run_id"
-    echo "  文件: $predictions_file"
+    echo "  File: $predictions_file"
     echo ""
 
-    # 提交
+    # Submit
     sb-cli submit "$sb_dataset" test \
         --predictions_path "$predictions_file" \
         --run_id "$run_id"
 
     if [ $? -eq 0 ]; then
         echo ""
-        echo "提交成功！"
-        echo "使用以下命令查看结果:"
+        echo "Submission successful!"
+        echo "Use the following command to view results:"
         echo "  sb-cli get-report $sb_dataset test $run_id"
     else
         echo ""
-        echo "提交失败"
+        echo "Submission failed"
         return 1
     fi
 }
 
-# 主逻辑
+# Main logic
 if [ "$ALL" = true ]; then
-    echo "生成所有 predictions 文件..."
+    echo "Generating all predictions files..."
     python3 generate_predictions.py --all
 
     if [ "$GEN_ONLY" = true ]; then
-        echo "只生成文件，跳过提交"
+        echo "Only generating files, skipping submission"
         exit 0
     fi
 
     echo ""
-    echo "注意: --all 模式只生成文件，不自动提交"
-    echo "请手动选择要提交的组合"
+    echo "Note: --all mode only generates files, does not auto-submit"
+    echo "Please manually select combinations to submit"
     exit 0
 fi
 
-# 检查必要参数
+# Check required parameters
 if [ -z "$DATASET" ] || [ -z "$AGENT" ] || [ -z "$MODE" ]; then
-    echo "错误: 需要指定 --dataset, --agent, --mode"
+    echo "Error: must specify --dataset, --agent, --mode"
     echo ""
     show_help
     exit 1

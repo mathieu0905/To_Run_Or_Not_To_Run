@@ -1,37 +1,37 @@
 #!/bin/bash
-# 批量运行所有实验配置 - 完全并行版本 (GLM + Verified)
-# 3个实例 × 2个agent × 6个模式 = 36个实验，所有配置并行运行
+# Batch run all experiment configurations - Fully parallel version (GLM + Verified)
+# 3 instances × 2 agents × 6 modes = 36 experiments, all configurations run in parallel
 
 set -e
 
-# 默认后台执行，-f 前台执行
+# Run in background by default, -f for foreground execution
 if [ "$1" != "-f" ] && [ "$1" != "--foreground" ]; then
     SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
     LOG_FILE="$(cd "$(dirname "$0")" && pwd)/logs/run_glm_verified_$(date +%Y%m%d_%H%M%S).log"
     mkdir -p "$(dirname "$LOG_FILE")"
-    echo "后台运行中，日志: $LOG_FILE"
+    echo "Running in background, log: $LOG_FILE"
     nohup bash "$SCRIPT_PATH" -f > "$LOG_FILE" 2>&1 &
     echo "PID: $!"
     exit 0
 fi
 
-# 切换到脚本所在目录
+# Switch to script directory
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
 
-# 切换到 experiments 目录运行
+# Switch to experiments directory to run
 cd experiments
 
-# 清理函数：终止所有子进程和 Docker 容器
+# Cleanup function: terminate all child processes and Docker containers
 cleanup() {
     echo ""
     echo "=========================================="
-    echo "收到终止信号，正在清理资源..."
+    echo "Received termination signal, cleaning up resources..."
     echo "=========================================="
 
-    # 终止所有子进程
+    # Terminate all child processes
     if [ ${#PIDS[@]} -gt 0 ]; then
-        echo "正在终止 ${#PIDS[@]} 个后台进程..."
+        echo "Terminating ${#PIDS[@]} background processes..."
         for pid in "${PIDS[@]}"; do
             kill -TERM "$pid" 2>/dev/null || true
         done
@@ -39,84 +39,84 @@ cleanup() {
         for pid in "${PIDS[@]}"; do
             kill -KILL "$pid" 2>/dev/null || true
         done
-        echo "✓ 已终止所有后台进程"
+        echo "✓ All background processes terminated"
     fi
 
-    # 清理 SWE-bench Docker 容器
-    echo "正在清理 Docker 容器..."
+    # Clean up SWE-bench Docker containers
+    echo "Cleaning up Docker containers..."
     CONTAINERS=$(docker ps -aq --filter "ancestor=swebench" 2>/dev/null || true)
     if [ -n "$CONTAINERS" ]; then
         echo "$CONTAINERS" | xargs docker rm -f 2>/dev/null || true
-        echo "✓ 已清理 Docker 容器"
+        echo "✓ Docker containers cleaned up"
     fi
 
-    echo "清理完成！"
+    echo "Cleanup complete!"
     exit 1
 }
 
-# 注册信号处理器
+# Register signal handlers
 trap cleanup SIGINT SIGTERM
 
-# ========== 配置区域 ==========
-# 实验配置
-NUM_INSTANCES=100  # 取前 n 个实例
-WORKERS=10  # 每个配置内部的并发数
+# ========== Configuration Section ==========
+# Experiment configuration
+NUM_INSTANCES=100  # Take first n instances
+WORKERS=10  # Concurrency within each configuration
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Verified"
 
-# GLM 配置（默认使用 GLM）
+# GLM configuration (use GLM by default)
 export CLAUDE_MODEL="${CLAUDE_MODEL:-GLM-4.7}"
 export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-https://open.bigmodel.cn/api/anthropic}"
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-22d3e2814dd24bf1943ced46dc817067.KyGdWHcuJo0EXs0o}"
 # ==============================
 
-# 根据 DATASET 选择对应的 JSON 数据文件
+# Select corresponding JSON data file based on DATASET
 if [ "$DATASET" = "princeton-nlp/SWE-bench_Lite" ]; then
     DATA_FILE="${SCRIPT_DIR}/data/swe_bench_lite.json"
 elif [ "$DATASET" = "princeton-nlp/SWE-bench_Verified" ]; then
     DATA_FILE="${SCRIPT_DIR}/data/swe_bench_verified.json"
 else
-    echo "未知数据集: $DATASET"
+    echo "Unknown dataset: $DATASET"
     exit 1
 fi
 
-# 检查数据文件是否存在
+# Check if data file exists
 if [ ! -f "$DATA_FILE" ]; then
-    echo "数据文件不存在: $DATA_FILE"
+    echo "Data file does not exist: $DATA_FILE"
     exit 1
 fi
 
-# 从 JSON 文件提取 instance_id 并生成临时实例文件（取前 n 个）
+# Extract instance_id from JSON file and generate temporary instance file (take first n)
 INSTANCES_FILE=$(mktemp)
 python3 -c "import json; data = json.load(open('$DATA_FILE')); print('\n'.join([d['instance_id'] for d in data[:$NUM_INSTANCES]]))" > "$INSTANCES_FILE"
 trap "rm -f $INSTANCES_FILE" EXIT
 
-# 颜色输出
+# Color output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo "=========================================="
-echo "批量实验运行脚本 - 完全并行模式"
+echo "Batch Experiment Runner - Fully Parallel Mode"
 echo "=========================================="
-echo "实例文件: $INSTANCES_FILE"
-echo "每个配置并发数: $WORKERS"
-echo "超时时间: ${TIMEOUT}s"
-echo "数据集: $DATASET"
+echo "Instance file: $INSTANCES_FILE"
+echo "Concurrency per configuration: $WORKERS"
+echo "Timeout: ${TIMEOUT}s"
+echo "Dataset: $DATASET"
 echo "=========================================="
 echo ""
 
-# 创建日志目录（在项目根目录，按 agent 分层）
+# Create log directory (in project root, organized by agent)
 LOG_DIR="${SCRIPT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 
-# Agent 列表
+# Agent list
 # AGENTS=("claude_code" "codex")
 AGENTS=("claude_code_glm")
 
-# 模式配置列表
-# 格式: "mode k_value"
+# Mode configuration list
+# Format: "mode k_value"
 CONFIGS=(
     "run_free 0"
     "run_less 1"
@@ -126,23 +126,23 @@ CONFIGS=(
     "run_full 0"
 )
 
-# 统计
+# Statistics
 TOTAL_CONFIGS=$((${#AGENTS[@]} * ${#CONFIGS[@]}))
-echo -e "${YELLOW}总共将启动 ${TOTAL_CONFIGS} 个并行任务${NC}"
+echo -e "${YELLOW}Will launch ${TOTAL_CONFIGS} parallel tasks in total${NC}"
 echo ""
 
-# 存储后台任务的 PID
+# Store PIDs of background tasks
 declare -a PIDS=()
 declare -a TASK_NAMES=()
 
-# 遍历所有 agent
+# Iterate through all agents
 for agent in "${AGENTS[@]}"; do
-    # 遍历所有模式配置
+    # Iterate through all mode configurations
     for config in "${CONFIGS[@]}"; do
-        # 解析配置
+        # Parse configuration
         read -r mode k <<< "$config"
 
-        # 构建模式描述
+        # Build mode description
         if [ "$mode" = "run_less" ]; then
             MODE_DESC="${mode}_k${k}"
             TASK_NAME="${agent}_${MODE_DESC}"
@@ -151,23 +151,23 @@ for agent in "${AGENTS[@]}"; do
             TASK_NAME="${agent}_${mode}"
         fi
 
-        # 创建分层日志目录
+        # Create hierarchical log directory
         AGENT_LOG_DIR="${LOG_DIR}/${agent}"
         mkdir -p "$AGENT_LOG_DIR"
 
-        # 日志文件
+        # Log file
         LOG_FILE="${AGENT_LOG_DIR}/${MODE_DESC}.log"
 
-        echo -e "${BLUE}启动任务:${NC} ${GREEN}${TASK_NAME}${NC} (日志: ${LOG_FILE})"
+        echo -e "${BLUE}Starting task:${NC} ${GREEN}${TASK_NAME}${NC} (log: ${LOG_FILE})"
 
-        # 直接在宿主机运行，agent_caller.py 会为每个实例启动对应的 Docker 容器
+        # Run directly on host machine, agent_caller.py will start corresponding Docker container for each instance
         if [ "$mode" = "run_less" ]; then
             (python -u batch_runner.py "${INSTANCES_FILE}" $mode $k $WORKERS $agent $TIMEOUT $DATASET > "$LOG_FILE" 2>&1) &
         else
             (python -u batch_runner.py "${INSTANCES_FILE}" $mode 2 $WORKERS $agent $TIMEOUT $DATASET > "$LOG_FILE" 2>&1) &
         fi
 
-        # 记录 PID 和任务名
+        # Record PID and task name
         PIDS+=($!)
         TASK_NAMES+=("$TASK_NAME")
     done
@@ -175,53 +175,53 @@ done
 
 echo ""
 echo "=========================================="
-echo -e "${YELLOW}所有 ${TOTAL_CONFIGS} 个任务已启动！${NC}"
+echo -e "${YELLOW}All ${TOTAL_CONFIGS} tasks have been started!${NC}"
 echo "=========================================="
 echo ""
-echo "监控进度："
-echo "  - 查看所有日志: ls -lh ${LOG_DIR}/"
-echo "  - 实时查看某个日志: tail -f ${LOG_DIR}/<task_name>.log"
-echo "  - 查看进程: ps aux | grep batch_runner"
+echo "Monitor progress:"
+echo "  - View all logs: ls -lh ${LOG_DIR}/"
+echo "  - View a specific log in real-time: tail -f ${LOG_DIR}/<task_name>.log"
+echo "  - View processes: ps aux | grep batch_runner"
 echo ""
-echo "等待所有任务完成..."
+echo "Waiting for all tasks to complete..."
 echo ""
 
-# 等待所有后台任务完成（并行等待）
+# Wait for all background tasks to complete (parallel wait)
 COMPLETED=0
 FAILED=0
 declare -A PID_TO_NAME
 
-# 建立 PID 到任务名的映射
+# Build mapping from PID to task name
 for i in "${!PIDS[@]}"; do
     PID_TO_NAME[${PIDS[$i]}]=${TASK_NAMES[$i]}
 done
 
-# 并行等待所有进程
+# Wait for all processes in parallel
 while [ ${#PIDS[@]} -gt 0 ]; do
     for i in "${!PIDS[@]}"; do
         PID=${PIDS[$i]}
         TASK_NAME=${PID_TO_NAME[$PID]}
 
-        # 非阻塞检查进程是否完成
+        # Non-blocking check if process has completed
         if ! kill -0 $PID 2>/dev/null; then
-            # 进程已完成，获取退出状态
+            # Process has completed, get exit status
             wait $PID
             EXIT_CODE=$?
 
             if [ $EXIT_CODE -eq 0 ]; then
-                echo -e "${GREEN}✓${NC} 任务完成: ${TASK_NAME}"
+                echo -e "${GREEN}✓${NC} Task completed: ${TASK_NAME}"
                 COMPLETED=$((COMPLETED + 1))
             else
-                echo -e "\033[0;31m✗${NC} 任务失败: ${TASK_NAME} (查看日志: ${LOG_DIR}/${TASK_NAME}.log)"
+                echo -e "\033[0;31m✗${NC} Task failed: ${TASK_NAME} (view log: ${LOG_DIR}/${TASK_NAME}.log)"
                 FAILED=$((FAILED + 1))
             fi
 
-            # 从数组中移除已完成的 PID
+            # Remove completed PID from array
             unset PIDS[$i]
         fi
     done
 
-    # 如果还有进程在运行，短暂休眠后再检查
+    # If there are still processes running, sleep briefly before checking again
     if [ ${#PIDS[@]} -gt 0 ]; then
         sleep 1
     fi
@@ -229,15 +229,15 @@ done
 
 echo ""
 echo "=========================================="
-echo "所有任务执行完毕！"
+echo "All tasks completed!"
 echo "=========================================="
-echo -e "完成: ${GREEN}${COMPLETED}${NC} / 失败: ${FAILED} / 总计: ${TOTAL_CONFIGS}"
+echo -e "Completed: ${GREEN}${COMPLETED}${NC} / Failed: ${FAILED} / Total: ${TOTAL_CONFIGS}"
 echo ""
-echo "结果保存在: output/swebenchlite/{agent}/{mode}/{instance_id}/"
-echo "日志保存在: ${LOG_DIR}/"
+echo "Results saved in: output/swebenchlite/{agent}/{mode}/{instance_id}/"
+echo "Logs saved in: ${LOG_DIR}/"
 echo ""
 
-# 返回状态码
+# Return status code
 if [ $FAILED -eq 0 ]; then
     exit 0
 else

@@ -1,18 +1,18 @@
-# Run-Free/Run-Less/Run-Full 研究项目 Base 镜像
-# 基于 SWE-bench 的 Python base 镜像，添加 node, codex, claude code
+# Run-Free/Run-Less/Run-Full Research Project Base Image
+# Based on SWE-bench Python base image, with node, codex, and claude code added
 
 FROM --platform=linux/x86_64 ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
-# 代理配置
+# Proxy configuration
 ENV http_proxy=http://127.0.0.1:15732
 ENV https_proxy=http://127.0.0.1:15732
 ENV HTTP_PROXY=http://127.0.0.1:15732
 ENV HTTPS_PROXY=http://127.0.0.1:15732
 
-# 基础依赖
+# Basic dependencies
 RUN apt update && apt install -y \
     wget \
     git \
@@ -31,7 +31,7 @@ RUN apt update && apt install -y \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Node.js (LTS)
+# Install Node.js (LTS)
 RUN mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
@@ -39,7 +39,7 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Miniconda
+# Install Miniconda
 RUN wget 'https://repo.anaconda.com/miniconda/Miniconda3-py311_24.5.0-0-Linux-x86_64.sh' -O miniconda.sh \
     && bash miniconda.sh -b -p /opt/miniconda3 \
     && rm miniconda.sh
@@ -49,20 +49,20 @@ ENV PATH=/opt/miniconda3/bin:$PATH
 RUN conda init --all \
     && conda config --append channels conda-forge
 
-# 安装 Claude Code (via npm)
+# Install Claude Code (via npm)
 RUN npm install -g @anthropic-ai/claude-code
 
-# 安装 Codex (OpenAI)
+# Install Codex (OpenAI)
 RUN npm install -g @openai/codex
 
-# 创建非 root 用户
+# Create non-root user
 RUN adduser --disabled-password --gecos 'dog' nonroot
 
-# 创建配置目录
+# Create configuration directories
 RUN mkdir -p /root/.claude /root/.codex
 
-# 工作目录
+# Working directory
 WORKDIR /testbed/
 
-# 激活 conda 环境的 bashrc 配置
+# Bashrc configuration for activating conda environment
 RUN echo "source /opt/miniconda3/etc/profile.d/conda.sh" >> /root/.bashrc

@@ -6,23 +6,23 @@ services:
     container_name: swebench-runner
     working_dir: /testbed
     volumes:
-      # 挂载项目目录到容器
+      # Mount project directory to container
       - ./:/workspace
-      # 挂载输出目录（实时同步）
+      # Mount output directory (real-time sync)
       - ./output:/workspace/output
-      # 挂载数据目录
+      # Mount data directory
       - ./data:/workspace/data
     environment:
-      # Claude Code 认证
+      # Claude Code authentication
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
-      # Codex 认证
+      # Codex authentication
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      # 模型配置
+      # Model configuration
       - CLAUDE_MODEL=${CLAUDE_MODEL:-opus}
       - CODEX_MODEL=${CODEX_MODEL:-gpt-5.2}
       - CODEX_REASONING_EFFORT=${CODEX_REASONING_EFFORT:-xhigh}
-      # 代理设置（如果需要）
+      # Proxy settings (if needed)
       - http_proxy=${http_proxy:-}
       - https_proxy=${https_proxy:-}
     network_mode: host
@@ -33,7 +33,7 @@ services:
       /workspace/docker/configure_models.sh;
       exec /bin/bash"
 
-  # 用于批量运行的服务（可选）
+  # Service for batch runs (optional)
   swebench-batch:
     image: swebench/sweb.eval.x86_64.base:latest
     container_name: swebench-batch

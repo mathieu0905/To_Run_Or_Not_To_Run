@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-RQ6: 案例分析与任务难度分层
-1. 深度案例分析 - 典型案例的详细分析
-2. 任务难度分层 - 按难度分析执行权限的影响
-3. 全模式对比 - 对比所有执行模式
+RQ6: Case Study and Task Difficulty Stratification
+1. In-depth Case Analysis - Detailed analysis of typical cases
+2. Task Difficulty Stratification - Analyze the impact of execution permissions by difficulty
+3. All-Mode Comparison - Compare all execution modes
 """
 
 import sys
@@ -20,7 +20,7 @@ from common.data_loader import (
 
 
 def load_resolved_ids():
-    """加载每个配置的 resolved instance IDs"""
+    """Load resolved instance IDs for each configuration"""
     sb_cli_reports_dir = PROJECT_ROOT / "sb-cli-reports"
     resolved = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
 
@@ -54,11 +54,11 @@ def load_resolved_ids():
 
 
 def analyze_all_modes_comparison(resolved):
-    """分析所有模式之间的差异"""
+    """Analyze differences between all modes"""
     lines = []
-    lines.append("## 全模式对比分析")
+    lines.append("## All-Mode Comparison Analysis")
     lines.append("")
-    lines.append("对比所有 5 种执行模式的表现差异。")
+    lines.append("Compare the performance differences of all 5 execution modes.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -76,8 +76,8 @@ def analyze_all_modes_comparison(resolved):
             lines.append(f"**{agent}:**")
             lines.append("")
 
-            # 生成模式对比矩阵
-            lines.append("#### 成功率对比")
+            # Generate mode comparison matrix
+            lines.append("#### Success Rate Comparison")
             lines.append("")
             lines.append("| Mode | Resolved | Pass Rate |")
             lines.append("|------|----------|-----------|")
@@ -88,17 +88,17 @@ def analyze_all_modes_comparison(resolved):
 
             for mode in sort_modes(modes.keys()):
                 resolved_count = len(modes[mode])
-                # 假设总数为 100（或从数据中获取）
+                # Assume total is 100 (or get from data)
                 total = 100 if "lite" in dataset else 100
                 rate = resolved_count / total * 100
                 lines.append(f"| {mode} | {resolved_count} | {rate:.1f}% |")
 
             lines.append("")
 
-            # 生成差异矩阵
-            lines.append("#### 模式间差异矩阵")
+            # Generate difference matrix
+            lines.append("#### Inter-Mode Difference Matrix")
             lines.append("")
-            lines.append("表格显示：行模式成功但列模式失败的案例数")
+            lines.append("Table shows: Number of cases where row mode succeeds but column mode fails")
             lines.append("")
 
             mode_list = sort_modes(modes.keys())
@@ -118,8 +118,8 @@ def analyze_all_modes_comparison(resolved):
 
             lines.append("")
 
-            # 分析关键对比
-            lines.append("#### 关键对比")
+            # Analyze key comparisons
+            lines.append("#### Key Comparisons")
             lines.append("")
 
             comparisons = [
@@ -141,21 +141,21 @@ def analyze_all_modes_comparison(resolved):
                 both = len(modes[mode1] & modes[mode2])
 
                 lines.append(f"**{label}:**")
-                lines.append(f"- 两者都成功: {both}")
-                lines.append(f"- {mode1} 独有: {m1_only}")
-                lines.append(f"- {mode2} 独有: {m2_only}")
-                lines.append(f"- 净差异: {m2_only - m1_only:+d}")
+                lines.append(f"- Both succeed: {both}")
+                lines.append(f"- {mode1} only: {m1_only}")
+                lines.append(f"- {mode2} only: {m2_only}")
+                lines.append(f"- Net difference: {m2_only - m1_only:+d}")
                 lines.append("")
 
     return "\n".join(lines)
 
 
 def analyze_mode_progression(resolved, results):
-    """分析执行权限递增的效果"""
+    """Analyze the effect of increasing execution permissions"""
     lines = []
-    lines.append("## 执行权限递增分析")
+    lines.append("## Execution Permission Progression Analysis")
     lines.append("")
-    lines.append("分析从 Run-Free 到 Run-Full 的渐进变化。")
+    lines.append("Analyze the progressive changes from Run-Free to Run-Full.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -170,17 +170,17 @@ def analyze_mode_progression(resolved, results):
             lines.append(f"**{agent}:**")
             lines.append("")
 
-            # 追踪每个实例在不同模式下的表现
+            # Track each instance's performance across different modes
             all_instances = set()
             for mode in modes:
                 all_instances.update(modes[mode])
 
-            # 分类实例
-            always_success = set()  # 所有模式都成功
-            always_fail = set()     # 所有模式都失败
-            improves = set()        # 随执行增加而改善
-            degrades = set()        # 随执行增加而恶化
-            inconsistent = set()    # 不一致
+            # Classify instances
+            always_success = set()  # All modes succeed
+            always_fail = set()     # All modes fail
+            improves = set()        # Improves with more execution
+            degrades = set()        # Degrades with more execution
+            inconsistent = set()    # Inconsistent
 
             mode_list = ["run_free", "run_less_k1", "run_less_k3", "run_cost", "run_full"]
             available_modes = [m for m in mode_list if m in modes]
@@ -193,7 +193,7 @@ def analyze_mode_progression(resolved, results):
                 elif not any(pattern):
                     always_fail.add(inst)
                 else:
-                    # 检查是否单调递增
+                    # Check if it is monotonically increasing
                     first_success = next((i for i, p in enumerate(pattern) if p), -1)
                     last_fail = len(pattern) - 1 - next((i for i, p in enumerate(reversed(pattern)) if not p), -1)
 
@@ -204,34 +204,34 @@ def analyze_mode_progression(resolved, results):
                     else:
                         inconsistent.add(inst)
 
-            lines.append(f"| 类别 | 数量 | 说明 |")
+            lines.append(f"| Category | Count | Description |")
             lines.append(f"|------|------|------|")
-            lines.append(f"| 始终成功 | {len(always_success)} | 所有模式都能解决 |")
-            lines.append(f"| 始终失败 | {len(always_fail)} | 所有模式都无法解决 |")
-            lines.append(f"| 随执行改善 | {len(improves)} | 更多执行权限有帮助 |")
-            lines.append(f"| 随执行恶化 | {len(degrades)} | 更多执行权限反而有害 |")
-            lines.append(f"| 不一致 | {len(inconsistent)} | 表现不稳定 |")
+            lines.append(f"| Always Success | {len(always_success)} | All modes can resolve |")
+            lines.append(f"| Always Fail | {len(always_fail)} | All modes cannot resolve |")
+            lines.append(f"| Improves with Execution | {len(improves)} | More execution permissions help |")
+            lines.append(f"| Degrades with Execution | {len(degrades)} | More execution permissions are harmful |")
+            lines.append(f"| Inconsistent | {len(inconsistent)} | Unstable performance |")
             lines.append("")
 
-            # 列出恶化的案例
+            # List degraded cases
             if degrades:
-                lines.append("**随执行恶化的案例（Run-Free 成功但 Run-Full 失败）:**")
+                lines.append("**Cases that degrade with execution (Run-Free succeeds but Run-Full fails):**")
                 for inst in sorted(degrades)[:5]:
                     lines.append(f"- `{inst}`")
                 if len(degrades) > 5:
-                    lines.append(f"- ... 共 {len(degrades)} 个")
+                    lines.append(f"- ... Total {len(degrades)} cases")
                 lines.append("")
 
     return "\n".join(lines)
 
 
 def analyze_case_details_all_modes(resolved, results):
-    """分析典型案例在所有模式下的表现"""
+    """Analyze typical cases' performance across all modes"""
     lines = []
-    lines.append("## 典型案例全模式分析")
+    lines.append("## Typical Case All-Mode Analysis")
     lines.append("")
 
-    # 找出有趣的案例
+    # Find interesting cases
     interesting_cases = []
 
     for dataset in resolved:
@@ -240,29 +240,29 @@ def analyze_case_details_all_modes(resolved, results):
             if "run_free" not in modes or "run_full" not in modes:
                 continue
 
-            # Run-Free 成功但 Run-Full 失败
+            # Run-Free succeeds but Run-Full fails
             free_only = modes["run_free"] - modes["run_full"]
             for inst in list(free_only)[:3]:
                 interesting_cases.append((dataset, agent, inst, "free_wins"))
 
-            # Run-Full 成功但 Run-Free 失败
+            # Run-Full succeeds but Run-Free fails
             full_only = modes["run_full"] - modes["run_free"]
             for inst in list(full_only)[:3]:
                 interesting_cases.append((dataset, agent, inst, "full_wins"))
 
-    # 分析每个案例
+    # Analyze each case
     for dataset, agent, inst, case_type in interesting_cases[:10]:
         dataset_name = DATASETS.get(dataset, dataset)
         lines.append(f"### `{inst}` ({agent}, {dataset_name})")
         lines.append("")
 
         if case_type == "free_wins":
-            lines.append("**类型**: Run-Free 成功但 Run-Full 失败")
+            lines.append("**Type**: Run-Free succeeds but Run-Full fails")
         else:
-            lines.append("**类型**: Run-Full 成功但 Run-Free 失败")
+            lines.append("**Type**: Run-Full succeeds but Run-Free fails")
         lines.append("")
 
-        # 获取所有模式的数据
+        # Get data for all modes
         lines.append("| Mode | Tokens | Turns | High-Cost Exec | Result |")
         lines.append("|------|--------|-------|----------------|--------|")
 
@@ -274,33 +274,33 @@ def analyze_case_details_all_modes(resolved, results):
                 tokens = data["tokens"]["input"] + data["tokens"]["output"]
                 turns = data["turns"]
                 high_exec = data["high_cost_exec"]
-                result = "**成功**" if is_resolved else "失败"
+                result = "**Success**" if is_resolved else "Fail"
                 lines.append(f"| {mode} | {tokens:,} | {turns} | {high_exec} | {result} |")
             else:
-                result = "**成功**" if is_resolved else "失败"
+                result = "**Success**" if is_resolved else "Fail"
                 lines.append(f"| {mode} | - | - | - | {result} |")
 
         lines.append("")
 
-        # 分析模式
+        # Analysis pattern
         if case_type == "free_wins":
-            lines.append("**分析**: 执行反馈可能导致 Agent 陷入试错循环或偏离正确方向。")
+            lines.append("**Analysis**: Execution feedback may lead the agent into trial-and-error loops or deviate from the correct direction.")
         else:
-            lines.append("**分析**: 该问题可能需要执行反馈来验证修复或定位问题。")
+            lines.append("**Analysis**: This problem may require execution feedback to verify the fix or locate the issue.")
         lines.append("")
 
     return "\n".join(lines)
 
 
 def analyze_difficulty_stratification(resolved, results):
-    """按任务难度分层分析"""
+    """Analyze by task difficulty stratification"""
     lines = []
-    lines.append("## 任务难度分层分析")
+    lines.append("## Task Difficulty Stratification Analysis")
     lines.append("")
-    lines.append("按任务难度分析执行权限的影响。难度定义基于 Run-Full 模式下的成功率。")
+    lines.append("Analyze the impact of execution permissions by task difficulty. Difficulty is defined based on success rate in Run-Full mode.")
     lines.append("")
 
-    # 收集所有实例的难度信息
+    # Collect difficulty information for all instances
     instance_difficulty = defaultdict(lambda: {"success": 0, "total": 0})
 
     for dataset in resolved:
@@ -317,7 +317,7 @@ def analyze_difficulty_stratification(resolved, results):
                     if inst in full_resolved:
                         instance_difficulty[key]["success"] += 1
 
-    # 分类难度
+    # Classify difficulty
     easy, medium, hard = [], [], []
     for (dataset, inst), stats in instance_difficulty.items():
         if stats["total"] == 0:
@@ -330,25 +330,25 @@ def analyze_difficulty_stratification(resolved, results):
         else:
             medium.append((dataset, inst))
 
-    lines.append(f"### 难度分布")
+    lines.append(f"### Difficulty Distribution")
     lines.append("")
-    lines.append(f"- 简单 (所有 Agent 在 Run-Full 下都成功): {len(easy)} 个")
-    lines.append(f"- 中等 (部分 Agent 成功): {len(medium)} 个")
-    lines.append(f"- 困难 (所有 Agent 都失败): {len(hard)} 个")
-    lines.append("")
-
-    # 按难度分析所有模式
-    lines.append("### 按难度分层的全模式对比")
+    lines.append(f"- Easy (all agents succeed in Run-Full): {len(easy)} cases")
+    lines.append(f"- Medium (some agents succeed): {len(medium)} cases")
+    lines.append(f"- Hard (all agents fail): {len(hard)} cases")
     lines.append("")
 
-    for difficulty_name, instances in [("简单", easy), ("中等", medium), ("困难", hard)]:
+    # Analyze all modes by difficulty
+    lines.append("### All-Mode Comparison by Difficulty Stratification")
+    lines.append("")
+
+    for difficulty_name, instances in [("Easy", easy), ("Medium", medium), ("Hard", hard)]:
         if not instances:
             continue
 
-        lines.append(f"#### {difficulty_name}任务 ({len(instances)} 个)")
+        lines.append(f"#### {difficulty_name} Tasks ({len(instances)} cases)")
         lines.append("")
 
-        # 统计各模式的成功率
+        # Count success rate for each mode
         mode_stats = defaultdict(lambda: {"success": 0, "total": 0})
 
         for dataset, inst in instances:
@@ -359,7 +359,7 @@ def analyze_difficulty_stratification(resolved, results):
                         if inst in resolved[dataset][agent][mode]:
                             mode_stats[(agent, mode)]["success"] += 1
 
-        # 生成表格
+        # Generate table
         lines.append("| Agent | run_free | run_less_k1 | run_less_k3 | run_cost | run_full |")
         lines.append("|-------|----------|-------------|-------------|----------|----------|")
 
@@ -380,9 +380,9 @@ def analyze_difficulty_stratification(resolved, results):
 
 
 def analyze_cost_by_mode(resolved, results):
-    """按模式分析成本"""
+    """Analyze cost by mode"""
     lines = []
-    lines.append("## 全模式成本分析")
+    lines.append("## All-Mode Cost Analysis")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -430,49 +430,49 @@ def analyze_cost_by_mode(resolved, results):
 
 
 def generate_summary():
-    """生成案例分析总结"""
+    """Generate case study summary"""
     lines = []
-    lines.append("## 案例分析总结")
+    lines.append("## Case Study Summary")
     lines.append("")
-    lines.append("### 核心发现")
+    lines.append("### Key Findings")
     lines.append("")
-    lines.append("1. **执行反馈是双刃剑**")
-    lines.append("   - 部分案例中，执行反馈帮助 Agent 验证修复")
-    lines.append("   - 部分案例中，执行反馈反而误导 Agent 偏离正确方向")
-    lines.append("   - 净收益有限（通常 < 5 个案例）")
+    lines.append("1. **Execution Feedback is a Double-Edged Sword**")
+    lines.append("   - In some cases, execution feedback helps agents verify fixes")
+    lines.append("   - In some cases, execution feedback misleads agents away from the correct direction")
+    lines.append("   - Net benefit is limited (usually < 5 cases)")
     lines.append("")
-    lines.append("2. **Run-Less 模式表现不稳定**")
-    lines.append("   - Run-Less-K1 和 Run-Less-K3 并未比 Run-Free 更好")
-    lines.append("   - 限制执行次数并不能迫使 Agent 进行更智能的执行")
-    lines.append("   - 反而可能因为执行次数不足而无法完成验证")
+    lines.append("2. **Run-Less Mode Performance is Unstable**")
+    lines.append("   - Run-Less-K1 and Run-Less-K3 are not better than Run-Free")
+    lines.append("   - Limiting execution count does not force agents to execute more intelligently")
+    lines.append("   - May fail to complete verification due to insufficient execution count")
     lines.append("")
-    lines.append("3. **任务难度决定执行价值**")
-    lines.append("   - 简单任务：执行权限几乎无影响")
-    lines.append("   - 中等任务：执行权限有一定帮助")
-    lines.append("   - 困难任务：执行权限无法解决根本问题")
+    lines.append("3. **Task Difficulty Determines Execution Value**")
+    lines.append("   - Easy tasks: Execution permissions have almost no impact")
+    lines.append("   - Medium tasks: Execution permissions provide some help")
+    lines.append("   - Hard tasks: Execution permissions cannot solve fundamental problems")
     lines.append("")
-    lines.append("4. **成本随执行权限单调增加**")
+    lines.append("4. **Cost Increases Monotonically with Execution Permissions**")
     lines.append("   - Run-Free < Run-Less-K1 < Run-Less-K3 < Run-Cost < Run-Full")
-    lines.append("   - 但 Pass Rate 并未单调增加")
+    lines.append("   - But Pass Rate does not increase monotonically")
     lines.append("")
-    lines.append("### 实践建议")
+    lines.append("### Practical Recommendations")
     lines.append("")
-    lines.append("1. **默认使用 Run-Free** - 成本效益最高")
-    lines.append("2. **不推荐 Run-Less 模式** - 表现不如 Run-Free，成本更高")
-    lines.append("3. **仅在必要时启用 Run-Full** - 当推理无法确定修复正确性时")
-    lines.append("4. **Run-Cost 是折中选择** - 有成本约束时的备选方案")
+    lines.append("1. **Use Run-Free by default** - Highest cost-effectiveness")
+    lines.append("2. **Run-Less mode not recommended** - Performs worse than Run-Free, higher cost")
+    lines.append("3. **Enable Run-Full only when necessary** - When reasoning cannot determine fix correctness")
+    lines.append("4. **Run-Cost is a compromise** - Alternative when cost constraints exist")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def main():
-    print("正在加载数据...")
+    print("Loading data...")
 
     results = load_all_results()
     resolved = load_resolved_ids()
 
-    # 生成分析
+    # Generate analysis
     all_modes = analyze_all_modes_comparison(resolved)
     progression = analyze_mode_progression(resolved, results)
     case_details = analyze_case_details_all_modes(resolved, results)
@@ -480,9 +480,9 @@ def main():
     cost = analyze_cost_by_mode(resolved, results)
     summary = generate_summary()
 
-    # 合并输出
+    # Merge output
     output = []
-    output.append("# RQ6: 案例分析与任务难度分层")
+    output.append("# RQ6: Case Study and Task Difficulty Stratification")
     output.append("")
     output.append(all_modes)
     output.append("")
@@ -496,10 +496,10 @@ def main():
     output.append("")
     output.append(summary)
 
-    # 保存
+    # Save
     output_path = Path(__file__).parent / "analysis_rq6.md"
     output_path.write_text("\n".join(output), encoding="utf-8")
-    print(f"分析已保存到: {output_path}")
+    print(f"Analysis saved to: {output_path}")
 
 
 if __name__ == "__main__":

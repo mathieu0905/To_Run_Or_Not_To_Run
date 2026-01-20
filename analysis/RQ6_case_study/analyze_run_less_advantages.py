@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-分析 Run-Less 模式的优势场景
-找出适度执行比完全不执行更好的案例
+Analyze advantage scenarios of Run-Less mode
+Find cases where moderate execution is better than no execution
 """
 
 import sys
@@ -18,7 +18,7 @@ from common.data_loader import (
 
 
 def load_resolved_ids():
-    """加载每个配置的 resolved instance IDs"""
+    """Load resolved instance IDs for each configuration"""
     sb_cli_reports_dir = PROJECT_ROOT / "sb-cli-reports"
     resolved = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
 
@@ -52,17 +52,17 @@ def load_resolved_ids():
 
 
 def find_run_less_advantages(resolved, results):
-    """找出 Run-Less 模式的优势场景"""
+    """Find advantage scenarios of Run-Less mode"""
     lines = []
-    lines.append("# Run-Less 模式的优势场景分析")
+    lines.append("# Analysis of Run-Less Mode Advantage Scenarios")
     lines.append("")
-    lines.append("虽然整体数据显示 Run-Less 不如 Run-Free，但在某些特定场景下，适度执行确实有帮助。")
+    lines.append("Although overall data shows Run-Less is not as good as Run-Free, moderate execution does help in certain specific scenarios.")
     lines.append("")
 
-    # 1. 找出 Run-Less 独有成功的案例
-    lines.append("## 1. Run-Less 独有成功的案例")
+    # 1. Find cases where only Run-Less succeeded
+    lines.append("## 1. Cases Where Only Run-Less Succeeded")
     lines.append("")
-    lines.append("这些案例中，Run-Free 和 Run-Full 都失败，但 Run-Less 成功了。")
+    lines.append("In these cases, both Run-Free and Run-Full failed, but Run-Less succeeded.")
     lines.append("")
 
     run_less_unique = []
@@ -84,22 +84,22 @@ def find_run_less_advantages(resolved, results):
             k3 = modes["run_less_k3"]
             full = modes["run_full"]
 
-            # Run-Less-K1 独有成功（Free 和 Full 都失败）
+            # Run-Less-K1 unique success (both Free and Full failed)
             k1_unique = k1 - free - full
-            # Run-Less-K3 独有成功
+            # Run-Less-K3 unique success
             k3_unique = k3 - free - full
-            # 任一 Run-Less 独有成功
+            # Any Run-Less unique success
             any_less_unique = (k1 | k3) - free - full
 
             lines.append(f"**{agent}:**")
             lines.append("")
-            lines.append(f"- Run-Less-K1 独有成功: {len(k1_unique)} 个")
-            lines.append(f"- Run-Less-K3 独有成功: {len(k3_unique)} 个")
-            lines.append(f"- 任一 Run-Less 独有成功: {len(any_less_unique)} 个")
+            lines.append(f"- Run-Less-K1 unique success: {len(k1_unique)} cases")
+            lines.append(f"- Run-Less-K3 unique success: {len(k3_unique)} cases")
+            lines.append(f"- Any Run-Less unique success: {len(any_less_unique)} cases")
             lines.append("")
 
             if any_less_unique:
-                lines.append("**案例列表:**")
+                lines.append("**Case list:**")
                 for inst in sorted(any_less_unique):
                     in_k1 = "K1" if inst in k1 else ""
                     in_k3 = "K3" if inst in k3 else ""
@@ -108,8 +108,8 @@ def find_run_less_advantages(resolved, results):
                     run_less_unique.append((dataset, agent, inst))
                 lines.append("")
 
-    # 2. 分析 Run-Less 独有成功案例的特点
-    lines.append("## 2. Run-Less 独有成功案例的详细分析")
+    # 2. Analyze characteristics of Run-Less unique success cases
+    lines.append("## 2. Detailed Analysis of Run-Less Unique Success Cases")
     lines.append("")
 
     for dataset, agent, inst in run_less_unique[:10]:
@@ -128,17 +128,17 @@ def find_run_less_advantages(resolved, results):
                 tokens = data["tokens"]["input"] + data["tokens"]["output"]
                 turns = data["turns"]
                 high_exec = data["high_cost_exec"]
-                result = "**成功**" if is_resolved else "失败"
+                result = "**Success**" if is_resolved else "Failed"
                 lines.append(f"| {mode} | {tokens:,} | {turns} | {high_exec} | {result} |")
 
         lines.append("")
-        lines.append("**分析**: 适度执行（1-3次）帮助验证修复，但过多执行反而有害。")
+        lines.append("**Analysis**: Moderate execution (1-3 times) helps verify fixes, but excessive execution is harmful.")
         lines.append("")
 
-    # 3. 找出 Run-Less 比 Run-Free 更好的场景
-    lines.append("## 3. Run-Less 比 Run-Free 更好的案例")
+    # 3. Find cases where Run-Less is better than Run-Free
+    lines.append("## 3. Cases Where Run-Less is Better Than Run-Free")
     lines.append("")
-    lines.append("这些案例中，Run-Free 失败但 Run-Less 成功。")
+    lines.append("In these cases, Run-Free failed but Run-Less succeeded.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -157,29 +157,29 @@ def find_run_less_advantages(resolved, results):
             k1 = modes.get("run_less_k1", set())
             k3 = modes.get("run_less_k3", set())
 
-            # Run-Less 成功但 Run-Free 失败
+            # Run-Less succeeded but Run-Free failed
             k1_better = k1 - free
             k3_better = k3 - free
 
             lines.append(f"**{agent}:**")
             lines.append("")
-            lines.append(f"- Run-Less-K1 成功但 Run-Free 失败: {len(k1_better)} 个")
-            lines.append(f"- Run-Less-K3 成功但 Run-Free 失败: {len(k3_better)} 个")
+            lines.append(f"- Run-Less-K1 succeeded but Run-Free failed: {len(k1_better)} cases")
+            lines.append(f"- Run-Less-K3 succeeded but Run-Free failed: {len(k3_better)} cases")
             lines.append("")
 
             if k1_better or k3_better:
-                lines.append("**案例:**")
+                lines.append("**Cases:**")
                 for inst in sorted(k1_better)[:5]:
-                    lines.append(f"- `{inst}` (K1 成功)")
+                    lines.append(f"- `{inst}` (K1 succeeded)")
                 for inst in sorted(k3_better - k1_better)[:5]:
-                    lines.append(f"- `{inst}` (K3 成功)")
+                    lines.append(f"- `{inst}` (K3 succeeded)")
                 lines.append("")
 
-    # 4. 分析适度执行的价值
-    lines.append("## 4. 适度执行的价值分析")
+    # 4. Analyze the value of moderate execution
+    lines.append("## 4. Value Analysis of Moderate Execution")
     lines.append("")
 
-    # 统计各模式的独有成功数
+    # Count unique successes for each mode
     stats = defaultdict(lambda: {"unique": 0, "better_than_free": 0, "better_than_full": 0})
 
     for dataset in resolved:
@@ -194,58 +194,58 @@ def find_run_less_advantages(resolved, results):
             cost = modes.get("run_cost", set())
             full = modes.get("run_full", set())
 
-            # 独有成功
+            # Unique success
             stats["run_less_k1"]["unique"] += len(k1 - free - k3 - cost - full)
             stats["run_less_k3"]["unique"] += len(k3 - free - k1 - cost - full)
             stats["run_cost"]["unique"] += len(cost - free - k1 - k3 - full)
 
-            # 比 Run-Free 更好
+            # Better than Run-Free
             stats["run_less_k1"]["better_than_free"] += len(k1 - free)
             stats["run_less_k3"]["better_than_free"] += len(k3 - free)
             stats["run_cost"]["better_than_free"] += len(cost - free)
 
-            # 比 Run-Full 更好
+            # Better than Run-Full
             stats["run_less_k1"]["better_than_full"] += len(k1 - full)
             stats["run_less_k3"]["better_than_full"] += len(k3 - full)
             stats["run_cost"]["better_than_full"] += len(cost - full)
 
-    lines.append("| 模式 | 独有成功 | 比 Run-Free 好 | 比 Run-Full 好 |")
-    lines.append("|------|----------|----------------|----------------|")
+    lines.append("| Mode | Unique Success | Better than Run-Free | Better than Run-Full |")
+    lines.append("|------|----------------|----------------------|----------------------|")
     for mode in ["run_less_k1", "run_less_k3", "run_cost"]:
         s = stats[mode]
         lines.append(f"| {mode} | {s['unique']} | {s['better_than_free']} | {s['better_than_full']} |")
     lines.append("")
 
-    # 5. 总结
-    lines.append("## 5. 核心发现：适度执行的价值")
+    # 5. Summary
+    lines.append("## 5. Key Findings: The Value of Moderate Execution")
     lines.append("")
-    lines.append("### 适度执行有帮助的场景")
+    lines.append("### Scenarios Where Moderate Execution Helps")
     lines.append("")
-    lines.append("1. **需要验证但不需要迭代的问题**")
-    lines.append("   - 1-3 次执行足以验证修复是否正确")
-    lines.append("   - 更多执行反而引入噪声和干扰")
+    lines.append("1. **Problems that need verification but not iteration**")
+    lines.append("   - 1-3 executions are sufficient to verify if the fix is correct")
+    lines.append("   - More executions introduce noise and interference")
     lines.append("")
-    lines.append("2. **Run-Free 推理不足的问题**")
-    lines.append("   - 纯推理无法确定正确答案")
-    lines.append("   - 但少量执行反馈就能指明方向")
+    lines.append("2. **Problems where Run-Free reasoning is insufficient**")
+    lines.append("   - Pure reasoning cannot determine the correct answer")
+    lines.append("   - But a small amount of execution feedback can point the way")
     lines.append("")
-    lines.append("3. **Run-Full 过度执行有害的问题**")
-    lines.append("   - 过多执行导致试错循环")
-    lines.append("   - 适度执行避免了这个问题")
+    lines.append("3. **Problems where Run-Full over-execution is harmful**")
+    lines.append("   - Excessive execution leads to trial-and-error loops")
+    lines.append("   - Moderate execution avoids this problem")
     lines.append("")
-    lines.append("### 实践建议")
+    lines.append("### Practical Recommendations")
     lines.append("")
-    lines.append("1. **Run-Free 仍是默认首选** - 成本最低，效果接近最佳")
-    lines.append("2. **Run-Less-K1 可作为备选** - 当 Run-Free 失败时，尝试 1 次执行")
-    lines.append("3. **避免 Run-Full** - 除非确实需要大量迭代调试")
-    lines.append("4. **适度执行的价值在于验证** - 不是探索，而是确认")
+    lines.append("1. **Run-Free is still the default choice** - Lowest cost, near-optimal effectiveness")
+    lines.append("2. **Run-Less-K1 can be an alternative** - When Run-Free fails, try 1 execution")
+    lines.append("3. **Avoid Run-Full** - Unless extensive iterative debugging is truly needed")
+    lines.append("4. **The value of moderate execution is in verification** - Not exploration, but confirmation")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def main():
-    print("正在加载数据...")
+    print("Loading data...")
 
     results = load_all_results()
     resolved = load_resolved_ids()
@@ -254,7 +254,7 @@ def main():
 
     output_path = Path(__file__).parent / "run_less_advantages.md"
     output_path.write_text(analysis, encoding="utf-8")
-    print(f"分析已保存到: {output_path}")
+    print(f"Analysis saved to: {output_path}")
 
 
 if __name__ == "__main__":

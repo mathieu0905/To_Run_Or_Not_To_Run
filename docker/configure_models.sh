@@ -1,20 +1,20 @@
 #!/bin/bash
-# 配置 Agent 模型的脚本
-# 在 Docker 容器启动时运行
+# Script to configure Agent models
+# Run when Docker container starts
 
 set -e
 
 echo "=========================================="
-echo "配置 Agent 模型"
+echo "Configuring Agent Models"
 echo "=========================================="
 
-# 配置 Claude Code 模型
+# Configure Claude Code model
 CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 
-echo "配置 Claude Code 模型: $CLAUDE_MODEL"
+echo "Configuring Claude Code model: $CLAUDE_MODEL"
 
-# 如果 settings.json 不存在，创建基础配置
+# If settings.json does not exist, create basic configuration
 if [ ! -f "$CLAUDE_SETTINGS" ]; then
     mkdir -p "$HOME/.claude"
     cat > "$CLAUDE_SETTINGS" <<EOF
@@ -35,7 +35,7 @@ if [ ! -f "$CLAUDE_SETTINGS" ]; then
 }
 EOF
 else
-    # 使用 Python 更新现有配置
+    # Update existing configuration using Python
     python3 << PYEOF
 import json
 
@@ -57,16 +57,16 @@ with open("$CLAUDE_SETTINGS", "w") as f:
 PYEOF
 fi
 
-echo "✓ Claude Code 配置完成: $CLAUDE_SETTINGS"
+echo "✓ Claude Code configuration completed: $CLAUDE_SETTINGS"
 
-# 配置 Codex 模型
+# Configure Codex model
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.2}"
 CODEX_REASONING_EFFORT="${CODEX_REASONING_EFFORT:-xhigh}"
 CODEX_CONFIG="$HOME/.config/codex/config.toml"
 
-echo "配置 Codex 模型: $CODEX_MODEL (reasoning_effort: $CODEX_REASONING_EFFORT)"
+echo "Configuring Codex model: $CODEX_MODEL (reasoning_effort: $CODEX_REASONING_EFFORT)"
 
-# 如果 config.toml 不存在，创建基础配置
+# If config.toml does not exist, create basic configuration
 if [ ! -f "$CODEX_CONFIG" ]; then
     mkdir -p "$HOME/.config/codex"
     cat > "$CODEX_CONFIG" <<EOF
@@ -85,16 +85,16 @@ requires_openai_auth = true
 trust_level = "trusted"
 EOF
 else
-    # 更新现有配置
+    # Update existing configuration
     sed -i "s/^model = .*/model = \"$CODEX_MODEL\"/" "$CODEX_CONFIG"
     sed -i "s/^model_reasoning_effort = .*/model_reasoning_effort = \"$CODEX_REASONING_EFFORT\"/" "$CODEX_CONFIG"
 fi
 
-echo "✓ Codex 配置完成: $CODEX_CONFIG"
+echo "✓ Codex configuration completed: $CODEX_CONFIG"
 
 echo "=========================================="
-echo "配置完成！"
+echo "Configuration completed!"
 echo "=========================================="
-echo "Claude Code 模型: $CLAUDE_MODEL"
-echo "Codex 模型: $CODEX_MODEL (reasoning_effort: $CODEX_REASONING_EFFORT)"
+echo "Claude Code model: $CLAUDE_MODEL"
+echo "Codex model: $CODEX_MODEL (reasoning_effort: $CODEX_REASONING_EFFORT)"
 echo ""

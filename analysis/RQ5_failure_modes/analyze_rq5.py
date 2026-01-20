@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-RQ5: Failure Modes - 失败模式分析
+RQ5: Failure Modes - Failure Mode Analysis
 
-研究问题: 不同执行 regime 会诱发哪些典型失败模式？
-这些失败模式是否会增加或降低开发者后续调试与 review 负担？
+Research Question: What typical failure modes are induced by different execution regimes?
+Do these failure modes increase or decrease the burden of subsequent debugging and review for developers?
 """
 
 import sys
@@ -21,12 +21,12 @@ from common.data_loader import (
 
 
 def analyze_trace_for_failures(trace_path: Path) -> dict:
-    """分析 trace 文件中的失败模式"""
+    """Analyze failure modes in trace file"""
     failures = {
-        "tool_errors": 0,        # 工具/环境错误
-        "repeated_commands": 0,  # 循环试错（同一命令 > 3 次）
-        "error_messages": [],    # 错误信息
-        "command_history": [],   # 命令历史
+        "tool_errors": 0,        # Tool/environment errors
+        "repeated_commands": 0,  # Trial-error loops (same command > 3 times)
+        "error_messages": [],    # Error messages
+        "command_history": [],   # Command history
     }
 
     command_counts = defaultdict(int)
@@ -40,7 +40,7 @@ def analyze_trace_for_failures(trace_path: Path) -> dict:
                 if item.get("type") == "tool_result":
                     result = item.get("result", "")
                     if isinstance(result, str):
-                        # 检查常见错误模式
+                # Check for common error patterns
                         error_patterns = [
                             r"error:", r"Error:", r"ERROR:",
                             r"exception", r"Exception",
@@ -53,7 +53,7 @@ def analyze_trace_for_failures(trace_path: Path) -> dict:
                         for pattern in error_patterns:
                             if re.search(pattern, result):
                                 failures["tool_errors"] += 1
-                                # 提取错误信息（前 200 字符）
+                            # Extract error message (first 200 characters)
                                 error_snippet = result[:200].replace("\n", " ")
                                 failures["error_messages"].append(error_snippet)
                                 break
@@ -96,7 +96,7 @@ def analyze_trace_for_failures(trace_path: Path) -> dict:
             except:
                 continue
 
-    # 统计循环试错
+    # Count trial-error loops
     for cmd, count in command_counts.items():
         if count > 3:
             failures["repeated_commands"] += 1
@@ -105,7 +105,7 @@ def analyze_trace_for_failures(trace_path: Path) -> dict:
 
 
 def analyze_patch_for_drift(patch_path: Path, instance_id: str) -> dict:
-    """分析 patch 是否存在修偏 drift"""
+    """Analyze if patch has drift"""
     drift = {
         "files_modified": 0,
         "lines_added": 0,
@@ -119,16 +119,16 @@ def analyze_patch_for_drift(patch_path: Path, instance_id: str) -> dict:
     try:
         content = patch_path.read_text()
 
-        # 统计修改的文件数
+        # Count modified files
         file_matches = re.findall(r'^diff --git', content, re.MULTILINE)
         drift["files_modified"] = len(file_matches)
 
-        # 统计添加和删除的行数
+        # Count added and removed lines
         drift["lines_added"] = len(re.findall(r'^\+[^+]', content, re.MULTILINE))
         drift["lines_removed"] = len(re.findall(r'^-[^-]', content, re.MULTILINE))
 
-        # 检查是否修改了可能不相关的文件（如 test 文件、config 文件等）
-        # 这是一个简单的启发式规则
+        # Check if potentially unrelated files were modified (e.g., test files, config files, etc.)
+        # This is a simple heuristic rule
         if drift["files_modified"] > 5:
             drift["potentially_unrelated"] = True
 
@@ -139,7 +139,7 @@ def analyze_patch_for_drift(patch_path: Path, instance_id: str) -> dict:
 
 
 def load_evaluation_results() -> dict:
-    """加载评估结果"""
+    """Load evaluation results"""
     eval_results = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
 
     sb_cli_reports_dir = PROJECT_ROOT / "sb-cli-reports"
@@ -151,7 +151,7 @@ def load_evaluation_results() -> dict:
             report = json.loads(report_file.read_text(encoding="utf-8"))
             filename = report_file.stem
 
-            # 确定数据集
+            # Determine dataset
             if "lite" in filename.lower():
                 dataset = "swebenchlite"
             elif "verified" in filename.lower():
@@ -159,7 +159,7 @@ def load_evaluation_results() -> dict:
             else:
                 continue
 
-            # 确定 agent 和 mode
+            # Determine agent and mode
             for agent in ["claude_code", "codex"]:
                 if agent in filename:
                     for mode in MODE_ORDER:
@@ -176,7 +176,7 @@ def load_evaluation_results() -> dict:
 
 
 def find_interesting_cases(results: dict, eval_results: dict) -> dict:
-    """找出有趣的案例（free 成功 full 失败，或 full 成功 free 失败）"""
+    """Find interesting cases (free success full fail, or full success free fail)"""
     cases = {
         "free_success_full_fail": [],
         "full_success_free_fail": [],
@@ -190,7 +190,7 @@ def find_interesting_cases(results: dict, eval_results: dict) -> dict:
             free_resolved = eval_results.get(dataset, {}).get(agent, {}).get("run_free", {})
             full_resolved = eval_results.get(dataset, {}).get(agent, {}).get("run_full", {})
 
-            # 找出所有实例
+            # Find all instances
             all_instances = set(free_mode.keys()) | set(full_mode.keys())
 
             for instance_id in all_instances:
@@ -214,9 +214,9 @@ def find_interesting_cases(results: dict, eval_results: dict) -> dict:
 
 
 def generate_failure_mode_distribution(results: dict, pass_rates: dict) -> str:
-    """生成失败模式分布表"""
+    """Generate failure mode distribution table"""
     lines = []
-    lines.append("## 失败模式分布")
+    lines.append("## Failure Mode Distribution")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -236,17 +236,17 @@ def generate_failure_mode_distribution(results: dict, pass_rates: dict) -> str:
                 instances = modes[mode]
                 n = len(instances)
 
-                # 获取 pass rate
+                # Get pass rate
                 pr = pr_modes.get(mode, {})
                 resolved = pr.get("resolved", 0)
                 failed = n - resolved
 
-                # 统计失败模式
+                # Count failure modes
                 total_tool_errors = 0
                 total_repeated = 0
 
                 for instance_id, data in instances.items():
-                    # 分析 trace
+                    # Analyze trace
                     trace_path = PROJECT_ROOT / "output" / dataset / agent / mode / instance_id / "trace.jsonl"
                     if trace_path.exists():
                         failures = analyze_trace_for_failures(trace_path)
@@ -264,127 +264,127 @@ def generate_failure_mode_distribution(results: dict, pass_rates: dict) -> str:
 
 
 def generate_failure_type_analysis(results: dict) -> str:
-    """生成失败类型分析"""
+    """Generate failure type analysis"""
     lines = []
-    lines.append("## 失败类型分析")
+    lines.append("## Failure Type Analysis")
     lines.append("")
 
-    lines.append("### 失败模式分类")
+    lines.append("### Failure Mode Classification")
     lines.append("")
-    lines.append("| 类别 | 描述 | 识别规则 |")
-    lines.append("|------|------|----------|")
-    lines.append("| 工具/环境错误 | 命令执行失败、文件不存在等 | trace 中包含 error, exception, failed |")
-    lines.append("| 循环试错 | 同一命令重复执行多次 | 同一命令执行 > 3 次 |")
-    lines.append("| 修偏 drift | 修改了不相关的文件 | patch 修改文件数 > 5 |")
-    lines.append("| 无效 patch | 生成了 patch 但未通过测试 | has_patch=True 但 resolved=False |")
+    lines.append("| Category | Description | Identification Rule |")
+    lines.append("|----------|-------------|---------------------|")
+    lines.append("| Tool/Environment Error | Command execution failure, file not found, etc. | trace contains error, exception, failed |")
+    lines.append("| Trial-Error Loop | Same command executed multiple times | Same command executed > 3 times |")
+    lines.append("| Drift | Modified unrelated files | patch modifies > 5 files |")
+    lines.append("| Invalid Patch | Generated patch but failed tests | has_patch=True but resolved=False |")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def generate_case_comparison(cases: dict) -> str:
-    """生成案例对比"""
+    """Generate case comparison"""
     lines = []
-    lines.append("## 典型案例对比")
+    lines.append("## Typical Case Comparison")
     lines.append("")
 
-    lines.append("### Run-Free 成功但 Run-Full 失败的案例")
+    lines.append("### Cases where Run-Free succeeds but Run-Full fails")
     lines.append("")
     if cases["free_success_full_fail"]:
         lines.append("| Dataset | Agent | Instance ID |")
         lines.append("|---------|-------|-------------|")
-        for case in cases["free_success_full_fail"][:10]:  # 最多显示 10 个
+        for case in cases["free_success_full_fail"][:10]:  # Show at most 10
             lines.append(f"| {case['dataset']} | {case['agent']} | {case['instance_id']} |")
         lines.append("")
-        lines.append(f"共 {len(cases['free_success_full_fail'])} 个案例")
+        lines.append(f"Total {len(cases['free_success_full_fail'])} cases")
     else:
-        lines.append("无")
+        lines.append("None")
     lines.append("")
 
-    lines.append("### Run-Full 成功但 Run-Free 失败的案例")
+    lines.append("### Cases where Run-Full succeeds but Run-Free fails")
     lines.append("")
     if cases["full_success_free_fail"]:
         lines.append("| Dataset | Agent | Instance ID |")
         lines.append("|---------|-------|-------------|")
-        for case in cases["full_success_free_fail"][:10]:  # 最多显示 10 个
+        for case in cases["full_success_free_fail"][:10]:  # Show at most 10
             lines.append(f"| {case['dataset']} | {case['agent']} | {case['instance_id']} |")
         lines.append("")
-        lines.append(f"共 {len(cases['full_success_free_fail'])} 个案例")
+        lines.append(f"Total {len(cases['full_success_free_fail'])} cases")
     else:
-        lines.append("无")
+        lines.append("None")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def generate_key_findings(cases: dict, results: dict, pass_rates: dict) -> str:
-    """生成关键发现"""
+    """Generate key findings"""
     lines = []
-    lines.append("## 关键发现")
+    lines.append("## Key Findings")
     lines.append("")
 
-    # 统计案例数量
+    # Count cases
     free_win = len(cases["free_success_full_fail"])
     full_win = len(cases["full_success_free_fail"])
 
-    lines.append("### 1. 案例统计")
+    lines.append("### 1. Case Statistics")
     lines.append("")
-    lines.append(f"- Run-Free 成功但 Run-Full 失败: **{free_win}** 个案例")
-    lines.append(f"- Run-Full 成功但 Run-Free 失败: **{full_win}** 个案例")
-    lines.append(f"- 净差异: **{full_win - free_win}** 个案例（Run-Full 优势）")
-    lines.append("")
-
-    lines.append("### 2. 失败模式分析")
-    lines.append("")
-    lines.append("**Run-Full 模式的典型失败模式:**")
-    lines.append("- 循环试错：反复执行同一测试命令，期望不同结果")
-    lines.append("- 过度修改：修改了不必要的文件，引入新问题")
-    lines.append("- 工具错误：执行过程中遇到环境问题")
-    lines.append("")
-    lines.append("**Run-Free 模式的典型失败模式:**")
-    lines.append("- 推理错误：对问题理解不准确")
-    lines.append("- 缺少验证：无法确认修复是否正确")
-    lines.append("- 环境假设：对运行环境的假设不正确")
+    lines.append(f"- Run-Free succeeds but Run-Full fails: **{free_win}** cases")
+    lines.append(f"- Run-Full succeeds but Run-Free fails: **{full_win}** cases")
+    lines.append(f"- Net difference: **{full_win - free_win}** cases (Run-Full advantage)")
     lines.append("")
 
-    lines.append("### 3. 结论")
+    lines.append("### 2. Failure Mode Analysis")
+    lines.append("")
+    lines.append("**Typical failure modes in Run-Full mode:**")
+    lines.append("- Trial-error loops: Repeatedly executing the same test command, expecting different results")
+    lines.append("- Over-modification: Modifying unnecessary files, introducing new problems")
+    lines.append("- Tool errors: Encountering environment issues during execution")
+    lines.append("")
+    lines.append("**Typical failure modes in Run-Free mode:**")
+    lines.append("- Reasoning errors: Inaccurate understanding of the problem")
+    lines.append("- Lack of verification: Unable to confirm if fix is correct")
+    lines.append("- Environment assumptions: Incorrect assumptions about runtime environment")
+    lines.append("")
+
+    lines.append("### 3. Conclusions")
     lines.append("")
     if full_win > free_win:
-        lines.append(f"- Run-Full 模式在 **{full_win - free_win}** 个案例上优于 Run-Free")
-        lines.append("- 执行反馈在某些情况下确实有帮助")
+        lines.append(f"- Run-Full mode outperforms Run-Free in **{full_win - free_win}** cases")
+        lines.append("- Execution feedback is indeed helpful in some situations")
     elif free_win > full_win:
-        lines.append(f"- Run-Free 模式在 **{free_win - full_win}** 个案例上优于 Run-Full")
-        lines.append("- 执行反馈有时会误导 Agent")
+        lines.append(f"- Run-Free mode outperforms Run-Full in **{free_win - full_win}** cases")
+        lines.append("- Execution feedback sometimes misleads the Agent")
     else:
-        lines.append("- 两种模式各有优劣，没有明显的整体优势")
+        lines.append("- Both modes have their strengths and weaknesses, no clear overall advantage")
 
-    lines.append("- 不同失败模式需要不同的应对策略")
-    lines.append("- 开发者 review 负担取决于失败模式类型")
+    lines.append("- Different failure modes require different response strategies")
+    lines.append("- Developer review burden depends on failure mode type")
 
     return "\n".join(lines)
 
 
 def main():
-    print("正在加载数据...")
+    print("Loading data...")
 
     results = load_all_results()
     pass_rates = load_pass_rates()
     eval_results = load_evaluation_results()
 
     if not results:
-        print("错误: 无法加载实验结果数据")
+        print("Error: Unable to load experimental results data")
         return
 
-    print("正在分析失败模式...")
+    print("Analyzing failure modes...")
     cases = find_interesting_cases(results, eval_results)
 
     output_dir = Path(__file__).parent
     data_file = output_dir / "data_rq5.md"
 
     content = []
-    content.append("# RQ5: Failure Modes - 数据表格")
+    content.append("# RQ5: Failure Modes - Data Tables")
     content.append("")
-    content.append("失败模式分析数据。")
+    content.append("Failure mode analysis data.")
     content.append("")
     content.append(generate_failure_type_analysis(results))
     content.append(generate_failure_mode_distribution(results, pass_rates))
@@ -394,7 +394,7 @@ def main():
     with open(data_file, "w", encoding="utf-8") as f:
         f.write("\n".join(content))
 
-    print(f"数据已保存到: {data_file}")
+    print(f"Data saved to: {data_file}")
 
 
 if __name__ == "__main__":

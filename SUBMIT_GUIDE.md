@@ -1,20 +1,20 @@
-# SWE-bench 提交指南
+# SWE-bench Submission Guide
 
-## 环境准备
+## Environment Setup
 
-1. 安装 sb-cli：
+1. Install sb-cli:
 ```bash
 conda activate swebench
 pip install -e sb-cli/
 ```
 
-2. 配置 API Key（已保存在 `.env` 文件中）：
+2. Configure API Key (already saved in `.env` file):
 ```bash
-# .env 文件内容
+# .env file content
 SWEBENCH_API_KEY=swb_xxx...
 ```
 
-## 查看配额
+## Check Quota
 
 ```bash
 conda activate swebench
@@ -22,15 +22,15 @@ export SWEBENCH_API_KEY=swb_xxx...
 sb-cli get-quotas
 ```
 
-## 使用 submit_to_swebench.sh
+## Using submit_to_swebench.sh
 
-### 列出所有可用组合
+### List All Available Combinations
 
 ```bash
 ./submit_to_swebench.sh --list
 ```
 
-输出示例：
+Example output:
 ```
 Dataset              Agent           Mode            Instances  Patches
 ----------------------------------------------------------------------
@@ -40,69 +40,69 @@ swebenchverified     codex           run_free        99         99
 ...
 ```
 
-### 生成 predictions 文件（不提交）
+### Generate predictions file (without submission)
 
 ```bash
 ./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free --gen-only
 ```
 
-生成的文件保存在 `predictions/` 目录下。
+Generated files are saved in the `predictions/` directory.
 
-### 提交到 SWE-bench
+### Submit to SWE-bench
 
 ```bash
-# 使用默认 run_id (agent_mode)
+# Use default run_id (agent_mode)
 ./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free
 
-# 自定义 run_id
+# Custom run_id
 ./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free --run-id my_experiment_v1
 ```
 
-### 生成所有 predictions 文件
+### Generate All predictions Files
 
 ```bash
 ./submit_to_swebench.sh --all --gen-only
 ```
 
-## 直接使用 sb-cli
+## Using sb-cli Directly
 
-### 提交命令格式
+### Submission Command Format
 
 ```bash
 sb-cli submit <subset> <split> --predictions_path <file> --run_id <id>
 ```
 
-参数说明：
+Parameter explanation:
 - `subset`: `swe-bench_lite` | `swe-bench_verified` | `swe-bench-m`
 - `split`: `test` | `dev`
-- `--predictions_path`: predictions JSON 文件路径
-- `--run_id`: 运行标识符
+- `--predictions_path`: predictions JSON file path
+- `--run_id`: run identifier
 
-### 示例
+### Examples
 
 ```bash
-# 提交到 SWE-bench Verified test 集
+# Submit to SWE-bench Verified test set
 sb-cli submit swe-bench_verified test \
     --predictions_path predictions/swebenchverified_codex_run_free.json \
     --run_id codex_run_free
 
-# 提交到 SWE-bench Lite test 集
+# Submit to SWE-bench Lite test set
 sb-cli submit swe-bench_lite test \
     --predictions_path predictions/swebenchlite_codex_run_free.json \
     --run_id codex_run_free
 ```
 
-### 查看结果
+### View Results
 
 ```bash
-# 获取报告
+# Get report
 sb-cli get-report swe-bench_verified test <run_id>
 
-# 列出所有运行
+# List all runs
 sb-cli list-runs swe-bench_verified test
 ```
 
-## Predictions 文件格式
+## Predictions File Format
 
 ```json
 [
@@ -115,17 +115,17 @@ sb-cli list-runs swe-bench_verified test
 ]
 ```
 
-## 数据集映射
+## Dataset Mapping
 
-| 本地目录名 | sb-cli subset 名称 |
+| Local Directory Name | sb-cli subset Name |
 |-----------|-------------------|
 | swebenchlite | swe-bench_lite |
 | swebenchverified | swe-bench_verified |
 
-## 注意事项
+## Notes
 
-- test 集提交有配额限制，请谨慎使用
-- 提交前建议先用 `--gen-only` 检查生成的 predictions 文件
-- 每次提交的 run_id 应该唯一，便于追踪结果
+- Test set submissions have quota limits, please use carefully
+- Recommend using `--gen-only` to check generated predictions file before submission
+- Each submission's run_id should be unique for easy result tracking
 
 ./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free

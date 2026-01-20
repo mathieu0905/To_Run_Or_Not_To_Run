@@ -1,56 +1,56 @@
-# 模型配置说明
+# Model Configuration Guide
 
-## 概述
+## Overview
 
-现在支持通过环境变量配置 Claude Code 和 Codex 的模型。容器启动时会自动运行配置脚本。
+Now supports configuring Claude Code and Codex models through environment variables. The configuration script runs automatically when the container starts.
 
-## 环境变量
+## Environment Variables
 
-### Claude Code 模型配置
+### Claude Code Model Configuration
 
 ```bash
-export CLAUDE_MODEL="sonnet"  # 或 "opus"
+export CLAUDE_MODEL="sonnet"  # or "opus"
 ```
 
-支持的值：
-- `sonnet` (默认) - Claude Sonnet 4.5
+Supported values:
+- `sonnet` (default) - Claude Sonnet 4.5
 - `opus` - Claude Opus 4.5
 
-### Codex 模型配置
+### Codex Model Configuration
 
 ```bash
-export CODEX_MODEL="gpt-5.2"  # 默认值
-export CODEX_REASONING_EFFORT="medium"  # 默认值
+export CODEX_MODEL="gpt-5.2"  # default value
+export CODEX_REASONING_EFFORT="medium"  # default value
 ```
 
-支持的值：
-- `CODEX_MODEL`: 任何 Codex 支持的模型名称
+Supported values:
+- `CODEX_MODEL`: Any model name supported by Codex
 - `CODEX_REASONING_EFFORT`: `low`, `medium`, `high`
 
-## 使用方式
+## Usage
 
-### 方式 1：在启动容器前设置环境变量
+### Method 1: Set environment variables before starting the container
 
 ```bash
-# 设置模型
+# Set models
 export CLAUDE_MODEL="opus"
 export CODEX_MODEL="gpt-5.2"
 export CODEX_REASONING_EFFORT="high"
 
-# 启动容器
+# Start container
 docker-compose up -d swebench-runner
 docker-compose exec swebench-runner bash
 ```
 
-### 方式 2：在 docker-compose 命令中指定
+### Method 2: Specify in docker-compose command
 
 ```bash
 CLAUDE_MODEL=opus CODEX_MODEL=gpt-5.2 docker-compose up -d swebench-runner
 ```
 
-### 方式 3：修改 .env 文件
+### Method 3: Modify .env file
 
-创建或编辑项目根目录的 `.env` 文件：
+Create or edit the `.env` file in the project root directory:
 
 ```bash
 # .env
@@ -59,94 +59,94 @@ CODEX_MODEL=gpt-5.2
 CODEX_REASONING_EFFORT=high
 ```
 
-然后正常启动容器：
+Then start the container normally:
 
 ```bash
 docker-compose up -d swebench-runner
 ```
 
-## 配置文件位置
+## Configuration File Locations
 
-配置脚本会自动修改以下文件：
+The configuration script automatically modifies the following files:
 
 ### Claude Code
-- 配置文件：`~/.claude/settings.json`
-- 修改字段：`"model": "sonnet"` 或 `"model": "opus"`
+- Configuration file: `~/.claude/settings.json`
+- Modified field: `"model": "sonnet"` or `"model": "opus"`
 
 ### Codex
-- 配置文件：`~/.config/codex/config.toml`
-- 修改字段：
+- Configuration file: `~/.config/codex/config.toml`
+- Modified fields:
   - `model = "gpt-5.2"`
   - `model_reasoning_effort = "medium"`
 
-## 验证配置
+## Verify Configuration
 
-进入容器后，可以查看配置是否生效：
+After entering the container, you can check if the configuration is effective:
 
 ```bash
-# 查看 Claude Code 配置
+# Check Claude Code configuration
 cat ~/.claude/settings.json | grep model
 
-# 查看 Codex 配置
+# Check Codex configuration
 cat ~/.config/codex/config.toml | grep model
 ```
 
-## 在批量实验中使用不同模型
+## Using Different Models in Batch Experiments
 
-### 示例 1：使用 Opus 运行所有实验
+### Example 1: Run all experiments with Opus
 
 ```bash
 export CLAUDE_MODEL="opus"
 ./run_all_experiments.sh
 ```
 
-### 示例 2：为不同 agent 使用不同模型
+### Example 2: Use different models for different agents
 
-由于 Claude Code 和 Codex 使用不同的配置文件，你可以：
+Since Claude Code and Codex use different configuration files, you can:
 
-1. 先运行 Claude Code 实验（使用 Opus）：
+1. First run Claude Code experiments (using Opus):
 ```bash
 export CLAUDE_MODEL="opus"
-# 修改 run_all_experiments.sh，只运行 claude_code
+# Modify run_all_experiments.sh to only run claude_code
 ```
 
-2. 再运行 Codex 实验（使用不同模型）：
+2. Then run Codex experiments (using a different model):
 ```bash
 export CODEX_MODEL="gpt-5.2"
 export CODEX_REASONING_EFFORT="high"
-# 修改 run_all_experiments.sh，只运行 codex
+# Modify run_all_experiments.sh to only run codex
 ```
 
-## 配置脚本
+## Configuration Script
 
-配置脚本位于：`docker/configure_models.sh`
+The configuration script is located at: `docker/configure_models.sh`
 
-该脚本会在容器启动时自动运行，根据环境变量配置模型。
+This script runs automatically when the container starts and configures models based on environment variables.
 
-## 故障排查
+## Troubleshooting
 
-### 配置未生效
+### Configuration not taking effect
 
-1. 检查环境变量是否正确设置：
+1. Check if environment variables are set correctly:
 ```bash
 echo $CLAUDE_MODEL
 echo $CODEX_MODEL
 ```
 
-2. 重新启动容器：
+2. Restart the container:
 ```bash
 docker-compose down
 docker-compose up -d swebench-runner
 ```
 
-3. 手动运行配置脚本：
+3. Manually run the configuration script:
 ```bash
 docker-compose exec swebench-runner /workspace/docker/configure_models.sh
 ```
 
-### 查看配置日志
+### View configuration logs
 
-容器启动时会显示配置信息：
+The container displays configuration information on startup:
 ```bash
-docker-compose logs swebench-runner | grep "配置"
+docker-compose logs swebench-runner | grep "Configuration"
 ```

@@ -1,137 +1,137 @@
-# Run-Free, Run-Less, Run-Full: 执行环境对 LLM Agent 代码修复能力的影响研究
+# Run-Free, Run-Less, Run-Full: Impact of Execution Environments on LLM Agent Code Repair Capabilities
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 📖 项目简介
+## 📖 Project Overview
 
-本项目探索在自动化代码修复任务中，**执行环境对 LLM Agent 能力的影响**。核心研究问题：
+This project explores **the impact of execution environments on LLM Agent capabilities** in automated code repair tasks. Core research question:
 
-> **执行环境是"必要能力"还是"工程捷径"？**
+> **Is execution environment a "necessary capability" or an "engineering shortcut"?**
 
-我们提出三种执行范式，并在 SWE-bench Lite 数据集上进行对比实验：
+We propose three execution paradigms and conduct comparative experiments on the SWE-bench Lite dataset:
 
-| 模式 | 执行策略 | 核心假设 |
+| Mode | Execution Strategy | Core Hypothesis |
 |------|---------|---------|
-| **Run-Free** | 零执行，纯推理 | 模型应具备"一次就对"的能力 |
-| **Run-Less** | 限制 K 次执行 + 智能日志插桩 | "One smart run is worth ten blind runs" |
-| **Run-Cost** | 成本意识决策，模型自主判断是否执行 | 理性 Agent 应权衡执行成本与收益 |
-| **Run-Full** | 无限制执行，试错循环 | 当前主流方法（基线） |
+| **Run-Free** | Zero execution, pure reasoning | Models should have "get it right the first time" capability |
+| **Run-Less** | Limited K executions + intelligent logging instrumentation | "One smart run is worth ten blind runs" |
+| **Run-Cost** | Cost-aware decision making, model autonomously decides whether to execute | Rational agents should weigh execution costs vs. benefits |
+| **Run-Full** | Unrestricted execution, trial-and-error loop | Current mainstream approach (baseline) |
 
-## 🎯 核心假设
+## 🎯 Core Hypothesis
 
-**限制执行次数 + 智能日志插桩可能优于无限制执行**
+**Limited execution count + intelligent logging instrumentation may outperform unrestricted execution**
 
-- Run-Less 模式强制 Agent 将调试过程视为"实验设计问题"而非"搜索问题"
-- 通过日志插桩最大化每次执行的信息增益
-- 降低执行成本，提高推理质量（Green AI 视角）
+- Run-Less mode forces agents to view debugging as an "experimental design problem" rather than a "search problem"
+- Maximize information gain from each execution through logging instrumentation
+- Reduce execution costs and improve reasoning quality (Green AI perspective)
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 环境要求
+### Requirements
 
 - Python 3.8+
-- Docker（用于 SWE-bench 评估）
-- 至少 120GB 磁盘空间、16GB RAM、8 CPU 核心
+- Docker (for SWE-bench evaluation)
+- At least 120GB disk space, 16GB RAM, 8 CPU cores
 
-### 安装
+### Installation
 
 ```bash
-# 克隆仓库（包含 SWE-bench 子模块）
+# Clone repository (including SWE-bench submodule)
 git clone --recurse-submodules https://github.com/your-repo/run_free_run_less_run_full.git
 cd run_free_run_less_run_full
 
-# 安装依赖
+# Install dependencies
 pip install -r requirements.txt
 
-# 下载 SWE-bench Lite 数据集
+# Download SWE-bench Lite dataset
 python experiments/download_datasets.py
 ```
 
-### 运行实验
+### Running Experiments
 
 ```bash
-# 全流程测试
+# Full test suite
 bash ./run_all_experiments.sh
 
-# Run-Free 模式（零执行）
+# Run-Free mode (zero execution)
 python experiments/runner.py django__django-11099 run_free
 
-# Run-Less 模式（限制 2 次执行）
+# Run-Less mode (limited to 2 executions)
 python experiments/runner.py django__django-11099 run_less 2
 
-# Run-Cost 模式（成本意识决策）
+# Run-Cost mode (cost-aware decision making)
 python experiments/runner.py django__django-11099 run_cost
 
-# Run-Full 模式（无限制执行）
+# Run-Full mode (unrestricted execution)
 python experiments/runner.py django__django-11099 run_full
 ```
 
-实验结果保存在 `experiments/results/` 目录。
+Experiment results are saved in the `experiments/results/` directory.
 
-## 📊 实验设计
+## 📊 Experimental Design
 
-### 执行次数统计规则
+### Execution Count Rules
 
-**计入执行次数**：
-- `pytest` 或 `python -m pytest`
-- `python script.py`（运行 .py 文件）
-- `python -m module`（运行模块）
+**Counted as execution**:
+- `pytest` or `python -m pytest`
+- `python script.py` (running .py files)
+- `python -m module` (running modules)
 
-**不计入执行次数**：
-- `ls`, `cat`, `grep`, `find` 等查看命令
-- `git` 命令（实验中禁用）
-- `python -c "..."` 简单计算
+**Not counted as execution**:
+- `ls`, `cat`, `grep`, `find` and other viewing commands
+- `git` commands (disabled in experiments)
+- `python -c "..."` simple calculations
 
-### Run-Less 模式的关键机制
+### Key Mechanisms of Run-Less Mode
 
-1. **测试脚本优先**：Agent 需要先根据问题描述编写测试脚本
-2. **日志插桩**：在运行测试前，在关键位置插入 print/log 语句
-3. **假设驱动**：每次执行前明确假设，执行后分析结果
-4. **预算追踪**：Agent 必须输出"剩余测试运行次数: X"
+1. **Test Script Priority**: Agent needs to write test scripts based on problem description first
+2. **Logging Instrumentation**: Insert print/log statements at key locations before running tests
+3. **Hypothesis-Driven**: Clearly state hypothesis before each execution, analyze results after execution
+4. **Budget Tracking**: Agent must output "Remaining test runs: X"
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 .
 ├── experiments/
-│   ├── runner.py              # 实验运行器
-│   ├── prompt_builder.py      # Prompt 构造器
-│   ├── agent_caller.py        # Agent 调用器
-│   ├── download_datasets.py   # 数据集下载工具
-│   ├── tests/                 # 单元测试和集成测试
-│   └── results/               # 实验结果输出目录
-├── SWE-bench/                 # SWE-bench 官方代码库（子模块）
-├── data/                      # 数据集存储目录
-├── docker/                    # Docker 镜像构建脚本
-├── CLAUDE.md                  # Claude Code 项目指南
-└── README.md                  # 本文件
+│   ├── runner.py              # Experiment runner
+│   ├── prompt_builder.py      # Prompt builder
+│   ├── agent_caller.py        # Agent caller
+│   ├── download_datasets.py   # Dataset download tool
+│   ├── tests/                 # Unit tests and integration tests
+│   └── results/               # Experiment results output directory
+├── SWE-bench/                 # SWE-bench official codebase (submodule)
+├── data/                      # Dataset storage directory
+├── docker/                    # Docker image build scripts
+├── CLAUDE.md                  # Claude Code project guide
+└── README.md                  # This file
 ```
 
-## 🧪 测试
+## 🧪 Testing
 
 ```bash
-# 运行所有测试
+# Run all tests
 pytest experiments/tests/
 
-# 运行特定测试
+# Run specific tests
 pytest experiments/tests/test_runner.py
 pytest experiments/tests/test_agent_caller.py
 
-# 运行集成测试（需要真实 Agent）
+# Run integration tests (requires real Agent)
 pytest experiments/tests/test_agent_integration.py
 pytest experiments/tests/test_runner_integration.py
 ```
 
-## 📈 评估
+## 📈 Evaluation
 
-可以先简单地分析交互轮数，token等
+You can first simply analyze interaction rounds, tokens, etc.
 ```bash
 python experiments/analyze_results.py
 ```
 
 
-使用 SWE-bench 官方评估框架,但是最建议还是提交到sb-cli上评估比较快：
+Use the SWE-bench official evaluation framework, but it is most recommended to submit to sb-cli for faster evaluation:
 
 ```bash
 python -m swebench.harness.run_evaluation \
@@ -141,21 +141,21 @@ python -m swebench.harness.run_evaluation \
     --run_id my_experiment
 ```
 
-## 🎓 研究目标
+## 🎓 Research Objectives
 
-**目标会议**: ISSTA 2026（软件测试与分析国际研讨会）
+**Target Conference**: ISSTA 2026 (International Symposium on Software Testing and Analysis)
 
-**核心贡献**:
-1. 提出执行环境的三分法范式（Run-Free/Run-Less/Run-Full）
-2. 证明限制执行 + 智能插桩可能优于无限制执行
-3. 将调试过程重新定义为"实验设计问题"而非"搜索问题"
-4. 提供 Green AI 视角：降低执行成本，提高推理质量
+**Core Contributions**:
+1. Propose a three-paradigm taxonomy of execution environments (Run-Free/Run-Less/Run-Full)
+2. Demonstrate that limited execution + intelligent instrumentation may outperform unrestricted execution
+3. Reframe the debugging process as an "experimental design problem" rather than a "search problem"
+4. Provide a Green AI perspective: reduce execution costs and improve reasoning quality
 
-**预期发现**: Run-Less + Logging ≈ 或 > Run-Full，但成本显著降低
+**Expected Findings**: Run-Less + Logging ≈ or > Run-Full, but with significantly lower costs
 
-## 📝 引用
+## 📝 Citation
 
-如果本项目对您的研究有帮助，请引用：
+If this project is helpful to your research, please cite:
 
 ```bibtex
 @inproceedings{run-free-run-less-2026,
@@ -166,14 +166,14 @@ python -m swebench.harness.run_evaluation \
 }
 ```
 
-## 📄 许可证
+## 📄 License
 
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-## 📧 联系方式
+## 📧 Contact
 
-如有问题，请联系：[your-email@example.com](mailto:your-email@example.com)
+For questions, please contact: [your-email@example.com](mailto:your-email@example.com)

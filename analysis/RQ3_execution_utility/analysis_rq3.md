@@ -1,103 +1,103 @@
-# RQ3: Execution Utility - 执行行为的目的分析
+# RQ3: Execution Utility - Purpose Analysis of Execution Behavior
 
-## 研究问题
+## Research Question
 
-**RQ3**: 在不同 regime 下，执行行为（execute）主要用于什么目的（验证、定位、环境确认、试错循环）？哪些类型的执行能带来实际收益，哪些属于低价值开销？
+**RQ3**: Under different regimes, what are execution behaviors primarily used for (verification, localization, environment confirmation, trial-and-error loops)? Which types of executions bring actual benefits, and which are low-value overhead?
 
-## 方法
+## Method
 
-基于规则自动分类执行命令：
+Automatically classify execution commands based on rules:
 
-| 类别 | 描述 | 典型命令 |
+| Category | Description | Typical Commands |
 |------|------|----------|
-| 验证 (Verification) | 运行测试框架验证修复 | pytest, unittest, manage.py test |
-| 定位 (Localization) | 运行脚本定位问题 | python script.py |
-| 环境确认 (Environment) | 确认环境配置 | python --version, pip list |
-| 探索 (Exploration) | 探索文件系统和代码 | ls, find, cat, grep |
+| Verification | Run test frameworks to validate fixes | pytest, unittest, manage.py test |
+| Localization | Run scripts to locate problems | python script.py |
+| Environment | Confirm environment configuration | python --version, pip list |
+| Exploration | Explore file system and code | ls, find, cat, grep |
 
-## 主要发现
+## Main Findings
 
-### 1. Claude Code 的执行行为分析
+### 1. Claude Code Execution Behavior Analysis
 
 **SWE-bench Lite:**
 
-| Mode | 总执行 | 验证 | 定位 | 环境 | 探索 |
+| Mode | Total Exec | Verification | Localization | Environment | Exploration |
 |------|--------|------|------|------|------|
 | run_free | 693 | 59 (8.5%) | 16 (2.3%) | 44 (6.3%) | 493 (71.1%) |
 | run_less_k1 | 1064 | 395 (37.1%) | 235 (22.1%) | 92 (8.6%) | 257 (24.2%) |
 | run_full | 1804 | 703 (39.0%) | 239 (13.2%) | 342 (19.0%) | 375 (20.8%) |
 
-**关键观察**:
-- Run-Free 模式下仍有 693 次"执行"，但主要是探索类（ls, cat 等），验证执行仅 59 次
-- Run-Full 模式下验证执行占比最高（39%），说明执行主要用于验证修复
-- 从 Run-Free 到 Run-Full，执行次数增加 160%（693 → 1804）
+**Key Observations**:
+- Run-Free mode still has 693 "executions", but mainly exploration (ls, cat, etc.), with only 59 verification executions
+- Run-Full mode has the highest proportion of verification executions (39%), indicating execution is primarily used for validating fixes
+- From Run-Free to Run-Full, execution count increases by 160% (693 → 1804)
 
-### 2. Codex 的执行行为分析
+### 2. Codex Execution Behavior Analysis
 
 **SWE-bench Lite:**
 
-| Mode | 总执行 | 验证 | 定位 | 环境 | 探索 | Other |
+| Mode | Total Exec | Verification | Localization | Environment | Exploration | Other |
 |------|--------|------|------|------|------|-------|
 | run_free | 4324 | 0 (0%) | 0 (0%) | 0 (0%) | 2372 (54.9%) | 1952 (45.1%) |
 | run_full | 4636 | 634 (13.7%) | 44 (0.9%) | 80 (1.7%) | 1090 (23.5%) | 2788 (60.1%) |
 
-**关键观察**:
-- Codex 在 Run-Free 模式下完全没有验证执行（0 次）
-- Codex 的总执行次数远高于 Claude Code（4324 vs 693）
-- Codex 的 "Other" 类别占比很高（45-60%），说明其执行行为更多样化
+**Key Observations**:
+- Codex has absolutely no verification executions in Run-Free mode (0 times)
+- Codex's total execution count is far higher than Claude Code (4324 vs 693)
+- Codex's "Other" category has a high proportion (45-60%), indicating more diverse execution behavior
 
-### 3. 试错循环分析
+### 3. Trial-and-Error Loop Analysis
 
-| Agent | Mode | 重复命令数 |
+| Agent | Mode | Repeated Commands |
 |-------|------|------------|
 | Claude Code | run_free | 8 |
 | Claude Code | run_full | 124 |
 | Codex | run_free | 2041 |
 | Codex | run_full | 2122 |
 
-**关键观察**:
-- Claude Code 的试错循环随执行权限增加而增加（8 → 124）
-- Codex 的试错循环在所有模式下都很高（~2000），且变化不大
-- 这说明 Codex 的执行行为更加"盲目"，而 Claude Code 更加"有目的"
+**Key Observations**:
+- Claude Code's trial-and-error loops increase with execution privileges (8 → 124)
+- Codex's trial-and-error loops are high across all modes (~2000) with little variation
+- This indicates Codex's execution behavior is more "blind", while Claude Code is more "purposeful"
 
-### 4. 执行效率对比
+### 4. Execution Efficiency Comparison
 
-**每次验证执行带来的 Pass Rate 提升**:
+**Pass Rate improvement per verification execution**:
 
-| Agent | Dataset | 验证执行增量 | Pass Rate 增量 | 效率 |
+| Agent | Dataset | Verification Exec Increase | Pass Rate Increase | Efficiency |
 |-------|---------|--------------|----------------|------|
-| Claude Code | Lite | +644 | +1.0% | 0.0016%/次 |
-| Claude Code | Verified | +587 | +3.0% | 0.0051%/次 |
-| Codex | Lite | +634 | -1.0% | -0.0016%/次 |
-| Codex | Verified | +592 | +2.0% | 0.0034%/次 |
+| Claude Code | Lite | +644 | +1.0% | 0.0016%/exec |
+| Claude Code | Verified | +587 | +3.0% | 0.0051%/exec |
+| Codex | Lite | +634 | -1.0% | -0.0016%/exec |
+| Codex | Verified | +592 | +2.0% | 0.0034%/exec |
 
-**结论**: 每次验证执行带来的边际收益极低（< 0.01%）
+**Conclusion**: The marginal benefit of each verification execution is extremely low (< 0.01%)
 
-## 结论
+## Conclusion
 
-1. **验证是主要执行目的**
-   - 在有执行权限的模式下，验证执行占比 35-40%（Claude Code）
-   - 验证执行用于确认修复是否正确
+1. **Verification is the primary execution purpose**
+   - In modes with execution privileges, verification executions account for 35-40% (Claude Code)
+   - Verification executions are used to confirm whether fixes are correct
 
-2. **探索执行占比高但价值低**
-   - 探索类执行（ls, cat, grep）占比 20-70%
-   - 这些执行可以被静态分析替代
+2. **Exploration executions have high proportion but low value**
+   - Exploration executions (ls, cat, grep) account for 20-70%
+   - These executions can be replaced by static analysis
 
-3. **试错循环普遍存在**
-   - Codex 的试错循环尤为严重（~2000 次重复命令）
-   - 这说明执行反馈并未被有效利用
+3. **Trial-and-error loops are prevalent**
+   - Codex's trial-and-error loops are particularly severe (~2000 repeated commands)
+   - This indicates execution feedback is not being effectively utilized
 
-4. **执行效率极低**
-   - 每次验证执行带来的 Pass Rate 提升 < 0.01%
-   - 大量执行属于"低价值开销"
+4. **Execution efficiency is extremely low**
+   - Each verification execution brings < 0.01% Pass Rate improvement
+   - Most executions are "low-value overhead"
 
-5. **Agent 差异显著**
-   - Claude Code 的执行更有目的性（验证占比高）
-   - Codex 的执行更盲目（Other 占比高，试错多）
+5. **Significant agent differences**
+   - Claude Code's executions are more purposeful (high verification proportion)
+   - Codex's executions are more blind (high Other proportion, more trial-and-error)
 
-## 对研究假设的影响
+## Impact on Research Hypothesis
 
-数据表明：
-- 大部分执行属于"低价值开销"（探索、试错）
-- 验证执行虽然有价值，但边际收益极低
-- 这支持了"执行环境是工程捷径而非必要能力"的观点
+Data indicates:
+- Most executions are "low-value overhead" (exploration, trial-and-error)
+- Verification executions have value but extremely low marginal benefit
+- This supports the view that "execution environment is an engineering shortcut rather than a necessary capability"

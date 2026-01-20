@@ -1,40 +1,40 @@
 #!/usr/bin/env python3
 """
-下载并保存 SWE-bench 数据集到本地
+Download and save SWE-bench datasets locally
 """
 from datasets import load_dataset
 from pathlib import Path
 import json
 
-# 数据集保存目录
+# Dataset save directory
 DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-print("开始下载数据集...")
+print("Starting dataset download...")
 
-# 下载 SWE-bench Lite
-print("\n1. 下载 SWE-bench Lite...")
+# Download SWE-bench Lite
+print("\n1. Downloading SWE-bench Lite...")
 lite_dataset = load_dataset("princeton-nlp/SWE-bench_Lite", split="test")
-print(f"   ✓ 已加载 {len(lite_dataset)} 个实例")
+print(f"   ✓ Loaded {len(lite_dataset)} instances")
 
-# 保存为 JSON
+# Save as JSON
 lite_path = DATA_DIR / "swe_bench_lite.json"
 with open(lite_path, 'w', encoding='utf-8') as f:
     json.dump([dict(item) for item in lite_dataset], f, indent=2, ensure_ascii=False)
-print(f"   ✓ 已保存到: {lite_path}")
+print(f"   ✓ Saved to: {lite_path}")
 
-# 下载 SWE-bench Verified
-print("\n2. 下载 SWE-bench Verified...")
+# Download SWE-bench Verified
+print("\n2. Downloading SWE-bench Verified...")
 verified_dataset = load_dataset("princeton-nlp/SWE-bench_Verified", split="test")
-print(f"   ✓ 已加载 {len(verified_dataset)} 个实例")
+print(f"   ✓ Loaded {len(verified_dataset)} instances")
 
-# 保存为 JSON
+# Save as JSON
 verified_path = DATA_DIR / "swe_bench_verified.json"
 with open(verified_path, 'w', encoding='utf-8') as f:
     json.dump([dict(item) for item in verified_dataset], f, indent=2, ensure_ascii=False)
-print(f"   ✓ 已保存到: {verified_path}")
+print(f"   ✓ Saved to: {verified_path}")
 
-print("\n✅ 所有数据集已保存到本地！")
-print(f"\n数据集位置: {DATA_DIR}")
-print(f"  - SWE-bench Lite: {lite_path.name} ({len(lite_dataset)} 个实例)")
-print(f"  - SWE-bench Verified: {verified_path.name} ({len(verified_dataset)} 个实例)")
+print("\n✅ All datasets saved locally!")
+print(f"\nDataset location: {DATA_DIR}")
+print(f"  - SWE-bench Lite: {lite_path.name} ({len(lite_dataset)} instances)")
+print(f"  - SWE-bench Verified: {verified_path.name} ({len(verified_dataset)} instances)")

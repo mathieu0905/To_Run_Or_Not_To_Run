@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-统计分析脚本 - 为论文提供统计可靠性支持
+Statistical Analysis Script - Providing Statistical Reliability Support for Papers
 
-包含：
-1. Wilson 置信区间计算
-2. McNemar 配对检验
-3. 跨数据集一致性分析
-4. 可直接放进论文的结果输出
+Includes:
+1. Wilson Confidence Interval Calculation
+2. McNemar Paired Test
+3. Cross-Dataset Consistency Analysis
+4. Paper-Ready Result Output
 """
 
 import sys
@@ -25,15 +25,15 @@ from common.data_loader import (
 
 def wilson_ci(successes: int, total: int, confidence: float = 0.95) -> tuple:
     """
-    计算 Wilson score 置信区间
-    比正态近似更稳定，特别是在 p 接近 0 或 1 时
-    使用纯 Python 实现，不依赖 scipy
+    Calculate Wilson score confidence interval
+    More stable than normal approximation, especially when p is close to 0 or 1
+    Pure Python implementation, no scipy dependency
     """
     if total == 0:
         return (0, 0)
 
-    # 95% 置信度对应的 z 值
-    z = 1.96  # 对于 95% CI
+    # z value for 95% confidence level
+    z = 1.96  # for 95% CI
 
     p = successes / total
 
@@ -48,7 +48,7 @@ def wilson_ci(successes: int, total: int, confidence: float = 0.95) -> tuple:
 
 
 def load_instance_level_results() -> dict:
-    """加载实例级别的结果（用于配对检验）"""
+    """Load instance-level results (for paired testing)"""
     results = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
 
     sb_cli_reports_dir = PROJECT_ROOT / "sb-cli-reports"
@@ -60,7 +60,7 @@ def load_instance_level_results() -> dict:
             report = json.loads(report_file.read_text(encoding="utf-8"))
             filename = report_file.stem
 
-            # 确定数据集
+            # Determine dataset
             if "lite" in filename.lower():
                 dataset = "swebenchlite"
             elif "verified" in filename.lower():
@@ -68,7 +68,7 @@ def load_instance_level_results() -> dict:
             else:
                 continue
 
-            # 确定 agent 和 mode
+            # Determine agent and mode
             for agent in ["claude_code", "codex"]:
                 if agent in filename:
                     for mode in MODE_ORDER:
@@ -89,8 +89,8 @@ def load_instance_level_results() -> dict:
 
 def mcnemar_test(results: dict, dataset: str, agent: str, mode1: str, mode2: str) -> dict:
     """
-    McNemar 配对检验
-    比较两个模式在相同实例上的表现差异
+    McNemar paired test
+    Compare performance differences between two modes on the same instances
     """
     data1 = results.get(dataset, {}).get(agent, {}).get(mode1, {})
     data2 = results.get(dataset, {}).get(agent, {}).get(mode2, {})
@@ -101,20 +101,20 @@ def mcnemar_test(results: dict, dataset: str, agent: str, mode1: str, mode2: str
     resolved1 = data1.get("resolved_ids", set())
     resolved2 = data2.get("resolved_ids", set())
 
-    # 计算四格表
-    # a: 两者都成功
-    # b: mode1 成功，mode2 失败
-    # c: mode1 失败，mode2 成功
-    # d: 两者都失败
+    # Calculate contingency table
+    # a: both succeed
+    # b: mode1 succeeds, mode2 fails
+    # c: mode1 fails, mode2 succeeds
+    # d: both fail
 
     all_instances = resolved1 | resolved2
 
-    a = len(resolved1 & resolved2)  # 都成功
-    b = len(resolved1 - resolved2)  # 1成功2失败
-    c = len(resolved2 - resolved1)  # 1失败2成功
-    # d = total - a - b - c  # 都失败（不需要用到）
+    a = len(resolved1 & resolved2)  # both succeed
+    b = len(resolved1 - resolved2)  # 1 succeeds, 2 fails
+    c = len(resolved2 - resolved1)  # 1 fails, 2 succeeds
+    # d = total - a - b - c  # both fail (not needed)
 
-    # McNemar 检验只关心 b 和 c
+    # McNemar test only cares about b and c
     if b + c == 0:
         return {
             "b": b, "c": c,
@@ -123,12 +123,12 @@ def mcnemar_test(results: dict, dataset: str, agent: str, mode1: str, mode2: str
             "significant": False
         }
 
-    # 使用精确检验（二项分布）
-    # H0: b = c，即两种模式没有差异
+    # Use exact test (binomial distribution)
+    # H0: b = c, i.e., no difference between two modes
     n = b + c
-    # 纯 Python 实现二项分布 CDF
+    # Pure Python implementation of binomial distribution CDF
     def binom_cdf(k, n, p):
-        """计算二项分布 CDF: P(X <= k)"""
+        """Calculate binomial distribution CDF: P(X <= k)"""
         if k < 0:
             return 0.0
         if k >= n:
@@ -149,8 +149,8 @@ def mcnemar_test(results: dict, dataset: str, agent: str, mode1: str, mode2: str
     p_value = min(p_value, 1.0)
 
     return {
-        "b": b,  # mode1 成功但 mode2 失败
-        "c": c,  # mode1 失败但 mode2 成功
+        "b": b,  # mode1 succeeds but mode2 fails
+        "c": c,  # mode1 fails but mode2 succeeds
         "statistic": (abs(b - c) - 1)**2 / (b + c) if b + c > 0 else 0,
         "p_value": p_value,
         "significant": p_value < 0.05
@@ -158,11 +158,11 @@ def mcnemar_test(results: dict, dataset: str, agent: str, mode1: str, mode2: str
 
 
 def generate_wilson_ci_table(pass_rates: dict) -> str:
-    """生成 Wilson 置信区间表格"""
+    """Generate Wilson confidence interval table"""
     lines = []
-    lines.append("## Wilson 95% 置信区间")
+    lines.append("## Wilson 95% Confidence Intervals")
     lines.append("")
-    lines.append("使用 Wilson score interval，比正态近似更稳定。")
+    lines.append("Using Wilson score interval, more stable than normal approximation.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -193,11 +193,11 @@ def generate_wilson_ci_table(pass_rates: dict) -> str:
 
 
 def generate_ci_overlap_analysis(pass_rates: dict) -> str:
-    """生成置信区间重叠分析"""
+    """Generate confidence interval overlap analysis"""
     lines = []
-    lines.append("## 置信区间重叠分析")
+    lines.append("## Confidence Interval Overlap Analysis")
     lines.append("")
-    lines.append("分析不同模式之间的置信区间是否重叠，重叠表示差异不显著。")
+    lines.append("Analyze whether confidence intervals overlap between different modes. Overlap indicates non-significant differences.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -212,29 +212,29 @@ def generate_ci_overlap_analysis(pass_rates: dict) -> str:
             lines.append(f"**{agent}:**")
             lines.append("")
 
-            # 计算所有模式的 CI
+            # Calculate CI for all modes
             ci_data = {}
             for mode in sort_modes(modes.keys()):
                 data = modes[mode]
                 lower, upper = wilson_ci(data["resolved"], data["total"])
                 ci_data[mode] = (lower, upper, data["resolved"] / data["total"])
 
-            # 比较 run_free vs run_full
+            # Compare run_free vs run_full
             if "run_free" in ci_data and "run_full" in ci_data:
                 free_ci = ci_data["run_free"]
                 full_ci = ci_data["run_full"]
 
-                # 检查重叠
+                # Check overlap
                 overlap = not (free_ci[1] < full_ci[0] or full_ci[1] < free_ci[0])
 
                 lines.append(f"- run_free: {free_ci[2]*100:.1f}% [{free_ci[0]*100:.1f}%, {free_ci[1]*100:.1f}%]")
                 lines.append(f"- run_full: {full_ci[2]*100:.1f}% [{full_ci[0]*100:.1f}%, {full_ci[1]*100:.1f}%]")
-                lines.append(f"- 置信区间重叠: **{'是' if overlap else '否'}**")
+                lines.append(f"- CI Overlap: **{'Yes' if overlap else 'No'}**")
 
                 if overlap:
-                    lines.append(f"- 结论: 差异在统计上不显著")
+                    lines.append(f"- Conclusion: Difference is not statistically significant")
                 else:
-                    lines.append(f"- 结论: 差异在统计上显著")
+                    lines.append(f"- Conclusion: Difference is statistically significant")
 
             lines.append("")
 
@@ -242,11 +242,11 @@ def generate_ci_overlap_analysis(pass_rates: dict) -> str:
 
 
 def generate_mcnemar_analysis(instance_results: dict) -> str:
-    """生成 McNemar 配对检验分析"""
+    """Generate McNemar paired test analysis"""
     lines = []
-    lines.append("## McNemar 配对检验")
+    lines.append("## McNemar Paired Test")
     lines.append("")
-    lines.append("检验同一实例在不同模式下的表现差异是否显著。")
+    lines.append("Test whether performance differences on the same instances under different modes are significant.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -264,46 +264,46 @@ def generate_mcnemar_analysis(instance_results: dict) -> str:
             result = mcnemar_test(instance_results, dataset, agent, "run_free", "run_full")
             if result:
                 lines.append("run_free vs run_full:")
-                lines.append(f"- run_free 成功但 run_full 失败: {result['b']} 个实例")
-                lines.append(f"- run_free 失败但 run_full 成功: {result['c']} 个实例")
+                lines.append(f"- run_free succeeds but run_full fails: {result['b']} instances")
+                lines.append(f"- run_free fails but run_full succeeds: {result['c']} instances")
                 lines.append(f"- p-value: {result['p_value']:.4f}")
-                lines.append(f"- 显著性 (α=0.05): **{'显著' if result['significant'] else '不显著'}**")
+                lines.append(f"- Significance (α=0.05): **{'Significant' if result['significant'] else 'Not significant'}**")
                 lines.append("")
 
             # run_less_k1 vs run_full
             result = mcnemar_test(instance_results, dataset, agent, "run_less_k1", "run_full")
             if result:
                 lines.append("run_less_k1 vs run_full:")
-                lines.append(f"- run_less_k1 成功但 run_full 失败: {result['b']} 个实例")
-                lines.append(f"- run_less_k1 失败但 run_full 成功: {result['c']} 个实例")
+                lines.append(f"- run_less_k1 succeeds but run_full fails: {result['b']} instances")
+                lines.append(f"- run_less_k1 fails but run_full succeeds: {result['c']} instances")
                 lines.append(f"- p-value: {result['p_value']:.4f}")
-                lines.append(f"- 显著性 (α=0.05): **{'显著' if result['significant'] else '不显著'}**")
+                lines.append(f"- Significance (α=0.05): **{'Significant' if result['significant'] else 'Not significant'}**")
                 lines.append("")
 
     return "\n".join(lines)
 
 
 def generate_cross_dataset_consistency(pass_rates: dict) -> str:
-    """生成跨数据集一致性分析"""
+    """Generate cross-dataset consistency analysis"""
     lines = []
-    lines.append("## 跨数据集一致性分析")
+    lines.append("## Cross-Dataset Consistency Analysis")
     lines.append("")
-    lines.append("验证结论在不同数据集上的一致性。")
+    lines.append("Verify consistency of conclusions across different datasets.")
     lines.append("")
 
     for agent in ["claude_code", "codex"]:
         lines.append(f"### {agent}")
         lines.append("")
 
-        # 收集两个数据集的数据
+        # Collect data from both datasets
         lite_data = pass_rates.get("swebenchlite", {}).get(agent, {})
         verified_data = pass_rates.get("swebenchverified", {}).get(agent, {})
 
         if not lite_data or not verified_data:
             continue
 
-        lines.append("| Mode | Lite Pass Rate | Verified Pass Rate | 趋势一致 |")
-        lines.append("|------|----------------|--------------------| ---------|")
+        lines.append("| Mode | Lite Pass Rate | Verified Pass Rate | Trend Consistent |")
+        lines.append("|------|----------------|--------------------| -----------------|")
 
         for mode in sort_modes(lite_data.keys()):
             if mode not in verified_data:
@@ -312,7 +312,7 @@ def generate_cross_dataset_consistency(pass_rates: dict) -> str:
             lite_rate = lite_data[mode]["resolved"] / lite_data[mode]["total"] * 100
             verified_rate = verified_data[mode]["resolved"] / verified_data[mode]["total"] * 100
 
-            # 简单判断趋势是否一致（与 run_full 的相对关系）
+            # Simple judgment of whether trends are consistent (relative relationship with run_full)
             lite_full = lite_data.get("run_full", {})
             verified_full = verified_data.get("run_full", {})
 
@@ -323,7 +323,7 @@ def generate_cross_dataset_consistency(pass_rates: dict) -> str:
                 lite_diff = lite_rate - lite_full_rate
                 verified_diff = verified_rate - verified_full_rate
 
-                # 趋势一致：两个数据集上相对于 run_full 的差异方向相同
+                # Trend consistent: difference direction relative to run_full is the same on both datasets
                 consistent = (lite_diff >= 0) == (verified_diff >= 0) or abs(lite_diff) < 2 or abs(verified_diff) < 2
                 consistent_str = "✓" if consistent else "✗"
             else:
@@ -337,12 +337,12 @@ def generate_cross_dataset_consistency(pass_rates: dict) -> str:
 
 
 def generate_paper_ready_text(pass_rates: dict, instance_results: dict) -> str:
-    """生成可直接放进论文的文本"""
+    """Generate paper-ready text"""
     lines = []
-    lines.append("## 可直接放进论文的文本")
+    lines.append("## Paper-Ready Text")
     lines.append("")
 
-    # 英文版
+    # English version
     lines.append("### English Version")
     lines.append("")
     lines.append("#### Experimental Setup")
@@ -353,7 +353,7 @@ def generate_paper_ready_text(pass_rates: dict, instance_results: dict) -> str:
     lines.append("#### Statistical Reliability")
     lines.append("")
 
-    # 计算具体数值
+    # Calculate specific values
     codex_verified = pass_rates.get("swebenchverified", {}).get("codex", {})
     if codex_verified:
         full_data = codex_verified.get("run_full", {})
@@ -373,56 +373,56 @@ def generate_paper_ready_text(pass_rates: dict, instance_results: dict) -> str:
     lines.append("> Using a prefix subset of the dataset may introduce ordering bias. However, we performed no selective filtering, and we demonstrate the stability of observed trends through confidence intervals and paired comparisons. The consistency of findings across both SWE-bench Lite and Verified further supports the robustness of our conclusions. Future work may extend to additional instances to further validate generalizability.")
     lines.append("")
 
-    # 中文版
-    lines.append("### 中文版")
+    # Chinese version
+    lines.append("### Chinese Version")
     lines.append("")
-    lines.append("#### 实验设置")
+    lines.append("#### Experimental Setup")
     lines.append("")
-    lines.append("> 我们未进行任何任务筛选或人工挑选。为确保完全可复现性，我们直接使用 SWE-bench Lite 与 SWE-bench Verified 官方发布顺序中的前 100 个实例作为确定性评测子集，并在附录公开实例 ID 列表。本工作关注不同 execution regime 对 agent 成本与行为机制的影响，因此该确定性子集足以支持受控对比。")
+    lines.append("> We did not perform any task filtering or manual selection. To ensure full reproducibility, we directly used the first 100 instances from the official release order of SWE-bench Lite and SWE-bench Verified as our deterministic evaluation subset, with instance ID lists disclosed in the appendix. This work focuses on the impact of different execution regimes on agent cost and behavioral mechanisms, so this deterministic subset is sufficient to support controlled comparison.")
     lines.append("")
 
-    lines.append("#### 统计可靠性")
+    lines.append("#### Statistical Reliability")
     lines.append("")
     if codex_verified and full_data and free_data:
-        lines.append(f"> 我们报告每个 setting 的通过率及其 95% Wilson 置信区间。以 Codex 在 SWE-bench Verified 上的结果为例：Run-Full 达到 {full_data['resolved']}/{full_data['total']} ({full_data['resolved']/full_data['total']*100:.1f}%, CI: [{full_ci[0]*100:.1f}%, {full_ci[1]*100:.1f}%])，Run-Free 达到 {free_data['resolved']}/{free_data['total']} ({free_data['resolved']/free_data['total']*100:.1f}%, CI: [{free_ci[0]*100:.1f}%, {free_ci[1]*100:.1f}%])。置信区间高度重叠，表明通过率差异在统计噪声范围内。相较之下，成本差异显著（如 Claude Code 从 Run-Free 到 Run-Full Token 增长 146%）。这表明 execution regime 的主要影响体现在效率与轨迹行为，而非正确性。")
+        lines.append(f"> We report the pass rate and its 95% Wilson confidence interval for each setting. Taking Codex results on SWE-bench Verified as an example: Run-Full achieves {full_data['resolved']}/{full_data['total']} ({full_data['resolved']/full_data['total']*100:.1f}%, CI: [{full_ci[0]*100:.1f}%, {full_ci[1]*100:.1f}%]), Run-Free achieves {free_data['resolved']}/{free_data['total']} ({free_data['resolved']/free_data['total']*100:.1f}%, CI: [{free_ci[0]*100:.1f}%, {free_ci[1]*100:.1f}%]). The confidence intervals highly overlap, indicating that pass rate differences are within statistical noise. In contrast, cost differences are significant (e.g., Claude Code shows 146% token increase from Run-Free to Run-Full). This suggests that the main impact of execution regime is reflected in efficiency and trajectory behavior, rather than correctness.")
     lines.append("")
 
-    lines.append("#### 有效性威胁")
+    lines.append("#### Threats to Validity")
     lines.append("")
-    lines.append("> 由于使用数据集前缀子集，结果可能受到顺序偏置影响。然而我们未进行任何选择性筛选，并以置信区间与配对比较展示观察趋势的稳定性。结论在 SWE-bench Lite 和 Verified 两个数据集上的一致性进一步支持了结果的稳健性。未来可扩展至更多实例以进一步验证结论的普适性。")
+    lines.append("> Due to using a prefix subset of the dataset, results may be affected by ordering bias. However, we did not perform any selective filtering, and demonstrate the stability of observed trends through confidence intervals and paired comparisons. The consistency of conclusions across both SWE-bench Lite and Verified datasets further supports the robustness of the results. Future work can extend to more instances to further validate the generalizability of the conclusions.")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def generate_key_conclusions(pass_rates: dict) -> str:
-    """生成关键结论"""
+    """Generate key statistical conclusions"""
     lines = []
-    lines.append("## 关键统计结论")
+    lines.append("## Key Statistical Conclusions")
     lines.append("")
 
-    lines.append("### 1. 置信区间分析结论")
+    lines.append("### 1. Confidence Interval Analysis Conclusions")
     lines.append("")
-    lines.append("- 所有 agent 在所有数据集上，run_free 和 run_full 的 95% 置信区间**高度重叠**")
-    lines.append("- 这表明通过率差异在统计上**不显著**")
-    lines.append("- 差异主要来自随机噪声，而非执行权限的本质影响")
-    lines.append("")
-
-    lines.append("### 2. 配对检验结论")
-    lines.append("")
-    lines.append("- McNemar 检验显示 run_free vs run_full 的差异**不显著** (p > 0.05)")
-    lines.append("- 这意味着：能被 run_free 解决的问题，大部分也能被 run_full 解决，反之亦然")
-    lines.append("- 支持论点：\"能做对的还是能做对\"")
+    lines.append("- For all agents on all datasets, the 95% confidence intervals of run_free and run_full **highly overlap**")
+    lines.append("- This indicates that pass rate differences are **not statistically significant**")
+    lines.append("- Differences mainly come from random noise, not the essential impact of execution permissions")
     lines.append("")
 
-    lines.append("### 3. 跨数据集一致性结论")
+    lines.append("### 2. Paired Test Conclusions")
     lines.append("")
-    lines.append("- 主要趋势在 Lite 和 Verified 两个数据集上**一致**")
-    lines.append("- 这比随机抽样更能说明结论的稳健性")
-    lines.append("- 支持论点：结论不依赖于特定的样本选择")
+    lines.append("- McNemar test shows that the difference between run_free vs run_full is **not significant** (p > 0.05)")
+    lines.append("- This means: problems that can be solved by run_free can mostly also be solved by run_full, and vice versa")
+    lines.append("- Supports the argument: \"What can be done right will still be done right\"")
     lines.append("")
 
-    lines.append("### 4. 核心学术表达")
+    lines.append("### 3. Cross-Dataset Consistency Conclusions")
+    lines.append("")
+    lines.append("- Main trends are **consistent** across both Lite and Verified datasets")
+    lines.append("- This is more convincing than random sampling for demonstrating the robustness of conclusions")
+    lines.append("- Supports the argument: conclusions do not depend on specific sample selection")
+    lines.append("")
+
+    lines.append("### 4. Core Academic Expression")
     lines.append("")
     lines.append("> **Execution primarily affects efficiency and trajectory quality, while its marginal benefit on correctness is limited.**")
     lines.append("")
@@ -433,22 +433,22 @@ def generate_key_conclusions(pass_rates: dict) -> str:
 
 
 def main():
-    print("正在加载数据...")
+    print("Loading data...")
 
     pass_rates = load_pass_rates()
     instance_results = load_instance_level_results()
 
     if not pass_rates:
-        print("错误: 无法加载 pass rate 数据")
+        print("Error: Unable to load pass rate data")
         return
 
     output_dir = Path(__file__).parent
     data_file = output_dir / "data_statistical.md"
 
     content = []
-    content.append("# 统计分析 - 数据表格")
+    content.append("# Statistical Analysis - Data Tables")
     content.append("")
-    content.append("为论文提供统计可靠性支持的分析数据。")
+    content.append("Analysis data providing statistical reliability support for the paper.")
     content.append("")
     content.append(generate_wilson_ci_table(pass_rates))
     content.append(generate_ci_overlap_analysis(pass_rates))
@@ -460,7 +460,7 @@ def main():
     with open(data_file, "w", encoding="utf-8") as f:
         f.write("\n".join(content))
 
-    print(f"数据已保存到: {data_file}")
+    print(f"Data saved to: {data_file}")
 
 
 if __name__ == "__main__":

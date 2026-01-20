@@ -1,18 +1,18 @@
-# 实验结果总结
+# Experimental Results Summary
 
-## 概述
+## Overview
 
-本实验对比了四种执行范式在 SWE-bench 数据集上的表现：
-- **Run-Free**: 完全不执行代码，纯推理修复
-- **Run-Less (K=1/K=3)**: 有限次执行，强调日志插桩
-- **Run-Cost**: 有成本约束，模型自主决策是否执行
-- **Run-Full**: 无限制执行，试错循环
+This experiment compares the performance of four execution paradigms on the SWE-bench dataset:
+- **Run-Free**: No code execution, pure reasoning-based repair
+- **Run-Less (K=1/K=3)**: Limited execution with emphasis on logging instrumentation
+- **Run-Cost**: Cost-constrained, model autonomously decides whether to execute
+- **Run-Full**: Unrestricted execution, trial-and-error loop
 
-测试了两个 Agent：Claude Code 和 Codex
+Two agents were tested: Claude Code and Codex
 
 ---
 
-## SWE-bench Lite 结果
+## SWE-bench Lite Results
 
 ### Claude Code
 
@@ -36,7 +36,7 @@
 
 ---
 
-## SWE-bench Verified 结果
+## SWE-bench Verified Results
 
 ### Claude Code
 
@@ -60,21 +60,21 @@
 
 ---
 
-## 关键发现
+## Key Findings
 
-### 1. Run-Free 表现出乎意料地好
+### 1. Run-Free Performance is Surprisingly Good
 
-- **Claude Code**: Run-Free (63-64%) 与 Run-Full (64-67%) 差距很小
-- **Codex**: Run-Free (73-74%) 甚至略优于 Run-Full (73-75%)
-- 说明强大的推理能力可以在很大程度上弥补执行反馈的缺失
+- **Claude Code**: Run-Free (63-64%) has a very small gap with Run-Full (64-67%)
+- **Codex**: Run-Free (73-74%) even slightly outperforms Run-Full (73-75%)
+- This indicates that strong reasoning capabilities can largely compensate for the lack of execution feedback
 
-### 2. Run-Less 未能显著提升性能
+### 2. Run-Less Failed to Significantly Improve Performance
 
-- 限制执行次数 (K=1, K=3) 并未带来预期的"精准执行"效果
-- Run-Less 的 Pass Rate 普遍低于 Run-Free 和 Run-Full
-- 可能原因：有限的执行次数反而限制了 Agent 的探索能力
+- Limiting execution count (K=1, K=3) did not bring the expected "precise execution" effect
+- Run-Less Pass Rate is generally lower than Run-Free and Run-Full
+- Possible reason: Limited execution count actually restricts the Agent's exploration capability
 
-### 3. Token 消耗与执行次数正相关
+### 3. Token Consumption is Positively Correlated with Execution Count
 
 | Mode | Claude Code Tokens | Codex Tokens |
 |------|-------------------|--------------|
@@ -84,23 +84,23 @@
 | run_cost | ~134-144K | ~490-500K |
 | run_full | ~158-167K | ~470-545K |
 
-### 4. 时间消耗
+### 4. Time Consumption
 
-- Run-Free 最快（无执行开销）
-- Run-Full 最慢（Claude Code 约 1000-1200s）
-- Codex 各模式时间差异较小（570-725s）
+- Run-Free is fastest (no execution overhead)
+- Run-Full is slowest (Claude Code approximately 1000-1200s)
+- Codex shows small time differences across modes (570-725s)
 
-### 5. Agent 差异
+### 5. Agent Differences
 
-- **Codex** 整体 Pass Rate 更高（67-75% vs 61-67%）
-- **Codex** Token 消耗显著更高（约 4-8 倍）
-- **Claude Code** 对执行反馈更敏感，Run-Full 提升更明显
+- **Codex** has higher overall Pass Rate (67-75% vs 61-67%)
+- **Codex** has significantly higher token consumption (approximately 4-8x)
+- **Claude Code** is more sensitive to execution feedback, showing more significant improvement with Run-Full
 
 ---
 
-## 结论
+## Conclusions
 
-1. **执行环境并非必要条件**：Run-Free 模式已能达到接近最佳的性能
-2. **"One smart run" 假设未得到验证**：Run-Less 模式未能优于 Run-Full
-3. **成本效益**：考虑到 Token 消耗和时间成本，Run-Free 可能是最具性价比的选择
-4. **Agent 选择**：Codex 在准确率上更优，但 Claude Code 更经济
+1. **Execution environment is not a necessary condition**: Run-Free mode already achieves near-optimal performance
+2. **"One smart run" hypothesis not validated**: Run-Less mode failed to outperform Run-Full
+3. **Cost-effectiveness**: Considering token consumption and time cost, Run-Free may be the most cost-effective choice
+4. **Agent selection**: Codex is superior in accuracy, but Claude Code is more economical

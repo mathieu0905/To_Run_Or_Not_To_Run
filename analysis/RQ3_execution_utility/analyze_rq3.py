@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-RQ3: Execution Utility - 执行行为的目的分析
+RQ3: Execution Utility - Analysis of Execution Behavior Purpose
 
-研究问题: 在不同 regime 下，执行行为主要用于什么目的？
-哪些类型的执行能带来实际收益，哪些属于低价值开销？
+Research Question: What are the main purposes of execution behavior under different regimes?
+Which types of execution bring actual benefits, and which are low-value overhead?
 """
 
 import sys
@@ -19,55 +19,55 @@ from common.data_loader import (
     load_all_results, sort_modes, HIGH_COST_PATTERNS, PYTHON_SCRIPT_PATTERN
 )
 
-# 执行目的分类规则
+# Execution purpose classification rules
 EXECUTION_CATEGORIES = {
     "verification": {
-        "name": "验证 (Verification)",
-        "description": "运行测试框架验证修复",
+        "name": "Verification",
+        "description": "Run test frameworks to verify fixes",
         "patterns": ["pytest", "python -m pytest", "python -m unittest",
                     "manage.py test", "python manage.py test",
                     "tox", "nose", "nosetests", "python -m django test",
                     "python tests/runtests.py"]
     },
     "localization": {
-        "name": "定位 (Localization)",
-        "description": "运行脚本定位问题",
-        "patterns": []  # 使用 PYTHON_SCRIPT_PATTERN
+        "name": "Localization",
+        "description": "Run scripts to locate problems",
+        "patterns": []  # Use PYTHON_SCRIPT_PATTERN
     },
     "environment": {
-        "name": "环境确认 (Environment)",
-        "description": "确认环境配置",
+        "name": "Environment",
+        "description": "Confirm environment configuration",
         "patterns": ["python --version", "pip list", "pip show", "pip freeze",
                     "which python", "python -c", "pwd", "whoami"]
     },
     "exploration": {
-        "name": "探索 (Exploration)",
-        "description": "探索文件系统和代码",
+        "name": "Exploration",
+        "description": "Explore filesystem and code",
         "patterns": ["ls", "find", "cat", "head", "tail", "grep", "tree", "wc"]
     }
 }
 
 
 def classify_command(cmd: str) -> str:
-    """根据规则分类执行命令"""
+    """Classify execution commands according to rules"""
     cmd_lower = cmd.lower().strip()
 
-    # 验证类
+    # Verification
     for pattern in EXECUTION_CATEGORIES["verification"]["patterns"]:
         if pattern in cmd_lower:
             return "verification"
 
-    # 环境确认类
+    # Environment confirmation
     for pattern in EXECUTION_CATEGORIES["environment"]["patterns"]:
         if pattern in cmd_lower:
             return "environment"
 
-    # 探索类
+    # Exploration
     for pattern in EXECUTION_CATEGORIES["exploration"]["patterns"]:
         if cmd_lower.startswith(pattern) or f" {pattern}" in cmd_lower:
             return "exploration"
 
-    # 定位类（运行 Python 脚本）
+    # Localization (running Python scripts)
     if PYTHON_SCRIPT_PATTERN.search(cmd):
         return "localization"
 
@@ -75,7 +75,7 @@ def classify_command(cmd: str) -> str:
 
 
 def extract_commands_from_trace(trace_path: Path) -> list:
-    """从 trace 文件中提取所有执行的命令"""
+    """Extract all executed commands from trace file"""
     commands = []
 
     with open(trace_path) as f:
@@ -83,7 +83,7 @@ def extract_commands_from_trace(trace_path: Path) -> list:
             try:
                 item = json.loads(line)
 
-                # Codex 格式
+                # Codex format
                 if item.get("type") in ["item.started", "item.completed"]:
                     inner = item.get("item", {})
                     if inner.get("type") == "command_execution":
@@ -91,7 +91,7 @@ def extract_commands_from_trace(trace_path: Path) -> list:
                         if cmd:
                             commands.append(cmd)
 
-                # Claude Code 格式
+                # Claude Code format
                 if item.get("type") == "assistant":
                     content = item.get("message", {}).get("content", [])
                     for c in content:
@@ -106,7 +106,7 @@ def extract_commands_from_trace(trace_path: Path) -> list:
 
 
 def analyze_execution_purposes(results: dict) -> dict:
-    """分析各模式下的执行目的分布"""
+    """Analyze execution purpose distribution across modes"""
     analysis = {}
 
     for dataset in results:
@@ -121,16 +121,16 @@ def analyze_execution_purposes(results: dict) -> dict:
                 for instance_id, data in results[dataset][agent][mode].items():
                     commands = data.get("commands", [])
 
-                    # 统计命令分类
+                    # Count command classifications
                     for cmd in commands:
                         category = classify_command(cmd)
                         category_counts[category] += 1
                         total_commands += 1
 
-                    # 统计重复命令（试错循环）
+                    # Count repeated commands (trial-error loops)
                     cmd_counter = defaultdict(int)
                     for cmd in commands:
-                        # 简化命令用于比较
+                        # Simplify command for comparison
                         simplified = re.sub(r'\s+', ' ', cmd.strip())
                         cmd_counter[simplified] += 1
 
@@ -138,7 +138,7 @@ def analyze_execution_purposes(results: dict) -> dict:
                         if count > 1:
                             repeated_commands[cmd] = max(repeated_commands[cmd], count)
 
-                # 计算试错循环（同一命令执行 > 1 次）
+                # Calculate trial-error loops (same command executed > 1 time)
                 trial_error_count = sum(1 for count in repeated_commands.values() if count > 1)
 
                 analysis[dataset][agent][mode] = {
@@ -152,9 +152,9 @@ def analyze_execution_purposes(results: dict) -> dict:
 
 
 def generate_category_distribution_table(analysis: dict) -> str:
-    """生成执行目的分类分布表"""
+    """Generate execution purpose classification distribution table"""
     lines = []
-    lines.append("## 执行目的分类分布")
+    lines.append("## Execution Purpose Classification Distribution")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -179,7 +179,7 @@ def generate_category_distribution_table(analysis: dict) -> str:
                 x = cats.get("exploration", 0)
                 o = cats.get("other", 0)
 
-                # 计算百分比
+                # Calculate percentages
                 v_pct = f"{v} ({v*100/total:.1f}%)" if total > 0 else "0"
                 l_pct = f"{l} ({l*100/total:.1f}%)" if total > 0 else "0"
                 e_pct = f"{e} ({e*100/total:.1f}%)" if total > 0 else "0"
@@ -194,11 +194,11 @@ def generate_category_distribution_table(analysis: dict) -> str:
 
 
 def generate_mode_comparison_table(analysis: dict) -> str:
-    """生成各模式执行目的对比表"""
+    """Generate execution purpose comparison table across modes"""
     lines = []
-    lines.append("## 各模式执行目的对比")
+    lines.append("## Execution Purpose Comparison Across Modes")
     lines.append("")
-    lines.append("对比不同执行模式下的执行行为差异。")
+    lines.append("Compare execution behavior differences under different execution modes.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -213,7 +213,7 @@ def generate_mode_comparison_table(analysis: dict) -> str:
             lines.append(f"**{agent}:**")
             lines.append("")
 
-            # 获取 run_free 和 run_full 的数据
+            # Get run_free and run_full data
             run_free = modes.get("run_free", {})
             run_full = modes.get("run_full", {})
 
@@ -224,14 +224,14 @@ def generate_mode_comparison_table(analysis: dict) -> str:
                 free_verify = run_free.get("categories", {}).get("verification", 0)
                 full_verify = run_full.get("categories", {}).get("verification", 0)
 
-                lines.append(f"- Run-Free 总执行次数: {free_total}")
-                lines.append(f"- Run-Full 总执行次数: {full_total}")
-                lines.append(f"- Run-Free 验证执行: {free_verify}")
-                lines.append(f"- Run-Full 验证执行: {full_verify}")
+                lines.append(f"- Run-Free total executions: {free_total}")
+                lines.append(f"- Run-Full total executions: {full_total}")
+                lines.append(f"- Run-Free verification executions: {free_verify}")
+                lines.append(f"- Run-Full verification executions: {full_verify}")
 
                 if full_total > 0:
                     diff = full_total - free_total
-                    lines.append(f"- 执行次数差异: +{diff} ({diff*100/free_total:.1f}% 增加)" if free_total > 0 else f"- 执行次数差异: +{diff}")
+                    lines.append(f"- Execution count difference: +{diff} ({diff*100/free_total:.1f}% increase)" if free_total > 0 else f"- Execution count difference: +{diff}")
 
             lines.append("")
 
@@ -239,11 +239,11 @@ def generate_mode_comparison_table(analysis: dict) -> str:
 
 
 def generate_trial_error_analysis(analysis: dict) -> str:
-    """生成试错循环分析"""
+    """Generate trial-error loop analysis"""
     lines = []
-    lines.append("## 试错循环分析")
+    lines.append("## Trial-Error Loop Analysis")
     lines.append("")
-    lines.append("统计同一命令重复执行的情况，反映试错行为。")
+    lines.append("Count repeated executions of the same command, reflecting trial-error behavior.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -252,8 +252,8 @@ def generate_trial_error_analysis(analysis: dict) -> str:
 
         lines.append(f"### {dataset_name}")
         lines.append("")
-        lines.append("| Agent | Mode | 重复命令数 | 试错实例数 |")
-        lines.append("|-------|------|------------|------------|")
+        lines.append("| Agent | Mode | Repeated Commands | Trial-Error Instances |")
+        lines.append("|-------|------|-------------------|----------------------|")
 
         for agent in sorted(analysis[dataset].keys()):
             modes = analysis[dataset][agent]
@@ -269,24 +269,24 @@ def generate_trial_error_analysis(analysis: dict) -> str:
 
 
 def generate_key_findings(analysis: dict) -> str:
-    """生成关键发现"""
+    """Generate key findings"""
     lines = []
-    lines.append("## 关键发现")
+    lines.append("## Key Findings")
     lines.append("")
 
-    lines.append("### 1. 执行目的分类")
+    lines.append("### 1. Execution Purpose Classification")
     lines.append("")
-    lines.append("| 类别 | 描述 | 典型命令 |")
-    lines.append("|------|------|----------|")
+    lines.append("| Category | Description | Typical Commands |")
+    lines.append("|----------|-------------|------------------|")
     for cat_id, cat_info in EXECUTION_CATEGORIES.items():
         patterns = ", ".join(cat_info["patterns"][:3]) if cat_info["patterns"] else "python script.py"
         lines.append(f"| {cat_info['name']} | {cat_info['description']} | {patterns} |")
     lines.append("")
 
-    lines.append("### 2. 主要发现")
+    lines.append("### 2. Main Findings")
     lines.append("")
 
-    # 收集统计数据
+    # Collect statistics
     all_data = []
     for dataset in analysis:
         for agent in analysis[dataset]:
@@ -304,51 +304,51 @@ def generate_key_findings(analysis: dict) -> str:
                         "verify_pct": verify * 100 / total
                     })
 
-    # 按模式分组统计
+    # Group statistics by mode
     mode_stats = defaultdict(lambda: {"total": 0, "verify": 0, "count": 0})
     for d in all_data:
         mode_stats[d["mode"]]["total"] += d["total"]
         mode_stats[d["mode"]]["verify"] += d["verify"]
         mode_stats[d["mode"]]["count"] += 1
 
-    lines.append("**各模式平均执行次数:**")
+    lines.append("**Average execution count per mode:**")
     lines.append("")
     for mode in sort_modes(mode_stats.keys()):
         stats = mode_stats[mode]
         avg_total = stats["total"] / stats["count"] if stats["count"] > 0 else 0
         avg_verify = stats["verify"] / stats["count"] if stats["count"] > 0 else 0
-        lines.append(f"- {mode}: 平均 {avg_total:.0f} 次执行，其中 {avg_verify:.0f} 次验证")
+        lines.append(f"- {mode}: average {avg_total:.0f} executions, including {avg_verify:.0f} verifications")
     lines.append("")
 
-    lines.append("### 3. 结论")
+    lines.append("### 3. Conclusions")
     lines.append("")
-    lines.append("- **Run-Free 模式几乎不执行命令**：验证执行次数接近 0")
-    lines.append("- **Run-Full 模式执行最多**：大量用于验证和探索")
-    lines.append("- **验证是主要执行目的**：在有执行权限的模式下，验证占比最高")
-    lines.append("- **试错循环普遍存在**：Run-Full 模式下重复执行同一命令的情况较多")
+    lines.append("- **Run-Free mode executes almost no commands**: verification execution count close to 0")
+    lines.append("- **Run-Full mode executes the most**: heavily used for verification and exploration")
+    lines.append("- **Verification is the main execution purpose**: in modes with execution permissions, verification has the highest proportion")
+    lines.append("- **Trial-error loops are common**: Run-Full mode has more cases of repeatedly executing the same command")
 
     return "\n".join(lines)
 
 
 def main():
-    print("正在加载数据...")
+    print("Loading data...")
 
     results = load_all_results()
 
     if not results:
-        print("错误: 无法加载实验结果数据")
+        print("Error: Unable to load experimental results data")
         return
 
-    print("正在分析执行目的...")
+    print("Analyzing execution purposes...")
     analysis = analyze_execution_purposes(results)
 
     output_dir = Path(__file__).parent
     data_file = output_dir / "data_rq3.md"
 
     content = []
-    content.append("# RQ3: Execution Utility - 数据表格")
+    content.append("# RQ3: Execution Utility - Data Tables")
     content.append("")
-    content.append("执行行为的目的分析数据。")
+    content.append("Analysis data on execution behavior purposes.")
     content.append("")
     content.append(generate_category_distribution_table(analysis))
     content.append(generate_mode_comparison_table(analysis))
@@ -358,7 +358,7 @@ def main():
     with open(data_file, "w", encoding="utf-8") as f:
         f.write("\n".join(content))
 
-    print(f"数据已保存到: {data_file}")
+    print(f"Data saved to: {data_file}")
 
 
 if __name__ == "__main__":

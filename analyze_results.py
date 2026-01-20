@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""分析实验结果的脚本
+"""Script for analyzing experiment results
 
-默认统计：
+Default statistics:
 - tokens (input/output)
-- 执行次数（高成本/低成本）
-- 交互轮数
-- 用时
-- 是否生成 patch
+- execution count (high-cost/low-cost)
+- interaction turns
+- duration
+- whether patch was generated
 
-可选：若提供 SWE-bench harness 的 `run_id`，则额外统计：
-- patch 是否成功应用（patch_successfully_applied）
-- 是否通过官方评测（resolved）
+Optional: If SWE-bench harness `run_id` is provided, additional statistics:
+- whether patch was successfully applied (patch_successfully_applied)
+- whether it passed official evaluation (resolved)
 """
 
 import json
@@ -20,17 +20,17 @@ from pathlib import Path
 from collections import defaultdict
 
 def count_tokens_and_execs(trace_path):
-    """从 trace.jsonl 统计 token、执行次数、交互轮数和时间"""
+    """Count tokens, execution count, interaction turns, and time from trace.jsonl"""
     tokens = {"input": 0, "output": 0}
     exec_count = 0
-    high_cost_exec = 0  # 高成本执行（测试框架）
-    low_cost_exec = 0   # 低成本执行（脚本）
+    high_cost_exec = 0  # High-cost execution (test frameworks)
+    low_cost_exec = 0   # Low-cost execution (scripts)
     turns = 0
     duration_ms = 0
     max_item_id = -1
-    cost_points = 0.0  # run_cost 模式的成本点数
+    cost_points = 0.0  # Cost points for run_cost mode
 
-    # 高成本执行：测试框架（运行整个测试套件）
+    # High-cost execution: test frameworks (running entire test suite)
     high_cost_patterns = [
         "pytest", "python -m pytest", "python -m unittest",
         "manage.py test", "python manage.py test",
@@ -38,22 +38,22 @@ def count_tokens_and_execs(trace_path):
         "python -m django test",
         "python tests/runtests.py"
     ]
-    # 低成本执行：直接运行 Python 脚本
+    # Low-cost execution: directly running Python scripts
     import re
     python_script_pattern = re.compile(r'\bpython\s+[a-zA-Z_][\w/\-]*\.py\b')
-    # [COST] X.X points 模式
+    # [COST] X.X points pattern
     cost_pattern = re.compile(r'\[COST\]\s*([\d.]+)\s*points?', re.IGNORECASE)
 
     with open(trace_path) as f:
         for line in f:
             try:
                 item = json.loads(line)
-                # Codex 格式: turn.completed (统计 tokens)
+                # Codex format: turn.completed (count tokens)
                 if item.get("type") == "turn.completed":
                     usage = item.get("usage", {})
                     tokens["input"] += usage.get("input_tokens", 0)
                     tokens["output"] += usage.get("output_tokens", 0)
-                # Codex 格式: 统计 item id 的最大值作为轮数
+                # Codex format: count max item id as turn count
                 if item.get("type") in ["item.started", "item.completed"]:
                     inner = item.get("item", {})
                     item_id = inner.get("id", "")
@@ -63,52 +63,52 @@ def count_tokens_and_execs(trace_path):
                             max_item_id = max(max_item_id, id_num)
                         except:
                             pass
-                    # 统计执行次数
+                    # Count execution count
                     if inner.get("type") == "command_execution":
                         cmd = inner.get("command", "")
-                        # 先检查是否是高成本执行
+                        # First check if it's high-cost execution
                         if any(p in cmd for p in high_cost_patterns):
                             high_cost_exec += 1
                             exec_count += 1
-                        # 否则检查是否是低成本执行（python script.py）
+                        # Otherwise check if it's low-cost execution (python script.py)
                         elif python_script_pattern.search(cmd):
                             low_cost_exec += 1
                             exec_count += 1
-                # Claude Code 格式: assistant 消息里的 usage
+                # Claude Code format: usage in assistant messages
                 if item.get("type") == "assistant":
                     usage = item.get("message", {}).get("usage", {})
                     tokens["input"] += usage.get("input_tokens", 0)
                     tokens["output"] += usage.get("output_tokens", 0)
-                    # 每个 assistant 消息算一轮
+                    # Each assistant message counts as one turn
                     if usage.get("input_tokens", 0) > 0:
                         turns += 1
-                    # 统计执行次数 (Claude Code)
+                    # Count execution count (Claude Code)
                     content = item.get("message", {}).get("content", [])
                     for c in content:
                         if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Bash":
                             cmd = c.get("input", {}).get("command", "")
-                            # 先检查是否是高成本执行
+                            # First check if it's high-cost execution
                             if any(p in cmd for p in high_cost_patterns):
                                 high_cost_exec += 1
                                 exec_count += 1
-                            # 否则检查是否是低成本执行（python script.py）
+                            # Otherwise check if it's low-cost execution (python script.py)
                             elif python_script_pattern.search(cmd):
                                 low_cost_exec += 1
                                 exec_count += 1
-                # 提取时间信息 (最后一行的 result)
+                # Extract time information (last line's result)
                 if item.get("type") == "result":
                     duration_ms = item.get("duration_ms", 0)
             except:
                 continue
 
-    # 如果是 Codex (有 max_item_id)，使用 max_item_id + 1 作为轮数
+    # If it's Codex (has max_item_id), use max_item_id + 1 as turn count
     if max_item_id >= 0:
         turns = max_item_id + 1
 
     return tokens, exec_count, high_cost_exec, low_cost_exec, turns, duration_ms
 
 def check_patch(patch_path):
-    """检查 patch 是否非空"""
+    """Check if patch is non-empty"""
     if not os.path.exists(patch_path):
         return False
     with open(patch_path) as f:
@@ -173,7 +173,7 @@ def _get_eval_status(
 
 
 def analyze(output_dir: str, eval_root: str | None = None, eval_run_id: str | None = None):
-    """分析输出目录"""
+    """Analyze output directory"""
     output_dir = Path(output_dir)
     eval_root_path = Path(eval_root) if eval_root else (Path(__file__).parent.parent / "logs" / "run_evaluation")
     results = defaultdict(lambda: defaultdict(dict))
@@ -215,9 +215,9 @@ def analyze(output_dir: str, eval_root: str | None = None, eval_run_id: str | No
     return results
 
 def print_summary(results, show_eval: bool = False):
-    """打印汇总"""
+    """Print summary"""
     print("=" * 110)
-    print("实验结果分析")
+    print("Experiment Results Analysis")
     print("=" * 110)
 
     for agent, modes in sorted(results.items()):
@@ -231,7 +231,7 @@ def print_summary(results, show_eval: bool = False):
 
         for mode, instances in sorted(modes.items()):
             n = len(instances)
-            # 只统计有 patch 的实例
+            # Only count instances with patches
             patched = {k: v for k, v in instances.items() if v["has_patch"]}
             patches = len(patched)
 
@@ -269,9 +269,9 @@ def print_summary(results, show_eval: bool = False):
             else:
                 print(f"{mode:<15} {n:<5} {avg_input:<12} {avg_output:<12} {avg_total:<12} {avg_turns:<10.1f} {avg_high_cost:<11.1f} {avg_low_cost:<10.1f} {avg_duration_sec:<12.1f} {patches}/{n}")
 
-    # 详细信息
+    # Detailed information
     # print("\n" + "=" * 110)
-    # print("详细结果")
+    # print("Detailed Results")
     # print("=" * 110)
 
     # for agent, modes in sorted(results.items()):
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     parser.add_argument("--eval-root", default=None, help="Path to logs/run_evaluation (default: ./logs/run_evaluation)")
     args = parser.parse_args()
 
-    # 默认分析两个数据集
+    # Default: analyze both datasets
     if args.output_dir:
         output_dirs = [args.output_dir]
     else:
@@ -300,14 +300,14 @@ if __name__ == "__main__":
             f"{base_dir}/swebenchverified"
         ]
 
-    # 分析每个数据集
+    # Analyze each dataset
     for output_dir in output_dirs:
         if not os.path.exists(output_dir):
-            print(f"\n跳过不存在的目录: {output_dir}")
+            print(f"\nSkipping non-existent directory: {output_dir}")
             continue
 
         print(f"\n{'='*120}")
-        print(f"数据集: {os.path.basename(output_dir)}")
+        print(f"Dataset: {os.path.basename(output_dir)}")
         print(f"{'='*120}")
 
         results = analyze(output_dir, eval_root=args.eval_root, eval_run_id=args.eval_run_id)

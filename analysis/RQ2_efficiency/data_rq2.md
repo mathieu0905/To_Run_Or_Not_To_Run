@@ -1,8 +1,8 @@
-# RQ2: Efficiency - 数据表格
+# RQ2: Efficiency - Data Tables
 
-成本与效率的 Pareto 前沿分析数据。
+Pareto frontier analysis data for cost and efficiency.
 
-## 成本对比表
+## Cost Comparison Table
 
 ### SWE-bench Lite
 
@@ -34,9 +34,9 @@
 | codex | run_cost | 491,096 | 44.9 | 689.8 | 3.8 | 0.4 |
 | codex | run_full | 543,762 | 46.3 | 722.5 | 5.9 | 0.4 |
 
-## 相对变化百分比表 (vs run_full)
+## Relative Change Percentage Table (vs run_full)
 
-以 run_full 为基准，计算各 mode 的成本变化。负值表示成本降低。
+Using run_full as baseline, calculate cost changes for each mode. Negative values indicate cost reduction.
 
 ### SWE-bench Lite
 
@@ -68,9 +68,9 @@
 | codex | run_cost | -9.7% | -3.0% | -4.5% |
 | codex | run_full | - | - | - |
 
-## Pareto 前沿数据
+## Pareto Frontier Data
 
-Pass Rate vs Avg Total Tokens 数据点，用于绘制 Pareto 前沿图。
+Pass Rate vs Avg Total Tokens data points for plotting Pareto frontier.
 
 ### SWE-bench Lite
 
@@ -102,64 +102,64 @@ Pass Rate vs Avg Total Tokens 数据点，用于绘制 Pareto 前沿图。
 | codex | run_cost | 71.0 | 491,096 |  |
 | codex | run_full | 75.0 | 543,762 | ✓ |
 
-## 效率分析
+## Efficiency Analysis
 
 ### SWE-bench Lite
 
 **claude_code:**
 
 - Run-Free vs Run-Full:
-  - Pass Rate 差异: +1.0%
-  - Token 节省: 56.4%
-  - 时间节省: 48.4%
-  - 效率比 (Token节省/Pass差异): 56.4
+  - Pass Rate difference: +1.0%
+  - Token savings: 56.4%
+  - Time savings: 48.4%
+  - Efficiency ratio (Token savings/Pass difference): 56.4
 
 **codex:**
 
 - Run-Free vs Run-Full:
-  - Pass Rate 差异: -1.0%
-  - Token 节省: 13.4%
-  - 时间节省: 7.8%
-  - 效率比 (Token节省/Pass差异): 13.1
+  - Pass Rate difference: -1.0%
+  - Token savings: 13.4%
+  - Time savings: 7.8%
+  - Efficiency ratio (Token savings/Pass difference): 13.1
 
 ### SWE-bench Verified
 
 **claude_code:**
 
 - Run-Free vs Run-Full:
-  - Pass Rate 差异: +3.0%
-  - Token 节省: 61.9%
-  - 时间节省: 53.6%
-  - 效率比 (Token节省/Pass差异): 20.6
+  - Pass Rate difference: +3.0%
+  - Token savings: 61.9%
+  - Time savings: 53.6%
+  - Efficiency ratio (Token savings/Pass difference): 20.6
 
 **codex:**
 
 - Run-Free vs Run-Full:
-  - Pass Rate 差异: +2.0%
-  - Token 节省: 0.8%
-  - 时间节省: -0.1%
-  - 效率比 (Token节省/Pass差异): 0.4
+  - Pass Rate difference: +2.0%
+  - Token savings: 0.8%
+  - Time savings: -0.1%
+  - Efficiency ratio (Token savings/Pass difference): 0.4
 
-## 关键发现
+## Key Findings
 
-### 1. Token 消耗对比
+### 1. Token Consumption Comparison
 
-- **claude_code** (SWE-bench Lite): Run-Free 69,046 vs Run-Full 158,417 (节省 56.4%)
-- **codex** (SWE-bench Lite): Run-Free 409,354 vs Run-Full 472,776 (节省 13.4%)
-- **claude_code** (SWE-bench Verified): Run-Free 63,490 vs Run-Full 166,745 (节省 61.9%)
-- **codex** (SWE-bench Verified): Run-Free 539,301 vs Run-Full 543,762 (节省 0.8%)
+- **claude_code** (SWE-bench Lite): Run-Free 69,046 vs Run-Full 158,417 (savings 56.4%)
+- **codex** (SWE-bench Lite): Run-Free 409,354 vs Run-Full 472,776 (savings 13.4%)
+- **claude_code** (SWE-bench Verified): Run-Free 63,490 vs Run-Full 166,745 (savings 61.9%)
+- **codex** (SWE-bench Verified): Run-Free 539,301 vs Run-Full 543,762 (savings 0.8%)
 
-### 2. 时间消耗对比
+### 2. Time Consumption Comparison
 
-- **claude_code** (SWE-bench Lite): Run-Free 531s vs Run-Full 1028s (节省 48.4%)
-- **codex** (SWE-bench Lite): Run-Free 570s vs Run-Full 618s (节省 7.8%)
-- **claude_code** (SWE-bench Verified): Run-Free 573s vs Run-Full 1234s (节省 53.6%)
-- **codex** (SWE-bench Verified): Run-Free 724s vs Run-Full 723s (节省 -0.1%)
+- **claude_code** (SWE-bench Lite): Run-Free 531s vs Run-Full 1028s (savings 48.4%)
+- **codex** (SWE-bench Lite): Run-Free 570s vs Run-Full 618s (savings 7.8%)
+- **claude_code** (SWE-bench Verified): Run-Free 573s vs Run-Full 1234s (savings 53.6%)
+- **codex** (SWE-bench Verified): Run-Free 724s vs Run-Full 723s (savings -0.1%)
 
-### 3. 成本效益结论
+### 3. Cost-Effectiveness Conclusion
 
-- 平均 Token 节省: **33.1%**
-- 平均时间节省: **27.4%**
-- 平均 Pass Rate 差异: **+1.2%**
+- Average token savings: **33.1%**
+- Average time savings: **27.4%**
+- Average Pass Rate difference: **+1.2%**
 
-**结论**: Run-Free 模式以 33% 的成本节省换取 1.2% 的性能损失，是最具成本效益的选择。
+**Conclusion**: Run-Free mode achieves 33% cost savings in exchange for 1.2% performance loss, making it the most cost-effective choice.

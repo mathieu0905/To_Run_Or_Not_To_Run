@@ -1,8 +1,8 @@
-# RQ3: Execution Utility - 数据表格
+# RQ3: Execution Utility - Data Tables
 
-执行行为的目的分析数据。
+Analysis data on the purpose of execution behavior.
 
-## 执行目的分类分布
+## Execution Purpose Classification Distribution
 
 ### SWE-bench Lite
 
@@ -34,53 +34,53 @@
 | codex | run_cost | 4544 | 378 (8.3%) | 38 (0.8%) | 112 (2.5%) | 1080 (23.8%) | 2936 (64.6%) |
 | codex | run_full | 4864 | 594 (12.2%) | 40 (0.8%) | 94 (1.9%) | 1114 (22.9%) | 3022 (62.1%) |
 
-## 各模式执行目的对比
+## Execution Purpose Comparison Across Modes
 
-对比不同执行模式下的执行行为差异。
+Comparing execution behavior differences across different execution modes.
 
 ### SWE-bench Lite
 
 **claude_code:**
 
-- Run-Free 总执行次数: 693
-- Run-Full 总执行次数: 1804
-- Run-Free 验证执行: 59
-- Run-Full 验证执行: 703
-- 执行次数差异: +1111 (160.3% 增加)
+- Run-Free total executions: 693
+- Run-Full total executions: 1804
+- Run-Free verification executions: 59
+- Run-Full verification executions: 703
+- Execution count difference: +1111 (160.3% increase)
 
 **codex:**
 
-- Run-Free 总执行次数: 4324
-- Run-Full 总执行次数: 4636
-- Run-Free 验证执行: 0
-- Run-Full 验证执行: 634
-- 执行次数差异: +312 (7.2% 增加)
+- Run-Free total executions: 4324
+- Run-Full total executions: 4636
+- Run-Free verification executions: 0
+- Run-Full verification executions: 634
+- Execution count difference: +312 (7.2% increase)
 
 ### SWE-bench Verified
 
 **claude_code:**
 
-- Run-Free 总执行次数: 640
-- Run-Full 总执行次数: 1758
-- Run-Free 验证执行: 46
-- Run-Full 验证执行: 633
-- 执行次数差异: +1118 (174.7% 增加)
+- Run-Free total executions: 640
+- Run-Full total executions: 1758
+- Run-Free verification executions: 46
+- Run-Full verification executions: 633
+- Execution count difference: +1118 (174.7% increase)
 
 **codex:**
 
-- Run-Free 总执行次数: 5034
-- Run-Full 总执行次数: 4864
-- Run-Free 验证执行: 2
-- Run-Full 验证执行: 594
-- 执行次数差异: +-170 (-3.4% 增加)
+- Run-Free total executions: 5034
+- Run-Full total executions: 4864
+- Run-Free verification executions: 2
+- Run-Full verification executions: 594
+- Execution count difference: -170 (-3.4% decrease)
 
-## 试错循环分析
+## Trial-and-Error Loop Analysis
 
-统计同一命令重复执行的情况，反映试错行为。
+Statistics on repeated execution of the same command, reflecting trial-and-error behavior.
 
 ### SWE-bench Lite
 
-| Agent | Mode | 重复命令数 | 试错实例数 |
+| Agent | Mode | Repeated Commands | Trial-Error Instances |
 |-------|------|------------|------------|
 | claude_code | run_free | 8 | 8 |
 | claude_code | run_less_k1 | 86 | 86 |
@@ -95,7 +95,7 @@
 
 ### SWE-bench Verified
 
-| Agent | Mode | 重复命令数 | 试错实例数 |
+| Agent | Mode | Repeated Commands | Trial-Error Instances |
 |-------|------|------------|------------|
 | claude_code | run_free | 9 | 9 |
 | claude_code | run_less_k1 | 94 | 94 |
@@ -108,30 +108,30 @@
 | codex | run_cost | 2169 | 2169 |
 | codex | run_full | 2241 | 2241 |
 
-## 关键发现
+## Key Findings
 
-### 1. 执行目的分类
+### 1. Execution Purpose Classification
 
-| 类别 | 描述 | 典型命令 |
+| Category | Description | Typical Commands |
 |------|------|----------|
-| 验证 (Verification) | 运行测试框架验证修复 | pytest, python -m pytest, python -m unittest |
-| 定位 (Localization) | 运行脚本定位问题 | python script.py |
-| 环境确认 (Environment) | 确认环境配置 | python --version, pip list, pip show |
-| 探索 (Exploration) | 探索文件系统和代码 | ls, find, cat |
+| Verification | Run test frameworks to validate fixes | pytest, python -m pytest, python -m unittest |
+| Localization | Run scripts to locate problems | python script.py |
+| Environment | Confirm environment configuration | python --version, pip list, pip show |
+| Exploration | Explore file system and code | ls, find, cat |
 
-### 2. 主要发现
+### 2. Main Findings
 
-**各模式平均执行次数:**
+**Average execution count per mode:**
 
-- run_free: 平均 2673 次执行，其中 27 次验证
-- run_less_k1: 平均 2580 次执行，其中 304 次验证
-- run_less_k3: 平均 3092 次执行，其中 474 次验证
-- run_cost: 平均 2970 次执行，其中 453 次验证
-- run_full: 平均 3266 次执行，其中 641 次验证
+- run_free: Average 2673 executions, including 27 verification executions
+- run_less_k1: Average 2580 executions, including 304 verification executions
+- run_less_k3: Average 3092 executions, including 474 verification executions
+- run_cost: Average 2970 executions, including 453 verification executions
+- run_full: Average 3266 executions, including 641 verification executions
 
-### 3. 结论
+### 3. Conclusion
 
-- **Run-Free 模式几乎不执行命令**：验证执行次数接近 0
-- **Run-Full 模式执行最多**：大量用于验证和探索
-- **验证是主要执行目的**：在有执行权限的模式下，验证占比最高
-- **试错循环普遍存在**：Run-Full 模式下重复执行同一命令的情况较多
+- **Run-Free mode executes almost no commands**: Verification execution count close to 0
+- **Run-Full mode executes the most**: Heavily used for verification and exploration
+- **Verification is the primary execution purpose**: In modes with execution privileges, verification has the highest proportion
+- **Trial-and-error loops are prevalent**: Repeated execution of the same command is common in Run-Full mode

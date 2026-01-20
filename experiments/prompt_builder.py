@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Prompt 构造器：为不同的执行模式生成 system prompt
+Prompt Builder: Generate system prompts for different execution modes
 
-设计原则：
-- 四种模式保持结构一致
-- 只在"执行 Python"相关部分有差异
-- 共同部分：Repository Info, Problem, FREE Operations, FORBIDDEN, Debugging Strategy, Task, Output Format
+Design Principles:
+- Four modes maintain consistent structure
+- Only differ in "Python execution" related sections
+- Common sections: Repository Info, Problem, FREE Operations, FORBIDDEN, Debugging Strategy, Task, Output Format
 """
 from typing import Dict, Any
 
 
 class PromptBuilder:
-    """构造不同执行模式的 prompt"""
+    """Build prompts for different execution modes"""
 
-    # 共同部分：调试策略
+    # Common section: Debugging Strategy
     DEBUGGING_STRATEGY = """## Debugging Strategy
 
 **Read with purpose. Run with purpose.**
@@ -23,7 +23,7 @@ class PromptBuilder:
 
 **Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results."""
 
-    # 共同部分：FREE Operations
+    # Common section: FREE Operations
     FREE_OPERATIONS = """## FREE Operations (No Cost)
 ✅ `ls` - list directory contents
 ✅ `cat` - view file contents
@@ -32,16 +32,16 @@ class PromptBuilder:
 ✅ `head` / `tail` - view file portions
 ✅ `wc` - count lines/words"""
 
-    # 共同部分：FORBIDDEN Operations
+    # Common section: FORBIDDEN Operations
     FORBIDDEN_OPERATIONS = """## FORBIDDEN Operations
 ❌ `git` commands (interferes with experiment)"""
 
-    # 共同部分：Output Format
+    # Common section: Output Format
     OUTPUT_FORMAT = """## Output Format
 **You MUST use the Edit tool to actually modify the source files.**
 Do NOT just output a diff as text - make real changes to the files."""
 
-    # 共同部分：Cost Table
+    # Common section: Cost Table
     COST_TABLE = """## Cost Table
 | Operation | Cost | Notes |
 |-----------|------|-------|
@@ -53,7 +53,7 @@ Do NOT just output a diff as text - make real changes to the files."""
 
     @staticmethod
     def _build_header(instance: Dict[str, Any]) -> str:
-        """构造共同的头部信息"""
+        """Build common header information"""
         problem = instance["problem_statement"]
         repo = instance["repo"]
         base_commit = instance.get("base_commit", "")
@@ -68,7 +68,7 @@ Do NOT just output a diff as text - make real changes to the files."""
     @staticmethod
     def build_run_free_prompt(instance: Dict[str, Any]) -> str:
         """
-        构造 Run-Free 模式的 prompt（完全不执行代码）
+        Build Run-Free mode prompt (no code execution)
         """
         header = PromptBuilder._build_header(instance)
 
@@ -80,7 +80,7 @@ Do NOT just output a diff as text - make real changes to the files."""
 
 ⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
 
-你不能执行/运行任何 Python 代码（不能运行测试）。  
+You cannot execute/run any Python code (cannot run tests).
 
 This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
 Any attempt to execute Python code will be blocked by the sandbox.
@@ -119,7 +119,7 @@ You may ONLY use these commands:
     @staticmethod
     def build_run_less_prompt(instance: Dict[str, Any], k: int = 2) -> str:
         """
-        构造 Run-Less 模式的 prompt（有限预算）
+        Build Run-Less mode prompt (limited budget)
         """
         header = PromptBuilder._build_header(instance)
 
@@ -131,7 +131,7 @@ You may ONLY use these commands:
 
 🎯 **YOU HAVE {k} TEST EXECUTION(S) - USE THEM** 🎯
 
-你只有 {k} 次执行机会（请谨慎但不要浪费执行次数）。  
+You only have {k} execution opportunities (use them wisely but don't waste them).
 
 This is a research experiment testing efficient debugging with limited executions.
 You have a budget of {k} test run(s). **Unused budget is wasted opportunity!**
@@ -167,7 +167,7 @@ You have a budget of {k} test run(s). **Unused budget is wasted opportunity!**
     @staticmethod
     def build_run_cost_prompt(instance: Dict[str, Any]) -> str:
         """
-        构造 Run-Cost 模式的 prompt（成本追踪但不限制）
+        Build Run-Cost mode prompt (cost tracking but no limits)
         """
         header = PromptBuilder._build_header(instance)
 
@@ -210,7 +210,7 @@ You CAN run tests and scripts, but each execution has a cost.
     @staticmethod
     def build_run_full_prompt(instance: Dict[str, Any]) -> str:
         """
-        构造 Run-Full 模式的 prompt（无限制执行）
+        Build Run-Full mode prompt (unlimited execution)
         """
         header = PromptBuilder._build_header(instance)
 
@@ -222,7 +222,7 @@ You CAN run tests and scripts, but each execution has a cost.
 
 ✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
 
-你可以自由运行测试和脚本。  
+You can freely run tests and scripts.
 
 This is a research experiment. Feel free to run tests and scripts as many times as needed.
 
@@ -246,15 +246,15 @@ This is a research experiment. Feel free to run tests and scripts as many times 
     @staticmethod
     def build_prompt(instance: Dict[str, Any], mode: str, k: int = 2) -> str:
         """
-        根据模式构造 prompt
+        Build prompt based on mode
 
         Args:
-            instance: SWE-bench 实例数据
-            mode: 执行模式 ("run_free", "run_less", "run_cost", "run_full")
-            k: Run-Less 模式的执行次数限制
+            instance: SWE-bench instance data
+            mode: Execution mode ("run_free", "run_less", "run_cost", "run_full")
+            k: Execution limit for Run-Less mode
 
         Returns:
-            完整的 prompt 字符串
+            Complete prompt string
         """
         if mode == "run_free":
             return PromptBuilder.build_run_free_prompt(instance)
@@ -268,11 +268,11 @@ This is a research experiment. Feel free to run tests and scripts as many times 
             raise ValueError(f"Unknown mode: {mode}")
 
 
-# 示例用法
+# Example usage
 if __name__ == "__main__":
     from datasets import load_dataset
 
-    # 加载数据集
+    # Load dataset
     dataset = load_dataset("princeton-nlp/SWE-bench_Lite", split="test")
     instance = dataset[0]
 

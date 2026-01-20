@@ -15,11 +15,11 @@ services:
       - HTTPS_PROXY=http://127.0.0.1:15732
       - NO_PROXY=localhost,127.0.0.1
     volumes:
-      # 挂载配置文件
+      # Mount configuration files
       - ~/.claude/settings.json:/root/.claude/settings.json:ro
       - ~/.codex/auth.json:/root/.codex/auth.json:ro
       - ~/.codex/config.toml:/root/.codex/config.toml:ro
-      # 挂载项目目录
+      # Mount project directory
       - ../:/workspace
     working_dir: /testbed
     stdin_open: true

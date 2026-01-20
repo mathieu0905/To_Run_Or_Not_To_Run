@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""共享数据加载工具 - 为各 RQ 分析脚本提供统一的数据加载接口"""
+"""Shared data loading utilities - Provides unified data loading interface for all RQ analysis scripts"""
 
 import json
 import re
@@ -8,10 +8,10 @@ from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-# 项目根目录
+# Project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-# 高成本执行模式（测试框架）
+# High-cost execution patterns (test frameworks)
 HIGH_COST_PATTERNS = [
     "pytest", "python -m pytest", "python -m unittest",
     "manage.py test", "python manage.py test",
@@ -20,24 +20,24 @@ HIGH_COST_PATTERNS = [
     "python tests/runtests.py"
 ]
 
-# 低成本执行模式（Python 脚本）
+# Low-cost execution patterns (Python scripts)
 PYTHON_SCRIPT_PATTERN = re.compile(r'\bpython\s+[a-zA-Z_][\w/\-]*\.py\b')
 
-# 排除的 agent（GLM）
+# Excluded agents (GLM)
 EXCLUDED_AGENTS = ["claude_code_glm"]
 
-# 数据集映射
+# Dataset mapping
 DATASETS = {
     "swebenchlite": "SWE-bench Lite",
     "swebenchverified": "SWE-bench Verified"
 }
 
-# Mode 顺序（用于排序）
+# Mode order (for sorting)
 MODE_ORDER = ["run_free", "run_less_k1", "run_less_k3", "run_cost", "run_full"]
 
 
 def count_tokens_and_execs(trace_path: Path) -> Dict:
-    """从 trace.jsonl 统计 token、执行次数、交互轮数和时间"""
+    """Count tokens, execution count, interaction rounds and time from trace.jsonl"""
     tokens = {"input": 0, "output": 0}
     exec_count = 0
     high_cost_exec = 0
@@ -46,7 +46,7 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
     duration_ms = 0
     max_item_id = -1
 
-    # 收集所有执行的命令
+    # Collect all executed commands
     commands = []
 
     prompt_path = trace_path.parent / "prompt.txt"
@@ -56,7 +56,7 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
             try:
                 item = json.loads(line)
 
-                # Codex 格式
+                # Codex format
                 if item.get("type") == "turn.completed":
                     usage = item.get("usage", {})
                     tokens["input"] += usage.get("input_tokens", 0)
@@ -82,7 +82,7 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
                             low_cost_exec += 1
                             exec_count += 1
 
-                # Claude Code 格式
+                # Claude Code format
                 if item.get("type") == "assistant":
                     usage = item.get("message", {}).get("usage", {})
                     tokens["input"] += usage.get("input_tokens", 0)
@@ -110,7 +110,7 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
     if max_item_id >= 0:
         turns = max_item_id + 1
 
-    # 备用时间计算
+    # Fallback time calculation
     if duration_ms == 0 and prompt_path.exists() and trace_path.exists():
         try:
             prompt_mtime = prompt_path.stat().st_mtime
@@ -133,7 +133,7 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
 
 
 def check_patch(patch_path: Path) -> bool:
-    """检查 patch 是否非空"""
+    """Check if patch is non-empty"""
     if not patch_path.exists():
         return False
     with open(patch_path) as f:
@@ -142,7 +142,7 @@ def check_patch(patch_path: Path) -> bool:
 
 
 def load_sb_cli_report(sb_cli_reports_dir: Path, dataset: str, agent: str, mode: str) -> Optional[Dict]:
-    """从 sb-cli-reports 目录加载评估报告"""
+    """Load evaluation report from sb-cli-reports directory"""
     if not sb_cli_reports_dir.exists():
         return None
 
@@ -171,9 +171,9 @@ def load_sb_cli_report(sb_cli_reports_dir: Path, dataset: str, agent: str, mode:
 
 def load_all_results(output_dir: Path = None, exclude_glm: bool = True) -> Dict:
     """
-    加载所有实验结果
+    Load all experimental results
 
-    返回结构:
+    Return structure:
     {
         "swebenchlite": {
             "claude_code": {
@@ -234,9 +234,9 @@ def load_all_results(output_dir: Path = None, exclude_glm: bool = True) -> Dict:
 
 def load_pass_rates(sb_cli_reports_dir: Path = None) -> Dict:
     """
-    加载所有 pass rate 数据
+    Load all pass rate data
 
-    返回结构:
+    Return structure:
     {
         "swebenchlite": {
             "claude_code": {
@@ -260,10 +260,10 @@ def load_pass_rates(sb_cli_reports_dir: Path = None) -> Dict:
         try:
             report = json.loads(report_file.read_text(encoding="utf-8"))
 
-            # 解析文件名获取 dataset, agent, mode
+            # Parse filename to get dataset, agent, mode
             filename = report_file.stem
 
-            # 确定数据集
+            # Determine dataset
             if "lite" in filename.lower():
                 dataset = "swebenchlite"
             elif "verified" in filename.lower():
@@ -271,7 +271,7 @@ def load_pass_rates(sb_cli_reports_dir: Path = None) -> Dict:
             else:
                 continue
 
-            # 确定 agent 和 mode
+            # Determine agent and mode
             for agent in ["claude_code", "codex"]:
                 if agent in filename:
                     for mode in MODE_ORDER:
@@ -292,9 +292,9 @@ def load_pass_rates(sb_cli_reports_dir: Path = None) -> Dict:
 
 def get_aggregated_stats(results: Dict) -> Dict:
     """
-    计算聚合统计数据
+    Calculate aggregated statistics
 
-    返回结构:
+    Return structure:
     {
         "swebenchlite": {
             "claude_code": {
@@ -327,7 +327,7 @@ def get_aggregated_stats(results: Dict) -> Dict:
                 if n == 0:
                     continue
 
-                # 只统计有 patch 的实例
+                # Only count instances with patches
                 patched = {k: v for k, v in instances.items() if v.get("has_patch", False)}
                 patches = len(patched)
 
@@ -357,5 +357,5 @@ def get_aggregated_stats(results: Dict) -> Dict:
 
 
 def sort_modes(modes: List[str]) -> List[str]:
-    """按预定义顺序排序 modes"""
+    """Sort modes by predefined order"""
     return sorted(modes, key=lambda x: MODE_ORDER.index(x) if x in MODE_ORDER else len(MODE_ORDER))

@@ -1,31 +1,31 @@
-# Prompt 示例文档
+# Prompt Example Documentation
 
-本文档展示了三种执行模式的 prompt 示例，使用 SWE-bench Lite 数据集的第一个实例。
+This document demonstrates prompt examples for three execution modes, using the first instance from the SWE-bench Lite dataset.
 
-## 实例信息
+## Instance Information
 
-- **仓库**: astropy/astropy
-- **实例 ID**: astropy__astropy-12907
+- **Repository**: astropy/astropy
+- **Instance ID**: astropy__astropy-12907
 - **Base Commit**: d16bfe05a744...
 
 ---
 
-## 1. Run-Free 模式（完全不执行代码）
+## 1. Run-Free Mode (No Code Execution)
 
-**核心理念**: Agent 必须通过纯推理来修复 bug，不能运行任何代码来验证。
+**Core Concept**: Agent must fix bugs through pure reasoning, cannot run any code for verification.
 
 ```
-你是一个代码修复专家。你的任务是修复以下 bug。
+You are a code repair expert. Your task is to fix the following bug.
 
-**重要限制：你不能执行任何代码。**
+**Important restriction: You cannot execute any code.**
 
-你必须通过阅读代码、理解逻辑、推理问题根源来生成修复补丁。你可以多次阅读代码、反复思考和修改方案，但不能通过运行代码来验证你的修复。
+You must generate a fix by reading code, understanding logic, and reasoning about the root cause. You can read code multiple times, think repeatedly, and revise your approach, but you cannot verify your fix by running code.
 
-## 仓库信息
-- 仓库: astropy/astropy
+## Repository Information
+- Repository: astropy/astropy
 - Base Commit: d16bfe05a744909de4b27f5875fe0d4ed41ce607
 
-## 问题描述
+## Problem Description
 Modeling's `separability_matrix` does not compute separability correctly for nested CompoundModels
 Consider the following model:
 
@@ -68,44 +68,44 @@ Suddenly the inputs and outputs are no longer separable?
 This feels like a bug to me, but I might be missing something?
 
 
-## 任务要求
-1. 仔细阅读相关代码文件（可以多次阅读）
-2. 分析问题的根本原因
-3. 推理出正确的修复方案
-4. 反复检查你的修复逻辑
-5. 生成 git diff 格式的补丁
+## Task Requirements
+1. Carefully read relevant code files (can read multiple times)
+2. Analyze the root cause of the problem
+3. Reason out the correct fix
+4. Repeatedly check your fix logic
+5. Generate a patch in git diff format
 
-## 输出格式
-请以 git diff 格式输出你的修复补丁。
+## Output Format
+Please output your fix patch in git diff format.
 
-记住：你可以反复阅读代码和思考，但不能运行代码来验证。请通过仔细的逻辑推理来确保修复的正确性。
+Remember: You can repeatedly read code and think, but cannot run code to verify. Please ensure correctness through careful logical reasoning.
 
 ```
 
-**关键特点**:
-- ❌ 不能执行任何代码
-- 🧠 必须通过阅读代码和逻辑推理
-- 🔄 可以多次阅读代码、反复思考和修改方案
-- 📝 输出 git diff 格式的补丁
+**Key Features**:
+- ❌ Cannot execute any code
+- 🧠 Must rely on code reading and logical reasoning
+- 🔄 Can read code multiple times, think repeatedly, and revise approach
+- 📝 Output git diff format patch
 
 ---
 
-## 2. Run-Less 模式（有限次执行，K=2）
+## 2. Run-Less Mode (Limited Executions, K=2)
 
-**核心理念**: Agent 有有限的执行预算（K次），必须把每次执行当作"高价值实验"，强调日志插桩策略。
+**Core Concept**: Agent has limited execution budget (K times), must treat each execution as a "high-value experiment", emphasizing log instrumentation strategy.
 
 ```
-你是一个代码修复专家。你的任务是修复以下 bug。
+You are a code repair expert. Your task is to fix the following bug.
 
-**重要限制：你最多只能执行 2 次代码（包括运行测试、执行脚本等）。**
+**Important restriction: You can execute code at most 2 times (including running tests, executing scripts, etc.).**
 
-执行次数是稀缺资源，你必须把每次执行都当作"高价值实验"。
+Execution count is a scarce resource, you must treat each execution as a "high-value experiment".
 
-## 仓库信息
-- 仓库: astropy/astropy
+## Repository Information
+- Repository: astropy/astropy
 - Base Commit: d16bfe05a744909de4b27f5875fe0d4ed41ce607
 
-## 问题描述
+## Problem Description
 Modeling's `separability_matrix` does not compute separability correctly for nested CompoundModels
 Consider the following model:
 
@@ -148,68 +148,68 @@ Suddenly the inputs and outputs are no longer separable?
 This feels like a bug to me, but I might be missing something?
 
 
-## 执行策略（关键！）
-在执行代码之前，你必须：
+## Execution Strategy (Critical!)
+Before executing code, you must:
 
-1. **提出假设**: 明确说明你怀疑问题出在哪里
-2. **插入日志**: 在关键位置添加 print/log 语句来捕获：
-   - 变量的值
-   - 函数的输入输出
-   - 分支路径
-   - 异常上下文
-3. **执行验证**: 运行代码获取高密度的调试信息
-4. **分析结果**: 基于日志输出确定修复方案
+1. **Propose hypothesis**: Clearly state where you suspect the problem is
+2. **Insert logs**: Add print/log statements at key locations to capture:
+   - Variable values
+   - Function inputs/outputs
+   - Branch paths
+   - Exception contexts
+3. **Execute verification**: Run code to obtain high-density debugging information
+4. **Analyze results**: Determine fix based on log output
 
-## 日志插桩示例
+## Log Instrumentation Example
 ```python
-# 假设：怀疑 calculate() 函数在处理负数时有问题
+# Hypothesis: Suspect calculate() function has issues with negative numbers
 def calculate(x):
-    print(f"DEBUG: calculate() 输入 x={x}, type={type(x)}")  # 插桩
+    print(f"DEBUG: calculate() input x={x}, type={type(x)}")  # Instrumentation
     result = x * 2
-    print(f"DEBUG: calculate() 输出 result={result}")  # 插桩
+    print(f"DEBUG: calculate() output result={result}")  # Instrumentation
     return result
 ```
 
-## 执行预算
-- 当前剩余执行次数: 2
-- 每次执行前请说明：你的假设是什么，你要验证什么
-- 执行后请分析：日志告诉了你什么信息
+## Execution Budget
+- Current remaining executions: 2
+- Before each execution, state: what is your hypothesis, what are you verifying
+- After execution, analyze: what information did the logs tell you
 
-## 输出格式
-最终以 git diff 格式输出你的修复补丁。
+## Output Format
+Finally output your fix patch in git diff format.
 
-记住：把执行当作昂贵的实验，而不是免费的试错按钮。一次聪明的执行胜过十次盲目的尝试。
+Remember: Treat execution as expensive experiments, not free trial-and-error buttons. One smart execution beats ten blind attempts.
 
 ```
 
-**关键特点**:
-- 🔢 最多执行 K 次（本例 K=2）
-- 🔬 每次执行前必须提出假设
-- 📊 强调日志插桩（print/log）来获取高密度调试信息
-- 💡 执行是稀缺资源，不是免费的试错按钮
-- 📝 最终输出 git diff 格式的补丁
+**Key Features**:
+- 🔢 Maximum K executions (K=2 in this example)
+- 🔬 Must propose hypothesis before each execution
+- 📊 Emphasize log instrumentation (print/log) to obtain high-density debugging information
+- 💡 Execution is a scarce resource, not a free trial-and-error button
+- 📝 Final output in git diff format patch
 
-**日志插桩策略**:
-- 在关键位置添加 print/log 语句
-- 捕获变量值、函数输入输出、分支路径、异常上下文
-- 一次聪明的执行胜过十次盲目的尝试
+**Log Instrumentation Strategy**:
+- Add print/log statements at key locations
+- Capture variable values, function inputs/outputs, branch paths, exception contexts
+- One smart execution beats ten blind attempts
 
 ---
 
-## 3. Run-Full 模式（不限制执行次数）
+## 3. Run-Full Mode (Unlimited Executions)
 
-**核心理念**: Agent 可以自由执行代码来调试和验证修复，类似传统的开发流程。
+**Core Concept**: Agent can freely execute code to debug and verify fixes, similar to traditional development workflow.
 
 ```
-你是一个代码修复专家。你的任务是修复以下 bug。
+You are a code repair expert. Your task is to fix the following bug.
 
-你可以自由执行代码来调试和验证你的修复。
+You can freely execute code to debug and verify your fix.
 
-## 仓库信息
-- 仓库: astropy/astropy
+## Repository Information
+- Repository: astropy/astropy
 - Base Commit: d16bfe05a744909de4b27f5875fe0d4ed41ce607
 
-## 问题描述
+## Problem Description
 Modeling's `separability_matrix` does not compute separability correctly for nested CompoundModels
 Consider the following model:
 
@@ -252,58 +252,58 @@ Suddenly the inputs and outputs are no longer separable?
 This feels like a bug to me, but I might be missing something?
 
 
-## 工作流程
-1. 阅读相关代码
-2. 运行测试查看失败情况
-3. 分析错误信息
-4. 尝试修复
-5. 运行测试验证
-6. 如果测试失败，重复步骤 3-5
+## Workflow
+1. Read relevant code
+2. Run tests to see failure cases
+3. Analyze error messages
+4. Attempt fixes
+5. Run tests for verification
+6. If tests fail, repeat steps 3-5
 
-## 输出格式
-最终以 git diff 格式输出你的修复补丁。
+## Output Format
+Finally output your fix patch in git diff format.
 
-你可以多次运行代码和测试，直到所有测试通过。
+You can run code and tests multiple times until all tests pass.
 
 ```
 
-**关键特点**:
-- ✅ 可以自由执行代码
-- 🔄 可以多次运行测试验证
-- 🐛 可以迭代调试直到所有测试通过
-- 📝 最终输出 git diff 格式的补丁
+**Key Features**:
+- ✅ Can freely execute code
+- 🔄 Can run tests multiple times for verification
+- 🐛 Can iteratively debug until all tests pass
+- 📝 Final output in git diff format patch
 
-**工作流程**:
-1. 阅读相关代码
-2. 运行测试查看失败情况
-3. 分析错误信息
-4. 尝试修复
-5. 运行测试验证
-6. 如果测试失败，重复步骤 3-5
-
----
-
-## 对比总结
-
-| 特性 | Run-Free | Run-Less (K=2) | Run-Full |
-|------|----------|----------------|----------|
-| 执行次数 | 0 次 | 最多 K 次 | 不限制 |
-| 策略重点 | 纯推理 | 日志插桩 | 迭代调试 |
-| 难度 | 最高 | 中等 | 最低 |
-| Token 成本 | 最低 | 中等 | 最高 |
-| 适用场景 | 简单 bug | 中等复杂度 | 复杂 bug |
+**Workflow**:
+1. Read relevant code
+2. Run tests to see failure cases
+3. Analyze error messages
+4. Attempt fixes
+5. Run tests for verification
+6. If tests fail, repeat steps 3-5
 
 ---
 
-## 研究假设
+## Comparison Summary
 
-我们的研究旨在探索：
-
-1. **Run-Free vs Run-Full**: 执行环境对代码修复能力的影响有多大？
-2. **Run-Less 的最优 K 值**: 有限次执行能否接近 Run-Full 的效果？
-3. **成本效益分析**: Run-Less 是否能在成本和效果之间取得最佳平衡？
-4. **日志插桩策略**: 强调日志插桩是否能提高 Run-Less 的成功率？
+| Feature | Run-Free | Run-Less (K=2) | Run-Full |
+|---------|----------|----------------|----------|
+| Execution Count | 0 times | Max K times | Unlimited |
+| Strategy Focus | Pure reasoning | Log instrumentation | Iterative debugging |
+| Difficulty | Highest | Medium | Lowest |
+| Token Cost | Lowest | Medium | Highest |
+| Use Case | Simple bugs | Medium complexity | Complex bugs |
 
 ---
 
-生成时间: 1768335490.4406393
+## Research Hypotheses
+
+Our research aims to explore:
+
+1. **Run-Free vs Run-Full**: How much does execution environment impact code repair capability?
+2. **Optimal K Value for Run-Less**: Can limited executions approach Run-Full effectiveness?
+3. **Cost-Benefit Analysis**: Can Run-Less achieve optimal balance between cost and effectiveness?
+4. **Log Instrumentation Strategy**: Does emphasizing log instrumentation improve Run-Less success rate?
+
+---
+
+Generation time: 1768335490.4406393

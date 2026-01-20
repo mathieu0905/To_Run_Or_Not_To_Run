@@ -1,99 +1,99 @@
-# 在 Docker 容器内运行实验指南
+# Guide to Running Experiments in Docker Containers
 
-## 架构说明
+## Architecture Overview
 
-所有实验脚本都在 Docker 容器内运行，通过 volume 挂载实现输出实时同步到宿主机。
+All experiment scripts run inside Docker containers, with output synchronized to the host machine in real-time through volume mounting.
 
-**输出目录结构**：
+**Output Directory Structure**:
 ```
 output/
-├── swebenchlite/          # SWE-bench Lite 数据集
-│   └── {instance_id}/     # 实例 ID（如 django__django-11099）
-│       ├── trace.jsonl    # Agent 执行 trace
-│       ├── patch.diff     # 生成的补丁
-│       ├── prompt_{mode}.txt  # 使用的 prompt
-│       └── result_{mode}.json # 实验结果摘要
-└── swebenchverified/      # SWE-bench Verified 数据集
+├── swebenchlite/          # SWE-bench Lite dataset
+│   └── {instance_id}/     # Instance ID (e.g., django__django-11099)
+│       ├── trace.jsonl    # Agent execution trace
+│       ├── patch.diff     # Generated patch
+│       ├── prompt_{mode}.txt  # Prompt used
+│       └── result_{mode}.json # Experiment result summary
+└── swebenchverified/      # SWE-bench Verified dataset
     └── {instance_id}/
         └── ...
 ```
 
-## 前置准备
+## Prerequisites
 
-### 1. 设置环境变量
+### 1. Set Environment Variables
 
-创建 `.env` 文件（或在 shell 中导出）：
+Create a `.env` file (or export in shell):
 
 ```bash
-# Claude Code 认证
+# Claude Code authentication
 export ANTHROPIC_API_KEY="your-api-key"
-export ANTHROPIC_BASE_URL="https://api.anthropic.com"  # 可选
+export ANTHROPIC_BASE_URL="https://api.anthropic.com"  # Optional
 
-# Codex 认证（如果使用）
+# Codex authentication (if using)
 export OPENAI_API_KEY="your-api-key"
 
-# 代理设置（如果需要）
+# Proxy settings (if needed)
 export http_proxy="http://127.0.0.1:15732"
 export https_proxy="http://127.0.0.1:15732"
 ```
 
-### 2. 构建或拉取 Docker 镜像
+### 2. Build or Pull Docker Image
 
 ```bash
-# 如果使用官方基础镜像
+# If using official base image
 docker pull swebench/sweb.eval.x86_64.base:latest
 
-# 或者使用你自己构建的 Agent 增强镜像
+# Or use your own built Agent-enhanced image
 # docker pull swebench/sweb.eval.x86_64.{repo}_{version}_{issue}-agent:latest
 ```
 
-## 使用方法
+## Usage
 
-### 方式 1: 使用 Docker Compose（推荐）
+### Method 1: Using Docker Compose (Recommended)
 
-#### 启动容器
+#### Start Container
 
 ```bash
-# 启动交互式容器
+# Start interactive container
 docker-compose up -d swebench-runner
 
-# 进入容器
+# Enter container
 docker-compose exec swebench-runner bash
 ```
 
-#### 在容器内运行实验
+#### Run Experiments Inside Container
 
 ```bash
-# 进入实验目录
+# Navigate to experiments directory
 cd /workspace/experiments
 
-# 运行单个实验
+# Run single experiment
 python runner.py django__django-11099 run_free
 python runner.py django__django-11099 run_less 2
 python runner.py django__django-11099 run_full
 
-# 指定数据集
+# Specify dataset
 python runner.py django__django-11099 run_less 2 claude_code 600 princeton-nlp/SWE-bench_Verified
 ```
 
-#### 查看输出（在宿主机）
+#### View Output (On Host Machine)
 
 ```bash
-# 输出会实时同步到宿主机的 output/ 目录
+# Output is synchronized to host's output/ directory in real-time
 ls output/swebenchlite/django__django-11099/
-# 输出：trace.jsonl  patch.diff  prompt_run_free.txt  result_run_free.json
+# Output: trace.jsonl  patch.diff  prompt_run_free.txt  result_run_free.json
 ```
 
-#### 停止容器
+#### Stop Container
 
 ```bash
 docker-compose down
 ```
 
-### 方式 2: 直接使用 Docker 命令
+### Method 2: Direct Docker Commands
 
 ```bash
-# 启动容器并挂载目录
+# Start container and mount directories
 docker run -it --rm \
   --name swebench-runner \
   -v $(pwd):/workspace \
@@ -104,17 +104,17 @@ docker run -it --rm \
   swebench/sweb.eval.x86_64.base:latest \
   bash
 
-# 在容器内运行实验
+# Run experiments inside container
 cd /workspace/experiments
 python runner.py django__django-11099 run_free
 ```
 
-## 批量运行实验
+## Batch Running Experiments
 
-### 创建实例列表文件
+### Create Instance List File
 
 ```bash
-# 在宿主机创建实例列表
+# Create instance list on host machine
 cat > instances.txt <<EOF
 django__django-11099
 django__django-11001
@@ -122,91 +122,91 @@ astropy__astropy-12907
 EOF
 ```
 
-### 在容器内运行批量实验
+### Run Batch Experiments Inside Container
 
 ```bash
-# 进入容器
+# Enter container
 docker-compose exec swebench-runner bash
 
-# 运行批量实验
+# Run batch experiments
 cd /workspace/experiments
 python batch_runner.py ../instances.txt run_less 2 4
 
-# 参数说明：
-# - ../instances.txt: 实例列表文件
-# - run_less: 执行模式
-# - 2: run_less 的执行次数限制
-# - 4: 并发数（同时运行 4 个实例）
+# Parameter explanation:
+# - ../instances.txt: Instance list file
+# - run_less: Execution mode
+# - 2: Execution count limit for run_less
+# - 4: Concurrency (run 4 instances simultaneously)
 ```
 
-## 常见问题
+## FAQ
 
-### Q1: 如何查看实时输出？
+### Q1: How to view real-time output?
 
-输出会实时同步到宿主机的 `output/` 目录，你可以在宿主机上查看：
+Output is synchronized to the host's `output/` directory in real-time, you can view it on the host machine:
 
 ```bash
-# 查看 trace
+# View trace
 tail -f output/swebenchlite/django__django-11099/trace.jsonl
 
-# 查看 patch
+# View patch
 cat output/swebenchlite/django__django-11099/patch.diff
 ```
 
-### Q2: 如何在容器内安装额外的依赖？
+### Q2: How to install additional dependencies inside the container?
 
 ```bash
-# 进入容器
+# Enter container
 docker-compose exec swebench-runner bash
 
-# 安装 Python 包
+# Install Python packages
 pip install some-package
 
-# 或者修改 Dockerfile 并重新构建镜像
+# Or modify Dockerfile and rebuild the image
 ```
 
-### Q3: 如何使用不同的数据集？
+### Q3: How to use different datasets?
 
 ```bash
-# SWE-bench Lite（默认）
+# SWE-bench Lite (default)
 python runner.py instance_id run_free
 
 # SWE-bench Verified
 python runner.py instance_id run_free claude_code 600 princeton-nlp/SWE-bench_Verified
 ```
 
-### Q4: 如何调试失败的实验？
+### Q4: How to debug failed experiments?
 
 ```bash
-# 查看结果 JSON
+# View result JSON
 cat output/swebenchlite/instance_id/result_run_free.json
 
-# 查看完整 trace
+# View complete trace
 cat output/swebenchlite/instance_id/trace.jsonl
 
-# 查看 prompt
+# View prompt
 cat output/swebenchlite/instance_id/prompt_run_free.txt
 ```
 
-### Q5: 容器内的修改会丢失吗？
+### Q5: Will modifications inside the container be lost?
 
-- **代码修改**：通过 volume 挂载，容器内对 `/workspace` 的修改会同步到宿主机
-- **输出文件**：通过 volume 挂载，输出会实时同步到宿主机的 `output/` 目录
-- **系统级修改**（如 apt install）：容器重启后会丢失，建议修改 Dockerfile
+- **Code modifications**: Through volume mounting, modifications to `/workspace` inside the container are synchronized to the host machine
+- **Output files**: Through volume mounting, output is synchronized to the host's `output/` directory in real-time
+- **System-level modifications** (e.g., apt install): Will be lost after container restart, recommend modifying Dockerfile
 
-## 性能优化建议
+## Performance Optimization Recommendations
 
-### 1. 并发控制
+### 1. Concurrency Control
 
 ```bash
-# 根据机器资源调整并发数
-# 推荐：CPU 核心数的 50-75%
-python batch_runner.py instances.txt run_less 2 4  # 4 个并发
+# Adjust concurrency based on machine resources
+# Recommended: 50-75% of CPU cores
+python batch_runner.py instances.txt run_less 2 4  # 4 concurrent
 ```
 
-### 2. 资源限制
+### 2. Resource Limits
 
-在 `docker-compose.yml` 中添加资源限制：
+Add resource limits in `docker-compose.yml`:
 
 ```yaml
 services:
@@ -222,20 +222,20 @@ services:
           memory: 8G
 ```
 
-### 3. 使用 SSD 存储
+### 3. Use SSD Storage
 
-确保 `output/` 目录在 SSD 上，以提高 I/O 性能。
+Ensure the `output/` directory is on SSD to improve I/O performance.
 
-## 下一步
+## Next Steps
 
-1. **测试单个实例**：先运行一个实例验证环境配置正确
-2. **小批量测试**：运行 3-5 个实例测试批量运行功能
-3. **完整实验**：运行完整的 SWE-bench Lite（300 个实例）
+1. **Test single instance**: First run one instance to verify environment configuration is correct
+2. **Small batch test**: Run 3-5 instances to test batch running functionality
+3. **Full experiment**: Run complete SWE-bench Lite (300 instances)
 
-## 相关文件
+## Related Files
 
-- `docker-compose.yml` - Docker Compose 配置
-- `experiments/runner.py` - 单个实验运行器
-- `experiments/batch_runner.py` - 批量实验运行器（待实现）
-- `experiments/prompt_builder.py` - Prompt 构造器
-- `experiments/agent_caller.py` - Agent 调用器
+- `docker-compose.yml` - Docker Compose configuration
+- `experiments/runner.py` - Single experiment runner
+- `experiments/batch_runner.py` - Batch experiment runner (to be implemented)
+- `experiments/prompt_builder.py` - Prompt builder
+- `experiments/agent_caller.py` - Agent caller

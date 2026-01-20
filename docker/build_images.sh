@@ -1,5 +1,5 @@
 #!/bin/bash
-# Docker 镜像后台构建脚本
+# Docker image background build script
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_SCRIPT="$SCRIPT_DIR/build_agent_images_parallel.py"
@@ -7,17 +7,17 @@ LOG_FILE="$SCRIPT_DIR/build_output.log"
 PID_FILE="$SCRIPT_DIR/build.pid"
 
 usage() {
-    echo "用法: $0 {start|stop|status|logs} [lite|verified]"
+    echo "Usage: $0 {start|stop|status|logs} [lite|verified]"
     echo ""
-    echo "命令:"
-    echo "  start [dataset]  - 后台启动构建 (默认: lite)"
-    echo "  stop             - 停止构建"
-    echo "  status           - 查看构建状态"
-    echo "  logs             - 实时查看构建日志"
+    echo "Commands:"
+    echo "  start [dataset]  - Start build in background (default: lite)"
+    echo "  stop             - Stop build"
+    echo "  status           - Check build status"
+    echo "  logs             - View build logs in real-time"
     echo ""
-    echo "数据集:"
-    echo "  lite             - SWE-bench Lite (300 实例)"
-    echo "  verified         - SWE-bench-verified (500 实例)"
+    echo "Datasets:"
+    echo "  lite             - SWE-bench Lite (300 instances)"
+    echo "  verified         - SWE-bench-verified (500 instances)"
     exit 1
 }
 
@@ -27,73 +27,73 @@ start_build() {
     if [ -f "$PID_FILE" ]; then
         local pid=$(cat "$PID_FILE")
         if ps -p "$pid" > /dev/null 2>&1; then
-            echo "错误: 构建已在运行 (PID: $pid)"
+            echo "Error: Build is already running (PID: $pid)"
             exit 1
         else
             rm -f "$PID_FILE"
         fi
     fi
 
-    echo "启动后台构建: $dataset 数据集"
-    echo "日志文件: $LOG_FILE"
+    echo "Starting background build: $dataset dataset"
+    echo "Log file: $LOG_FILE"
 
     nohup python3 -u "$PYTHON_SCRIPT" "$dataset" > "$LOG_FILE" 2>&1 &
     local pid=$!
     echo $pid > "$PID_FILE"
 
-    echo "构建已启动 (PID: $pid)"
-    echo "使用 '$0 status' 查看状态"
-    echo "使用 '$0 logs' 查看日志"
+    echo "Build started (PID: $pid)"
+    echo "Use '$0 status' to check status"
+    echo "Use '$0 logs' to view logs"
 }
 
 stop_build() {
     if [ ! -f "$PID_FILE" ]; then
-        echo "没有运行中的构建"
+        echo "No running build"
         exit 0
     fi
 
     local pid=$(cat "$PID_FILE")
     if ps -p "$pid" > /dev/null 2>&1; then
-        echo "停止构建 (PID: $pid)..."
+        echo "Stopping build (PID: $pid)..."
         kill "$pid"
         rm -f "$PID_FILE"
-        echo "构建已停止"
+        echo "Build stopped"
     else
-        echo "构建进程不存在"
+        echo "Build process does not exist"
         rm -f "$PID_FILE"
     fi
 }
 
 check_status() {
     if [ ! -f "$PID_FILE" ]; then
-        echo "状态: 未运行"
+        echo "Status: Not running"
         exit 0
     fi
 
     local pid=$(cat "$PID_FILE")
     if ps -p "$pid" > /dev/null 2>&1; then
-        echo "状态: 运行中 (PID: $pid)"
+        echo "Status: Running (PID: $pid)"
         echo ""
         if [ -f "$LOG_FILE" ]; then
-            echo "最近输出:"
+            echo "Recent output:"
             tail -n 10 "$LOG_FILE"
         fi
     else
-        echo "状态: 已停止"
+        echo "Status: Stopped"
         rm -f "$PID_FILE"
     fi
 }
 
 show_logs() {
     if [ ! -f "$LOG_FILE" ]; then
-        echo "日志文件不存在"
+        echo "Log file does not exist"
         exit 1
     fi
 
     tail -f "$LOG_FILE"
 }
 
-# 主逻辑
+# Main logic
 case "${1:-}" in
     start)
         start_build "${2:-lite}"

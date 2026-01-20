@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent 调用器：统一封装 Claude Code 和 Codex 的调用接口
+Agent Caller: Unified wrapper for Claude Code and Codex call interfaces
 """
 import json
 import os
@@ -14,41 +14,41 @@ import shutil
 
 @dataclass
 class AgentTrace:
-    """Agent 执行的 trace 记录"""
+    """Agent execution trace record"""
     agent_type: str  # claude_code, codex
     prompt: str
     output: str
     tokens_used: int
     exec_count: int
     duration_sec: float
-    raw_trace: List[Dict[str, Any]]  # stream-json 格式的原始 trace
+    raw_trace: List[Dict[str, Any]]  # stream-json format raw trace
     error: Optional[str] = None
 
 
 class AgentCaller:
-    """统一的 Agent 调用接口"""
+    """Unified Agent call interface"""
 
     def __init__(self, agent_type: str = "claude_code", instance_id: Optional[str] = None):
         """
-        初始化 Agent 调用器
+        Initialize Agent caller
 
         Args:
-            agent_type: "claude_code" 或 "codex"
-            instance_id: SWE-bench 实例 ID（用于确定 Docker 镜像）
+            agent_type: "claude_code" or "codex"
+            instance_id: SWE-bench instance ID (used to determine Docker image)
         """
         self.agent_type = agent_type
         self.instance_id = instance_id
 
     def call(self, prompt: str, timeout: int = 600, trace_output_path: Optional[str] = None) -> AgentTrace:
         """
-        调用 agent 并返回 trace
+        Call agent and return trace
 
         Args:
-            prompt: 输入的提示词
-            timeout: 超时时间(秒)
+            prompt: Input prompt
+            timeout: Timeout (seconds)
 
         Returns:
-            AgentTrace 对象
+            AgentTrace object
         """
         if self.agent_type == "claude_code" or self.agent_type == "claude_code_glm":
             return self._call_claude_code(prompt, timeout, trace_output_path)
@@ -59,22 +59,22 @@ class AgentCaller:
 
     def _get_docker_image(self, instance_id: str) -> Optional[str]:
         """
-        根据 instance_id 获取对应的 Docker 镜像名称
+        Get corresponding Docker image name based on instance_id
 
-        instance_id 格式: django__django-11099
-        镜像名格式: swebench/sweb.eval.x86_64.django_1776_django-11099-agent:latest
+        instance_id format: django__django-11099
+        Image name format: swebench/sweb.eval.x86_64.django_1776_django-11099-agent:latest
         """
         if not instance_id:
             return None
 
-        # 从 instance_id 提取 issue 编号部分（如 django-11099）
-        # instance_id 格式: {repo}__{repo}-{issue_number}
+        # Extract issue number part from instance_id (e.g. django-11099)
+        # instance_id format: {repo}__{repo}-{issue_number}
         parts = instance_id.split("__")
         if len(parts) != 2:
             return None
-        issue_part = parts[1]  # 如 django-11099
+        issue_part = parts[1]  # e.g. django-11099
 
-        # 查找所有 swebench agent 镜像
+        # Find all swebench agent images
         result = subprocess.run(
             ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
             capture_output=True,
@@ -83,22 +83,22 @@ class AgentCaller:
 
         if result.returncode == 0:
             for line in result.stdout.strip().split('\n'):
-                # 匹配包含 issue 编号且以 -agent:latest 结尾的镜像
+                # Match images containing issue number and ending with -agent:latest
                 if issue_part in line and line.endswith("-agent:latest"):
                     return line
 
         return None
 
     def _call_claude_code(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
-        """调用 Claude Code"""
+        """Call Claude Code"""
         import time
         import os
         start = time.time()
 
-        # 使用指定的输出路径或创建临时文件保存 trace
+        # Use the specified output path or create a temporary file to save the trace
         if trace_output_path:
             trace_path = trace_output_path
-            # 确保目录存在
+            # Make sure the directory exists
             Path(trace_path).parent.mkdir(parents=True, exist_ok=True)
         else:
             with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False) as trace_file:
@@ -125,13 +125,13 @@ class AgentCaller:
                         error="Missing ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN"
                     )
 
-            # 构建命令
+            # Build command
             cmd = self._build_claude_command(prompt, trace_path)
 
-            # 确定工作目录：如果 /testbed 存在则使用，否则使用当前目录
+            # Determine working directory: use /testbed if it exists, otherwise use current directory
             work_dir = "/testbed" if os.path.exists("/testbed") else None
 
-            # 执行命令
+            # Execute command
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -143,7 +143,7 @@ class AgentCaller:
 
             duration = time.time() - start
 
-            # 读取 trace
+            # Read trace
             raw_trace = self._read_trace_file(trace_path)
 
             # Claude Code output may be present in trace or stdout depending on CLI/version.
@@ -180,8 +180,8 @@ class AgentCaller:
             )
 
         except subprocess.TimeoutExpired:
-            # 超时时也尝试读取已经写入的 trace 文件
-            # Docker 容器可能在超时前已经完成了 Claude Code 的执行
+            # Also try to read trace file written on timeout
+            # Docker container may have completed Claude Code execution before timeout
             duration = time.time() - start
             raw_trace = self._read_trace_file(trace_path)
 
@@ -219,48 +219,48 @@ class AgentCaller:
                 error=str(e)
             )
         finally:
-            # 只清理临时文件（不清理指定的输出文件）
+            # Only clean up temporary files (don't clean up specified output files)
             if not trace_output_path:
                 Path(trace_path).unlink(missing_ok=True)
                 # Best-effort cleanup for the local prompt file created alongside the trace.
                 Path(f"{trace_path}.prompt.txt").unlink(missing_ok=True)
 
     def _build_claude_command(self, prompt: str, trace_path: str) -> List[str]:
-        """构建 Claude Code 命令"""
-        # 必须有 instance_id 和对应的 Docker 镜像
+        """Build Claude Code command"""
+        # Must have instance_id and corresponding Docker image
         docker_image = self._get_docker_image(self.instance_id) if self.instance_id else None
 
         if not docker_image:
             raise RuntimeError(f"No Docker image found for instance: {self.instance_id}. "
                              f"Please build the agent image first.")
 
-        # 在 Docker 容器内执行
-        # 需要将宿主机的 trace_path 映射到容器内
+        # Execute in Docker container
+        # Need to map host trace_path to container
         container_trace_path = "/workspace/output/trace.jsonl"
         container_patch_path = "/workspace/output/patch.diff"
         host_trace_dir = str(Path(trace_path).parent.absolute())
 
-        # 获取项目根目录（docker 目录的父目录）
+        # Get project root directory (parent of docker directory)
         import os
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         docker_dir = os.path.join(project_root, "docker")
 
-        # 从环境变量获取配置并传递到容器
+        # Get configuration from environment variables and pass to container
         base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
         api_key = os.environ.get('ANTHROPIC_API_KEY', '')
         auth_token = os.environ.get('ANTHROPIC_AUTH_TOKEN', '')
         claude_model = os.environ.get('CLAUDE_MODEL', 'sonnet')
 
-        # 提取域名（去掉 http:// 或 https:// 和端口）
+        # Extract domain (remove http:// or https:// and port)
         from urllib.parse import urlparse
         parsed = urlparse(base_url)
         api_host = parsed.hostname or 'api.anthropic.com'
 
-        # 使用 nonroot 用户运行，这样可以使用 --dangerously-skip-permissions
-        # 1. 先运行 configure_models.sh 配置 Claude Code（使用环境变量）
-        # 2. 将配置复制到 nonroot 用户目录
-        # 3. 激活 testbed conda 环境并运行 Claude Code
-        # 注意：nonroot 用户无法写入挂载目录，所以用管道让 root 写入文件
+        # Run as nonroot user, so can use --dangerously-skip-permissions
+        # 1. First run configure_models.sh to configure Claude Code (using environment variables)
+        # 2. Copy configuration to nonroot user directory
+        # 3. Activate testbed conda environment and run Claude Code
+        # Note: nonroot user cannot write to mounted directory, so use pipe to let root write files
         container_prompt_path = "/workspace/output/prompt.txt"
         claude_cmd = (
             f"bash /workspace/docker/configure_models.sh && "
@@ -276,7 +276,7 @@ class AgentCaller:
             f"cd /testbed && git diff > {container_patch_path}"
         )
 
-        # 先将 prompt 写入宿主机目录
+        # First write prompt to host directory
         prompt_file = Path(host_trace_dir) / "prompt.txt"
         prompt_file.write_text(prompt, encoding='utf-8')
 
@@ -295,24 +295,24 @@ class AgentCaller:
         ]
 
     def _build_codex_command(self, prompt: str, trace_path: str) -> List[str]:
-        """构建 Codex 命令"""
-        # 必须有 instance_id 和对应的 Docker 镜像
+        """Build Codex command"""
+        # Must have instance_id and corresponding Docker image
         docker_image = self._get_docker_image(self.instance_id) if self.instance_id else None
 
         if not docker_image:
             raise RuntimeError(f"No Docker image found for instance: {self.instance_id}. "
                              f"Please build the agent image first.")
 
-        # 在 Docker 容器内执行
+        # Execute in Docker container
         container_trace_path = "/workspace/output/trace.jsonl"
         container_patch_path = "/workspace/output/patch.diff"
         host_trace_dir = str(Path(trace_path).parent.absolute())
 
-        # 使用 --full-auto 跳过确认，激活 testbed conda 环境，执行完后运行 git diff
-        # 将 prompt 写入文件避免 shell 转义问题
+        # Use --full-auto to skip confirmation, activate testbed conda environment, run git diff after execution
+        # Write prompt to file to avoid shell escaping issues
         container_prompt_path = "/workspace/output/prompt.txt"
 
-        # 先将 prompt 写入宿主机目录
+        # First write prompt to host directory
         prompt_file = Path(host_trace_dir) / "prompt.txt"
         prompt_file.write_text(prompt, encoding='utf-8')
 
@@ -326,15 +326,15 @@ class AgentCaller:
         ]
 
     def _call_codex(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
-        """调用 Codex"""
+        """Call Codex"""
         import time
         import os
         start = time.time()
 
-        # 使用指定的输出路径或创建临时文件保存 trace
+        # Use the specified output path or create a temporary file to save the trace
         if trace_output_path:
             trace_path = trace_output_path
-            # 确保目录存在
+            # Make sure the directory exists
             Path(trace_path).parent.mkdir(parents=True, exist_ok=True)
         else:
             with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False) as trace_file:
@@ -343,7 +343,7 @@ class AgentCaller:
         try:
             cmd = self._build_codex_command(prompt, trace_path)
 
-            # 确定工作目录：如果 /testbed 存在则使用，否则使用当前目录
+            # Determine working directory: use /testbed if it exists, otherwise use current directory
             work_dir = "/testbed" if os.path.exists("/testbed") else None
 
             result = subprocess.run(
@@ -369,9 +369,9 @@ class AgentCaller:
                 tokens = max(1, len(prompt) // 4)
             exec_count = self._count_executions_from_trace(raw_trace)
 
-            # 过滤 Codex 的调试日志（needs_follow_up 等），只保留真正的错误信息
+            # Filter Codex debug logs (needs_follow_up, etc.), only keep real error messages
             stderr = (result.stderr or "").strip()
-            # 如果 stderr 只包含 needs_follow_up 日志，不视为错误
+            # If stderr only contains needs_follow_up logs, don't treat as error
             if stderr and all(line.strip().endswith("needs_follow_up: true") or line.strip().endswith("needs_follow_up: false") or "ERROR codex_core::codex:" in line for line in stderr.split('\n') if line.strip()):
                 stderr = ""
 
@@ -409,12 +409,12 @@ class AgentCaller:
                 error=str(e)
             )
         finally:
-            # 只清理临时文件（不清理指定的输出文件）
+            # Only clean up temporary files (don't clean up specified output files)
             if not trace_output_path:
                 Path(trace_path).unlink(missing_ok=True)
 
     def _read_trace_file(self, trace_path: str) -> List[Dict[str, Any]]:
-        """读取 stream-json 格式的 trace 文件"""
+        """Read stream-json format trace file"""
         traces = []
         try:
             with open(trace_path, 'r') as f:
@@ -441,7 +441,7 @@ class AgentCaller:
         return env
 
     def _extract_tokens_from_trace(self, trace: List[Dict[str, Any]]) -> int:
-        """从 trace 中提取 token 使用量"""
+        """Extract token usage from trace"""
         total_tokens = 0
         # Some Claude Code traces report per-message `usage` as 0 but provide totals in `modelUsage`.
         # Prefer `input_tokens`/`output_tokens` when available; otherwise fall back to `modelUsage`.
@@ -472,9 +472,9 @@ class AgentCaller:
 
     def _count_executions_from_trace(self, trace: List[Dict[str, Any]]) -> int:
         """
-        从 trace 中统计执行次数（Bash 工具调用次数）
+        Count execution count from trace (Bash tool invocation count)
 
-        单元测试期望统计所有 Bash 工具调用，不区分命令类型。
+        Unit tests expect to count all Bash tool invocations, regardless of command type.
         """
         return sum(
             1
@@ -484,26 +484,26 @@ class AgentCaller:
 
     def _is_test_execution(self, command: str) -> bool:
         """
-        判断命令是否为测试执行或脚本运行
+        Determine if command is a test execution or script run
 
-        计入执行次数的命令：
+        Commands counted as executions:
         - pytest / py.test
         - unittest
         - Django tests (python manage.py test)
         - tox
         - nose / nosetests
-        - python xxx.py (运行测试脚本)
+        - python xxx.py (running test scripts)
 
-        不计入的命令：
-        - ls, cat, grep, find 等查看命令
-        - git 命令
-        - cd, pwd 等导航命令
-        - python -c 简单命令
-        - python --version 等信息查询
+        Commands not counted:
+        - ls, cat, grep, find and other viewing commands
+        - git commands
+        - cd, pwd and other navigation commands
+        - python -c simple commands
+        - python --version and other info queries
         """
         command = command.strip().lower()
 
-        # 测试框架命令
+        # Test framework commands
         test_patterns = [
             'pytest',
             'python -m pytest',
@@ -526,25 +526,25 @@ class AgentCaller:
             if pattern in command:
                 return True
 
-        # Python 脚本执行（但排除一些常见的非执行命令）
+        # Python script execution (but exclude some common non-execution commands)
         if command.startswith('python ') or command.startswith('python3 '):
-            # 排除 python -c (通常用于简单计算或查看)
+            # Exclude python -c (usually used for simple calculations or viewing)
             if ' -c ' in command:
                 return False
-            # 排除 python --version 等信息查询
+            # Exclude python --version and other info queries
             if '--version' in command or '--help' in command:
                 return False
-            # 如果是运行 .py 文件，计入
+            # If running a .py file, count it
             if '.py' in command:
                 return True
 
         return False
 
     def _extract_output_from_trace(self, trace: List[Dict[str, Any]]) -> str:
-        """从 trace 中提取输出文本"""
+        """Extract output text from trace"""
         output_parts = []
         for entry in trace:
-            # Codex 格式: item.completed -> item.text
+            # Codex format: item.completed -> item.text
             if entry.get("type") == "item.completed":
                 item = entry.get("item", {})
                 if item.get("type") == "agent_message":
@@ -552,7 +552,7 @@ class AgentCaller:
                     if text:
                         output_parts.append(text)
 
-            # Claude Code 格式: assistant -> message.content[].text
+            # Claude Code format: assistant -> message.content[].text
             if entry.get("type") == "assistant":
                 message = entry.get("message")
                 if isinstance(message, dict):
@@ -576,7 +576,7 @@ class AgentCaller:
 
     def _extract_error_from_trace(self, trace: List[Dict[str, Any]]) -> str:
         """
-        从 trace 中提取错误信息（用于 CLI 返回码为 0 但内部执行失败的情况）。
+        Extract error information from trace (for cases where CLI returns 0 but internal execution failed).
         """
         def _walk(obj):
             if isinstance(obj, dict):
@@ -613,10 +613,10 @@ class AgentCaller:
 
 
 def save_trace(trace: AgentTrace, output_path: Path):
-    """保存 trace 到文件"""
+    """Save trace to file"""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 保存完整的 trace 数据
+    # Save complete trace data
     trace_data = {
         "agent_type": trace.agent_type,
         "prompt": trace.prompt,
@@ -634,12 +634,12 @@ def save_trace(trace: AgentTrace, output_path: Path):
     print(f"Trace saved to: {output_path}")
 
 
-# 示例用法
+# Example usage
 if __name__ == "__main__":
-    # 测试 Claude Code 调用
+    # Test Claude Code call
     caller = AgentCaller(agent_type="claude_code")
 
-    test_prompt = "请帮我写一个 Python 函数，计算斐波那契数列的第 n 项"
+    test_prompt = "Please help me write a Python function to calculate the nth term of the Fibonacci sequence"
 
     print(f"Calling {caller.agent_type}...")
     trace = caller.call(test_prompt)
@@ -653,5 +653,5 @@ if __name__ == "__main__":
     if trace.error:
         print(f"Error: {trace.error}")
 
-    # 保存 trace
+    # Save trace
     save_trace(trace, Path("test_trace.json"))

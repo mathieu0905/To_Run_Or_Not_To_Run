@@ -1,19 +1,19 @@
-# RQ5: Failure Modes - 数据表格
+# RQ5: Failure Modes - Data Tables
 
-失败模式分析数据。
+Failure mode analysis data.
 
-## 失败类型分析
+## Failure Type Analysis
 
-### 失败模式分类
+### Failure Mode Classification
 
-| 类别 | 描述 | 识别规则 |
+| Category | Description | Identification Rule |
 |------|------|----------|
-| 工具/环境错误 | 命令执行失败、文件不存在等 | trace 中包含 error, exception, failed |
-| 循环试错 | 同一命令重复执行多次 | 同一命令执行 > 3 次 |
-| 修偏 drift | 修改了不相关的文件 | patch 修改文件数 > 5 |
-| 无效 patch | 生成了 patch 但未通过测试 | has_patch=True 但 resolved=False |
+| Tool/Environment Error | Command execution failure, file not found, etc. | trace contains error, exception, failed |
+| Trial-and-Error Loop | Same command executed multiple times | Same command executed > 3 times |
+| Drift | Modified unrelated files | patch modified files > 5 |
+| Invalid Patch | Generated patch but failed tests | has_patch=True but resolved=False |
 
-## 失败模式分布
+## Failure Mode Distribution
 
 ### SWE-bench Lite
 
@@ -45,9 +45,9 @@
 | codex | run_cost | 100 | 71 | 29 | 0.0 | 0.1 |
 | codex | run_full | 100 | 75 | 25 | 0.0 | 0.5 |
 
-## 典型案例对比
+## Typical Case Comparison
 
-### Run-Free 成功但 Run-Full 失败的案例
+### Cases Where Run-Free Succeeded but Run-Full Failed
 
 | Dataset | Agent | Instance ID |
 |---------|-------|-------------|
@@ -64,7 +64,7 @@
 
 共 16 个案例
 
-### Run-Full 成功但 Run-Free 失败的案例
+### Cases Where Run-Full Succeeded but Run-Free Failed
 
 | Dataset | Agent | Instance ID |
 |---------|-------|-------------|
@@ -79,31 +79,31 @@
 | swebenchlite | codex | django__django-15252 |
 | swebenchverified | claude_code | astropy__astropy-7166 |
 
-共 21 个案例
+Total: 21 cases
 
-## 关键发现
+## Key Findings
 
-### 1. 案例统计
+### 1. Case Statistics
 
-- Run-Free 成功但 Run-Full 失败: **16** 个案例
-- Run-Full 成功但 Run-Free 失败: **21** 个案例
-- 净差异: **5** 个案例（Run-Full 优势）
+- Run-Free succeeded but Run-Full failed: **16** cases
+- Run-Full succeeded but Run-Free failed: **21** cases
+- Net difference: **5** cases (Run-Full advantage)
 
-### 2. 失败模式分析
+### 2. Failure Mode Analysis
 
-**Run-Full 模式的典型失败模式:**
-- 循环试错：反复执行同一测试命令，期望不同结果
-- 过度修改：修改了不必要的文件，引入新问题
-- 工具错误：执行过程中遇到环境问题
+**Typical failure modes in Run-Full mode:**
+- Trial-and-error loop: Repeatedly executing the same test command, expecting different results
+- Over-modification: Modified unnecessary files, introducing new issues
+- Tool errors: Encountered environment issues during execution
 
-**Run-Free 模式的典型失败模式:**
-- 推理错误：对问题理解不准确
-- 缺少验证：无法确认修复是否正确
-- 环境假设：对运行环境的假设不正确
+**Typical failure modes in Run-Free mode:**
+- Reasoning errors: Inaccurate understanding of the problem
+- Lack of verification: Unable to confirm if the fix is correct
+- Environment assumptions: Incorrect assumptions about the runtime environment
 
-### 3. 结论
+### 3. Conclusion
 
-- Run-Full 模式在 **5** 个案例上优于 Run-Free
-- 执行反馈在某些情况下确实有帮助
-- 不同失败模式需要不同的应对策略
-- 开发者 review 负担取决于失败模式类型
+- Run-Full mode outperforms Run-Free in **5** cases
+- Execution feedback is indeed helpful in some situations
+- Different failure modes require different response strategies
+- Developer review burden depends on the type of failure mode

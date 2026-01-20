@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-测试 Agent 调用器
+Test Agent Caller
 """
 import json
 import tempfile
@@ -9,29 +9,29 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 import sys
 
-# 添加父目录到路径
+# Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent_caller import AgentCaller, AgentTrace, save_trace
 
 
 class TestAgentCaller:
-    """测试 AgentCaller 类"""
+    """Test AgentCaller class"""
 
     def test_init_claude_code(self):
-        """测试初始化 Claude Code 调用器"""
+        """Test initializing Claude Code caller"""
         caller = AgentCaller(agent_type="claude_code")
         assert caller.agent_type == "claude_code"
 
     def test_init_codex(self):
-        """测试初始化 Codex 调用器"""
+        """Test initializing Codex caller"""
         caller = AgentCaller(agent_type="codex")
         assert caller.agent_type == "codex"
 
     def test_build_claude_command(self):
-        """测试构建 Claude Code 命令"""
+        """Test building Claude Code command"""
         caller = AgentCaller(agent_type="claude_code")
-        prompt = "测试提示词"
+        prompt = "test prompt"
         trace_path = "/tmp/trace.jsonl"
 
         cmd = caller._build_claude_command(prompt, trace_path)
@@ -44,9 +44,9 @@ class TestAgentCaller:
         assert trace_path in cmd[2]
 
     def test_build_codex_command(self):
-        """测试构建 Codex 命令"""
+        """Test building Codex command"""
         caller = AgentCaller(agent_type="codex")
-        prompt = "测试提示词"
+        prompt = "test prompt"
         trace_path = "/tmp/trace.jsonl"
 
         cmd = caller._build_codex_command(prompt, trace_path)
@@ -58,7 +58,7 @@ class TestAgentCaller:
         assert trace_path in cmd[2]
 
     def test_extract_tokens_from_trace(self):
-        """测试从 trace 中提取 token"""
+        """Test extracting tokens from trace"""
         caller = AgentCaller()
         trace = [
             {"type": "message", "usage": {"input_tokens": 100, "output_tokens": 50}},
@@ -69,7 +69,7 @@ class TestAgentCaller:
         assert tokens == 450  # 100 + 50 + 200 + 100
 
     def test_count_executions_from_trace(self):
-        """测试从 trace 中统计执行次数"""
+        """Test counting executions from trace"""
         caller = AgentCaller()
         trace = [
             {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}},
@@ -78,13 +78,13 @@ class TestAgentCaller:
         ]
 
         exec_count = caller._count_executions_from_trace(trace)
-        assert exec_count == 2  # 只有 Bash 工具调用
+        assert exec_count == 2  # Only Bash tool calls
 
     def test_read_trace_file(self):
-        """测试读取 trace 文件"""
+        """Test reading trace file"""
         caller = AgentCaller()
 
-        # 创建临时 trace 文件
+        # Create temporary trace file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
             f.write('{"type": "message", "content": "test1"}\n')
             f.write('{"type": "message", "content": "test2"}\n')
@@ -100,11 +100,11 @@ class TestAgentCaller:
 
     @patch('agent_caller.subprocess.run')
     def test_call_claude_code_success(self, mock_run):
-        """测试成功调用 Claude Code"""
-        # Mock subprocess 返回
+        """Test successfully calling Claude Code"""
+        # Mock subprocess return
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = "Claude Code 输出"
+        mock_result.stdout = "Claude Code output"
         mock_result.stderr = ""
         mock_run.return_value = mock_result
 
@@ -113,19 +113,19 @@ class TestAgentCaller:
         with patch.object(caller, '_read_trace_file', return_value=[
             {"type": "message", "usage": {"input_tokens": 100, "output_tokens": 50}}
         ]):
-            trace = caller.call("测试提示词", timeout=10)
+            trace = caller.call("test prompt", timeout=10)
 
         assert trace.agent_type == "claude_code"
-        assert trace.output == "Claude Code 输出"
+        assert trace.output == "Claude Code output"
         assert trace.tokens_used == 150
         assert trace.error is None
 
     @patch('agent_caller.subprocess.run')
     def test_call_codex_success(self, mock_run):
-        """测试成功调用 Codex"""
+        """Test successfully calling Codex"""
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = "Codex 输出"
+        mock_result.stdout = "Codex output"
         mock_result.stderr = ""
         mock_run.return_value = mock_result
 
@@ -134,19 +134,19 @@ class TestAgentCaller:
         with patch.object(caller, '_read_trace_file', return_value=[
             {"type": "message", "usage": {"input_tokens": 200, "output_tokens": 100}}
         ]):
-            trace = caller.call("测试提示词", timeout=10)
+            trace = caller.call("test prompt", timeout=10)
 
         assert trace.agent_type == "codex"
-        assert trace.output == "Codex 输出"
+        assert trace.output == "Codex output"
         assert trace.tokens_used == 300
         assert trace.error is None
 
     def test_save_trace(self):
-        """测试保存 trace"""
+        """Test saving trace"""
         trace = AgentTrace(
             agent_type="claude_code",
-            prompt="测试提示词",
-            output="测试输出",
+            prompt="test prompt",
+            output="test output",
             tokens_used=100,
             exec_count=2,
             duration_sec=5.5,

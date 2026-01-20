@@ -1,128 +1,128 @@
 #!/usr/bin/env python3
 """
-生成 prompt 示例文档
+Generate prompt example documentation
 """
 import json
 from pathlib import Path
 from prompt_builder import PromptBuilder
 
-# 加载一个示例实例
+# Load a sample instance
 data_path = Path(__file__).parent.parent / "data" / "swe_bench_lite.json"
 with open(data_path, 'r', encoding='utf-8') as f:
     dataset = json.load(f)
 
 instance = dataset[0]
 
-# 生成三种模式的 prompt
+# Generate prompts for three modes
 run_free = PromptBuilder.build_run_free_prompt(instance)
 run_less = PromptBuilder.build_run_less_prompt(instance, k=2)
 run_full = PromptBuilder.build_run_full_prompt(instance)
 
-# 生成 markdown 文档
-md_content = f"""# Prompt 示例文档
+# Generate markdown document
+md_content = f"""# Prompt Example Documentation
 
-本文档展示了三种执行模式的 prompt 示例，使用 SWE-bench Lite 数据集的第一个实例。
+This document demonstrates prompt examples for three execution modes, using the first instance from the SWE-bench Lite dataset.
 
-## 实例信息
+## Instance Information
 
-- **仓库**: {instance['repo']}
-- **实例 ID**: {instance['instance_id']}
+- **Repository**: {instance['repo']}
+- **Instance ID**: {instance['instance_id']}
 - **Base Commit**: {instance.get('base_commit', 'N/A')[:12]}...
 
 ---
 
-## 1. Run-Free 模式（完全不执行代码）
+## 1. Run-Free Mode (No Code Execution)
 
-**核心理念**: Agent 必须通过纯推理来修复 bug，不能运行任何代码来验证。
+**Core Concept**: Agent must fix bugs through pure reasoning, cannot run any code for verification.
 
 ```
 {run_free}
 ```
 
-**关键特点**:
-- ❌ 不能执行任何代码
-- 🧠 必须通过阅读代码和逻辑推理
-- 🎯 只有一次机会，必须第一次就做对
-- 📝 输出 git diff 格式的补丁
+**Key Features**:
+- ❌ Cannot execute any code
+- 🧠 Must rely on code reading and logical reasoning
+- 🎯 Only one chance, must get it right the first time
+- 📝 Output git diff format patch
 
 ---
 
-## 2. Run-Less 模式（有限次执行，K=2）
+## 2. Run-Less Mode (Limited Executions, K=2)
 
-**核心理念**: Agent 有有限的执行预算（K次），必须把每次执行当作"高价值实验"，强调日志插桩策略。
+**Core Concept**: Agent has limited execution budget (K times), must treat each execution as a "high-value experiment", emphasizing log instrumentation strategy.
 
 ```
 {run_less}
 ```
 
-**关键特点**:
-- 🔢 最多执行 K 次（本例 K=2）
-- 🔬 每次执行前必须提出假设
-- 📊 强调日志插桩（print/log）来获取高密度调试信息
-- 💡 执行是稀缺资源，不是免费的试错按钮
-- 📝 最终输出 git diff 格式的补丁
+**Key Features**:
+- 🔢 Maximum K executions (K=2 in this example)
+- 🔬 Must propose hypothesis before each execution
+- 📊 Emphasize log instrumentation (print/log) to obtain high-density debugging information
+- 💡 Execution is a scarce resource, not a free trial-and-error button
+- 📝 Final output in git diff format patch
 
-**日志插桩策略**:
-- 在关键位置添加 print/log 语句
-- 捕获变量值、函数输入输出、分支路径、异常上下文
-- 一次聪明的执行胜过十次盲目的尝试
+**Log Instrumentation Strategy**:
+- Add print/log statements at key locations
+- Capture variable values, function inputs/outputs, branch paths, exception contexts
+- One smart execution beats ten blind attempts
 
 ---
 
-## 3. Run-Full 模式（不限制执行次数）
+## 3. Run-Full Mode (Unlimited Executions)
 
-**核心理念**: Agent 可以自由执行代码来调试和验证修复，类似传统的开发流程。
+**Core Concept**: Agent can freely execute code to debug and verify fixes, similar to traditional development workflow.
 
 ```
 {run_full}
 ```
 
-**关键特点**:
-- ✅ 可以自由执行代码
-- 🔄 可以多次运行测试验证
-- 🐛 可以迭代调试直到所有测试通过
-- 📝 最终输出 git diff 格式的补丁
+**Key Features**:
+- ✅ Can freely execute code
+- 🔄 Can run tests multiple times for verification
+- 🐛 Can iteratively debug until all tests pass
+- 📝 Final output in git diff format patch
 
-**工作流程**:
-1. 阅读相关代码
-2. 运行测试查看失败情况
-3. 分析错误信息
-4. 尝试修复
-5. 运行测试验证
-6. 如果测试失败，重复步骤 3-5
-
----
-
-## 对比总结
-
-| 特性 | Run-Free | Run-Less (K=2) | Run-Full |
-|------|----------|----------------|----------|
-| 执行次数 | 0 次 | 最多 K 次 | 不限制 |
-| 策略重点 | 纯推理 | 日志插桩 | 迭代调试 |
-| 难度 | 最高 | 中等 | 最低 |
-| Token 成本 | 最低 | 中等 | 最高 |
-| 适用场景 | 简单 bug | 中等复杂度 | 复杂 bug |
+**Workflow**:
+1. Read relevant code
+2. Run tests to see failure cases
+3. Analyze error messages
+4. Attempt fixes
+5. Run tests for verification
+6. If tests fail, repeat steps 3-5
 
 ---
 
-## 研究假设
+## Comparison Summary
 
-我们的研究旨在探索：
-
-1. **Run-Free vs Run-Full**: 执行环境对代码修复能力的影响有多大？
-2. **Run-Less 的最优 K 值**: 有限次执行能否接近 Run-Full 的效果？
-3. **成本效益分析**: Run-Less 是否能在成本和效果之间取得最佳平衡？
-4. **日志插桩策略**: 强调日志插桩是否能提高 Run-Less 的成功率？
+| Feature | Run-Free | Run-Less (K=2) | Run-Full |
+|---------|----------|----------------|----------|
+| Execution Count | 0 times | Max K times | Unlimited |
+| Strategy Focus | Pure reasoning | Log instrumentation | Iterative debugging |
+| Difficulty | Highest | Medium | Lowest |
+| Token Cost | Lowest | Medium | Highest |
+| Use Case | Simple bugs | Medium complexity | Complex bugs |
 
 ---
 
-生成时间: {Path(__file__).stat().st_mtime}
+## Research Hypotheses
+
+Our research aims to explore:
+
+1. **Run-Free vs Run-Full**: How much does execution environment impact code repair capability?
+2. **Optimal K Value for Run-Less**: Can limited executions approach Run-Full effectiveness?
+3. **Cost-Benefit Analysis**: Can Run-Less achieve optimal balance between cost and effectiveness?
+4. **Log Instrumentation Strategy**: Does emphasizing log instrumentation improve Run-Less success rate?
+
+---
+
+Generation time: {Path(__file__).stat().st_mtime}
 """
 
-# 保存到文件
+# Save to file
 output_path = Path(__file__).parent / "PROMPT_EXAMPLES.md"
 with open(output_path, 'w', encoding='utf-8') as f:
     f.write(md_content)
 
-print(f"✅ Prompt 示例文档已生成: {output_path}")
-print(f"📄 文件大小: {output_path.stat().st_size / 1024:.1f} KB")
+print(f"✅ Prompt example documentation generated: {output_path}")
+print(f"📄 File size: {output_path.stat().st_size / 1024:.1f} KB")

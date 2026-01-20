@@ -1,102 +1,102 @@
 #!/bin/bash
-# 清理脚本：清理残留的进程和 Docker 容器
+# Cleanup script: Clean up residual processes and Docker containers
 
 echo "=========================================="
-echo "清理残留资源"
+echo "Cleaning up residual resources"
 echo "=========================================="
 
-# 1. 杀死所有 batch_runner.py 进程
-echo "正在查找 batch_runner.py 进程..."
+# 1. Kill all batch_runner.py processes
+echo "Searching for batch_runner.py processes..."
 BATCH_PIDS=$(ps aux | grep -E "python.*batch_runner\.py" | grep -v grep | awk '{print $2}')
 if [ -n "$BATCH_PIDS" ]; then
-    echo "找到以下进程："
+    echo "Found the following processes:"
     ps aux | grep -E "python.*batch_runner\.py" | grep -v grep
     echo ""
-    echo "正在终止进程..."
+    echo "Terminating processes..."
     echo "$BATCH_PIDS" | xargs kill -9 2>/dev/null
-    echo "✓ 已终止 batch_runner.py 进程"
+    echo "✓ Terminated batch_runner.py processes"
 else
-    echo "✓ 没有找到 batch_runner.py 进程"
+    echo "✓ No batch_runner.py processes found"
 fi
 echo ""
 
-# 2. 杀死所有 runner.py 进程
-echo "正在查找 runner.py 进程..."
+# 2. Kill all runner.py processes
+echo "Searching for runner.py processes..."
 RUNNER_PIDS=$(ps aux | grep -E "python.*runner\.py" | grep -v grep | awk '{print $2}')
 if [ -n "$RUNNER_PIDS" ]; then
-    echo "找到以下进程："
+    echo "Found the following processes:"
     ps aux | grep -E "python.*runner\.py" | grep -v grep
     echo ""
-    echo "正在终止进程..."
+    echo "Terminating processes..."
     echo "$RUNNER_PIDS" | xargs kill -9 2>/dev/null
-    echo "✓ 已终止 runner.py 进程"
+    echo "✓ Terminated runner.py processes"
 else
-    echo "✓ 没有找到 runner.py 进程"
+    echo "✓ No runner.py processes found"
 fi
 echo ""
 
-# 3. 杀死 Docker run 进程（实验运行的容器）
-echo "正在查找 Docker run 进程..."
+# 3. Kill Docker run processes (experiment-running containers)
+echo "Searching for Docker run processes..."
 DOCKER_RUN_PIDS=$(ps aux | grep -E "docker run.*swebench" | grep -v grep | awk '{print $2}')
 if [ -n "$DOCKER_RUN_PIDS" ]; then
-    echo "找到 $(echo "$DOCKER_RUN_PIDS" | wc -l) 个 Docker run 进程"
-    echo "正在终止进程..."
+    echo "Found $(echo "$DOCKER_RUN_PIDS" | wc -l) Docker run processes"
+    echo "Terminating processes..."
     echo "$DOCKER_RUN_PIDS" | xargs kill -9 2>/dev/null
-    echo "✓ 已终止 Docker run 进程"
+    echo "✓ Terminated Docker run processes"
 else
-    echo "✓ 没有找到 Docker run 进程"
+    echo "✓ No Docker run processes found"
 fi
 echo ""
 
-# 4. 清理 SWE-bench Docker 容器（只清理实验运行产生的容器，不清理构建中的）
-echo "正在查找 SWE-bench Docker 容器..."
+# 4. Clean up SWE-bench Docker containers (only clean up experiment-generated containers, not those being built)
+echo "Searching for SWE-bench Docker containers..."
 SWEBENCH_CONTAINERS=$(docker ps -a | grep swebench | awk '{print $1}')
 if [ -n "$SWEBENCH_CONTAINERS" ]; then
     CONTAINER_COUNT=$(echo "$SWEBENCH_CONTAINERS" | wc -l)
-    echo "找到 $CONTAINER_COUNT 个 SWE-bench 容器"
-    echo "正在停止并删除容器..."
+    echo "Found $CONTAINER_COUNT SWE-bench containers"
+    echo "Stopping and removing containers..."
     echo "$SWEBENCH_CONTAINERS" | xargs docker rm -f 2>/dev/null
-    echo "✓ 已清理 SWE-bench 容器"
+    echo "✓ Cleaned up SWE-bench containers"
 else
-    echo "✓ 没有找到 SWE-bench 容器"
+    echo "✓ No SWE-bench containers found"
 fi
 echo ""
 
-# 5. 杀死 codex/claude 进程（在容器内运行的）
-echo "正在查找 codex/claude 进程..."
+# 5. Kill codex/claude processes (running inside containers)
+echo "Searching for codex/claude processes..."
 AGENT_PIDS=$(ps aux | grep -E "(codex|claude).*exec" | grep -v grep | awk '{print $2}')
 if [ -n "$AGENT_PIDS" ]; then
-    echo "找到 $(echo "$AGENT_PIDS" | wc -l) 个 agent 进程"
-    echo "正在终止进程..."
+    echo "Found $(echo "$AGENT_PIDS" | wc -l) agent processes"
+    echo "Terminating processes..."
     echo "$AGENT_PIDS" | xargs kill -9 2>/dev/null
-    echo "✓ 已终止 agent 进程"
+    echo "✓ Terminated agent processes"
 else
-    echo "✓ 没有找到 agent 进程"
+    echo "✓ No agent processes found"
 fi
 echo ""
 
-# 6. 清理临时文件
-echo "正在清理临时文件..."
+# 6. Clean up temporary files
+echo "Cleaning up temporary files..."
 TEMP_FILES=$(find /tmp -name "tmp*" -user $(whoami) -mmin -60 2>/dev/null | grep -E "(instances|trace)" | head -20)
 if [ -n "$TEMP_FILES" ]; then
-    echo "找到以下临时文件："
+    echo "Found the following temporary files:"
     echo "$TEMP_FILES"
     echo "$TEMP_FILES" | xargs rm -f 2>/dev/null
-    echo "✓ 已清理临时文件"
+    echo "✓ Cleaned up temporary files"
 else
-    echo "✓ 没有找到相关临时文件"
+    echo "✓ No related temporary files found"
 fi
 echo ""
 
 echo "=========================================="
-echo "清理完成！"
+echo "Cleanup complete!"
 echo "=========================================="
 echo ""
-echo "当前状态："
-echo "- Python 进程: $(ps aux | grep -E "python.*(batch_runner|runner)\.py" | grep -v grep | wc -l) 个"
-echo "- Docker run 进程: $(ps aux | grep -E "docker run.*swebench" | grep -v grep | wc -l) 个"
-echo "- SWE-bench 容器: $(docker ps -a | grep swebench | wc -l) 个"
-echo "- Agent 进程: $(ps aux | grep -E "(codex|claude).*exec" | grep -v grep | wc -l) 个"
+echo "Current status:"
+echo "- Python processes: $(ps aux | grep -E "python.*(batch_runner|runner)\.py" | grep -v grep | wc -l) processes"
+echo "- Docker run processes: $(ps aux | grep -E "docker run.*swebench" | grep -v grep | wc -l) processes"
+echo "- SWE-bench containers: $(docker ps -a | grep swebench | wc -l) containers"
+echo "- Agent processes: $(ps aux | grep -E "(codex|claude).*exec" | grep -v grep | wc -l) processes"
 echo ""
-echo "注意：Docker 构建进程不会被清理，它们是正常的镜像构建任务"
+echo "Note: Docker build processes will not be cleaned up, they are normal image build tasks"
 echo ""

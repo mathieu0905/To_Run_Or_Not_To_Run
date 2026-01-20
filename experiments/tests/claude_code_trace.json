@@ -1,6 +1,6 @@
 {
   "agent_type": "claude_code",
-  "prompt": "请用 Python 写一个函数计算两个数的和，函数名为 add",
+  "prompt": "Please write a Python function to calculate the sum of two numbers, with the function name 'add'",
   "output": "```python\ndef add(a, b):\n    return a + b\n```",
   "tokens_used": 11756,
   "exec_count": 0,

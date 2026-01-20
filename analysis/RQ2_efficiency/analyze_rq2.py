@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-RQ2: Efficiency - 成本与效率的 Pareto 前沿
+RQ2: Efficiency - Cost and Efficiency Pareto Frontier
 
-研究问题: 不同执行权限对成本（tokens）、轮数、时间的影响有多大？
-是否存在 Pareto 前沿？Run-Less 能否以显著更低成本获得接近 Run-Full 的成功率？
+Research Question: How much impact do different execution permissions have on cost (tokens), turns, and time?
+Does a Pareto frontier exist? Can Run-Less achieve success rates close to Run-Full at significantly lower cost?
 """
 
 import sys
@@ -18,9 +18,9 @@ from common.data_loader import (
 
 
 def generate_cost_table(stats: dict) -> str:
-    """生成成本对比表格"""
+    """Generate cost comparison table"""
     lines = []
-    lines.append("## 成本对比表")
+    lines.append("## Cost Comparison Table")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -44,11 +44,11 @@ def generate_cost_table(stats: dict) -> str:
 
 
 def generate_relative_change_table(stats: dict) -> str:
-    """生成相对变化百分比表（以 run_full 为基准）"""
+    """Generate relative change percentage table (baseline: run_full)"""
     lines = []
-    lines.append("## 相对变化百分比表 (vs run_full)")
+    lines.append("## Relative Change Percentage Table (vs run_full)")
     lines.append("")
-    lines.append("以 run_full 为基准，计算各 mode 的成本变化。负值表示成本降低。")
+    lines.append("Using run_full as baseline, calculate cost changes for each mode. Negative values indicate cost reduction.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -63,7 +63,7 @@ def generate_relative_change_table(stats: dict) -> str:
         for agent in sorted(stats[dataset].keys()):
             modes = stats[dataset][agent]
 
-            # 获取 run_full 作为基准
+            # Get run_full as baseline
             run_full = modes.get("run_full", {})
             if not run_full:
                 continue
@@ -93,11 +93,11 @@ def generate_relative_change_table(stats: dict) -> str:
 
 
 def generate_pareto_data(stats: dict, pass_rates: dict) -> str:
-    """生成 Pareto 前沿数据（Pass Rate vs Avg Total Tokens）"""
+    """Generate Pareto frontier data (Pass Rate vs Avg Total Tokens)"""
     lines = []
-    lines.append("## Pareto 前沿数据")
+    lines.append("## Pareto Frontier Data")
     lines.append("")
-    lines.append("Pass Rate vs Avg Total Tokens 数据点，用于绘制 Pareto 前沿图。")
+    lines.append("Pass Rate vs Avg Total Tokens data points for plotting Pareto frontier.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -109,7 +109,7 @@ def generate_pareto_data(stats: dict, pass_rates: dict) -> str:
         lines.append("| Agent | Mode | Pass Rate (%) | Avg Tokens | Pareto Optimal? |")
         lines.append("|-------|------|---------------|------------|-----------------|")
 
-        # 收集所有数据点
+        # Collect all data points
         data_points = []
         for agent in sorted(stats[dataset].keys()):
             if agent not in pass_rates[dataset]:
@@ -131,15 +131,15 @@ def generate_pareto_data(stats: dict, pass_rates: dict) -> str:
                     "tokens": tokens
                 })
 
-        # 判断 Pareto 最优
+        # Determine Pareto optimality
         for dp in data_points:
             is_pareto = True
             for other in data_points:
-                # 如果存在另一个点，rate 更高且 tokens 更低，则当前点不是 Pareto 最优
+                # If another point exists with higher rate and lower tokens, current point is not Pareto optimal
                 if other["rate"] > dp["rate"] and other["tokens"] < dp["tokens"]:
                     is_pareto = False
                     break
-                # 如果存在另一个点，rate 相同但 tokens 更低
+                # If another point exists with same rate but lower tokens
                 if other["rate"] == dp["rate"] and other["tokens"] < dp["tokens"]:
                     is_pareto = False
                     break
@@ -155,9 +155,9 @@ def generate_pareto_data(stats: dict, pass_rates: dict) -> str:
 
 
 def generate_efficiency_analysis(stats: dict, pass_rates: dict) -> str:
-    """生成效率分析"""
+    """Generate efficiency analysis"""
     lines = []
-    lines.append("## 效率分析")
+    lines.append("## Efficiency Analysis")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -176,7 +176,7 @@ def generate_efficiency_analysis(stats: dict, pass_rates: dict) -> str:
             lines.append(f"**{agent}:**")
             lines.append("")
 
-            # 计算 run_free 相对 run_full 的效率
+            # Calculate run_free efficiency relative to run_full
             run_free_s = modes.get("run_free", {})
             run_full_s = modes.get("run_full", {})
             run_free_pr = pr_modes.get("run_free", {})
@@ -195,22 +195,22 @@ def generate_efficiency_analysis(stats: dict, pass_rates: dict) -> str:
                 lines.append(f"  - Token 节省: {token_saving:.1f}%")
                 lines.append(f"  - 时间节省: {time_saving:.1f}%")
 
-                # 计算效率比
+                # Calculate efficiency ratio
                 if rate_diff != 0:
                     efficiency = token_saving / abs(rate_diff)
-                    lines.append(f"  - 效率比 (Token节省/Pass差异): {efficiency:.1f}")
+                    lines.append(f"  - Efficiency ratio (Token saving/Pass difference): {efficiency:.1f}")
                 lines.append("")
 
     return "\n".join(lines)
 
 
 def generate_key_findings(stats: dict, pass_rates: dict) -> str:
-    """生成关键发现"""
+    """Generate key findings"""
     lines = []
-    lines.append("## 关键发现")
+    lines.append("## Key Findings")
     lines.append("")
 
-    # 收集所有数据
+    # Collect all data
     all_data = []
     for dataset, dataset_name in DATASETS.items():
         if dataset not in stats or dataset not in pass_rates:
@@ -238,55 +238,55 @@ def generate_key_findings(stats: dict, pass_rates: dict) -> str:
                     "full_rate": run_full_pr["resolved"] / run_full_pr["total"] * 100 if run_full_pr.get("total", 0) > 0 else 0,
                 })
 
-    lines.append("### 1. Token 消耗对比")
+    lines.append("### 1. Token Consumption Comparison")
     lines.append("")
     for d in all_data:
         saving = (d["full_tokens"] - d["free_tokens"]) / d["full_tokens"] * 100
-        lines.append(f"- **{d['agent']}** ({d['dataset']}): Run-Free {d['free_tokens']:,} vs Run-Full {d['full_tokens']:,} (节省 {saving:.1f}%)")
+        lines.append(f"- **{d['agent']}** ({d['dataset']}): Run-Free {d['free_tokens']:,} vs Run-Full {d['full_tokens']:,} (saving {saving:.1f}%)")
     lines.append("")
 
-    lines.append("### 2. 时间消耗对比")
+    lines.append("### 2. Time Consumption Comparison")
     lines.append("")
     for d in all_data:
         saving = (d["full_time"] - d["free_time"]) / d["full_time"] * 100
-        lines.append(f"- **{d['agent']}** ({d['dataset']}): Run-Free {d['free_time']:.0f}s vs Run-Full {d['full_time']:.0f}s (节省 {saving:.1f}%)")
+        lines.append(f"- **{d['agent']}** ({d['dataset']}): Run-Free {d['free_time']:.0f}s vs Run-Full {d['full_time']:.0f}s (saving {saving:.1f}%)")
     lines.append("")
 
-    lines.append("### 3. 成本效益结论")
+    lines.append("### 3. Cost-Benefit Conclusion")
     lines.append("")
 
-    # 计算平均节省
+    # Calculate average savings
     avg_token_saving = sum((d["full_tokens"] - d["free_tokens"]) / d["full_tokens"] * 100 for d in all_data) / len(all_data) if all_data else 0
     avg_time_saving = sum((d["full_time"] - d["free_time"]) / d["full_time"] * 100 for d in all_data) / len(all_data) if all_data else 0
     avg_rate_diff = sum(d["full_rate"] - d["free_rate"] for d in all_data) / len(all_data) if all_data else 0
 
-    lines.append(f"- 平均 Token 节省: **{avg_token_saving:.1f}%**")
-    lines.append(f"- 平均时间节省: **{avg_time_saving:.1f}%**")
-    lines.append(f"- 平均 Pass Rate 差异: **{avg_rate_diff:+.1f}%**")
+    lines.append(f"- Average Token saving: **{avg_token_saving:.1f}%**")
+    lines.append(f"- Average time saving: **{avg_time_saving:.1f}%**")
+    lines.append(f"- Average Pass Rate difference: **{avg_rate_diff:+.1f}%**")
     lines.append("")
-    lines.append(f"**结论**: Run-Free 模式以 {avg_token_saving:.0f}% 的成本节省换取 {abs(avg_rate_diff):.1f}% 的性能损失，是最具成本效益的选择。")
+    lines.append(f"**Conclusion**: Run-Free mode trades {abs(avg_rate_diff):.1f}% performance loss for {avg_token_saving:.0f}% cost savings, making it the most cost-effective choice.")
 
     return "\n".join(lines)
 
 
 def main():
-    print("正在加载数据...")
+    print("Loading data...")
 
     results = load_all_results()
     stats = get_aggregated_stats(results)
     pass_rates = load_pass_rates()
 
     if not stats:
-        print("错误: 无法加载实验结果数据")
+        print("Error: Unable to load experimental results data")
         return
 
     output_dir = Path(__file__).parent
     data_file = output_dir / "data_rq2.md"
 
     content = []
-    content.append("# RQ2: Efficiency - 数据表格")
+    content.append("# RQ2: Efficiency - Data Tables")
     content.append("")
-    content.append("成本与效率的 Pareto 前沿分析数据。")
+    content.append("Cost and efficiency Pareto frontier analysis data.")
     content.append("")
     content.append(generate_cost_table(stats))
     content.append(generate_relative_change_table(stats))
@@ -297,7 +297,7 @@ def main():
     with open(data_file, "w", encoding="utf-8") as f:
         f.write("\n".join(content))
 
-    print(f"数据已保存到: {data_file}")
+    print(f"Data saved to: {data_file}")
 
 
 if __name__ == "__main__":

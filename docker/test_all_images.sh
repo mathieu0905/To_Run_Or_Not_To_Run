@@ -1,5 +1,5 @@
 #!/bin/bash
-# 批量测试所有 SWE-bench Docker 镜像
+# Batch test all SWE-bench Docker images
 
 set -e
 
@@ -8,11 +8,11 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# 默认参数
+# Default parameters
 TEST_AGENT=false
 MAX_TESTS=5
 
-# 解析命令行参数
+# Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --agent)
@@ -28,8 +28,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo "未知参数: $1"
-            echo "用法: $0 [--agent] [--max N] [--all]"
+            echo "Unknown parameter: $1"
+            echo "Usage: $0 [--agent] [--max N] [--all]"
             exit 1
             ;;
     esac
@@ -38,15 +38,15 @@ done
 IMAGE_LIST="docker/image_list.txt"
 
 if [ ! -f "$IMAGE_LIST" ]; then
-    echo -e "${RED}错误: 找不到镜像列表文件 $IMAGE_LIST${NC}"
+    echo -e "${RED}Error: Cannot find image list file $IMAGE_LIST${NC}"
     exit 1
 fi
 
 echo -e "${YELLOW}========================================${NC}"
-echo -e "${YELLOW}批量测试 SWE-bench Docker 环境${NC}"
+echo -e "${YELLOW}Batch Testing SWE-bench Docker Environment${NC}"
 echo -e "${YELLOW}========================================${NC}"
-echo -e "测试 Agent 镜像: ${TEST_AGENT}"
-echo -e "最大测试数量: ${MAX_TESTS}"
+echo -e "Test Agent Image: ${TEST_AGENT}"
+echo -e "Maximum Test Count: ${MAX_TESTS}"
 echo ""
 
 PASSED=0
@@ -54,7 +54,7 @@ FAILED=0
 COUNT=0
 
 while IFS= read -r image || [ -n "$image" ]; do
-    # 跳过空行和注释
+    # Skip empty lines and comments
     [[ -z "$image" || "$image" =~ ^# ]] && continue
 
     COUNT=$((COUNT + 1))
@@ -62,7 +62,7 @@ while IFS= read -r image || [ -n "$image" ]; do
         break
     fi
 
-    echo -e "\n${YELLOW}[${COUNT}/${MAX_TESTS}] 测试镜像: ${image}${NC}"
+    echo -e "\n${YELLOW}[${COUNT}/${MAX_TESTS}] Testing image: ${image}${NC}"
 
     if [ "$TEST_AGENT" = true ]; then
         ./docker/test_docker_env.sh --image "$image" --agent
@@ -72,24 +72,24 @@ while IFS= read -r image || [ -n "$image" ]; do
 
     if [ $? -eq 0 ]; then
         PASSED=$((PASSED + 1))
-        echo -e "${GREEN}✓ 测试通过${NC}"
+        echo -e "${GREEN}✓ Test passed${NC}"
     else
         FAILED=$((FAILED + 1))
-        echo -e "${RED}✗ 测试失败${NC}"
+        echo -e "${RED}✗ Test failed${NC}"
     fi
 done < "$IMAGE_LIST"
 
 echo -e "\n${YELLOW}========================================${NC}"
-echo -e "${YELLOW}测试总结${NC}"
+echo -e "${YELLOW}Test Summary${NC}"
 echo -e "${YELLOW}========================================${NC}"
-echo -e "总计: ${COUNT}"
-echo -e "${GREEN}通过: ${PASSED}${NC}"
-echo -e "${RED}失败: ${FAILED}${NC}"
+echo -e "Total: ${COUNT}"
+echo -e "${GREEN}Passed: ${PASSED}${NC}"
+echo -e "${RED}Failed: ${FAILED}${NC}"
 
 if [ $FAILED -eq 0 ]; then
-    echo -e "\n${GREEN}所有测试通过！${NC}"
+    echo -e "\n${GREEN}All tests passed!${NC}"
     exit 0
 else
-    echo -e "\n${RED}部分测试失败${NC}"
+    echo -e "\n${RED}Some tests failed${NC}"
     exit 1
 fi

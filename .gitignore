@@ -28,6 +28,8 @@ docker/image_list_verified.txt
 *~
 .vscode/
 .idea/
+.serena/
+.venv-pdf/
 
 # OS
 .DS_Store

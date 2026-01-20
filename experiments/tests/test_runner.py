@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-测试 Runner 模块
+Test Runner module
 """
 import json
 import tempfile
@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 import sys
 
-# 添加父目录到路径
+# Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from runner import (
@@ -24,10 +24,10 @@ from agent_caller import AgentTrace
 
 
 class TestExtractPatch:
-    """测试补丁提取功能"""
+    """Test patch extraction functionality"""
 
     def test_extract_simple_patch(self):
-        """测试提取简单的 git diff 补丁"""
+        """Test extracting simple git diff patch"""
         output = """
 Some text before
 diff --git a/test.py b/test.py
@@ -46,13 +46,13 @@ Some text after
         assert "@@" in patch
 
     def test_extract_no_patch(self):
-        """测试没有补丁的情况"""
+        """Test case with no patch"""
         output = "Just some regular text without any patch"
         patch = extract_patch(output)
         assert patch == ""
 
     def test_extract_multiple_files(self):
-        """测试提取多文件补丁"""
+        """Test extracting multi-file patch"""
         output = """
 diff --git a/file1.py b/file1.py
 --- a/file1.py
@@ -70,12 +70,12 @@ diff --git a/file2.py b/file2.py
 
 
 class TestGetInstanceInfo:
-    """测试获取实例信息功能"""
+    """Test get instance information functionality"""
 
     @patch('runner.load_dataset')
     def test_get_instance_info_success(self, mock_load_dataset):
-        """测试成功获取实例信息"""
-        # Mock 数据集
+        """Test successfully getting instance information"""
+        # Mock dataset
         mock_dataset = [
             {"instance_id": "test-1", "problem_statement": "Problem 1"},
             {"instance_id": "test-2", "problem_statement": "Problem 2"},
@@ -88,7 +88,7 @@ class TestGetInstanceInfo:
 
     @patch('runner.load_dataset')
     def test_get_instance_info_not_found(self, mock_load_dataset):
-        """测试实例不存在的情况"""
+        """Test case when instance doesn't exist"""
         mock_dataset = [
             {"instance_id": "test-1", "problem_statement": "Problem 1"},
         ]
@@ -99,14 +99,14 @@ class TestGetInstanceInfo:
 
 
 class TestRunExperiment:
-    """测试运行实验功能"""
+    """Test run experiment functionality"""
 
     @patch('runner.get_instance_info')
     @patch('runner.PromptBuilder.build_prompt')
     @patch('runner.AgentCaller')
     def test_run_experiment_run_free(self, mock_caller_class, mock_build_prompt, mock_get_instance):
-        """测试 Run-Free 模式"""
-        # Mock 实例信息
+        """Test Run-Free mode"""
+        # Mock instance information
         mock_get_instance.return_value = {
             "instance_id": "test-1",
             "problem_statement": "Fix the bug",
@@ -132,12 +132,12 @@ class TestRunExperiment:
         mock_caller.call.return_value = mock_trace
         mock_caller_class.return_value = mock_caller
 
-        # 运行实验
+        # Run experiment
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch('runner.RESULTS_DIR', Path(tmpdir)):
                 result = run_experiment("test-1", "run_free")
 
-        # 验证结果
+        # Verify results
         assert result.instance_id == "test-1"
         assert result.mode == "run_free"
         assert result.k is None
@@ -150,7 +150,7 @@ class TestRunExperiment:
     @patch('runner.PromptBuilder.build_prompt')
     @patch('runner.AgentCaller')
     def test_run_experiment_run_less(self, mock_caller_class, mock_build_prompt, mock_get_instance):
-        """测试 Run-Less 模式"""
+        """Test Run-Less mode"""
         mock_get_instance.return_value = {
             "instance_id": "test-2",
             "problem_statement": "Fix the bug",
@@ -186,7 +186,7 @@ class TestRunExperiment:
     @patch('runner.PromptBuilder.build_prompt')
     @patch('runner.AgentCaller')
     def test_run_experiment_with_error(self, mock_caller_class, mock_build_prompt, mock_get_instance):
-        """测试实验失败的情况"""
+        """Test experiment failure case"""
         mock_get_instance.return_value = {
             "instance_id": "test-3",
             "problem_statement": "Fix the bug",
@@ -220,10 +220,10 @@ class TestRunExperiment:
 
 
 class TestSaveResult:
-    """测试保存结果功能"""
+    """Test save result functionality"""
 
     def test_save_result_run_free(self):
-        """测试保存 Run-Free 结果"""
+        """Test saving Run-Free result"""
         result = ExperimentResult(
             instance_id="test-1",
             mode="run_free",
@@ -241,11 +241,11 @@ class TestSaveResult:
             with patch('runner.RESULTS_DIR', Path(tmpdir)):
                 save_result(result)
 
-                # 验证文件存在
+                # Verify file exists
                 result_file = Path(tmpdir) / "test-1_run_free_result.json"
                 assert result_file.exists()
 
-                # 验证内容
+                # Verify content
                 with open(result_file) as f:
                     data = json.load(f)
 
@@ -254,7 +254,7 @@ class TestSaveResult:
                 assert data["tokens_used"] == 100
 
     def test_save_result_run_less(self):
-        """测试保存 Run-Less 结果"""
+        """Test saving Run-Less result"""
         result = ExperimentResult(
             instance_id="test-2",
             mode="run_less",
@@ -282,10 +282,10 @@ class TestSaveResult:
 
 
 class TestPrintSummary:
-    """测试打印摘要功能"""
+    """Test print summary functionality"""
 
     def test_print_summary_success(self, capsys):
-        """测试打印成功的摘要"""
+        """Test printing successful summary"""
         result = ExperimentResult(
             instance_id="test-1",
             mode="run_free",
@@ -309,7 +309,7 @@ class TestPrintSummary:
         assert "5.50s" in captured.out
 
     def test_print_summary_with_error(self, capsys):
-        """测试打印带错误的摘要"""
+        """Test printing summary with error"""
         result = ExperimentResult(
             instance_id="test-2",
             mode="run_less",
@@ -331,10 +331,10 @@ class TestPrintSummary:
 
 
 class TestExperimentResult:
-    """测试 ExperimentResult 数据类"""
+    """Test ExperimentResult dataclass"""
 
     def test_experiment_result_creation(self):
-        """测试创建 ExperimentResult"""
+        """Test creating ExperimentResult"""
         result = ExperimentResult(
             instance_id="test-1",
             mode="run_free",
@@ -348,10 +348,10 @@ class TestExperimentResult:
 
         assert result.instance_id == "test-1"
         assert result.mode == "run_free"
-        assert result.agent_type == "claude_code"  # 默认值
+        assert result.agent_type == "claude_code"  # Default value
 
     def test_experiment_result_with_k(self):
-        """测试带 k 参数的 ExperimentResult"""
+        """Test ExperimentResult with k parameter"""
         result = ExperimentResult(
             instance_id="test-2",
             mode="run_less",

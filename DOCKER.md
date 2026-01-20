@@ -1,34 +1,34 @@
-# SWE-bench Agent 镜像构建文档
+# SWE-bench Agent Image Build Documentation
 
-## 概述
+## Overview
 
-本文档记录了为 Run-Free/Run-Less/Run-Full 实验构建 Docker 镜像的完整流程。
+This document records the complete process of building Docker images for Run-Free/Run-Less/Run-Full experiments.
 
-## 镜像架构
+## Image Architecture
 
-### 基础镜像来源
-使用 SWE-bench 官方预构建镜像：
-- 镜像格式：`swebench/sweb.eval.x86_64.{repo}_{version}_{issue_id}`
-- 示例：`swebench/sweb.eval.x86_64.django_1776_django-16408`
-- 总数：300 个实例（SWE-bench Lite）
+### Base Image Source
+Uses SWE-bench official pre-built images:
+- Image format: `swebench/sweb.eval.x86_64.{repo}_{version}_{issue_id}`
+- Example: `swebench/sweb.eval.x86_64.django_1776_django-16408`
+- Total: 300 instances (SWE-bench Lite)
 
-### Agent 增强层
-在官方镜像基础上添加 Agent 工具：
+### Agent Enhancement Layer
+Adds Agent tools on top of official images:
 - Node.js 20.x LTS
 - Claude Code CLI (@anthropic-ai/claude-code)
 - Codex CLI (@openai/codex)
 
-## 构建流程
+## Build Process
 
-### 1. Dockerfile 设计
+### 1. Dockerfile Design
 
-文件：`Dockerfile.agent-overlay`
+File: `Dockerfile.agent-overlay`
 
 ```dockerfile
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
-# 安装 Node.js 20.x
+# Install Node.js 20.x
 RUN apt-get update && apt-get install -y curl gnupg
 RUN mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -37,53 +37,53 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Agent CLI 工具
+# Install Agent CLI tools
 RUN npm install -g @anthropic-ai/claude-code @openai/codex
 
-# 创建配置目录
+# Create configuration directories
 RUN mkdir -p /root/.claude /root/.codex
 ```
 
-### 2. 批量构建脚本
+### 2. Batch Build Script
 
-文件：`build_agent_images_parallel.py`
+File: `build_agent_images_parallel.py`
 
-关键特性：
-- 32 线程并行构建
-- 自动拉取官方镜像
-- 构建增强版镜像（添加 -agent 后缀）
-- 进度跟踪和错误处理
+Key features:
+- 32 threads parallel build
+- Automatic pull of official images
+- Build enhanced images (with -agent suffix)
+- Progress tracking and error handling
 
-使用方法：
+Usage:
 ```bash
 python build_agent_images_parallel.py
 ```
 
-### 3. 镜像命名规范
+### 3. Image Naming Convention
 
-- 官方镜像：`swebench/sweb.eval.x86_64.{repo}_{version}_{issue_id}`
-- Agent 镜像：`swebench/sweb.eval.x86_64.{repo}_{version}_{issue_id}-agent`
+- Official image: `swebench/sweb.eval.x86_64.{repo}_{version}_{issue_id}`
+- Agent image: `swebench/sweb.eval.x86_64.{repo}_{version}_{issue_id}-agent`
 
-示例：
+Example:
 ```
-官方: swebench/sweb.eval.x86_64.django_1776_django-16408
+Official: swebench/sweb.eval.x86_64.django_1776_django-16408
 Agent: swebench/sweb.eval.x86_64.django_1776_django-16408-agent
 ```
 
-## 认证配置
+## Authentication Configuration
 
-### Claude Code 认证
+### Claude Code Authentication
 
-**问题**：Claude Code 需要 OAuth 认证，容器中无法直接使用。
+**Problem**: Claude Code requires OAuth authentication, which cannot be used directly in containers.
 
-**解决方案**：挂载宿主机的 `.claude` 目录到容器。
+**Solution**: Mount the host's `.claude` directory to the container.
 
-关键文件：
-- `.claude/.credentials.json`：包含 OAuth token（accessToken, refreshToken, expiresAt）
-- `.claude/settings.json`：用户配置
-- `.claude/history.jsonl`：对话历史
+Key files:
+- `.claude/.credentials.json`: Contains OAuth token (accessToken, refreshToken, expiresAt)
+- `.claude/settings.json`: User configuration
+- `.claude/history.jsonl`: Conversation history
 
-容器运行配置：
+Container run configuration:
 ```bash
 docker run \
   --network host \
@@ -93,64 +93,64 @@ docker run \
   swebench/sweb.eval.x86_64.django_1776_django-16408-agent
 ```
 
-### Codex 认证
+### Codex Authentication
 
-挂载配置文件：
-- `.codex/auth.json`：API 认证信息
-- `.codex/config.toml`：Codex 配置
+Mount configuration files:
+- `.codex/auth.json`: API authentication information
+- `.codex/config.toml`: Codex configuration
 
-## 验证步骤
+## Verification Steps
 
-### 1. 验证镜像构建成功
+### 1. Verify Image Build Success
 ```bash
 docker images | grep "\-agent"
 ```
 
-### 2. 验证工具安装
+### 2. Verify Tool Installation
 ```bash
 docker run --rm <image_name> node --version
 docker run --rm <image_name> npm --version
 docker run --rm <image_name> claude --version
 ```
 
-### 3. 验证 Claude Code 认证
+### 3. Verify Claude Code Authentication
 ```bash
 docker run --rm \
   --network host \
   -v /home/zhihao/.claude:/root/.claude \
   -e http_proxy=http://127.0.0.1:15732 \
   <image_name> \
-  timeout 60 claude chat "你好"
+  timeout 60 claude chat "Hello"
 ```
 
-预期输出：Claude Code 返回响应（可能超时但有输出）。
+Expected output: Claude Code returns a response (may timeout but should have output).
 
-## 构建统计
+## Build Statistics
 
-- 总实例数：300
-- 已构建镜像：84+（持续构建中）
-- 构建线程数：32
-- 平均构建时间：~2-3 分钟/镜像
+- Total instances: 300
+- Built images: 84+ (building in progress)
+- Build threads: 32
+- Average build time: ~2-3 minutes/image
 
-## MVP 测试实例
+## MVP Test Instances
 
-选择的 5 个测试实例（镜像已构建）：
+Selected 5 test instances (images already built):
 1. django__django-16408
 2. django__django-16595
 3. django__django-16816
 4. django__django-16527
 5. django__django-15814
 
-## 注意事项
+## Notes
 
-1. **网络配置**：使用 `--network host` 确保容器可以访问宿主机代理
-2. **代理设置**：设置 `http_proxy` 和 `https_proxy` 环境变量
-3. **认证文件**：确保 `.claude` 目录以可写方式挂载，Claude Code 需要创建子目录
-4. **超时设置**：Claude Code 可能需要较长时间响应，建议设置 60 秒以上超时
+1. **Network Configuration**: Use `--network host` to ensure container can access host proxy
+2. **Proxy Settings**: Set `http_proxy` and `https_proxy` environment variables
+3. **Authentication Files**: Ensure `.claude` directory is mounted with write permissions, Claude Code needs to create subdirectories
+4. **Timeout Settings**: Claude Code may take longer to respond, recommend setting timeout of 60 seconds or more
 
-## 相关文件
+## Related Files
 
-- `Dockerfile.agent-overlay`：Agent 增强层 Dockerfile
-- `build_agent_images_parallel.py`：批量构建脚本
-- `image_list.txt`：300 个镜像名称列表
-- `mvp_instances.txt`：MVP 测试实例列表（在 experiments/ 目录）
+- `Dockerfile.agent-overlay`: Agent enhancement layer Dockerfile
+- `build_agent_images_parallel.py`: Batch build script
+- `image_list.txt`: List of 300 image names
+- `mvp_instances.txt`: MVP test instance list (in experiments/ directory)

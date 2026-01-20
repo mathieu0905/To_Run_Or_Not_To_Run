@@ -1,10 +1,10 @@
-# RQ4: Agent Sensitivity - 数据表格
+# RQ4: Agent Sensitivity - Data Tables
 
-不同 Agent 对执行权限的敏感性分析数据。
+Sensitivity analysis data for different agents regarding execution permissions.
 
-## ΔCost% vs ΔPass 对比表
+## ΔCost% vs ΔPass Comparison Table
 
-以 run_free 为基准，计算各 mode 相对于 run_free 的变化。
+Calculate the changes of each mode relative to run_free using run_free as the baseline.
 
 ### SWE-bench Lite
 
@@ -36,11 +36,11 @@
 | codex | run_cost | 71.0% | -2.0% | 491,096 | -8.9% | 690s | -4.7% |
 | codex | run_full | 75.0% | +2.0% | 543,762 | +0.8% | 723s | -0.1% |
 
-## Agent 特性对比表
+## Agent Characteristics Comparison Table
 
 ### SWE-bench Lite
 
-| 指标 | claude_code | codex |
+| Metric | claude_code | codex |
 |------|------|------|
 | Run-Free Pass Rate | 63.0% | 74.5% |
 | Run-Full Pass Rate | 64.0% | 73.5% |
@@ -56,7 +56,7 @@
 
 ### SWE-bench Verified
 
-| 指标 | claude_code | codex |
+| Metric | claude_code | codex |
 |------|------|------|
 | Run-Free Pass Rate | 64.0% | 73.0% |
 | Run-Full Pass Rate | 67.0% | 75.0% |
@@ -70,9 +70,9 @@
 | Free Input Token % | 97.0% | 98.1% |
 | Full Input Token % | 98.4% | 98.3% |
 
-## Token 消耗分解
+## Token Consumption Breakdown
 
-分析 Input Token 和 Output Token 的分布。
+Analysis of the distribution of Input Tokens and Output Tokens.
 
 ### SWE-bench Lite
 
@@ -104,48 +104,48 @@
 | codex | run_cost | 481,301 | 9,795 | 491,096 | 98.0% | 2.0% |
 | codex | run_full | 534,277 | 9,485 | 543,762 | 98.3% | 1.7% |
 
-## 敏感性分析
+## Sensitivity Analysis
 
-### 成本敏感性对比
+### Cost Sensitivity Comparison
 
-| Agent | Dataset | ΔTokens% | ΔPass% | 敏感性 (ΔTokens/ΔPass) |
+| Agent | Dataset | ΔTokens% | ΔPass% | Sensitivity (ΔTokens/ΔPass) |
 |-------|---------|----------|--------|------------------------|
 | claude_code | SWE-bench Lite | +129.4% | +1.0% | 129.4 |
 | codex | SWE-bench Lite | +15.5% | -1.0% | 15.2 |
 | claude_code | SWE-bench Verified | +162.6% | +3.0% | 54.2 |
 | codex | SWE-bench Verified | +0.8% | +2.0% | 0.4 |
 
-## 关键发现
+## Key Findings
 
-### 1. Claude Code 特性
+### 1. Claude Code Characteristics
 
-- 平均 Token 增长 (Free→Full): **+146.0%**
-- 平均 Pass Rate 变化: **+2.0%**
-- 平均 Run-Free Token 消耗: **66,268**
-- 特点: **成本敏感型** - 执行权限显著增加成本，但收益有限
+- Average Token Growth (Free→Full): **+146.0%**
+- Average Pass Rate Change: **+2.0%**
+- Average Run-Free Token Consumption: **66,268**
+- Characteristic: **Cost-Sensitive** - Execution permissions significantly increase costs, but benefits are limited
 
-### 2. Codex 特性
+### 2. Codex Characteristics
 
-- 平均 Token 增长 (Free→Full): **+8.2%**
-- 平均 Pass Rate 变化: **+0.5%**
-- 平均 Run-Free Token 消耗: **474,328**
-- 特点: **成本稳定型** - 执行权限对成本影响较小
+- Average Token Growth (Free→Full): **+8.2%**
+- Average Pass Rate Change: **+0.5%**
+- Average Run-Free Token Consumption: **474,328**
+- Characteristic: **Cost-Stable** - Execution permissions have minimal impact on costs
 
-### 3. 差异原因分析
+### 3. Analysis of Differences
 
-**Claude Code 成本敏感的原因:**
-- Run-Free 模式下 Token 消耗较低（~65K），说明推理过程简洁
-- 执行反馈导致更多的交互轮数和上下文积累
-- 执行结果需要被解析和处理，增加了 Input Token
+**Reasons for Claude Code's Cost Sensitivity:**
+- Token consumption in Run-Free mode is relatively low (~65K), indicating concise reasoning process
+- Execution feedback leads to more interaction rounds and context accumulation
+- Execution results need to be parsed and processed, increasing Input Tokens
 
-**Codex 成本稳定的原因:**
-- Run-Free 模式下 Token 消耗已经很高（~400-500K）
-- 模型本身的推理过程较为冗长
-- 执行反馈对整体 Token 消耗的边际影响较小
+**Reasons for Codex's Cost Stability:**
+- Token consumption in Run-Free mode is already very high (~400-500K)
+- The model's reasoning process is inherently verbose
+- Marginal impact of execution feedback on overall Token consumption is small
 
-### 4. 结论
+### 4. Conclusion
 
-- **执行权限对不同 Agent 的影响不一致**
-- Claude Code 对执行权限更敏感（成本变化大）
-- Codex 对执行权限不敏感（成本变化小）
-- 选择 Agent 时应考虑成本敏感性
+- **Impact of execution permissions varies across different agents**
+- Claude Code is more sensitive to execution permissions (large cost changes)
+- Codex is less sensitive to execution permissions (small cost changes)
+- Cost sensitivity should be considered when selecting an agent

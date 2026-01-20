@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-集成测试：真实调用 Claude Code 和 Codex
+Integration tests: Real calls to Claude Code and Codex
 """
 import sys
 from pathlib import Path
@@ -11,101 +11,101 @@ from agent_caller import AgentCaller, save_trace
 
 
 def test_claude_code_real_call():
-    """测试真实调用 Claude Code"""
-    print("\n=== 测试 Claude Code 真实调用 ===")
+    """Test real call to Claude Code"""
+    print("\n=== Testing Claude Code Real Call ===")
 
     caller = AgentCaller(agent_type="claude_code")
-    prompt = "请用 Python 写一个函数计算两个数的和，函数名为 add"
+    prompt = "Please write a Python function to calculate the sum of two numbers, function name should be add"
 
     print(f"Prompt: {prompt}")
-    print("调用中...")
+    print("Calling...")
 
     trace = caller.call(prompt, timeout=60)
 
-    print(f"\n结果:")
+    print(f"\nResult:")
     print(f"  Agent: {trace.agent_type}")
     print(f"  Tokens: {trace.tokens_used}")
-    print(f"  执行次数: {trace.exec_count}")
-    print(f"  耗时: {trace.duration_sec:.2f}s")
-    print(f"  输出长度: {len(trace.output)} 字符")
+    print(f"  Execution count: {trace.exec_count}")
+    print(f"  Duration: {trace.duration_sec:.2f}s")
+    print(f"  Output length: {len(trace.output)} characters")
 
     if trace.error:
-        print(f"  错误: {trace.error}")
+        print(f"  Error: {trace.error}")
         return False
 
-    # 保存 trace
+    # Save trace
     output_path = Path(__file__).parent / "claude_code_trace.json"
     save_trace(trace, output_path)
-    print(f"  Trace 已保存到: {output_path}")
+    print(f"  Trace saved to: {output_path}")
 
-    # 验证输出包含代码
+    # Verify output contains code
     if "def add" in trace.output or "def" in trace.output:
-        print("✅ Claude Code 调用成功，输出包含代码")
+        print("✅ Claude Code call successful, output contains code")
         return True
     else:
-        print("⚠️  输出中未找到预期的代码")
-        print(f"输出预览: {trace.output[:500]}")
+        print("⚠️  Expected code not found in output")
+        print(f"Output preview: {trace.output[:500]}")
         return False
 
 
 def test_codex_real_call():
-    """测试真实调用 Codex"""
-    print("\n=== 测试 Codex 真实调用 ===")
+    """Test real call to Codex"""
+    print("\n=== Testing Codex Real Call ===")
 
     caller = AgentCaller(agent_type="codex")
-    prompt = "请用 Python 写一个函数计算两个数的和，函数名为 add"
+    prompt = "Please write a Python function to calculate the sum of two numbers, function name should be add"
 
     print(f"Prompt: {prompt}")
-    print("调用中...")
+    print("Calling...")
 
     trace = caller.call(prompt, timeout=60)
 
-    print(f"\n结果:")
+    print(f"\nResult:")
     print(f"  Agent: {trace.agent_type}")
     print(f"  Tokens: {trace.tokens_used}")
-    print(f"  执行次数: {trace.exec_count}")
-    print(f"  耗时: {trace.duration_sec:.2f}s")
-    print(f"  输出长度: {len(trace.output)} 字符")
+    print(f"  Execution count: {trace.exec_count}")
+    print(f"  Duration: {trace.duration_sec:.2f}s")
+    print(f"  Output length: {len(trace.output)} characters")
 
     if trace.error:
-        print(f"  错误: {trace.error}")
+        print(f"  Error: {trace.error}")
         return False
 
-    # 保存 trace
+    # Save trace
     output_path = Path(__file__).parent / "codex_trace.json"
     save_trace(trace, output_path)
-    print(f"  Trace 已保存到: {output_path}")
+    print(f"  Trace saved to: {output_path}")
 
-    # 验证输出包含代码
+    # Verify output contains code
     if "def add" in trace.output or "def" in trace.output:
-        print("✅ Codex 调用成功，输出包含代码")
+        print("✅ Codex call successful, output contains code")
         return True
     else:
-        print("⚠️  输出中未找到预期的代码")
-        print(f"输出预览: {trace.output[:500]}")
+        print("⚠️  Expected code not found in output")
+        print(f"Output preview: {trace.output[:500]}")
         return False
 
 
 if __name__ == "__main__":
-    print("开始集成测试...")
+    print("Starting integration tests...")
     print("=" * 60)
 
-    # 测试 Claude Code
+    # Test Claude Code
     claude_success = test_claude_code_real_call()
 
     print("\n" + "=" * 60)
 
-    # 测试 Codex
+    # Test Codex
     codex_success = test_codex_real_call()
 
     print("\n" + "=" * 60)
-    print("\n测试总结:")
-    print(f"  Claude Code: {'✅ 通过' if claude_success else '❌ 失败'}")
-    print(f"  Codex: {'✅ 通过' if codex_success else '❌ 失败'}")
+    print("\nTest Summary:")
+    print(f"  Claude Code: {'✅ Passed' if claude_success else '❌ Failed'}")
+    print(f"  Codex: {'✅ Passed' if codex_success else '❌ Failed'}")
 
     if claude_success and codex_success:
-        print("\n🎉 所有集成测试通过！")
+        print("\n🎉 All integration tests passed!")
         sys.exit(0)
     else:
-        print("\n⚠️  部分测试失败")
+        print("\n⚠️  Some tests failed")
         sys.exit(1)

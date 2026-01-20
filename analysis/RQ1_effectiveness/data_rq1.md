@@ -1,8 +1,8 @@
-# RQ1: Effectiveness - 数据表格
+# RQ1: Effectiveness - Data Tables
 
-执行权限对修复成功率的影响分析数据。
+Analysis data on the impact of execution regimes on repair success rate.
 
-## Pass Rate 对比表
+## Pass Rate Comparison Table
 
 ### SWE-bench Lite
 
@@ -34,9 +34,9 @@
 | codex | run_cost | 71 | 100 | 71.0% |
 | codex | run_full | 75 | 100 | 75.0% |
 
-## 差异分析表 (ΔPass)
+## Difference Analysis Table (ΔPass)
 
-以 run_full 为基准，计算各 mode 的 Pass Rate 差异。
+Using run_full as baseline, calculate Pass Rate differences for each mode.
 
 ### SWE-bench Lite
 
@@ -68,47 +68,47 @@
 | codex | run_cost | 71.0% | 75.0% | -4.0% |
 | codex | run_full | 75.0% | 75.0% | - |
 
-## 单调性分析
+## Monotonicity Analysis
 
-检验是否存在'执行越多越强'的单调关系。
+Testing whether there exists a 'more execution = better' monotonic relationship.
 
-执行权限排序（从少到多）: run_free < run_less_k1 < run_less_k3 < run_cost ≈ run_full
+Execution regime ordering (from less to more): run_free < run_less_k1 < run_less_k3 < run_cost ≈ run_full
 
 ### SWE-bench Lite
 
 **claude_code:**
 - run_free: 63.0% → run_less_k1: 61.0% → run_less_k3: 62.0% → run_cost: 63.0% → run_full: 64.0%
-- 结论: ✗ 不存在单调递增关系
+- Conclusion: ✗ No monotonic increasing relationship
 
 **codex:**
 - run_free: 74.5% → run_less_k1: 67.3% → run_less_k3: 69.4% → run_cost: 70.4% → run_full: 73.5%
-- 结论: ✗ 不存在单调递增关系
+- Conclusion: ✗ No monotonic increasing relationship
 
 ### SWE-bench Verified
 
 **claude_code:**
 - run_free: 64.0% → run_less_k1: 64.0% → run_less_k3: 65.0% → run_cost: 67.0% → run_full: 67.0%
-- 结论: ✓ 存在单调递增关系
+- Conclusion: ✓ Monotonic increasing relationship exists
 
 **codex:**
 - run_free: 73.0% → run_less_k1: 72.0% → run_less_k3: 73.0% → run_cost: 71.0% → run_full: 75.0%
-- 结论: ✗ 不存在单调递增关系
+- Conclusion: ✗ No monotonic increasing relationship
 
-## 关键发现
+## Key Findings
 
-### 1. Run-Free vs Run-Full 对比
+### 1. Run-Free vs Run-Full Comparison
 
 - **claude_code** (SWE-bench Lite): Run-Free 63.0% vs Run-Full 64.0% (Δ = +1.0%)
 - **codex** (SWE-bench Lite): Run-Free 74.5% vs Run-Full 73.5% (Δ = -1.0%)
 - **claude_code** (SWE-bench Verified): Run-Free 64.0% vs Run-Full 67.0% (Δ = +3.0%)
 - **codex** (SWE-bench Verified): Run-Free 73.0% vs Run-Full 75.0% (Δ = +2.0%)
 
-### 2. 平均差异
+### 2. Average Difference
 
-- Run-Full 相比 Run-Free 的平均提升: **1.2%**
+- Average improvement of Run-Full over Run-Free: **1.2%**
 
-### 3. 结论
+### 3. Conclusion
 
-- 执行权限对修复成功率的影响**较小**（< 5%）
-- Run-Free 模式已能达到接近最佳的性能
-- 执行环境可能**不是必要条件**，而是'工程捷径'
+- Execution regimes have **minimal impact** on repair success rate (< 5%)
+- Run-Free mode already achieves near-optimal performance
+- Execution environment may **not be a necessary condition**, but rather an 'engineering shortcut'

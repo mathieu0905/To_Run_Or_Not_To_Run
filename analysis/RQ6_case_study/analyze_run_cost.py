@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-分析 Run-Cost 模式的表现
-Run-Cost 是有成本约束的执行模式，可能是一个很好的折中方案
+Analyze the performance of Run-Cost mode
+Run-Cost is an execution mode with cost constraints, potentially a good compromise solution
 """
 
 import sys
@@ -18,7 +18,7 @@ from common.data_loader import (
 
 
 def load_resolved_ids():
-    """加载每个配置的 resolved instance IDs"""
+    """Load resolved instance IDs for each configuration"""
     sb_cli_reports_dir = PROJECT_ROOT / "sb-cli-reports"
     resolved = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
 
@@ -52,15 +52,15 @@ def load_resolved_ids():
 
 
 def analyze_run_cost(resolved, results):
-    """分析 Run-Cost 模式的表现"""
+    """Analyze the performance of Run-Cost mode"""
     lines = []
-    lines.append("# Run-Cost 模式深度分析")
+    lines.append("# Run-Cost Mode In-Depth Analysis")
     lines.append("")
-    lines.append("Run-Cost 是有成本约束的执行模式，在执行次数和成本之间寻求平衡。")
+    lines.append("Run-Cost is an execution mode with cost constraints, seeking a balance between execution count and cost.")
     lines.append("")
 
-    # 1. 整体表现对比
-    lines.append("## 1. 整体表现对比")
+    # 1. Overall performance comparison
+    lines.append("## 1. Overall Performance Comparison")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -86,8 +86,8 @@ def analyze_run_cost(resolved, results):
 
         lines.append("")
 
-    # 2. Run-Cost vs 其他模式
-    lines.append("## 2. Run-Cost 与其他模式的对比")
+    # 2. Run-Cost vs other modes
+    lines.append("## 2. Run-Cost Comparison with Other Modes")
     lines.append("")
 
     total_stats = {
@@ -118,7 +118,7 @@ def analyze_run_cost(resolved, results):
             cost = modes["run_cost"]
             full = modes.get("run_full", set())
 
-            # Run-Cost 独有成功
+            # Run-Cost unique successes
             cost_unique = cost - free - k1 - k3 - full
 
             # Run-Cost vs Run-Free
@@ -143,7 +143,7 @@ def analyze_run_cost(resolved, results):
 
             lines.append(f"**{agent}:**")
             lines.append("")
-            lines.append("| 对比 | Run-Cost 胜 | 对方胜 | 净差异 |")
+            lines.append("| Comparison | Run-Cost Wins | Opponent Wins | Net Difference |")
             lines.append("|------|-------------|--------|--------|")
             lines.append(f"| vs Run-Free | {len(cost_better_free)} | {len(free_better_cost)} | {len(cost_better_free) - len(free_better_cost):+d} |")
             lines.append(f"| vs Run-Less-K1 | {len(cost_better_k1)} | {len(k1 - cost)} | {len(cost_better_k1) - len(k1 - cost):+d} |")
@@ -152,25 +152,25 @@ def analyze_run_cost(resolved, results):
             lines.append("")
 
             if cost_unique:
-                lines.append(f"**Run-Cost 独有成功 ({len(cost_unique)} 个):**")
+                lines.append(f"**Run-Cost Unique Successes ({len(cost_unique)} cases):**")
                 for inst in sorted(cost_unique):
                     lines.append(f"- `{inst}`")
                 lines.append("")
 
-    # 3. 汇总统计
-    lines.append("## 3. 汇总统计")
+    # 3. Summary statistics
+    lines.append("## 3. Summary Statistics")
     lines.append("")
-    lines.append("| 指标 | 数量 |")
+    lines.append("| Metric | Count |")
     lines.append("|------|------|")
-    lines.append(f"| Run-Cost 独有成功 | {total_stats['cost_unique']} |")
-    lines.append(f"| Run-Cost 比 Run-Free 好 | {total_stats['cost_better_free']} |")
-    lines.append(f"| Run-Cost 比 Run-Full 好 | {total_stats['cost_better_full']} |")
-    lines.append(f"| Run-Free 比 Run-Cost 好 | {total_stats['free_better_cost']} |")
-    lines.append(f"| Run-Full 比 Run-Cost 好 | {total_stats['full_better_cost']} |")
+    lines.append(f"| Run-Cost Unique Successes | {total_stats['cost_unique']} |")
+    lines.append(f"| Run-Cost Better than Run-Free | {total_stats['cost_better_free']} |")
+    lines.append(f"| Run-Cost Better than Run-Full | {total_stats['cost_better_full']} |")
+    lines.append(f"| Run-Free Better than Run-Cost | {total_stats['free_better_cost']} |")
+    lines.append(f"| Run-Full Better than Run-Cost | {total_stats['full_better_cost']} |")
     lines.append("")
 
-    # 4. Run-Cost 独有成功案例分析
-    lines.append("## 4. Run-Cost 独有成功案例详细分析")
+    # 4. Run-Cost unique success case analysis
+    lines.append("## 4. Detailed Analysis of Run-Cost Unique Success Cases")
     lines.append("")
 
     cost_unique_cases = []
@@ -206,15 +206,15 @@ def analyze_run_cost(resolved, results):
                 tokens = data["tokens"]["input"] + data["tokens"]["output"]
                 turns = data["turns"]
                 high_exec = data["high_cost_exec"]
-                result = "**成功**" if is_resolved else "失败"
+                result = "**Success**" if is_resolved else "Failed"
                 lines.append(f"| {mode} | {tokens:,} | {turns} | {high_exec} | {result} |")
 
         lines.append("")
 
-    # 5. 成本效率分析
-    lines.append("## 5. 成本效率分析")
+    # 5. Cost efficiency analysis
+    lines.append("## 5. Cost Efficiency Analysis")
     lines.append("")
-    lines.append("Run-Cost 的成本相对于其他模式的位置。")
+    lines.append("Run-Cost's cost position relative to other modes.")
     lines.append("")
 
     for dataset, dataset_name in DATASETS.items():
@@ -229,7 +229,7 @@ def analyze_run_cost(resolved, results):
             lines.append(f"**{agent}:**")
             lines.append("")
 
-            lines.append("| Mode | Avg Tokens | Pass Rate | 效率比 (Pass/Token) |")
+            lines.append("| Mode | Avg Tokens | Pass Rate | Efficiency Ratio (Pass/Token) |")
             lines.append("|------|------------|-----------|---------------------|")
 
             pass_rates = {}
@@ -251,35 +251,35 @@ def analyze_run_cost(resolved, results):
 
             lines.append("")
 
-    # 6. 结论
-    lines.append("## 6. Run-Cost 模式的价值")
+    # 6. Conclusion
+    lines.append("## 6. Value of Run-Cost Mode")
     lines.append("")
-    lines.append("### 优势")
+    lines.append("### Advantages")
     lines.append("")
-    lines.append("1. **成本可控** - 有明确的成本上限，避免无限制消耗")
-    lines.append("2. **表现稳定** - 在多数情况下接近 Run-Full 的效果")
-    lines.append("3. **独有成功案例** - 有些问题只有 Run-Cost 能解决")
-    lines.append("4. **比 Run-Less 更灵活** - 不是简单限制次数，而是限制总成本")
+    lines.append("1. **Controllable Cost** - Has a clear cost ceiling, avoiding unlimited consumption")
+    lines.append("2. **Stable Performance** - Approaches Run-Full's effectiveness in most cases")
+    lines.append("3. **Unique Success Cases** - Some problems can only be solved by Run-Cost")
+    lines.append("4. **More Flexible than Run-Less** - Limits total cost rather than simply restricting execution count")
     lines.append("")
-    lines.append("### 适用场景")
+    lines.append("### Applicable Scenarios")
     lines.append("")
-    lines.append("1. **预算有限但需要执行反馈** - 比 Run-Free 多一些验证能力")
-    lines.append("2. **避免过度执行** - 比 Run-Full 更节制")
-    lines.append("3. **生产环境** - 成本可预测，适合大规模部署")
+    lines.append("1. **Limited Budget but Need Execution Feedback** - More verification capability than Run-Free")
+    lines.append("2. **Avoid Over-Execution** - More restrained than Run-Full")
+    lines.append("3. **Production Environment** - Predictable cost, suitable for large-scale deployment")
     lines.append("")
-    lines.append("### 实践建议")
+    lines.append("### Practical Recommendations")
     lines.append("")
-    lines.append("1. **Run-Free** - 默认首选，成本最低")
-    lines.append("2. **Run-Cost** - 需要执行但要控制成本时的最佳选择")
-    lines.append("3. **Run-Full** - 仅在调试复杂问题时使用")
-    lines.append("4. **Run-Less** - 不推荐，表现不稳定")
+    lines.append("1. **Run-Free** - Default first choice, lowest cost")
+    lines.append("2. **Run-Cost** - Best choice when execution is needed but cost must be controlled")
+    lines.append("3. **Run-Full** - Use only when debugging complex problems")
+    lines.append("4. **Run-Less** - Not recommended, unstable performance")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def main():
-    print("正在加载数据...")
+    print("Loading data...")
 
     results = load_all_results()
     resolved = load_resolved_ids()
@@ -288,7 +288,7 @@ def main():
 
     output_path = Path(__file__).parent / "run_cost_analysis.md"
     output_path.write_text(analysis, encoding="utf-8")
-    print(f"分析已保存到: {output_path}")
+    print(f"Analysis saved to: {output_path}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-从 output 目录生成 SWE-bench predictions 文件
+Generate SWE-bench predictions file from output directory
 """
 
 import os
@@ -11,19 +11,19 @@ from pathlib import Path
 
 def generate_predictions(output_dir: str, dataset: str, agent: str, mode: str, output_file: str = None):
     """
-    生成 predictions JSON 文件
+    Generate predictions JSON file
 
     Args:
-        output_dir: output 目录路径
-        dataset: 数据集名称 (swebenchlite, swebenchverified)
-        agent: agent 名称 (claude_code, codex)
-        mode: 模式名称 (run_free, run_less_k1, run_less_k3, run_cost, run_full)
-        output_file: 输出文件路径，默认为 predictions/{dataset}_{agent}_{mode}.json
+        output_dir: output directory path
+        dataset: dataset name (swebenchlite, swebenchverified)
+        agent: agent name (claude_code, codex)
+        mode: mode name (run_free, run_less_k1, run_less_k3, run_cost, run_full)
+        output_file: output file path, defaults to predictions/{dataset}_{agent}_{mode}.json
     """
     base_path = Path(output_dir) / dataset / agent / mode
 
     if not base_path.exists():
-        print(f"错误: 路径不存在: {base_path}")
+        print(f"Error: Path does not exist: {base_path}")
         return None
 
     predictions = []
@@ -43,26 +43,26 @@ def generate_predictions(output_dir: str, dataset: str, agent: str, mode: str, o
                 "model_name_or_path": f"{agent}_{mode}"
             })
         else:
-            print(f"警告: 缺少 patch.diff: {instance_dir}")
+            print(f"Warning: Missing patch.diff: {instance_dir}")
 
-    # 确定输出文件路径
+    # Determine output file path
     if output_file is None:
         predictions_dir = Path(output_dir).parent / "predictions"
         predictions_dir.mkdir(exist_ok=True)
         output_file = predictions_dir / f"{dataset}_{agent}_{mode}.json"
 
-    # 保存 predictions
+    # Save predictions
     with open(output_file, 'w') as f:
         json.dump(predictions, f, indent=2)
 
-    print(f"生成 predictions 文件: {output_file}")
-    print(f"  实例数量: {len(predictions)}")
+    print(f"Generated predictions file: {output_file}")
+    print(f"  Number of instances: {len(predictions)}")
 
     return str(output_file)
 
 
 def list_available_combinations(output_dir: str):
-    """列出所有可用的 dataset/agent/mode 组合"""
+    """List all available dataset/agent/mode combinations"""
     output_path = Path(output_dir)
     combinations = []
 
@@ -81,7 +81,7 @@ def list_available_combinations(output_dir: str):
                     continue
                 mode = mode_dir.name
 
-                # 统计实例数量
+                # Count instances
                 instance_count = len([d for d in mode_dir.iterdir() if d.is_dir()])
                 patch_count = len(list(mode_dir.glob("*/patch.diff")))
 
@@ -97,28 +97,28 @@ def list_available_combinations(output_dir: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="生成 SWE-bench predictions 文件")
+    parser = argparse.ArgumentParser(description="Generate SWE-bench predictions file")
     parser.add_argument("--output-dir", default="/home/zhihao/hdd/run_free_run_less_run_full/output",
-                        help="output 目录路径")
-    parser.add_argument("--dataset", help="数据集名称")
-    parser.add_argument("--agent", help="agent 名称")
-    parser.add_argument("--mode", help="模式名称")
-    parser.add_argument("--output-file", help="输出文件路径")
-    parser.add_argument("--list", action="store_true", help="列出所有可用组合")
-    parser.add_argument("--all", action="store_true", help="生成所有组合的 predictions")
+                        help="output directory path")
+    parser.add_argument("--dataset", help="dataset name")
+    parser.add_argument("--agent", help="agent name")
+    parser.add_argument("--mode", help="mode name")
+    parser.add_argument("--output-file", help="output file path")
+    parser.add_argument("--list", action="store_true", help="list all available combinations")
+    parser.add_argument("--all", action="store_true", help="generate predictions for all combinations")
 
     args = parser.parse_args()
 
     if args.list:
         combinations = list_available_combinations(args.output_dir)
-        print("\n可用的 dataset/agent/mode 组合:")
+        print("\nAvailable dataset/agent/mode combinations:")
         print("-" * 70)
         print(f"{'Dataset':<20} {'Agent':<15} {'Mode':<15} {'Instances':<10} {'Patches':<10}")
         print("-" * 70)
         for c in combinations:
             print(f"{c['dataset']:<20} {c['agent']:<15} {c['mode']:<15} {c['instances']:<10} {c['patches']:<10}")
         print("-" * 70)
-        print(f"总计: {len(combinations)} 个组合")
+        print(f"Total: {len(combinations)} combinations")
         return
 
     if args.all:
@@ -126,7 +126,7 @@ def main():
         predictions_dir = Path(args.output_dir).parent / "predictions"
         predictions_dir.mkdir(exist_ok=True)
 
-        print(f"\n生成所有 predictions 文件到: {predictions_dir}")
+        print(f"\nGenerating all predictions files to: {predictions_dir}")
         print("-" * 50)
 
         for c in combinations:
@@ -138,12 +138,12 @@ def main():
             )
 
         print("-" * 50)
-        print(f"完成! 共生成 {len(combinations)} 个 predictions 文件")
+        print(f"Complete! Generated {len(combinations)} predictions files")
         return
 
     if not all([args.dataset, args.agent, args.mode]):
         parser.print_help()
-        print("\n错误: 需要指定 --dataset, --agent, --mode 或使用 --list/--all")
+        print("\nError: Need to specify --dataset, --agent, --mode or use --list/--all")
         return
 
     generate_predictions(

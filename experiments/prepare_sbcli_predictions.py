@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-为 sb-cli 生成 SWE-bench predictions JSON。
+Generate SWE-bench predictions JSON for sb-cli.
 
-设计目标（论文式对比，按“同模型同样例”公平比较不同配置）：
-- 对每个 dataset × model：
-  - 先统计每个配置在 output/ 中“实际评测过”的样例集合（判定标准：trace.jsonl 存在）
-  - 若某个配置评测样例数 < min_config_instances（默认 10），则该配置不纳入比较范围
-  - 对纳入范围的配置取样例交集，得到 intersection_instances
-  - 若交集样例数 < min_intersection_instances（默认 10），则该 dataset × model 不输出任何 predictions
-- 对交集样例分别生成每个配置的 predictions JSON（patch.diff 缺失或空则 model_patch 置为空字符串）
-- 每次运行默认清空 dest_root 下对应数据集/split 的旧产物，避免旧结果干扰
+Design Goal (paper-style comparison, fair comparison of different configurations with "same model same samples"):
+- For each dataset × model:
+  - First count the "actually evaluated" sample set for each configuration in output/ (criterion: trace.jsonl exists)
+  - If a configuration has evaluated samples < min_config_instances (default 10), exclude it from comparison
+  - Take the intersection of samples for included configurations to get intersection_instances
+  - If intersection sample count < min_intersection_instances (default 10), don't output any predictions for this dataset × model
+- Generate predictions JSON for each configuration on intersection samples (if patch.diff is missing or empty, set model_patch to empty string)
+- By default, clear old artifacts under dest_root for corresponding dataset/split each run to avoid old results interfering
 
-输出格式遵循 sb-cli 文档（Dictionary Format）：
+Output format follows sb-cli documentation (Dictionary Format):
 {
   "<instance_id>": {"model_patch": "...", "model_name_or_path": "..."},
   ...
@@ -123,7 +123,7 @@ def read_patch_text(patch_path: Path) -> Tuple[str, str]:
 
 
 def is_instance_evaluated(instance_dir: Path) -> bool:
-    # 你确认的判定标准：trace.jsonl 存在即视为“已评测过”
+    # Your confirmed criterion: trace.jsonl exists means "evaluated"
     return (instance_dir / "trace.jsonl").is_file()
 
 
@@ -175,7 +175,7 @@ def build_predictions_for_config_on_instances(
         else:
             present += 1
 
-        # model_name_or_path 按你的要求带上数据集信息，便于区分 lite/verified
+        # model_name_or_path includes dataset info per your request, convenient for distinguishing lite/verified
         model_name_or_path = f"{dataset_subset}__{split}__{config.agent}__{config.mode_dir}"
         preds[instance_id] = {
             "model_patch": patch_text,
@@ -199,7 +199,7 @@ def build_predictions_for_config_on_instances(
 def write_json(path: Path, obj: object, overwrite: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and not overwrite:
-        raise FileExistsError(f"文件已存在（可用 --overwrite 覆盖）：{path}")
+        raise FileExistsError(f"File already exists (use --overwrite to overwrite): {path}")
     path.write_text(
         json.dumps(obj, indent=2, ensure_ascii=False, sort_keys=True),
         encoding="utf-8",
@@ -208,65 +208,65 @@ def write_json(path: Path, obj: object, overwrite: bool) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="从 output/ 汇总补丁，生成 sb-cli 可提交的 predictions JSON。"
+        description="Aggregate patches from output/ and generate predictions JSON for sb-cli submission."
     )
     parser.add_argument(
         "--dataset",
         choices=sorted(list(DATASET_SPECS.keys()) + ["both"]),
         default="both",
-        help="数据集：lite / verified / both（默认 both）。",
+        help="Dataset: lite / verified / both (default both).",
     )
     parser.add_argument(
         "--split",
         default=None,
-        help="sb-cli 的 split（dev/test）。默认取 run 脚本一致的 test。",
+        help="sb-cli split (dev/test). Defaults to test consistent with run script.",
     )
     parser.add_argument(
         "--agents",
         default=",".join(DEFAULT_AGENTS),
-        help=f"需要整理的 agent 列表（逗号分隔，默认 {','.join(DEFAULT_AGENTS)}）。",
+        help=f"List of agents to organize (comma-separated, default {','.join(DEFAULT_AGENTS)}).",
     )
     parser.add_argument(
         "--mode_dirs",
         default=",".join(DEFAULT_MODE_DIRS),
-        help="需要考虑的配置目录名（逗号分隔，默认包含 run_cost/run_free/run_full/run_less_k1..k3）。",
+        help="Configuration directory names to consider (comma-separated, default includes run_cost/run_free/run_full/run_less_k1..k3).",
     )
     parser.add_argument(
         "--output_root",
         default="output",
-        help="实验输出根目录（默认 output）。",
+        help="Experiment output root directory (default output).",
     )
     parser.add_argument(
         "--dest_root",
         default="sbcli_preds",
-        help="predictions 输出根目录（默认 sbcli_preds）。",
+        help="Predictions output root directory (default sbcli_preds).",
     )
     parser.add_argument(
         "--min_config_instances",
         type=int,
         default=10,
-        help="配置纳入比较的最小样例数阈值（默认 10）。",
+        help="Minimum sample count threshold for configuration to be included in comparison (default 10).",
     )
     parser.add_argument(
         "--min_intersection_instances",
         type=int,
         default=10,
-        help="交集样例数不足则不输出该 dataset×model（默认 10）。",
+        help="Don't output for dataset×model if intersection sample count is insufficient (default 10).",
     )
     parser.add_argument(
         "--no_clean",
         action="store_true",
-        help="不清空 dest_root 下对应数据集/split 的旧产物（默认会清空）。",
+        help="Don't clear old artifacts under dest_root for corresponding dataset/split (default will clear).",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="覆盖已存在的 predictions 文件（当 --no_clean 启用时有用）。",
+        help="Overwrite existing predictions files (useful when --no_clean is enabled).",
     )
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="严格模式：任意 instance 缺 patch.diff 直接报错退出（默认关闭）。",
+        help="Strict mode: error out immediately if any instance is missing patch.diff (default off).",
     )
     return parser.parse_args()
 
@@ -281,7 +281,7 @@ def prepare_for_one_dataset(*, dataset_key: str, args: argparse.Namespace) -> No
     dataset_output_dirname = spec["output_dirname"]
     split = args.split or spec["default_split"]
     if split != "test":
-        raise ValueError(f"当前脚本按你确认固定使用 split=test（收到：{split}）")
+        raise ValueError(f"Current script uses split=test as confirmed (received: {split})")
 
     output_root = Path(args.output_root)
     dest_root = Path(args.dest_root)
@@ -300,7 +300,7 @@ def prepare_for_one_dataset(*, dataset_key: str, args: argparse.Namespace) -> No
     for agent in agents:
         agent_output_root = dataset_output_root / agent
         if not agent_output_root.is_dir():
-            # 你选择的策略：跳过缺失的模型（互不影响）
+            # Your chosen strategy: skip missing models (don't affect each other)
             continue
 
         evaluated_by_mode: Dict[str, Set[str]] = {}
@@ -317,15 +317,15 @@ def prepare_for_one_dataset(*, dataset_key: str, args: argparse.Namespace) -> No
         for mode_dir in mode_dirs:
             n = counts_by_mode_dir[mode_dir]
             if n < args.min_config_instances:
-                excluded[mode_dir] = f"样例数<{args.min_config_instances}（{n}）"
+                excluded[mode_dir] = f"sample count<{args.min_config_instances} ({n})"
             else:
                 included_mode_dirs.append(mode_dir)
 
-        # 没有任何配置满足阈值，直接跳过
+        # No configuration meets threshold, skip directly
         if not included_mode_dirs:
             continue
 
-        # 取交集（只在该 agent 内部）
+        # Take intersection (only within this agent)
         intersection: Set[str] | None = None
         for mode_dir in included_mode_dirs:
             if intersection is None:
@@ -335,14 +335,14 @@ def prepare_for_one_dataset(*, dataset_key: str, args: argparse.Namespace) -> No
         assert intersection is not None
 
         if len(intersection) < args.min_intersection_instances:
-            # 你选择的策略：交集不足则该 dataset×model 不产出任何 json
+            # Your chosen strategy: don't produce any json for dataset×model if intersection insufficient
             continue
 
         intersection_ids = sorted(intersection)
         created_files: List[str] = []
         stats_in_intersection: List[ConfigStatsInIntersection] = []
 
-        # 写每个 included 配置的 predictions
+        # Write predictions for each included configuration
         for mode_dir in included_mode_dirs:
             config = Config(agent=agent, mode_dir=mode_dir)
             preds, stats = build_predictions_for_config_on_instances(
@@ -359,7 +359,7 @@ def prepare_for_one_dataset(*, dataset_key: str, args: argparse.Namespace) -> No
             created_files.append(str(out_path))
             stats_in_intersection.append(stats)
 
-        # 写交集样例列表（方便你用 --instance_ids 或复核）
+        # Write intersection sample list (convenient for you to use --instance_ids or review)
         instance_list_path = dataset_dest_root / agent / "instance_ids.txt"
         instance_list_path.parent.mkdir(parents=True, exist_ok=True)
         instance_list_path.write_text("\n".join(intersection_ids) + "\n", encoding="utf-8")
@@ -381,7 +381,7 @@ def prepare_for_one_dataset(*, dataset_key: str, args: argparse.Namespace) -> No
             )
         )
 
-    # 输出 summary（按 dataset 一份）
+    # Output summary (one per dataset)
     if groups:
         summary = {
             "dataset_key": dataset_key,
@@ -396,14 +396,14 @@ def prepare_for_one_dataset(*, dataset_key: str, args: argparse.Namespace) -> No
         summary_path = dataset_dest_root / "summary.json"
         write_json(summary_path, summary, overwrite=args.overwrite)
 
-        print(f"✅ 已生成 sb-cli predictions：{subset} {split}")
+        print(f"✅ Generated sb-cli predictions: {subset} {split}")
         for g in groups:
             print(
                 f"  - {g.agent}: included={len(g.mode_dirs_included)} "
                 f"intersection={g.intersection_size} -> {dataset_dest_root / g.agent}"
             )
     else:
-        print(f"⚠️ 未生成任何 predictions：{subset} {split}（可能模型目录缺失或交集不足）")
+        print(f"⚠️ No predictions generated: {subset} {split} (possibly model directory missing or intersection insufficient)")
 
 
 def main() -> None:

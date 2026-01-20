@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-实验运行器：测试 Run-Free / Run-Less / Run-Full 三种模式
+Experiment Runner: Test Run-Free / Run-Less / Run-Full modes
 """
 import json
 import sys
@@ -20,10 +20,10 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 @dataclass
 class ExperimentResult:
-    """实验结果"""
+    """Experiment result"""
     instance_id: str
     mode: str  # run_free, run_less, run_full
-    k: Optional[int]  # run_less 的执行次数限制
+    k: Optional[int]  # Execution limit for run_less
     patch: str
     tokens_used: int
     exec_count: int
@@ -34,7 +34,7 @@ class ExperimentResult:
 
 
 def get_instance_info(instance_id: str, dataset_name: str = "princeton-nlp/SWE-bench_Lite") -> dict:
-    """从 SWE-bench 数据集获取实例信息"""
+    """Get instance information from SWE-bench dataset"""
     dataset = load_dataset(dataset_name, split="test")
     for item in dataset:
         if item["instance_id"] == instance_id:
@@ -43,22 +43,22 @@ def get_instance_info(instance_id: str, dataset_name: str = "princeton-nlp/SWE-b
 
 
 def extract_patch(output: str) -> str:
-    """从 agent 输出中提取 git diff 格式的补丁"""
+    """Extract git diff format patch from agent output"""
     lines = output.split("\n")
     patch_lines = []
     in_patch = False
 
     for line in lines:
-        # 检测 diff 开始标记
+        # Detect diff start markers
         if line.startswith("diff --git") or line.startswith("---") or line.startswith("+++"):
             in_patch = True
 
         if in_patch:
             patch_lines.append(line)
 
-            # 如果已经收集了足够的内容，可以提前结束
+            # If enough content collected, can end early
             if line.startswith("@@") and len(patch_lines) > 10:
-                # 继续收集直到下一个文件或结束
+                # Continue collecting until next file or end
                 continue
 
     return "\n".join(patch_lines) if patch_lines else ""
@@ -73,45 +73,45 @@ def run_experiment(
     dataset_name: str = "princeton-nlp/SWE-bench_Lite"
 ) -> ExperimentResult:
     """
-    运行单个实验
+    Run single experiment
 
     Args:
-        instance_id: SWE-bench 实例 ID
-        mode: 执行模式 (run_free, run_less, run_full)
-        k: run_less 模式的执行次数限制
-        agent_type: agent 类型 (claude_code, codex)
-        timeout: 超时时间（秒）
+        instance_id: SWE-bench instance ID
+        mode: Execution mode (run_free, run_less, run_full)
+        k: Execution limit for run_less mode
+        agent_type: Agent type (claude_code, codex)
+        timeout: Timeout (seconds)
 
     Returns:
-        ExperimentResult 对象
+        ExperimentResult object
     """
-    # 1. 获取实例信息
+    # 1. Get instance information
     print(f"Loading instance: {instance_id}")
     instance = get_instance_info(instance_id, dataset_name)
 
-    # 构建模式标识（run_less 需要包含 k 值）
+    # Build mode identifier (run_less needs to include k value)
     mode_suffix = f"{mode}_k{k}" if mode == "run_less" else mode
 
-    # 从 dataset_name 提取简称
+    # Extract short name from dataset_name
     if "Verified" in dataset_name:
         dataset_short = "swebenchverified"
     else:
         dataset_short = "swebenchlite"
 
-    # 结果输出目录：output/dataset/agent/mode/instance
+    # Result output directory: output/dataset/agent/mode/instance
     instance_output_dir = RESULTS_DIR / dataset_short / agent_type / mode_suffix / instance_id
     instance_output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 2. 构建 prompt
+    # 2. Build prompt
     print(f"Building prompt for mode: {mode}" + (f" (k={k})" if mode == "run_less" else ""))
     prompt = PromptBuilder.build_prompt(instance, mode, k)
 
-    # 保存 prompt 到实例目录
+    # Save prompt to instance directory
     prompt_file = instance_output_dir / "prompt.txt"
     prompt_file.write_text(prompt, encoding="utf-8")
     print(f"Prompt saved to: {prompt_file}")
 
-    # 3. 调用 agent（trace 实时写入到输出目录）
+    # 3. Call agent (trace written in real-time to output directory)
     print(f"Calling {agent_type} agent (timeout={timeout}s)...")
     trace_file = instance_output_dir / "trace.jsonl"
     caller = AgentCaller(agent_type=agent_type, instance_id=instance_id)
@@ -132,7 +132,7 @@ def run_experiment(
     if not patch:
         patch = (trace.output or "").strip()
 
-    # 5. 构建结果
+    # 5. Build result
     result = ExperimentResult(
         instance_id=instance_id,
         mode=mode,
@@ -150,8 +150,8 @@ def run_experiment(
 
 
 def save_result(result: ExperimentResult, dataset_name: str = "princeton-nlp/SWE-bench_Lite"):
-    """保存实验结果到 JSON 文件"""
-    # 从 dataset_name 提取简称
+    """Save experiment result to JSON file"""
+    # Extract short name from dataset_name
     if "Verified" in dataset_name:
         dataset_short = "swebenchverified"
     else:
@@ -178,7 +178,7 @@ def save_result(result: ExperimentResult, dataset_name: str = "princeton-nlp/SWE
 
 
 def print_summary(result: ExperimentResult):
-    """打印实验结果摘要"""
+    """Print experiment result summary"""
     print("\n" + "=" * 60)
     print("EXPERIMENT SUMMARY")
     print("=" * 60)
@@ -198,17 +198,17 @@ def print_summary(result: ExperimentResult):
 
 
 def main():
-    """主函数：解析命令行参数并运行实验"""
+    """Main function: Parse command line arguments and run experiment"""
     if len(sys.argv) < 3:
         print("Usage: python runner.py <instance_id> <mode> [k] [agent_type] [timeout]")
         print()
         print("Arguments:")
-        print("  instance_id   SWE-bench 实例 ID (例如: django__django-11099)")
-        print("  mode          执行模式: run_free, run_less, run_cost, run_full")
-        print("  k             [可选] run_less 模式的执行次数限制 (默认: 2)")
-        print("  agent_type    [可选] agent 类型: claude_code, codex (默认: claude_code)")
-        print("  timeout       [可选] 超时时间（秒） (默认: 600)")
-        print("  dataset_name  [可选] 数据集名称 (默认: princeton-nlp/SWE-bench_Lite)")
+        print("  instance_id   SWE-bench instance ID (e.g.: django__django-11099)")
+        print("  mode          Execution mode: run_free, run_less, run_cost, run_full")
+        print("  k             [Optional] Execution limit for run_less mode (default: 2)")
+        print("  agent_type    [Optional] Agent type: claude_code, codex (default: claude_code)")
+        print("  timeout       [Optional] Timeout in seconds (default: 600)")
+        print("  dataset_name  [Optional] Dataset name (default: princeton-nlp/SWE-bench_Lite)")
         print()
         print("Examples:")
         print("  python runner.py django__django-11099 run_free")
@@ -217,7 +217,7 @@ def main():
         print("  python runner.py django__django-11099 run_full")
         sys.exit(1)
 
-    # 解析参数
+    # Parse arguments
     instance_id = sys.argv[1]
     mode = sys.argv[2]
     k = int(sys.argv[3]) if len(sys.argv) > 3 else 2
@@ -225,18 +225,18 @@ def main():
     timeout = int(sys.argv[5]) if len(sys.argv) > 5 else 600
     dataset_name = sys.argv[6] if len(sys.argv) > 6 else "princeton-nlp/SWE-bench_Lite"
 
-    # 验证模式
+    # Validate mode
     if mode not in ["run_free", "run_less", "run_cost", "run_full"]:
         print(f"Error: Invalid mode '{mode}'. Must be one of: run_free, run_less, run_cost, run_full")
         sys.exit(1)
 
-    # 运行实验
+    # Run experiment
     try:
         result = run_experiment(instance_id, mode, k, agent_type, timeout, dataset_name)
         save_result(result, dataset_name)
         print_summary(result)
 
-        # 返回状态码
+        # Return status code
         sys.exit(0 if result.success else 1)
 
     except Exception as e:
