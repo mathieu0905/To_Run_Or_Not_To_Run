@@ -62,7 +62,7 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
                     tokens["input"] += usage.get("input_tokens", 0)
                     tokens["output"] += usage.get("output_tokens", 0)
 
-                if item.get("type") in ["item.started", "item.completed"]:
+                if item.get("type") == "item.completed":  # 只在 completed 时记录，避免重复
                     inner = item.get("item", {})
                     item_id = inner.get("id", "")
                     if item_id.startswith("item_"):
