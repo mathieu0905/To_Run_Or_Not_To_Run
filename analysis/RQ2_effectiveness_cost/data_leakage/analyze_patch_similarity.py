@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-方案 B: 补丁相似度分析 - 数据泄漏防御版
+Approach B: Patch Similarity Analysis - Data Leakage Defense Version
 
-核心问题：模型是不是在背答案？
+Core Question: Is the model memorizing answers?
 
-分析策略：
-1. 按难度分类：高相似度+简单=正常，高相似度+复杂=可能记忆
-2. 跨模式对比：背答案→各模式相似度一致；推理→模式间有差异
+Analysis Strategy:
+1. Classify by difficulty: high similarity + simple = normal, high similarity + complex = possible memorization
+2. Cross-mode comparison: memorization → consistent similarity across modes; reasoning → differences between modes
 """
 
 import json
@@ -17,7 +17,7 @@ from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
-# 项目根目录
+# Project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 SB_CLI_REPORTS_DIR = PROJECT_ROOT / "sb-cli-reports"
 OUTPUT_DIR = PROJECT_ROOT / "output"
@@ -33,7 +33,7 @@ MODES = ["run_free", "run_less_k1", "run_less_k3", "run_full"]
 
 @dataclass
 class PatchComplexity:
-    """补丁复杂度"""
+    """Patch complexity"""
     instance_id: str
     num_files: int = 0
     lines_changed: int = 0
@@ -42,7 +42,7 @@ class PatchComplexity:
 
 
 def analyze_patch_complexity(patch: str, instance_id: str) -> PatchComplexity:
-    """分析补丁复杂度"""
+    """Analyze patch complexity"""
     result = PatchComplexity(instance_id=instance_id)
     if "__" in instance_id:
         result.project = instance_id.split("__")[0]
@@ -63,7 +63,7 @@ def analyze_patch_complexity(patch: str, instance_id: str) -> PatchComplexity:
     result.num_files = len(files)
     result.lines_changed = lines_changed
 
-    # 难度分类
+    # Difficulty classification
     if lines_changed <= 5 and len(files) == 1:
         result.difficulty = "easy"
     elif lines_changed <= 20 and len(files) <= 2:
@@ -75,7 +75,7 @@ def analyze_patch_complexity(patch: str, instance_id: str) -> PatchComplexity:
 
 
 def calculate_similarity(generated: str, ground_truth: str) -> float:
-    """计算相似度"""
+    """Calculate similarity"""
     def normalize(patch):
         lines = [line.rstrip() for line in patch.strip().split('\n')]
         normalized = []
@@ -92,7 +92,7 @@ def calculate_similarity(generated: str, ground_truth: str) -> float:
 
 
 def load_gt_patches(dataset_name: str) -> Dict[str, str]:
-    """加载 ground truth"""
+    """Load ground truth"""
     cache_file = PROJECT_ROOT / "analysis" / "data_leakage_defense" / f"gt_patches_{dataset_name.replace('/', '_')}.json"
     if cache_file.exists():
         return json.loads(cache_file.read_text())
@@ -100,7 +100,7 @@ def load_gt_patches(dataset_name: str) -> Dict[str, str]:
 
 
 def load_resolved_ids(dataset: str, agent: str, mode: str) -> set:
-    """加载 resolved IDs"""
+    """Load resolved IDs"""
     for f in SB_CLI_REPORTS_DIR.glob("*.json"):
         if dataset.replace("swebench", "") in f.name.lower() and agent in f.name and mode in f.name:
             try:
@@ -111,7 +111,7 @@ def load_resolved_ids(dataset: str, agent: str, mode: str) -> set:
 
 
 def analyze_dataset(dataset: str, gt_patches: Dict[str, str], agent: str) -> Dict:
-    """分析一个数据集的所有模式"""
+    """Analyze all modes for a dataset"""
     results = {}
 
     for mode in MODES:
@@ -153,24 +153,24 @@ def analyze_dataset(dataset: str, gt_patches: Dict[str, str], agent: str) -> Dic
 
 
 def generate_report() -> str:
-    """生成报告"""
+    """Generate report"""
     lines = []
     lines.append("# Data Leakage Defense: Patch Similarity Analysis")
     lines.append("")
-    lines.append("## 核心问题：模型是不是在背答案？")
+    lines.append("## Core Question: Is the model memorizing answers?")
     lines.append("")
-    lines.append("### 分析策略")
+    lines.append("### Analysis Strategy")
     lines.append("")
-    lines.append("**1. 按难度分类分析**")
-    lines.append("| 相似度 | 难度 | 解释 |")
+    lines.append("**1. Analysis by Difficulty Classification**")
+    lines.append("| Similarity | Difficulty | Explanation |")
     lines.append("|--------|------|------|")
-    lines.append("| 高(≥90%) | Easy (≤5行) | ✅ 正常 - 简单问题解法趋同 |")
-    lines.append("| 高(≥90%) | Hard (>20行) | ⚠️ 可能记忆 - 需要关注 |")
-    lines.append("| 低(<40%) | Medium/Hard | ✅ 推理证据 - 不同路径解决复杂问题 |")
+    lines.append("| High (>=90%) | Easy (<=5 lines) | Normal - Simple problems tend to have similar solutions |")
+    lines.append("| High (>=90%) | Hard (>20 lines) | Possible memorization - Needs attention |")
+    lines.append("| Low (<40%) | Medium/Hard | Evidence of reasoning - Different paths to solve complex problems |")
     lines.append("")
-    lines.append("**2. 跨模式对比**")
-    lines.append("- 如果是**背答案**：各模式相似度应该一致（都在复述同一个记忆）")
-    lines.append("- 如果是**推理**：执行反馈会影响解法，模式间相似度有差异")
+    lines.append("**2. Cross-mode Comparison**")
+    lines.append("- If **memorizing**: similarity should be consistent across modes (all reciting the same memory)")
+    lines.append("- If **reasoning**: execution feedback affects solutions, similarity varies between modes")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -195,12 +195,12 @@ def generate_report() -> str:
             lines.append(f"### Agent: {agent}")
             lines.append("")
 
-            # ===== 1. 按难度分类分析 (只看 run_free) =====
+            # ===== 1. Analysis by Difficulty Classification (only look at run_free) =====
             run_free = results.get("run_free", [])
             if run_free:
-                lines.append("#### 1. 按难度分类的相似度分布 (OFFLINE 模式)")
+                lines.append("#### 1. Similarity Distribution by Difficulty (OFFLINE Mode)")
                 lines.append("")
-                lines.append("| 难度 | 总数 | Avg Sim | ≥90% | 70-90% | 40-70% | <40% |")
+                lines.append("| Difficulty | Total | Avg Sim | >=90% | 70-90% | 40-70% | <40% |")
                 lines.append("|------|------|---------|------|--------|--------|------|")
 
                 by_diff = defaultdict(list)
@@ -221,32 +221,32 @@ def generate_report() -> str:
 
                 lines.append("")
 
-                # 关键案例
+                # Key cases
                 concerning = [r for r in run_free if r["similarity"] >= 0.9 and r["complexity"].difficulty == "hard"]
                 reasoning = [r for r in run_free if r["similarity"] < 0.4 and r["complexity"].difficulty in ["medium", "hard"]]
 
                 if concerning:
-                    lines.append(f"**⚠️ 需关注：高相似度(≥90%) + 复杂补丁(Hard) = {len(concerning)} 个**")
+                    lines.append(f"**Needs Attention: High Similarity (>=90%) + Complex Patch (Hard) = {len(concerning)} cases**")
                     for r in concerning[:5]:
                         c = r["complexity"]
                         lines.append(f"- `{r['instance_id']}`: {r['similarity']:.1%}, {c.lines_changed} lines")
                     all_concerning.extend(concerning)
                 else:
-                    lines.append("**✅ 无「高相似度 + 复杂补丁」案例**")
+                    lines.append("**No 'High Similarity + Complex Patch' cases**")
                 lines.append("")
 
                 if reasoning:
-                    lines.append(f"**✅ 推理证据：低相似度(<40%) + 中/复杂补丁 = {len(reasoning)} 个**")
+                    lines.append(f"**Evidence of Reasoning: Low Similarity (<40%) + Medium/Complex Patch = {len(reasoning)} cases**")
                     for r in sorted(reasoning, key=lambda x: x["similarity"])[:5]:
                         c = r["complexity"]
                         lines.append(f"- `{r['instance_id']}`: {r['similarity']:.1%}, {c.lines_changed} lines")
                     all_reasoning_evidence.extend(reasoning)
                 lines.append("")
 
-            # ===== 2. 跨模式对比 =====
-            lines.append("#### 2. 跨模式相似度对比")
+            # ===== 2. Cross-mode Comparison =====
+            lines.append("#### 2. Cross-mode Similarity Comparison")
             lines.append("")
-            lines.append("| Mode | 总数 | Avg Sim | ≥90% | <40% |")
+            lines.append("| Mode | Total | Avg Sim | >=90% | <40% |")
             lines.append("|------|------|---------|------|------|")
 
             mode_avgs = {}
@@ -263,7 +263,7 @@ def generate_report() -> str:
 
             lines.append("")
 
-            # 模式间差异分析
+            # Cross-mode difference analysis
             if "run_free" in mode_avgs and "run_full" in mode_avgs:
                 diff = mode_avgs["run_free"] - mode_avgs["run_full"]
                 cross_mode_data.append({
@@ -275,41 +275,41 @@ def generate_report() -> str:
                 })
 
                 if abs(diff) > 0.05:
-                    lines.append(f"**模式间差异**: OFFLINE ({mode_avgs['run_free']:.1%}) vs UNBOUNDED ({mode_avgs['run_full']:.1%}) = **{diff:+.1%}**")
+                    lines.append(f"**Cross-mode Difference**: OFFLINE ({mode_avgs['run_free']:.1%}) vs UNBOUNDED ({mode_avgs['run_full']:.1%}) = **{diff:+.1%}**")
                     lines.append("")
-                    lines.append("→ 执行反馈改变了模型的解法，支持「推理」而非「背诵」")
+                    lines.append("-> Execution feedback changed the model's solution, supporting 'reasoning' over 'recitation'")
                 else:
-                    lines.append(f"**模式间差异较小**: {diff:+.1%}")
+                    lines.append(f"**Cross-mode difference is small**: {diff:+.1%}")
 
             lines.append("")
 
-    # ===== 汇总 =====
+    # ===== Summary =====
     lines.append("---")
     lines.append("")
-    lines.append("## 汇总结论")
+    lines.append("## Summary Conclusions")
     lines.append("")
 
-    # 按难度统计
-    lines.append("### 1. 按难度分析（核心证据）")
+    # Statistics by difficulty
+    lines.append("### 1. Analysis by Difficulty (Core Evidence)")
     lines.append("")
-    lines.append(f"- **需要关注的案例**（高相似度 ≥90% + 复杂补丁 Hard）: **{len(all_concerning)}**")
-    lines.append(f"- **推理证据案例**（低相似度 <40% + 中/复杂补丁）: **{len(all_reasoning_evidence)}**")
+    lines.append(f"- **Cases needing attention** (High Similarity >=90% + Complex Patch Hard): **{len(all_concerning)}**")
+    lines.append(f"- **Evidence of reasoning cases** (Low Similarity <40% + Medium/Complex Patch): **{len(all_reasoning_evidence)}**")
     lines.append("")
 
     if len(all_concerning) == 0:
-        lines.append("🎉 **关键发现：没有「高相似度 + 复杂补丁」的案例！**")
+        lines.append("**Key Finding: No 'High Similarity + Complex Patch' cases!**")
         lines.append("")
-        lines.append("这意味着所有高相似度案例都是简单问题（解法趋同是正常的），")
-        lines.append("复杂问题都展现了解法多样性，**强烈支持模型是在推理而非记忆**。")
+        lines.append("This means all high similarity cases are simple problems (solution convergence is normal),")
+        lines.append("and complex problems all show solution diversity, **strongly supporting reasoning over memorization**.")
     else:
-        lines.append(f"⚠️ 发现 {len(all_concerning)} 个可能的记忆案例，需要进一步分析。")
+        lines.append(f"Found {len(all_concerning)} possible memorization cases that need further analysis.")
 
     lines.append("")
 
-    # 跨模式对比
-    lines.append("### 2. 跨模式对比")
+    # Cross-mode comparison
+    lines.append("### 2. Cross-mode Comparison")
     lines.append("")
-    lines.append("| Dataset | Agent | OFFLINE | UNBOUNDED | Δ |")
+    lines.append("| Dataset | Agent | OFFLINE | UNBOUNDED | Delta |")
     lines.append("|---------|-------|---------|-----------|---|")
 
     for d in cross_mode_data:
@@ -319,31 +319,31 @@ def generate_report() -> str:
 
     significant_diffs = [d for d in cross_mode_data if abs(d["diff"]) > 0.05]
     if significant_diffs:
-        lines.append(f"**{len(significant_diffs)}/{len(cross_mode_data)} 个配置显示模式间有显著差异**")
+        lines.append(f"**{len(significant_diffs)}/{len(cross_mode_data)} configurations show significant cross-mode differences**")
         lines.append("")
-        lines.append("→ 如果是「背答案」，各模式应产生相同的补丁（相似度一致）")
+        lines.append("-> If 'memorizing', each mode should produce the same patch (consistent similarity)")
         lines.append("")
-        lines.append("→ 实际观察到执行反馈改变了解法，**支持「推理」假设**")
+        lines.append("-> Observed that execution feedback changes solutions, **supporting the 'reasoning' hypothesis**")
 
     lines.append("")
     lines.append("---")
     lines.append("")
-    lines.append("## 论文话术")
+    lines.append("## Paper Wording")
     lines.append("")
-    lines.append(f"> *\"We analyzed patch similarity stratified by bug complexity. We found **{len(all_concerning)} concerning cases** of high similarity (≥90%) on complex patches (>20 lines), while **{len(all_reasoning_evidence)} cases** achieved correct fixes with <40% similarity on medium/hard problems. Furthermore, cross-mode comparison reveals that execution feedback changes solution paths (OFFLINE vs UNBOUNDED similarity differs by 5-10%), which would not occur if the model were simply reciting memorized patches. These findings strongly support genuine reasoning over memorization.\"*")
+    lines.append(f"> *\"We analyzed patch similarity stratified by bug complexity. We found **{len(all_concerning)} concerning cases** of high similarity (>=90%) on complex patches (>20 lines), while **{len(all_reasoning_evidence)} cases** achieved correct fixes with <40% similarity on medium/hard problems. Furthermore, cross-mode comparison reveals that execution feedback changes solution paths (OFFLINE vs UNBOUNDED similarity differs by 5-10%), which would not occur if the model were simply reciting memorized patches. These findings strongly support genuine reasoning over memorization.\"*")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def main():
-    print("正在分析补丁相似度...")
+    print("Analyzing patch similarity...")
     report = generate_report()
 
     output_file = Path(__file__).parent / "patch_similarity_report.md"
     output_file.write_text(report)
 
-    print(f"报告已保存到: {output_file}")
+    print(f"Report saved to: {output_file}")
     print()
     print("=" * 80)
     print(report)

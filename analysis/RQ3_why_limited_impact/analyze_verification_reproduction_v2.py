@@ -83,7 +83,7 @@ def classify_test_result(content: str) -> bool:
     """Returns True if success, False if failure"""
     content_lower = content.lower()
 
-    # 明确的失败标志
+    # Clear failure indicators
     if 'FAILED' in content or ('failed' in content_lower and 'passed' not in content_lower):
         return False
 
@@ -91,7 +91,7 @@ def classify_test_result(content: str) -> bool:
         if not ('0 error' in content_lower or 'no error' in content_lower):
             return False
 
-    # Python 异常
+    # Python exceptions
     exception_types = ['ModuleNotFoundError', 'ImportError', 'SyntaxError', 'FileNotFoundError',
                        'NameError', 'AttributeError', 'TypeError', 'ValueError', 'KeyError',
                        'IndexError', 'AssertionError', 'No module named']
@@ -102,24 +102,24 @@ def classify_test_result(content: str) -> bool:
     if 'Traceback (most recent call last)' in content:
         return False
 
-    # Exit code 检查
+    # Exit code check
     if 'exit code 1' in content_lower or 'exit code: 1' in content_lower:
         return False
 
-    # 明确的成功标志
+    # Clear success indicators
     if 'passed' in content_lower and 'failed' not in content_lower:
         return True
 
     if content.strip().endswith('OK') or '\nOK' in content:
         return True
 
-    # 如果没有明确标志，检查是否有任何错误迹象
+    # If no clear indicators, check for any error signs
     error_indicators = ['error', 'exception', 'fail', 'traceback', 'assert']
     for indicator in error_indicators:
         if indicator in content_lower:
             return False
 
-    # 默认：如果没有明确的成功标志，视为失败（保守判断）
+    # Default: if no clear success indicators, treat as failure (conservative judgment)
     return False
 
 

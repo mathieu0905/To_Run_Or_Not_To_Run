@@ -13,7 +13,7 @@ from pathlib import Path
 from collections import defaultdict
 import statistics
 
-# 只分析执行型 agent
+# Only analyze executive agent
 EXEC_AGENTS = ['sweagent', 'openhands']
 
 def is_test_command(cmd):
@@ -142,7 +142,7 @@ def parse_openhands(path):
     }
 
 def main():
-    # 收集所有数据
+    # Collect all data
     all_data = []
 
     for split in ['lite', 'verified']:
@@ -156,7 +156,7 @@ def main():
 
             name = submission_dir.name
 
-            # 判断 agent 类型
+            # Determine agent type
             agent_type = 'unknown'
             model = 'unknown'
             if 'sweagent' in name.lower():
@@ -173,7 +173,7 @@ def main():
                 agent_type = 'openhands'
                 model = 'claude-3.5-sonnet'
 
-            # 只处理执行型 agent
+            # Only process execution-based agents
             if agent_type not in EXEC_AGENTS:
                 continue
 
@@ -183,7 +183,7 @@ def main():
 
             for trace_file in list(trajs_dir.glob('*.json')) + list(trajs_dir.glob('*.traj')):
                 try:
-                    # 检测格式
+                    # Detect format
                     with open(trace_file) as f:
                         first_char = f.read(1)
 
@@ -207,13 +207,13 @@ def main():
     print(f'Parsed {len(all_data)} traces from execution-based agents')
     print()
 
-    # 按 submission 聚合
+    # Aggregate by submission
     by_submission = defaultdict(list)
     for d in all_data:
         key = (d['split'], d['submission'], d['agent'], d['model'])
         by_submission[key].append(d)
 
-    # 生成报告
+    # Generate reports
     report_lines = []
     report_lines.append('# RQ1: Execution Frequency Analysis on SWE-bench')
     report_lines.append('')

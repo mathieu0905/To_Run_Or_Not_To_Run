@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-RQ3 深度分析: 分析 Hurt/Helped 案例的 trace，找出执行反馈帮助或伤害的具体原因
+RQ3 Deep Analysis: Analyze Hurt/Helped case traces to find specific reasons why execution feedback helps or hurts
 
-分析维度：
-1. 执行次数对比 (Offline vs Unbounded)
-2. Token 消耗对比
-3. 试错循环次数 (重复命令)
-4. 错误类型分析
-5. Bug 类型/仓库分布
+Analysis dimensions:
+1. Execution count comparison (Offline vs Unbounded)
+2. Token consumption comparison
+3. Trial-and-error loop count (repeated commands)
+4. Error type analysis
+5. Bug type/repository distribution
 """
 
 import json
@@ -24,7 +24,7 @@ ANALYSIS_DIR = Path(__file__).parent
 
 
 def load_trace(dataset: str, agent: str, mode: str, instance: str) -> List[dict]:
-    """加载 trace 文件"""
+    """Load trace file"""
     trace_file = OUTPUT_DIR / dataset / agent / mode / instance / "trace.jsonl"
     if not trace_file.exists():
         return []
@@ -42,9 +42,9 @@ def load_trace(dataset: str, agent: str, mode: str, instance: str) -> List[dict]
 
 
 def extract_bash_commands(traces: List[dict]) -> List[dict]:
-    """从 trace 中提取所有 Bash 命令及其结果
+    """Extract all Bash commands and their results from trace
 
-    支持两种格式：
+    Supports two formats:
     1. Claude Code: type=assistant + tool_use name=Bash
     2. Codex: type=item.completed + item.type=command_execution
     """
@@ -54,8 +54,8 @@ def extract_bash_commands(traces: List[dict]) -> List[dict]:
     for entry in traces:
         entry_type = entry.get("type")
 
-        # ===== Claude Code 格式 =====
-        # 提取 Bash 工具调用
+        # ===== Claude Code format =====
+        # Extract Bash tool calls
         if entry_type == "assistant":
             content = entry.get("message", {}).get("content", [])
             for item in content:
@@ -68,7 +68,7 @@ def extract_bash_commands(traces: List[dict]) -> List[dict]:
                         "has_error": False
                     }
 
-        # 提取工具结果 (Claude Code)
+        # Extract tool results (Claude Code)
         elif entry_type == "user" and pending_bash:
             content = entry.get("message", {}).get("content", [])
             for item in content:
@@ -80,15 +80,15 @@ def extract_bash_commands(traces: List[dict]) -> List[dict]:
             commands.append(pending_bash)
             pending_bash = None
 
-        # ===== Codex 格式 =====
-        # Codex 使用 item.completed + command_execution
+        # ===== Codex format =====
+        # Codex uses item.completed + command_execution
         elif entry_type == "item.completed":
             item = entry.get("item", {})
             if item.get("type") == "command_execution":
                 cmd = item.get("command", "")
-                # 提取实际命令（去掉 /bin/bash -lc 包装）
+                # Extract actual command (remove /bin/bash -lc wrapper)
                 if "bash -lc" in cmd:
-                    # 提取最内层的命令
+                    # Extract innermost command
                     match = re.search(r"'([^']+)'[^']*$", cmd)
                     if match:
                         cmd = match.group(1)
@@ -110,7 +110,7 @@ def extract_bash_commands(traces: List[dict]) -> List[dict]:
 
 
 def is_test_execution(command: str) -> bool:
-    """判断命令是否为测试执行"""
+    """Check if command is a test execution"""
     test_patterns = [
         r'\bpytest\b', r'\bpy\.test\b',
         r'python\s+-m\s+pytest',
@@ -121,7 +121,7 @@ def is_test_execution(command: str) -> bool:
         r'python3\s+\S+\.py\b'  # python3 xxx.py
     ]
 
-    # 排除简单命令
+    # Exclude simple commands
     exclude_patterns = [
         r'python[3]?\s+-c\s+',
         r'python[3]?\s+--version',
@@ -141,7 +141,7 @@ def is_test_execution(command: str) -> bool:
 
 
 def has_error_in_result(result: str) -> bool:
-    """检查结果中是否包含错误"""
+    """Check if result contains errors"""
     error_patterns = [
         r'\bError\b', r'\bERROR\b',
         r'\bFailed\b', r'\bFAILED\b',
@@ -160,15 +160,15 @@ def has_error_in_result(result: str) -> bool:
 
 
 def count_repeated_commands(commands: List[dict]) -> int:
-    """统计重复命令次数（试错循环指标）
+    """Count repeated commands (trial-and-error loop indicator)
 
-    只统计完全相同的命令（仅规范化空白），保留路径差异
+    Only counts completely identical commands (only normalizes whitespace), preserves path differences
     """
     cmd_list = [c["command"] for c in commands]
     repeated = 0
     seen = set()
     for cmd in cmd_list:
-        # 只规范化空白，保留路径差异
+        # Only normalize whitespace, preserve path differences
         normalized = re.sub(r'\s+', ' ', cmd.strip())
         if normalized in seen:
             repeated += 1
@@ -177,7 +177,7 @@ def count_repeated_commands(commands: List[dict]) -> int:
 
 
 def extract_token_usage(traces: List[dict]) -> Dict[str, int]:
-    """提取 token 使用量"""
+    """Extract token usage"""
     input_tokens = 0
     output_tokens = 0
 
@@ -191,7 +191,7 @@ def extract_token_usage(traces: List[dict]) -> Dict[str, int]:
 
 
 def analyze_error_types(commands: List[dict]) -> Counter:
-    """分析错误类型分布"""
+    """Analyze error type distribution"""
     error_types = Counter()
 
     error_patterns = {
@@ -224,7 +224,7 @@ def analyze_error_types(commands: List[dict]) -> Counter:
 
 
 def get_repo_name(instance_id: str) -> str:
-    """从 instance_id 提取仓库名"""
+    """Extract repository name from instance_id"""
     parts = instance_id.split("__")
     if len(parts) >= 2:
         return parts[0]
@@ -232,16 +232,16 @@ def get_repo_name(instance_id: str) -> str:
 
 
 def analyze_single_case(dataset: str, agent: str, instance: str, case_type: str) -> dict:
-    """分析单个案例的详细信息"""
-    # 加载两种模式的 trace
+    """Analyze detailed information for a single case"""
+    # Load traces for both modes
     offline_trace = load_trace(dataset, agent, "run_free", instance)
     unbounded_trace = load_trace(dataset, agent, "run_full", instance)
 
-    # 提取 Bash 命令
+    # Extract Bash commands
     offline_cmds = extract_bash_commands(offline_trace)
     unbounded_cmds = extract_bash_commands(unbounded_trace)
 
-    # 统计指标
+    # Calculate metrics
     result = {
         "instance": instance,
         "agent": agent,
@@ -249,7 +249,7 @@ def analyze_single_case(dataset: str, agent: str, instance: str, case_type: str)
         "case_type": case_type,
         "repo": get_repo_name(instance),
 
-        # Offline 模式统计
+        # Offline mode statistics
         "offline": {
             "total_commands": len(offline_cmds),
             "test_executions": sum(1 for c in offline_cmds if c["is_test"]),
@@ -258,7 +258,7 @@ def analyze_single_case(dataset: str, agent: str, instance: str, case_type: str)
             "tokens": extract_token_usage(offline_trace)
         },
 
-        # Unbounded 模式统计
+        # Unbounded mode statistics
         "unbounded": {
             "total_commands": len(unbounded_cmds),
             "test_executions": sum(1 for c in unbounded_cmds if c["is_test"]),
@@ -269,7 +269,7 @@ def analyze_single_case(dataset: str, agent: str, instance: str, case_type: str)
         }
     }
 
-    # 计算差异
+    # Calculate differences
     result["delta"] = {
         "commands": result["unbounded"]["total_commands"] - result["offline"]["total_commands"],
         "test_executions": result["unbounded"]["test_executions"] - result["offline"]["test_executions"],
@@ -281,7 +281,7 @@ def analyze_single_case(dataset: str, agent: str, instance: str, case_type: str)
 
 
 def load_cases(case_type: str) -> List[dict]:
-    """加载 hurt 或 helped 案例列表"""
+    """Load hurt or helped case list"""
     file_path = ANALYSIS_DIR / f"{case_type}_cases.json"
     if file_path.exists():
         with open(file_path) as f:
@@ -290,27 +290,27 @@ def load_cases(case_type: str) -> List[dict]:
 
 
 def analyze_all_cases():
-    """分析所有 Hurt 和 Helped 案例"""
+    """Analyze all Hurt and Helped cases"""
     hurt_cases = load_cases("hurt")
     helped_cases = load_cases("helped")
 
     print("=" * 80)
-    print("RQ3 深度分析: Hurt vs Helped 案例详情")
+    print("RQ3 Deep Analysis: Hurt vs Helped Case Details")
     print("=" * 80)
     print()
 
     all_results = {"hurt": [], "helped": []}
 
-    # 分析 Hurt 案例
-    print(f"正在分析 {len(hurt_cases)} 个 Hurt 案例...")
+    # Analyze Hurt cases
+    print(f"Analyzing {len(hurt_cases)} Hurt cases...")
     for case in hurt_cases:
         result = analyze_single_case(
             case["dataset"], case["agent"], case["instance"], "hurt"
         )
         all_results["hurt"].append(result)
 
-    # 分析 Helped 案例
-    print(f"正在分析 {len(helped_cases)} 个 Helped 案例...")
+    # Analyze Helped cases
+    print(f"Analyzing {len(helped_cases)} Helped cases...")
     for case in helped_cases:
         result = analyze_single_case(
             case["dataset"], case["agent"], case["instance"], "helped"
@@ -321,55 +321,55 @@ def analyze_all_cases():
 
 
 def print_detailed_analysis(results: dict):
-    """打印详细分析结果"""
+    """Print detailed analysis results"""
     print()
     print("=" * 80)
-    print("分析结果")
+    print("Analysis Results")
     print("=" * 80)
 
-    # 1. Hurt 案例分析
+    # 1. Hurt case analysis
     print()
-    print("## Hurt 案例分析 (Offline 成功, Unbounded 失败)")
+    print("## Hurt Case Analysis (Offline succeeds, Unbounded fails)")
     print("-" * 80)
 
     if results["hurt"]:
-        # 统计 Unbounded 模式的平均值
+        # Calculate Unbounded mode averages
         avg_cmds = sum(r["unbounded"]["total_commands"] for r in results["hurt"]) / len(results["hurt"])
         avg_tests = sum(r["unbounded"]["test_executions"] for r in results["hurt"]) / len(results["hurt"])
         avg_errors = sum(r["unbounded"]["error_commands"] for r in results["hurt"]) / len(results["hurt"])
         avg_repeated = sum(r["unbounded"]["repeated_commands"] for r in results["hurt"]) / len(results["hurt"])
         avg_tokens = sum(r["unbounded"]["tokens"]["total"] for r in results["hurt"]) / len(results["hurt"])
 
-        print(f"案例数量: {len(results['hurt'])}")
-        print(f"Unbounded 模式平均统计:")
-        print(f"  - 总命令数: {avg_cmds:.1f}")
-        print(f"  - 测试执行次数: {avg_tests:.1f}")
-        print(f"  - 产生错误的命令: {avg_errors:.1f}")
-        print(f"  - 重复命令 (试错循环): {avg_repeated:.1f}")
-        print(f"  - Token 消耗: {avg_tokens:.0f}")
+        print(f"Case count: {len(results['hurt'])}")
+        print(f"Unbounded mode average statistics:")
+        print(f"  - Total commands: {avg_cmds:.1f}")
+        print(f"  - Test executions: {avg_tests:.1f}")
+        print(f"  - Commands with errors: {avg_errors:.1f}")
+        print(f"  - Repeated commands (trial-and-error): {avg_repeated:.1f}")
+        print(f"  - Token consumption: {avg_tokens:.0f}")
         print()
 
-        # 仓库分布
+        # Repository distribution
         repo_counter = Counter(r["repo"] for r in results["hurt"])
-        print("仓库分布:")
+        print("Repository distribution:")
         for repo, count in repo_counter.most_common(10):
             print(f"  - {repo}: {count}")
         print()
 
-        # 错误类型分布
+        # Error type distribution
         error_counter = Counter()
         for r in results["hurt"]:
             for error_type, count in r["unbounded"].get("error_types", {}).items():
                 error_counter[error_type] += count
 
         if error_counter:
-            print("Unbounded 模式错误类型分布:")
+            print("Unbounded mode error type distribution:")
             for error_type, count in error_counter.most_common(10):
                 print(f"  - {error_type}: {count}")
         print()
 
-        # 列出具体案例
-        print("具体案例列表 (按试错循环次数排序):")
+        # List specific cases
+        print("Specific case list (sorted by trial-and-error loop count):")
         for r in sorted(results["hurt"], key=lambda x: x["unbounded"]["repeated_commands"], reverse=True):
             print(f"  - {r['instance']}")
             print(f"    Agent: {r['agent']}, Repo: {r['repo']}")
@@ -378,9 +378,9 @@ def print_detailed_analysis(results: dict):
             print(f"    Δ Tokens: {r['delta']['tokens']:+d}")
             print()
 
-    # 2. Helped 案例分析
+    # 2. Helped case analysis
     print()
-    print("## Helped 案例分析 (Offline 失败, Unbounded 成功)")
+    print("## Helped Case Analysis (Offline fails, Unbounded succeeds)")
     print("-" * 80)
 
     if results["helped"]:
@@ -390,24 +390,24 @@ def print_detailed_analysis(results: dict):
         avg_repeated = sum(r["unbounded"]["repeated_commands"] for r in results["helped"]) / len(results["helped"])
         avg_tokens = sum(r["unbounded"]["tokens"]["total"] for r in results["helped"]) / len(results["helped"])
 
-        print(f"案例数量: {len(results['helped'])}")
-        print(f"Unbounded 模式平均统计:")
-        print(f"  - 总命令数: {avg_cmds:.1f}")
-        print(f"  - 测试执行次数: {avg_tests:.1f}")
-        print(f"  - 产生错误的命令: {avg_errors:.1f}")
-        print(f"  - 重复命令 (试错循环): {avg_repeated:.1f}")
-        print(f"  - Token 消耗: {avg_tokens:.0f}")
+        print(f"Case count: {len(results['helped'])}")
+        print(f"Unbounded mode average statistics:")
+        print(f"  - Total commands: {avg_cmds:.1f}")
+        print(f"  - Test executions: {avg_tests:.1f}")
+        print(f"  - Commands with errors: {avg_errors:.1f}")
+        print(f"  - Repeated commands (trial-and-error): {avg_repeated:.1f}")
+        print(f"  - Token consumption: {avg_tokens:.0f}")
         print()
 
-        # 仓库分布
+        # Repository distribution
         repo_counter = Counter(r["repo"] for r in results["helped"])
-        print("仓库分布:")
+        print("Repository distribution:")
         for repo, count in repo_counter.most_common(10):
             print(f"  - {repo}: {count}")
         print()
 
-        # 列出具体案例
-        print("具体案例列表 (按测试执行次数排序):")
+        # List specific cases
+        print("Specific case list (sorted by test execution count):")
         for r in sorted(results["helped"], key=lambda x: x["unbounded"]["test_executions"], reverse=True):
             print(f"  - {r['instance']}")
             print(f"    Agent: {r['agent']}, Repo: {r['repo']}")
@@ -416,10 +416,10 @@ def print_detailed_analysis(results: dict):
             print(f"    Δ Tokens: {r['delta']['tokens']:+d}")
             print()
 
-    # 3. 对比分析
+    # 3. Comparative analysis
     print()
     print("=" * 80)
-    print("## Hurt vs Helped 对比分析")
+    print("## Hurt vs Helped Comparative Analysis")
     print("=" * 80)
 
     if results["hurt"] and results["helped"]:
@@ -439,58 +439,58 @@ def print_detailed_analysis(results: dict):
         helped_avg_cmds = sum(r["unbounded"]["total_commands"] for r in results["helped"]) / len(results["helped"])
 
         print()
-        print(f"{'指标':<30} {'Hurt 案例':<15} {'Helped 案例':<15} {'差异':<15}")
+        print(f"{'Metric':<30} {'Hurt Cases':<15} {'Helped Cases':<15} {'Difference':<15}")
         print("-" * 75)
-        print(f"{'案例数量':<30} {len(results['hurt']):<15} {len(results['helped']):<15}")
-        print(f"{'平均命令数':<30} {hurt_avg_cmds:<15.1f} {helped_avg_cmds:<15.1f} {hurt_avg_cmds - helped_avg_cmds:+.1f}")
-        print(f"{'平均测试执行次数':<30} {hurt_avg_tests:<15.1f} {helped_avg_tests:<15.1f} {hurt_avg_tests - helped_avg_tests:+.1f}")
-        print(f"{'平均错误命令数':<30} {hurt_avg_errors:<15.1f} {helped_avg_errors:<15.1f} {hurt_avg_errors - helped_avg_errors:+.1f}")
-        print(f"{'平均重复命令数 (试错)':<30} {hurt_avg_repeated:<15.1f} {helped_avg_repeated:<15.1f} {hurt_avg_repeated - helped_avg_repeated:+.1f}")
-        print(f"{'平均 Token 消耗':<30} {hurt_avg_tokens:<15.0f} {helped_avg_tokens:<15.0f} {hurt_avg_tokens - helped_avg_tokens:+.0f}")
+        print(f"{'Case count':<30} {len(results['hurt']):<15} {len(results['helped']):<15}")
+        print(f"{'Avg command count':<30} {hurt_avg_cmds:<15.1f} {helped_avg_cmds:<15.1f} {hurt_avg_cmds - helped_avg_cmds:+.1f}")
+        print(f"{'Avg test executions':<30} {hurt_avg_tests:<15.1f} {helped_avg_tests:<15.1f} {hurt_avg_tests - helped_avg_tests:+.1f}")
+        print(f"{'Avg error commands':<30} {hurt_avg_errors:<15.1f} {helped_avg_errors:<15.1f} {hurt_avg_errors - helped_avg_errors:+.1f}")
+        print(f"{'Avg repeated cmds (trial)':<30} {hurt_avg_repeated:<15.1f} {helped_avg_repeated:<15.1f} {hurt_avg_repeated - helped_avg_repeated:+.1f}")
+        print(f"{'Avg token consumption':<30} {hurt_avg_tokens:<15.0f} {helped_avg_tokens:<15.0f} {hurt_avg_tokens - helped_avg_tokens:+.0f}")
 
         print()
         print("=" * 80)
-        print("关键发现")
+        print("Key Findings")
         print("=" * 80)
         print()
 
         if hurt_avg_repeated > helped_avg_repeated:
-            print(f"1. ✗ Hurt 案例的试错循环更多 ({hurt_avg_repeated:.1f} vs {helped_avg_repeated:.1f})")
-            print("   → 执行反馈可能导致 agent 陷入无效的重试循环")
+            print(f"1. ✗ Hurt cases have more trial-and-error loops ({hurt_avg_repeated:.1f} vs {helped_avg_repeated:.1f})")
+            print("   → Execution feedback may cause agent to fall into ineffective retry loops")
         else:
-            print(f"1. Hurt 和 Helped 案例的试错循环相近 ({hurt_avg_repeated:.1f} vs {helped_avg_repeated:.1f})")
+            print(f"1. Hurt and Helped cases have similar trial-and-error loops ({hurt_avg_repeated:.1f} vs {helped_avg_repeated:.1f})")
 
         if hurt_avg_errors > helped_avg_errors:
-            print(f"2. ✗ Hurt 案例遇到更多错误 ({hurt_avg_errors:.1f} vs {helped_avg_errors:.1f})")
-            print("   → 错误反馈可能误导 agent 的修复方向")
+            print(f"2. ✗ Hurt cases encounter more errors ({hurt_avg_errors:.1f} vs {helped_avg_errors:.1f})")
+            print("   → Error feedback may mislead agent's fix direction")
         else:
-            print(f"2. Helped 案例遇到更多错误 ({helped_avg_errors:.1f} vs {hurt_avg_errors:.1f})")
-            print("   → 但这些错误反馈帮助 agent 找到正确方向")
+            print(f"2. Helped cases encounter more errors ({helped_avg_errors:.1f} vs {hurt_avg_errors:.1f})")
+            print("   → But these error feedbacks help agent find the correct direction")
 
         if hurt_avg_tokens > helped_avg_tokens:
-            print(f"3. ✗ Hurt 案例消耗更多 Token ({hurt_avg_tokens:.0f} vs {helped_avg_tokens:.0f})")
-            print("   → 更多资源消耗但最终失败，说明执行反馈误导了 agent")
+            print(f"3. ✗ Hurt cases consume more tokens ({hurt_avg_tokens:.0f} vs {helped_avg_tokens:.0f})")
+            print("   → More resource consumption but ultimately fails, indicating execution feedback misled agent")
         else:
-            print(f"3. Helped 案例消耗更多 Token ({helped_avg_tokens:.0f} vs {hurt_avg_tokens:.0f})")
-            print("   → 额外的资源投入带来了正向回报")
+            print(f"3. Helped cases consume more tokens ({helped_avg_tokens:.0f} vs {hurt_avg_tokens:.0f})")
+            print("   → Additional resource investment brought positive returns")
 
 
 def save_detailed_results(results: dict):
-    """保存详细分析结果"""
+    """Save detailed analysis results"""
     output_file = ANALYSIS_DIR / "detailed_analysis.json"
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
-    print(f"\n详细结果已保存到: {output_file}")
+    print(f"\nDetailed results saved to: {output_file}")
 
-    # 生成 Markdown 报告
+    # Generate Markdown report
     report_file = ANALYSIS_DIR / "RQ3_detailed_report.md"
     with open(report_file, "w") as f:
-        f.write("# RQ3 详细分析报告: 为什么执行反馈影响有限?\n\n")
+        f.write("# RQ3 Detailed Analysis Report: Why Does Execution Feedback Have Limited Impact?\n\n")
 
-        f.write("## 1. 总体发现\n\n")
-        f.write(f"- Hurt 案例 (执行反馈导致失败): {len(results['hurt'])} 个\n")
-        f.write(f"- Helped 案例 (执行反馈帮助成功): {len(results['helped'])} 个\n")
-        f.write(f"- 净收益: {len(results['helped']) - len(results['hurt'])} 个实例\n\n")
+        f.write("## 1. Overall Findings\n\n")
+        f.write(f"- Hurt cases (execution feedback led to failure): {len(results['hurt'])}\n")
+        f.write(f"- Helped cases (execution feedback helped succeed): {len(results['helped'])}\n")
+        f.write(f"- Net benefit: {len(results['helped']) - len(results['hurt'])} instances\n\n")
 
         if results["hurt"] and results["helped"]:
             hurt_avg_repeated = sum(r["unbounded"]["repeated_commands"] for r in results["hurt"]) / len(results["hurt"])
@@ -500,36 +500,36 @@ def save_detailed_results(results: dict):
             hurt_avg_errors = sum(r["unbounded"]["error_commands"] for r in results["hurt"]) / len(results["hurt"])
             helped_avg_errors = sum(r["unbounded"]["error_commands"] for r in results["helped"]) / len(results["helped"])
 
-            f.write("## 2. Hurt vs Helped 对比\n\n")
-            f.write("| 指标 | Hurt 案例 | Helped 案例 |\n")
+            f.write("## 2. Hurt vs Helped Comparison\n\n")
+            f.write("| Metric | Hurt Cases | Helped Cases |\n")
             f.write("|------|-----------|-------------|\n")
-            f.write(f"| 案例数量 | {len(results['hurt'])} | {len(results['helped'])} |\n")
-            f.write(f"| 平均测试执行 | {hurt_avg_tests:.1f} | {helped_avg_tests:.1f} |\n")
-            f.write(f"| 平均错误命令 | {hurt_avg_errors:.1f} | {helped_avg_errors:.1f} |\n")
-            f.write(f"| 平均重复命令 | {hurt_avg_repeated:.1f} | {helped_avg_repeated:.1f} |\n\n")
+            f.write(f"| Case count | {len(results['hurt'])} | {len(results['helped'])} |\n")
+            f.write(f"| Avg test executions | {hurt_avg_tests:.1f} | {helped_avg_tests:.1f} |\n")
+            f.write(f"| Avg error commands | {hurt_avg_errors:.1f} | {helped_avg_errors:.1f} |\n")
+            f.write(f"| Avg repeated commands | {hurt_avg_repeated:.1f} | {helped_avg_repeated:.1f} |\n\n")
 
         if results["hurt"]:
-            f.write("## 3. Hurt 案例列表\n\n")
-            f.write("| Instance | Agent | 命令数 | 测试数 | 重复数 | 错误数 |\n")
+            f.write("## 3. Hurt Case List\n\n")
+            f.write("| Instance | Agent | Commands | Tests | Repeated | Errors |\n")
             f.write("|----------|-------|--------|--------|--------|--------|\n")
             for r in results["hurt"]:
                 f.write(f"| {r['instance']} | {r['agent']} | {r['unbounded']['total_commands']} | {r['unbounded']['test_executions']} | {r['unbounded']['repeated_commands']} | {r['unbounded']['error_commands']} |\n")
 
         if results["helped"]:
-            f.write("\n## 4. Helped 案例列表\n\n")
-            f.write("| Instance | Agent | 命令数 | 测试数 | 重复数 | 错误数 |\n")
+            f.write("\n## 4. Helped Case List\n\n")
+            f.write("| Instance | Agent | Commands | Tests | Repeated | Errors |\n")
             f.write("|----------|-------|--------|--------|--------|--------|\n")
             for r in results["helped"]:
                 f.write(f"| {r['instance']} | {r['agent']} | {r['unbounded']['total_commands']} | {r['unbounded']['test_executions']} | {r['unbounded']['repeated_commands']} | {r['unbounded']['error_commands']} |\n")
 
-        f.write("\n## 5. 结论\n\n")
-        f.write("执行反馈的影响有限，原因包括：\n\n")
-        f.write("1. **双刃剑效应**: 执行反馈既可能帮助 (21例) 也可能误导 (16例)\n")
-        f.write("2. **试错循环陷阱**: 执行反馈容易导致 agent 陷入无效的重试循环\n")
-        f.write("3. **确定性结果**: 90%+ 的案例无论是否有执行反馈结果相同\n")
-        f.write("4. **净收益微小**: 400 个实例中仅 5 个净收益\n")
+        f.write("\n## 5. Conclusion\n\n")
+        f.write("Execution feedback has limited impact for the following reasons:\n\n")
+        f.write("1. **Double-edged sword effect**: Execution feedback can both help (21 cases) and mislead (16 cases)\n")
+        f.write("2. **Trial-and-error loop trap**: Execution feedback easily leads agent into ineffective retry loops\n")
+        f.write("3. **Deterministic outcomes**: 90%+ of cases have the same result regardless of execution feedback\n")
+        f.write("4. **Minimal net benefit**: Only 5 net benefit out of 400 instances\n")
 
-    print(f"Markdown 报告已保存到: {report_file}")
+    print(f"Markdown report saved to: {report_file}")
 
 
 def main():

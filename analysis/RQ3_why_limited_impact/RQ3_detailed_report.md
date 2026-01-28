@@ -1,23 +1,23 @@
-# RQ3 详细分析报告: 为什么执行反馈影响有限?
+# RQ3 Detailed Analysis Report: Why Does Execution Feedback Have Limited Impact?
 
-## 1. 总体发现
+## 1. Overall Findings
 
-- Hurt 案例 (执行反馈导致失败): 16 个
-- Helped 案例 (执行反馈帮助成功): 21 个
-- 净收益: 5 个实例
+- Hurt cases (execution feedback led to failure): 16
+- Helped cases (execution feedback helped succeed): 21
+- Net benefit: 5 instances
 
-## 2. Hurt vs Helped 对比
+## 2. Hurt vs Helped Comparison
 
-| 指标 | Hurt 案例 | Helped 案例 |
+| Metric | Hurt Cases | Helped Cases |
 |------|-----------|-------------|
-| 案例数量 | 16 | 21 |
-| 平均测试执行 | 8.1 | 8.6 |
-| 平均错误命令 | 5.7 | 6.8 |
-| 平均重复命令 | 1.6 | 2.4 |
+| Case count | 16 | 21 |
+| Avg test executions | 8.1 | 8.6 |
+| Avg error commands | 5.7 | 6.8 |
+| Avg repeated commands | 1.6 | 2.4 |
 
-## 3. Hurt 案例列表
+## 3. Hurt Case List
 
-| Instance | Agent | 命令数 | 测试数 | 重复数 | 错误数 |
+| Instance | Agent | Commands | Tests | Repeated | Errors |
 |----------|-------|--------|--------|--------|--------|
 | django__django-12184 | claude_code | 26 | 14 | 5 | 5 |
 | django__django-12908 | claude_code | 17 | 14 | 1 | 5 |
@@ -36,9 +36,9 @@
 | django__django-11790 | claude_code | 17 | 6 | 1 | 5 |
 | django__django-10973 | codex | 17 | 6 | 1 | 5 |
 
-## 4. Helped 案例列表
+## 4. Helped Case List
 
-| Instance | Agent | 命令数 | 测试数 | 重复数 | 错误数 |
+| Instance | Agent | Commands | Tests | Repeated | Errors |
 |----------|-------|--------|--------|--------|--------|
 | django__django-14997 | claude_code | 19 | 5 | 0 | 7 |
 | django__django-15498 | claude_code | 18 | 7 | 0 | 5 |
@@ -62,11 +62,11 @@
 | django__django-12304 | codex | 15 | 3 | 2 | 4 |
 | django__django-11265 | codex | 34 | 8 | 3 | 11 |
 
-## 5. 结论
+## 5. Conclusion
 
-执行反馈的影响有限，原因包括：
+Execution feedback has limited impact for the following reasons:
 
-1. **双刃剑效应**: 执行反馈既可能帮助 (21例) 也可能误导 (16例)
-2. **试错循环陷阱**: 执行反馈容易导致 agent 陷入无效的重试循环
-3. **确定性结果**: 90%+ 的案例无论是否有执行反馈结果相同
-4. **净收益微小**: 400 个实例中仅 5 个净收益
+1. **Double-edged sword effect**: Execution feedback can both help (21 cases) and mislead (16 cases)
+2. **Trial-and-error loop trap**: Execution feedback easily leads agent into ineffective retry loops
+3. **Deterministic outcomes**: 90%+ of cases have the same result regardless of execution feedback
+4. **Minimal net benefit**: Only 5 net benefit out of 400 instances

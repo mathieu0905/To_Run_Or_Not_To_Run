@@ -18,13 +18,13 @@
     "avg_efficiency_gain_pct": 130.01924593300987
   },
   "categories": {
-    "简单确定性修复": 7,
-    "局部语义修复": 43,
-    "代码理解充分": 4,
-    "需要更多分析": 4
+    "Simple Deterministic Fix": 7,
+    "Local Semantic Fix": 43,
+    "Sufficient Code Understanding": 4,
+    "Requires More Analysis": 4
   },
   "category_instances": {
-    "简单确定性修复": [
+    "Simple Deterministic Fix": [
       "astropy__astropy-6938",
       "django__django-11099",
       "django__django-11133",
@@ -33,7 +33,7 @@
       "django__django-14382",
       "django__django-14915"
     ],
-    "局部语义修复": [
+    "Local Semantic Fix": [
       "astropy__astropy-12907",
       "astropy__astropy-14995",
       "django__django-10914",
@@ -78,13 +78,13 @@
       "django__django-15790",
       "django__django-15814"
     ],
-    "代码理解充分": [
+    "Sufficient Code Understanding": [
       "django__django-10924",
       "django__django-11039",
       "django__django-12497",
       "django__django-13401"
     ],
-    "需要更多分析": [
+    "Requires More Analysis": [
       "django__django-11049",
       "django__django-13925",
       "django__django-14017",

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-RQ3 综合分析：为什么执行对结果影响有限？
+RQ3 Comprehensive Analysis: Why Does Execution Have Limited Impact on Outcomes?
 
-统计所有相关信息并输出到一个 markdown 文件
+Collect all relevant statistics and output to a markdown file
 """
 
 import json
@@ -19,7 +19,7 @@ ANALYSIS_DIR = Path(__file__).parent
 
 
 # ============================================================================
-# 辅助函数
+# Helper Functions
 # ============================================================================
 
 def normalize_path(path: str) -> str:
@@ -34,7 +34,7 @@ def normalize_path(path: str) -> str:
 
 
 def is_test_file(path: str) -> bool:
-    """判断是否是测试文件"""
+    """Check if it's a test file"""
     path_lower = path.lower()
     if '/test_' in path_lower or '/tests/' in path_lower:
         return True
@@ -67,10 +67,10 @@ def is_test_execution(cmd: str) -> bool:
 
 
 def classify_test_result(content: str) -> str:
-    """分类测试结果: success, test_fail, env_error"""
+    """Classify test result: success, test_fail, env_error"""
     content_lower = content.lower()
 
-    # 环境错误
+    # Environment errors
     env_errors = ['No module named', 'ModuleNotFoundError', 'command not found',
                   'FileNotFoundError', 'No such file or directory',
                   'Permission denied', 'UnicodeDecodeError', 'encoding']
@@ -78,7 +78,7 @@ def classify_test_result(content: str) -> str:
         if err in content or err.lower() in content_lower:
             return "env_error"
 
-    # 明确的测试失败
+    # Clear test failure
     if 'FAILED' in content:
         return "test_fail"
     if 'AssertionError' in content:
@@ -86,13 +86,13 @@ def classify_test_result(content: str) -> str:
     if 'Traceback (most recent call last)' in content:
         return "test_fail"
 
-    # 成功
+    # Success
     if 'passed' in content_lower and 'failed' not in content_lower:
         return "success"
     if content.strip().endswith('OK') or '\nOK' in content:
         return "success"
 
-    # 默认为失败
+    # Default to failure
     return "test_fail"
 
 
@@ -149,18 +149,18 @@ def load_trace(dataset: str, agent: str, mode: str, instance: str) -> list:
 
 
 # ============================================================================
-# 数据结构
+# Data Structures
 # ============================================================================
 
 @dataclass
 class InstanceAnalysis:
-    """单个实例的分析结果"""
+    """Analysis result for a single instance"""
     instance_id: str
     dataset: str
     agent: str
     mode: str
 
-    # 编辑信息
+    # Edit information
     first_edit_file: str = ""
     first_edit_is_test: bool = False
     all_edited_files: Set[str] = field(default_factory=set)
@@ -168,33 +168,33 @@ class InstanceAnalysis:
     # Ground Truth
     gt_files: Set[str] = field(default_factory=set)
 
-    # 定位指标
-    first_edit_hit: bool = False  # 首次编辑命中 GT
-    any_edit_hit: bool = False    # 任一编辑命中 GT
-    recall: float = 0.0           # GT 文件召回率
+    # Localization metrics
+    first_edit_hit: bool = False  # First edit hits GT
+    any_edit_hit: bool = False    # Any edit hits GT
+    recall: float = 0.0           # GT file recall rate
 
-    # Verification 分析
+    # Verification analysis
     has_verification: bool = False
     first_verif_result: str = ""  # success, test_fail, env_error
     total_verifications: int = 0
     any_verif_success: bool = False
 
-    # Reproduction 分析
+    # Reproduction analysis
     has_reproduction: bool = False
     reproduction_count: int = 0
 
-    # 对话统计
+    # Conversation statistics
     total_turns: int = 0
     total_edits: int = 0
     total_test_runs: int = 0
 
 
 # ============================================================================
-# Trace 分析器
+# Trace Analyzers
 # ============================================================================
 
 def analyze_claude_trace(traces: list, instance_id: str, dataset: str, mode: str) -> InstanceAnalysis:
-    """分析 Claude Code trace"""
+    """Analyze Claude Code trace"""
     analysis = InstanceAnalysis(
         instance_id=instance_id,
         dataset=dataset,
@@ -216,7 +216,7 @@ def analyze_claude_trace(traces: list, instance_id: str, dataset: str, mode: str
                 if isinstance(item, dict) and item.get("type") == "tool_use":
                     tool_name = item.get("name", "")
 
-                    # 文件编辑
+                    # File edit
                     if tool_name in ["Edit", "Write"]:
                         file_path = item.get("input", {}).get("file_path", "")
                         if file_path:
@@ -229,7 +229,7 @@ def analyze_claude_trace(traces: list, instance_id: str, dataset: str, mode: str
                                 analysis.first_edit_file = norm_path
                                 analysis.first_edit_is_test = is_test_file(norm_path)
 
-                    # 测试执行
+                    # Test execution
                     if tool_name == "Bash":
                         cmd = item.get("input", {}).get("command", "")
                         if is_test_execution(cmd):
@@ -266,7 +266,7 @@ def analyze_claude_trace(traces: list, instance_id: str, dataset: str, mode: str
 
 
 def analyze_codex_trace(traces: list, instance_id: str, dataset: str, mode: str) -> InstanceAnalysis:
-    """分析 Codex trace"""
+    """Analyze Codex trace"""
     analysis = InstanceAnalysis(
         instance_id=instance_id,
         dataset=dataset,
@@ -310,7 +310,7 @@ def analyze_codex_trace(traces: list, instance_id: str, dataset: str, mode: str)
                         analysis.first_edit_file = norm_path
                         analysis.first_edit_is_test = is_test_file(norm_path)
 
-            # 测试执行
+            # Test execution
             if item_type == "command_execution":
                 cmd = item.get("command", "")
                 if "bash -lc" in cmd:
@@ -348,30 +348,30 @@ def analyze_codex_trace(traces: list, instance_id: str, dataset: str, mode: str)
 
 
 def compute_localization_metrics(analysis: InstanceAnalysis):
-    """计算文件定位指标"""
+    """Compute file localization metrics"""
     if not analysis.gt_files:
         return
 
-    # 首次编辑命中
+    # First edit hit
     if analysis.first_edit_file and analysis.first_edit_file in analysis.gt_files:
         analysis.first_edit_hit = True
 
-    # 任一编辑命中
+    # Any edit hit
     if analysis.all_edited_files & analysis.gt_files:
         analysis.any_edit_hit = True
 
-    # 召回率
+    # Recall rate
     if analysis.gt_files:
         intersection = analysis.all_edited_files & analysis.gt_files
         analysis.recall = len(intersection) / len(analysis.gt_files)
 
 
 # ============================================================================
-# 数据加载
+# Data Loading
 # ============================================================================
 
 def load_outcome_cases() -> Dict:
-    """加载 P→P 和 F→F 案例"""
+    """Load P→P and F→F cases"""
     pp_file = PROJECT_ROOT / "analysis" / "pp_why_no_execution_needed.json"
 
     cases = {
@@ -379,7 +379,7 @@ def load_outcome_cases() -> Dict:
         "codex": {"pp": [], "ff": []}
     }
 
-    # 加载 P→P 案例
+    # Load P→P cases
     if pp_file.exists():
         with open(pp_file) as f:
             data = json.load(f)
@@ -392,7 +392,7 @@ def load_outcome_cases() -> Dict:
             dataset = "swebenchlite" if "Lite" in group else "swebenchverified"
             cases[agent]["pp"].append((dataset, instance))
 
-    # 找出 F→F 案例
+    # Find F→F cases
     pp_sets = {
         "claude_code": set(inst for _, inst in cases["claude_code"]["pp"]),
         "codex": set(inst for _, inst in cases["codex"]["pp"])
@@ -418,11 +418,11 @@ def load_outcome_cases() -> Dict:
 
 
 # ============================================================================
-# 主分析逻辑
+# Main Analysis Logic
 # ============================================================================
 
 def run_analysis() -> Dict:
-    """运行所有分析"""
+    """Run all analyses"""
     cases = load_outcome_cases()
 
     results = {}
@@ -443,53 +443,53 @@ def run_analysis() -> Dict:
                     if not traces:
                         continue
 
-                    # 分析 trace
+                    # Analyze trace
                     if agent == "claude_code":
                         analysis = analyze_claude_trace(traces, instance, dataset, mode)
                     else:
                         analysis = analyze_codex_trace(traces, instance, dataset, mode)
 
-                    # 加载 GT
+                    # Load GT
                     analysis.gt_files = load_ground_truth_files(dataset, instance)
 
-                    # 计算指标
+                    # Compute metrics
                     compute_localization_metrics(analysis)
 
                     analyses.append(analysis)
 
-                # 汇总统计
+                # Aggregate statistics
                 results[agent][outcome][mode_label] = aggregate_stats(analyses)
 
     return results
 
 
 def aggregate_stats(analyses: List[InstanceAnalysis]) -> Dict:
-    """汇总统计"""
+    """Aggregate statistics"""
     if not analyses:
         return {"count": 0}
 
     stats = {
         "count": len(analyses),
 
-        # 首次编辑分析
+        # First edit analysis
         "first_edit_is_test": sum(1 for a in analyses if a.first_edit_is_test),
         "first_edit_hit": sum(1 for a in analyses if a.first_edit_hit),
 
-        # 最终编辑分析
+        # Final edit analysis
         "any_edit_hit": sum(1 for a in analyses if a.any_edit_hit),
         "avg_recall": sum(a.recall for a in analyses) / len(analyses),
 
-        # Verification 分析
+        # Verification analysis
         "has_verification": sum(1 for a in analyses if a.has_verification),
         "first_verif_success": sum(1 for a in analyses if a.first_verif_result == "success"),
         "first_verif_test_fail": sum(1 for a in analyses if a.first_verif_result == "test_fail"),
         "first_verif_env_error": sum(1 for a in analyses if a.first_verif_result == "env_error"),
         "any_verif_success": sum(1 for a in analyses if a.any_verif_success),
 
-        # Reproduction 分析
+        # Reproduction analysis
         "has_reproduction": sum(1 for a in analyses if a.has_reproduction),
 
-        # 行为统计
+        # Behavior statistics
         "avg_turns": sum(a.total_turns for a in analyses) / len(analyses),
         "avg_edits": sum(a.total_edits for a in analyses) / len(analyses),
         "avg_test_runs": sum(a.total_test_runs for a in analyses) / len(analyses),
@@ -500,37 +500,37 @@ def aggregate_stats(analyses: List[InstanceAnalysis]) -> Dict:
 
 
 # ============================================================================
-# Markdown 报告生成
+# Markdown Report Generation
 # ============================================================================
 
 def generate_markdown(results: Dict) -> str:
-    """生成 markdown 报告"""
+    """Generate markdown report"""
     lines = []
 
-    # 标题
-    lines.append("# RQ3 综合分析：为什么执行对结果影响有限？")
+    # Title
+    lines.append("# RQ3 Comprehensive Analysis: Why Does Execution Have Limited Impact on Outcomes?")
     lines.append("")
     lines.append(f"*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
     lines.append("")
 
-    # 目录
-    lines.append("## 目录")
+    # Table of Contents
+    lines.append("## Table of Contents")
     lines.append("")
-    lines.append("1. [数据概览](#1-数据概览)")
-    lines.append("2. [RQ3.1 Verification 分析](#2-rq31-verification-分析)")
-    lines.append("3. [RQ3.2 文件定位分析](#3-rq32-文件定位分析)")
-    lines.append("4. [Agent 行为对比](#4-agent-行为对比)")
-    lines.append("5. [核心发现与结论](#5-核心发现与结论)")
+    lines.append("1. [Data Overview](#1-data-overview)")
+    lines.append("2. [RQ3.1 Verification Analysis](#2-rq31-verification-analysis)")
+    lines.append("3. [RQ3.2 File Localization Analysis](#3-rq32-file-localization-analysis)")
+    lines.append("4. [Agent Behavior Comparison](#4-agent-behavior-comparison)")
+    lines.append("5. [Key Findings and Conclusions](#5-key-findings-and-conclusions)")
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # 1. 数据概览
-    lines.append("## 1. 数据概览")
+    # 1. Data Overview
+    lines.append("## 1. Data Overview")
     lines.append("")
-    lines.append("### 案例分布")
+    lines.append("### Case Distribution")
     lines.append("")
-    lines.append("| Agent | P→P (两者都成功) | F→F (两者都失败) |")
+    lines.append("| Agent | P→P (Both Succeed) | F→F (Both Fail) |")
     lines.append("|-------|-----------------|-----------------|")
 
     for agent in ["claude_code", "codex"]:
@@ -543,10 +543,10 @@ def generate_markdown(results: Dict) -> str:
     lines.append("---")
     lines.append("")
 
-    # 2. Verification 分析
-    lines.append("## 2. RQ3.1 Verification 分析")
+    # 2. Verification Analysis
+    lines.append("## 2. RQ3.1 Verification Analysis")
     lines.append("")
-    lines.append("**问题**：首次编辑后的验证执行结果如何？能否说明验证是冗余的？")
+    lines.append("**Question**: What are the results of verification execution after the first edit? Can it demonstrate that verification is redundant?")
     lines.append("")
 
     for agent in ["claude_code", "codex"]:
@@ -554,23 +554,23 @@ def generate_markdown(results: Dict) -> str:
         lines.append(f"### {agent_label}")
         lines.append("")
 
-        # P→P 分析
-        lines.append("#### P→P 案例（两种模式都成功）")
+        # P→P Analysis
+        lines.append("#### P→P Cases (Both Modes Succeed)")
         lines.append("")
 
         pp_unres = results[agent]["pp"]["unrestricted"]
         pp_proh = results[agent]["pp"]["prohibited"]
 
-        lines.append("| 指标 | Unrestricted | Prohibited |")
+        lines.append("| Metric | Unrestricted | Prohibited |")
         lines.append("|------|-------------|------------|")
 
         if pp_unres["count"] > 0:
-            # 有验证的实例
+            # Instances with verification
             has_verif_unres = pp_unres["has_verification"]
             has_verif_proh = pp_proh["has_verification"]
-            lines.append(f"| 有验证执行的实例 | {has_verif_unres} ({has_verif_unres/pp_unres['count']*100:.1f}%) | {has_verif_proh} ({has_verif_proh/pp_proh['count']*100:.1f}%) |")
+            lines.append(f"| Instances with verification | {has_verif_unres} ({has_verif_unres/pp_unres['count']*100:.1f}%) | {has_verif_proh} ({has_verif_proh/pp_proh['count']*100:.1f}%) |")
 
-            # 首次验证结果分布
+            # First verification result distribution
             if has_verif_unres > 0:
                 success_pct = pp_unres["first_verif_success"] / has_verif_unres * 100
                 fail_pct = pp_unres["first_verif_test_fail"] / has_verif_unres * 100
@@ -585,61 +585,61 @@ def generate_markdown(results: Dict) -> str:
             else:
                 success_pct_p = fail_pct_p = env_pct_p = 0
 
-            lines.append(f"| 首次验证成功 | {pp_unres['first_verif_success']} ({success_pct:.1f}%) | {pp_proh['first_verif_success']} ({success_pct_p:.1f}%) |")
-            lines.append(f"| 首次验证失败（测试） | {pp_unres['first_verif_test_fail']} ({fail_pct:.1f}%) | {pp_proh['first_verif_test_fail']} ({fail_pct_p:.1f}%) |")
-            lines.append(f"| 首次验证失败（环境） | {pp_unres['first_verif_env_error']} ({env_pct:.1f}%) | {pp_proh['first_verif_env_error']} ({env_pct_p:.1f}%) |")
+            lines.append(f"| First verification success | {pp_unres['first_verif_success']} ({success_pct:.1f}%) | {pp_proh['first_verif_success']} ({success_pct_p:.1f}%) |")
+            lines.append(f"| First verification fail (test) | {pp_unres['first_verif_test_fail']} ({fail_pct:.1f}%) | {pp_proh['first_verif_test_fail']} ({fail_pct_p:.1f}%) |")
+            lines.append(f"| First verification fail (env) | {pp_unres['first_verif_env_error']} ({env_pct:.1f}%) | {pp_proh['first_verif_env_error']} ({env_pct_p:.1f}%) |")
 
         lines.append("")
 
-        # F→F 分析
-        lines.append("#### F→F 案例（两种模式都失败）")
+        # F→F Analysis
+        lines.append("#### F→F Cases (Both Modes Fail)")
         lines.append("")
 
         ff_unres = results[agent]["ff"]["unrestricted"]
         ff_proh = results[agent]["ff"]["prohibited"]
 
-        lines.append("| 指标 | Unrestricted | Prohibited |")
+        lines.append("| Metric | Unrestricted | Prohibited |")
         lines.append("|------|-------------|------------|")
 
         if ff_unres["count"] > 0:
             has_verif_unres = ff_unres["has_verification"]
             has_verif_proh = ff_proh["has_verification"]
-            lines.append(f"| 有验证执行的实例 | {has_verif_unres} ({has_verif_unres/ff_unres['count']*100:.1f}%) | {has_verif_proh} ({has_verif_proh/ff_proh['count']*100:.1f}%) |")
+            lines.append(f"| Instances with verification | {has_verif_unres} ({has_verif_unres/ff_unres['count']*100:.1f}%) | {has_verif_proh} ({has_verif_proh/ff_proh['count']*100:.1f}%) |")
 
             if has_verif_unres > 0:
                 any_success = ff_unres["any_verif_success"]
-                lines.append(f"| 任一验证曾成功 | {any_success} ({any_success/has_verif_unres*100:.1f}%) | N/A |")
+                lines.append(f"| Any verification succeeded | {any_success} ({any_success/has_verif_unres*100:.1f}%) | N/A |")
 
         lines.append("")
 
-        # 解读
-        lines.append("**解读**：")
+        # Interpretation
+        lines.append("**Interpretation**:")
         lines.append("")
         if pp_unres["count"] > 0 and pp_unres["has_verification"] > 0:
             success_rate = pp_unres["first_verif_success"] / pp_unres["has_verification"] * 100
             if success_rate < 30:
-                lines.append(f"- P→P 案例中首次验证成功率仅 {success_rate:.1f}%，说明 Agent 需要多次迭代才能通过验证")
+                lines.append(f"- In P→P cases, first verification success rate is only {success_rate:.1f}%, indicating Agent needs multiple iterations to pass verification")
             else:
-                lines.append(f"- P→P 案例中首次验证成功率为 {success_rate:.1f}%")
+                lines.append(f"- In P→P cases, first verification success rate is {success_rate:.1f}%")
 
             env_rate = pp_unres["first_verif_env_error"] / pp_unres["has_verification"] * 100
             if env_rate > 20:
-                lines.append(f"- {env_rate:.1f}% 的首次验证失败是环境错误（pytest 未安装等），不是代码问题")
+                lines.append(f"- {env_rate:.1f}% of first verification failures are environment errors (pytest not installed, etc.), not code issues")
 
         if ff_unres["count"] > 0 and ff_unres["has_verification"] > 0:
             any_success_rate = ff_unres["any_verif_success"] / ff_unres["has_verification"] * 100
             if any_success_rate > 50:
-                lines.append(f"- F→F 案例中 {any_success_rate:.1f}% 验证曾成功，但最终仍失败 → Agent 测试与评估测试不一致")
+                lines.append(f"- In F→F cases, {any_success_rate:.1f}% had successful verification at some point, but still failed ultimately → Agent's tests are inconsistent with evaluation tests")
 
         lines.append("")
 
     lines.append("---")
     lines.append("")
 
-    # 3. 文件定位分析
-    lines.append("## 3. RQ3.2 文件定位分析")
+    # 3. File Localization Analysis
+    lines.append("## 3. RQ3.2 File Localization Analysis")
     lines.append("")
-    lines.append("**问题**：Agent 能否准确定位需要修改的文件？执行是否帮助定位？")
+    lines.append("**Question**: Can Agent accurately locate the files that need modification? Does execution help with localization?")
     lines.append("")
 
     for agent in ["claude_code", "codex"]:
@@ -647,68 +647,68 @@ def generate_markdown(results: Dict) -> str:
         lines.append(f"### {agent_label}")
         lines.append("")
 
-        # P→P 分析
-        lines.append("#### P→P 案例")
+        # P→P Analysis
+        lines.append("#### P→P Cases")
         lines.append("")
 
         pp_unres = results[agent]["pp"]["unrestricted"]
         pp_proh = results[agent]["pp"]["prohibited"]
 
-        lines.append("| 指标 | Unrestricted | Prohibited |")
+        lines.append("| Metric | Unrestricted | Prohibited |")
         lines.append("|------|-------------|------------|")
 
         if pp_unres["count"] > 0:
-            # 首次编辑是测试文件
+            # First edit is test file
             test_pct_u = pp_unres["first_edit_is_test"] / pp_unres["count"] * 100
             test_pct_p = pp_proh["first_edit_is_test"] / pp_proh["count"] * 100
-            lines.append(f"| 首次编辑是测试文件 | {pp_unres['first_edit_is_test']} ({test_pct_u:.1f}%) | {pp_proh['first_edit_is_test']} ({test_pct_p:.1f}%) |")
+            lines.append(f"| First edit is test file | {pp_unres['first_edit_is_test']} ({test_pct_u:.1f}%) | {pp_proh['first_edit_is_test']} ({test_pct_p:.1f}%) |")
 
-            # 首次编辑命中
+            # First edit hit
             hit_pct_u = pp_unres["first_edit_hit"] / pp_unres["count"] * 100
             hit_pct_p = pp_proh["first_edit_hit"] / pp_proh["count"] * 100
-            lines.append(f"| 首次编辑命中 GT | {pp_unres['first_edit_hit']} ({hit_pct_u:.1f}%) | {pp_proh['first_edit_hit']} ({hit_pct_p:.1f}%) |")
+            lines.append(f"| First edit hits GT | {pp_unres['first_edit_hit']} ({hit_pct_u:.1f}%) | {pp_proh['first_edit_hit']} ({hit_pct_p:.1f}%) |")
 
-            # 最终编辑命中
+            # Final edit hit
             any_hit_u = pp_unres["any_edit_hit"] / pp_unres["count"] * 100
             any_hit_p = pp_proh["any_edit_hit"] / pp_proh["count"] * 100
-            lines.append(f"| 最终编辑命中 GT | {pp_unres['any_edit_hit']} ({any_hit_u:.1f}%) | {pp_proh['any_edit_hit']} ({any_hit_p:.1f}%) |")
+            lines.append(f"| Final edit hits GT | {pp_unres['any_edit_hit']} ({any_hit_u:.1f}%) | {pp_proh['any_edit_hit']} ({any_hit_p:.1f}%) |")
 
-            # 平均召回率
-            lines.append(f"| 平均召回率 | {pp_unres['avg_recall']*100:.1f}% | {pp_proh['avg_recall']*100:.1f}% |")
+            # Average recall
+            lines.append(f"| Average recall | {pp_unres['avg_recall']*100:.1f}% | {pp_proh['avg_recall']*100:.1f}% |")
 
-            # Reproduction 使用
+            # Reproduction usage
             repro_u = pp_unres["has_reproduction"]
             repro_p = pp_proh["has_reproduction"]
-            lines.append(f"| 使用 Reproduction | {repro_u} ({repro_u/pp_unres['count']*100:.1f}%) | {repro_p} ({repro_p/pp_proh['count']*100:.1f}%) |")
+            lines.append(f"| Uses Reproduction | {repro_u} ({repro_u/pp_unres['count']*100:.1f}%) | {repro_p} ({repro_p/pp_proh['count']*100:.1f}%) |")
 
         lines.append("")
 
-        # 解读
-        lines.append("**解读**：")
+        # Interpretation
+        lines.append("**Interpretation**:")
         lines.append("")
         if pp_unres["count"] > 0:
             test_diff = test_pct_u - test_pct_p
             if test_diff > 20:
-                lines.append(f"- Unrestricted 模式 {test_pct_u:.1f}% 首次编辑是测试文件（vs Prohibited {test_pct_p:.1f}%）")
-                lines.append("  - 这解释了首次编辑命中率的差异：Unrestricted 先写测试复现问题")
+                lines.append(f"- Unrestricted mode has {test_pct_u:.1f}% first edits on test files (vs Prohibited {test_pct_p:.1f}%)")
+                lines.append("  - This explains the difference in first edit hit rate: Unrestricted writes tests first to reproduce the issue")
 
             if any_hit_u > 95 and any_hit_p > 95:
-                lines.append(f"- 最终编辑命中率都很高（{any_hit_u:.1f}% vs {any_hit_p:.1f}%），说明定位能力相当")
+                lines.append(f"- Final edit hit rates are both high ({any_hit_u:.1f}% vs {any_hit_p:.1f}%), indicating comparable localization ability")
 
             if repro_u / pp_unres["count"] < 0.2:
-                lines.append(f"- 仅 {repro_u/pp_unres['count']*100:.1f}% 使用 Reproduction，说明问题描述足够清晰")
+                lines.append(f"- Only {repro_u/pp_unres['count']*100:.1f}% use Reproduction, suggesting problem descriptions are clear enough")
 
         lines.append("")
 
     lines.append("---")
     lines.append("")
 
-    # 4. Agent 行为对比
-    lines.append("## 4. Agent 行为对比")
+    # 4. Agent Behavior Comparison
+    lines.append("## 4. Agent Behavior Comparison")
     lines.append("")
-    lines.append("### P→P 案例行为统计")
+    lines.append("### P→P Case Behavior Statistics")
     lines.append("")
-    lines.append("| Agent | Mode | 平均对话轮数 | 平均编辑次数 | 平均测试次数 |")
+    lines.append("| Agent | Mode | Avg Conversation Turns | Avg Edit Count | Avg Test Count |")
     lines.append("|-------|------|------------|------------|------------|")
 
     for agent in ["claude_code", "codex"]:
@@ -720,8 +720,8 @@ def generate_markdown(results: Dict) -> str:
 
     lines.append("")
 
-    # 对比分析
-    lines.append("### 行为差异分析")
+    # Comparison analysis
+    lines.append("### Behavior Difference Analysis")
     lines.append("")
 
     cc_unres = results["claude_code"]["pp"]["unrestricted"]
@@ -729,56 +729,56 @@ def generate_markdown(results: Dict) -> str:
 
     if cc_unres["count"] > 0 and cc_proh["count"] > 0:
         lines.append("**Claude Code**:")
-        lines.append(f"- Unrestricted 平均 {cc_unres['avg_test_runs']:.1f} 次测试执行 vs Prohibited {cc_proh['avg_test_runs']:.1f} 次")
-        lines.append(f"- Unrestricted 平均 {cc_unres['avg_edits']:.1f} 次编辑 vs Prohibited {cc_proh['avg_edits']:.1f} 次")
+        lines.append(f"- Unrestricted averages {cc_unres['avg_test_runs']:.1f} test executions vs Prohibited {cc_proh['avg_test_runs']:.1f}")
+        lines.append(f"- Unrestricted averages {cc_unres['avg_edits']:.1f} edits vs Prohibited {cc_proh['avg_edits']:.1f}")
 
         if cc_unres['avg_test_runs'] > cc_proh['avg_test_runs'] * 3:
-            lines.append(f"- **更多迭代并未带来更好结果**：两者都成功，但 Unrestricted 消耗更多资源")
+            lines.append(f"- **More iterations did not lead to better results**: Both succeed, but Unrestricted consumes more resources")
         lines.append("")
 
     lines.append("---")
     lines.append("")
 
-    # 5. 核心发现与结论
-    lines.append("## 5. 核心发现与结论")
+    # 5. Key Findings and Conclusions
+    lines.append("## 5. Key Findings and Conclusions")
     lines.append("")
-    lines.append("### 核心发现")
+    lines.append("### Key Findings")
     lines.append("")
-    lines.append("| # | 发现 | 证据 |")
+    lines.append("| # | Finding | Evidence |")
     lines.append("|---|------|------|")
 
     findings = []
 
     finding_num = 1
 
-    # 发现: 验证反馈有限 (两个 Agent)
+    # Finding: Limited value of verification feedback (both agents)
     for agent in ["claude_code", "codex"]:
         agent_label = "Claude Code" if agent == "claude_code" else "Codex"
         pp = results[agent]["pp"]["unrestricted"]
         if pp["count"] > 0 and pp["has_verification"] > 0:
             first_success = pp["first_verif_success"] / pp["has_verification"] * 100
-            findings.append(f"| {finding_num} | **{agent_label}: 验证反馈价值有限** | P→P 首次验证成功率仅 {first_success:.1f}% |")
+            findings.append(f"| {finding_num} | **{agent_label}: Limited value of verification feedback** | P→P first verification success rate only {first_success:.1f}% |")
             finding_num += 1
 
-    # 发现: 环境错误干扰 (Claude Code)
+    # Finding: Environment errors interfere (Claude Code)
     cc_pp = results["claude_code"]["pp"]["unrestricted"]
     if cc_pp["count"] > 0 and cc_pp["has_verification"] > 0:
         env_rate = cc_pp["first_verif_env_error"] / cc_pp["has_verification"] * 100
         if env_rate > 10:
-            findings.append(f"| {finding_num} | **Claude Code: 环境错误干扰验证** | {env_rate:.1f}% 首次验证是环境错误 |")
+            findings.append(f"| {finding_num} | **Claude Code: Environment errors interfere with verification** | {env_rate:.1f}% of first verifications are environment errors |")
             finding_num += 1
 
-    # 发现: 测试不一致 (两个 Agent)
+    # Finding: Test inconsistency (both agents)
     for agent in ["claude_code", "codex"]:
         agent_label = "Claude Code" if agent == "claude_code" else "Codex"
         ff = results[agent]["ff"]["unrestricted"]
         if ff["count"] > 0 and ff["has_verification"] > 0:
             any_success = ff["any_verif_success"] / ff["has_verification"] * 100
             if any_success > 50:
-                findings.append(f"| {finding_num} | **{agent_label}: 验证与评估不一致** | F→F 中 {any_success:.1f}% 验证曾成功但最终失败 |")
+                findings.append(f"| {finding_num} | **{agent_label}: Verification inconsistent with evaluation** | In F→F, {any_success:.1f}% had successful verification but ultimately failed |")
                 finding_num += 1
 
-    # 发现: 定位不需执行 (两个 Agent)
+    # Finding: Localization doesn't need execution (both agents)
     for agent in ["claude_code", "codex"]:
         agent_label = "Claude Code" if agent == "claude_code" else "Codex"
         pp = results[agent]["pp"]["unrestricted"]
@@ -786,67 +786,67 @@ def generate_markdown(results: Dict) -> str:
             repro_rate = pp["has_reproduction"] / pp["count"] * 100
             any_hit = pp["any_edit_hit"] / pp["count"] * 100
             if repro_rate < 30 and any_hit > 90:
-                findings.append(f"| {finding_num} | **{agent_label}: 定位不需要执行** | 仅 {repro_rate:.1f}% 用 Reproduction，但 {any_hit:.1f}% 命中 GT |")
+                findings.append(f"| {finding_num} | **{agent_label}: Localization doesn't need execution** | Only {repro_rate:.1f}% used Reproduction, but {any_hit:.1f}% hit GT |")
                 finding_num += 1
 
-    # 发现: 更多迭代不等于更好结果 (两个 Agent)
+    # Finding: More iterations ≠ better results (both agents)
     for agent in ["claude_code", "codex"]:
         agent_label = "Claude Code" if agent == "claude_code" else "Codex"
         unres = results[agent]["pp"]["unrestricted"]
         proh = results[agent]["pp"]["prohibited"]
         if unres["count"] > 0 and proh["count"] > 0:
             if unres["avg_test_runs"] > proh["avg_test_runs"] + 1:
-                findings.append(f"| {finding_num} | **{agent_label}: 更多迭代 ≠ 更好** | Unrestricted {unres['avg_test_runs']:.1f}次测试 vs Prohibited {proh['avg_test_runs']:.1f}次 |")
+                findings.append(f"| {finding_num} | **{agent_label}: More iterations ≠ better** | Unrestricted {unres['avg_test_runs']:.1f} tests vs Prohibited {proh['avg_test_runs']:.1f} |")
                 finding_num += 1
 
     for f in findings:
         lines.append(f)
 
     lines.append("")
-    lines.append("### 结论")
+    lines.append("### Conclusions")
     lines.append("")
-    lines.append("**为什么执行对结果影响有限？**")
+    lines.append("**Why does execution have limited impact on outcomes?**")
     lines.append("")
-    lines.append("1. **问题描述足够清晰**：Agent 可以通过静态分析定位文件，不需要动态执行复现")
-    lines.append("2. **验证反馈有噪声**：环境错误和测试不一致降低了验证的价值")
-    lines.append("3. **迭代可能带来过度修复**：更多编辑可能引入不必要的改动")
-    lines.append("4. **核心能力是理解能力**：无论有无执行，Agent 的代码理解能力是成功的关键")
+    lines.append("1. **Problem descriptions are clear enough**: Agent can locate files through static analysis without dynamic execution for reproduction")
+    lines.append("2. **Verification feedback is noisy**: Environment errors and test inconsistencies reduce the value of verification")
+    lines.append("3. **Iteration may lead to over-fixing**: More edits may introduce unnecessary changes")
+    lines.append("4. **Core capability is understanding**: Regardless of execution, Agent's code comprehension ability is the key to success")
     lines.append("")
-    lines.append("> **执行反馈是双刃剑**：它能帮助发现问题，但也可能误导 Agent 进行不必要的修改。")
-    lines.append("> 当问题描述足够清晰时，\"一次性正确\"比\"试错迭代\"更有效。")
+    lines.append("> **Execution feedback is a double-edged sword**: It can help discover problems, but may also mislead Agent into making unnecessary modifications.")
+    lines.append("> When problem descriptions are clear enough, \"getting it right the first time\" is more effective than \"trial-and-error iteration\".")
     lines.append("")
 
     return "\n".join(lines)
 
 
 # ============================================================================
-# 主函数
+# Main Function
 # ============================================================================
 
 def main():
     print("=" * 80)
-    print("RQ3 综合分析")
+    print("RQ3 Comprehensive Analysis")
     print("=" * 80)
 
-    print("\n正在分析...")
+    print("\nAnalyzing...")
     results = run_analysis()
 
-    print("\n生成报告...")
+    print("\nGenerating report...")
     md_content = generate_markdown(results)
 
-    # 保存 markdown
+    # Save markdown
     md_file = ANALYSIS_DIR / "rq3_comprehensive_report.md"
     with open(md_file, "w") as f:
         f.write(md_content)
-    print(f"\n报告已保存: {md_file}")
+    print(f"\nReport saved: {md_file}")
 
-    # 保存 JSON
+    # Save JSON
     json_file = ANALYSIS_DIR / "rq3_comprehensive_data.json"
     with open(json_file, "w") as f:
         json.dump(results, f, indent=2, default=str)
-    print(f"数据已保存: {json_file}")
+    print(f"Data saved: {json_file}")
 
-    print("\n完成！")
+    print("\nDone!")
 
 
 if __name__ == "__main__":

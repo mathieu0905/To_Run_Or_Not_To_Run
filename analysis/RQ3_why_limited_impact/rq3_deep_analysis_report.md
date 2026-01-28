@@ -1,202 +1,202 @@
-# RQ3 深度分析报告：为什么执行对结果影响有限？
+# RQ3 Deep Analysis Report: Why Does Execution Have Limited Impact on Outcomes?
 
 *Generated: 2026-01-28*
 
-## 概述
+## Overview
 
-本分析旨在回答：**为什么 Unrestricted 模式（可以无限执行测试）和 Prohibited 模式（禁止执行测试）的修复成功率差异不大？**
+This analysis aims to answer: **Why is there little difference in repair success rate between Unrestricted mode (unlimited test execution) and Prohibited mode (no test execution)?**
 
-**核心发现：验证反馈导致"过度修复"，Prohibited 模式反而生成更精准的补丁。**
+**Core Finding: Verification feedback leads to "over-fixing", while Prohibited mode generates more precise patches.**
 
 ---
 
-## 1. 数据概览
+## 1. Data Overview
 
-### 案例分类（Claude Code）
+### Case Classification (Claude Code)
 
-| 类别 | 数量 | 说明 |
+| Category | Count | Description |
 |------|------|------|
-| P→P | 116 | 两种模式都成功 |
-| F→F | 84 | 两种模式都失败 |
+| P→P | 116 | Both modes succeed |
+| F→F | 84 | Both modes fail |
 
 ---
 
-## 2. 核心发现：Prohibited 的补丁更接近正确答案
+## 2. Core Finding: Prohibited Patches Are Closer to Correct Answer
 
-### 2.1 P→P 案例中补丁对比
+### 2.1 Patch Comparison in P→P Cases
 
-对于两种模式都成功的案例，对比生成的补丁：
+For cases where both modes succeed, comparing generated patches:
 
-| 补丁相似度 | 数量 | 占比 |
+| Patch Similarity | Count | Percentage |
 |-----------|------|------|
-| 完全相同 | 21 | 26.2% |
-| 相似(>80%) | 11 | 13.8% |
-| **不同(≤80%)** | **48** | **60.0%** |
+| Identical | 21 | 26.2% |
+| Similar (>80%) | 11 | 13.8% |
+| **Different (≤80%)** | **48** | **60.0%** |
 
-**60% 的成功案例中，两种模式生成了不同的补丁。**
+**60% of successful cases generated different patches between the two modes.**
 
-### 2.2 补丁不同时，哪个更接近正确答案？
+### 2.2 When Patches Differ, Which Is Closer to Correct Answer?
 
-| 结果 | 数量 | 占比 |
+| Result | Count | Percentage |
 |------|------|------|
-| **Prohibited 更接近** | **47** | **70%** |
-| Unrestricted 更接近 | 12 | 18% |
-| 质量相当 | 8 | 12% |
+| **Prohibited closer** | **47** | **70%** |
+| Unrestricted closer | 12 | 18% |
+| Similar quality | 8 | 12% |
 
-🔥 **关键发现：在补丁不同的案例中，Prohibited 生成的补丁质量更高（47 vs 12）！**
+🔥 **Key Finding: In cases with different patches, Prohibited generates higher quality patches (47 vs 12)!**
 
 ---
 
-## 3. 根本原因：验证反馈导致"过度修复"
+## 3. Root Cause: Verification Feedback Leads to "Over-fixing"
 
-### 3.1 补丁大小对比
+### 3.1 Patch Size Comparison
 
-分析 Prohibited 更好的 47 个案例：
+Analyzing the 47 cases where Prohibited is better:
 
-| 指标 | Unrestricted | Prohibited |
+| Metric | Unrestricted | Prohibited |
 |------|-------------|------------|
-| **平均补丁大小** | 26.3 行 | 5.4 行 |
-| **涉及文件数** | 2.1 个 | 1.0 个 |
+| **Average patch size** | 26.3 lines | 5.4 lines |
+| **Files involved** | 2.1 files | 1.0 files |
 
-**Unrestricted 的补丁比 Prohibited 大 5 倍！**
+**Unrestricted patches are 5x larger than Prohibited!**
 
-### 3.2 过度修复统计
+### 3.2 Over-fixing Statistics
 
-| Unrestricted 补丁情况 | 数量 | 占比 |
+| Unrestricted Patch Situation | Count | Percentage |
 |----------------------|------|------|
-| **过度修复（补丁过大）** | **39** | **83%** |
-| 修复不足（补丁过小） | 4 | 8.5% |
-| 大小合适 | 4 | 8.5% |
+| **Over-fixed (patch too large)** | **39** | **83%** |
+| Under-fixed (patch too small) | 4 | 8.5% |
+| Appropriate size | 4 | 8.5% |
 
-### 3.3 Agent 行为对比
+### 3.3 Agent Behavior Comparison
 
-| 指标 | Unrestricted | Prohibited |
+| Metric | Unrestricted | Prohibited |
 |------|-------------|------------|
-| 对话轮数 | 74.3 | 30.7 |
-| 编辑次数 | 6.1 | 1.8 |
-| 测试执行次数 | 11.3 | 1.0 |
+| Conversation turns | 74.3 | 30.7 |
+| Edit count | 6.1 | 1.8 |
+| Test execution count | 11.3 | 1.0 |
 
-**Unrestricted 模式下，Agent 平均进行 11 次测试执行、6 次编辑，但补丁质量反而不如 Prohibited 的 1-2 次编辑。**
+**In Unrestricted mode, Agent averages 11 test executions and 6 edits, but patch quality is worse than Prohibited's 1-2 edits.**
 
-### 3.4 具体案例
+### 3.4 Specific Cases
 
-| Instance | Unrestricted 相似度 | Prohibited 相似度 | 补丁大小 (Unres/Proh) |
+| Instance | Unrestricted Similarity | Prohibited Similarity | Patch Size (Unres/Proh) |
 |----------|-------------------|------------------|----------------------|
-| django__django-10914 | 57.7% | **100.0%** | 5行 / 2行 |
-| django__django-11815 | 20.3% | **99.6%** | 31行 / 7行 |
-| django__django-11848 | 47.1% | **69.2%** | 9行 / 9行 |
+| django__django-10914 | 57.7% | **100.0%** | 5 lines / 2 lines |
+| django__django-11815 | 20.3% | **99.6%** | 31 lines / 7 lines |
+| django__django-11848 | 47.1% | **69.2%** | 9 lines / 9 lines |
 
 ---
 
-## 4. 为什么验证反馈会导致过度修复？
+## 4. Why Does Verification Feedback Lead to Over-fixing?
 
-### 4.1 Unrestricted 模式的行为模式
-
-```
-Agent 编辑代码
-  → 运行测试
-  → 测试失败（可能是环境问题、测试不完整等）
-  → Agent 认为修复不够，继续修改
-  → 测试可能还是失败
-  → 继续修改更多代码...
-  → 循环 11 次
-  → 最终补丁臃肿（26.3 行，涉及 2.1 个文件）
-```
-
-### 4.2 Prohibited 模式的行为模式
+### 4.1 Unrestricted Mode Behavior Pattern
 
 ```
-Agent 阅读问题描述
-  → 理解问题本质
-  → 一次性生成最小修复
-  → 补丁简洁（5.4 行，涉及 1.0 个文件）
+Agent edits code
+  → Runs test
+  → Test fails (possibly environment issue, incomplete test, etc.)
+  → Agent thinks fix is insufficient, continues modifying
+  → Test may still fail
+  → Continues modifying more code...
+  → Loops 11 times
+  → Final patch is bloated (26.3 lines, 2.1 files)
 ```
 
-### 4.3 测试反馈为什么会误导？
+### 4.2 Prohibited Mode Behavior Pattern
 
-1. **环境错误占 40-60%**：首次测试失败主要是 `No module named pytest`、路径错误等，不是代码问题
-2. **测试覆盖不全**：Agent 的测试和最终评估测试不同，通过 Agent 测试不代表真正修好
-3. **错误归因**：测试失败时，Agent 不知道是"代码改错了"还是"测试本身有问题"，倾向于修改更多代码
+```
+Agent reads problem description
+  → Understands the essence of the problem
+  → Generates minimal fix in one shot
+  → Patch is concise (5.4 lines, 1.0 files)
+```
+
+### 4.3 Why Does Test Feedback Mislead?
+
+1. **Environment errors account for 40-60%**: First test failures are mainly `No module named pytest`, path errors, etc., not code issues
+2. **Incomplete test coverage**: Agent's tests differ from final evaluation tests; passing Agent's tests doesn't mean truly fixed
+3. **Error attribution**: When tests fail, Agent doesn't know if it's "code is wrong" or "test itself has issues", tends to modify more code
 
 ---
 
-## 5. Verification 分析：验证执行真的有帮助吗？
+## 5. Verification Analysis: Does Verification Execution Really Help?
 
-### 5.1 首次验证结果分类（排除环境错误）
+### 5.1 First Verification Result Classification (Excluding Environment Errors)
 
-| 指标 | P→P | F→F |
+| Metric | P→P | F→F |
 |------|-----|-----|
-| 有真正测试结果的案例 | 71 | 72 |
-| 首次测试成功 | 42 (59.2%) | 33 (45.8%) |
-| 首次测试失败 | 29 (40.8%) | 39 (54.2%) |
+| Cases with real test results | 71 | 72 |
+| First test success | 42 (59.2%) | 33 (45.8%) |
+| First test failure | 29 (40.8%) | 39 (54.2%) |
 
-**P→P 和 F→F 的首次测试成功率差异不大（59% vs 46%），验证执行无法有效区分成功和失败案例。**
+**P→P and F→F first test success rates are similar (59% vs 46%), verification execution cannot effectively distinguish success and failure cases.**
 
-### 5.2 环境错误占主导
+### 5.2 Environment Errors Dominate
 
-| 首次验证结果 | P→P | F→F |
+| First Verification Result | P→P | F→F |
 |-------------|-----|-----|
-| 成功 | 10.9% | 5.0% |
-| 测试失败 | 24.8% | 37.5% |
-| **环境错误** | **43.6%** | **33.8%** |
+| Success | 10.9% | 5.0% |
+| Test failure | 24.8% | 37.5% |
+| **Environment error** | **43.6%** | **33.8%** |
 
-**首次验证失败主要是环境问题（pytest 没装、路径错误），不是测试逻辑失败。**
+**First verification failures are mainly environment issues (pytest not installed, path errors), not test logic failures.**
 
-### 5.3 F→F 中验证曾成功但最终失败
+### 5.3 F→F Cases: Verification Succeeded But Ultimately Failed
 
-| Agent | F→F 任一次验证成功率 |
+| Agent | F→F Any Verification Success Rate |
 |-------|---------------------|
 | Claude Code | 91.2% |
 | Codex | 100.0% |
 
-**F→F 案例中 91-100% 验证曾成功，但最终还是失败。说明 Agent 的测试与评估测试不一致。**
+**In F→F cases, 91-100% had successful verification at some point, but still failed ultimately. This shows Agent's tests are inconsistent with evaluation tests.**
 
 ---
 
-## 6. Reproduction 分析：复现执行帮助定位了吗？
+## 6. Reproduction Analysis: Did Reproduction Execution Help with Localization?
 
-### 6.1 复现执行使用情况
+### 6.1 Reproduction Execution Usage
 
-| Agent | P→P 有复现 | P→P 无复现 |
+| Agent | P→P Has Reproduction | P→P No Reproduction |
 |-------|-----------|-----------|
 | Claude Code | 19 (16%) | 97 (84%) |
 | Codex | 6 (4%) | 136 (96%) |
 
-**绝大多数案例（84-96%）没有复现执行，Agent 直接根据问题描述定位文件。**
+**The vast majority of cases (84-96%) had no reproduction execution; Agent directly locates files based on problem description.**
 
-### 6.2 文件定位准确率
+### 6.2 File Localization Accuracy
 
-| Agent | 有 Reproduction Hit | 无 Reproduction Hit |
+| Agent | With Reproduction Hit | Without Reproduction Hit |
 |-------|---------------------|---------------------|
 | Claude Code P→P | 94.7% | 97.9% |
 | Codex P→P | 100% | 98.5% |
 
-**无论有没有复现执行，文件定位准确率都很高（>94%）。问题描述已经足够清晰。**
+**Regardless of reproduction execution, file localization accuracy is high (>94%). Problem descriptions are already clear enough.**
 
 ---
 
-## 7. 综合结论
+## 7. Comprehensive Conclusion
 
-### 为什么执行对结果影响有限？
+### Why Does Execution Have Limited Impact on Outcomes?
 
-| 原因 | 证据 |
+| Reason | Evidence |
 |------|------|
-| **验证反馈导致过度修复** | Unrestricted 补丁 26.3 行 vs Prohibited 5.4 行；83% 案例过度修复 |
-| **Prohibited 反而更精准** | 70% 的不同补丁案例中，Prohibited 更接近正确答案 |
-| **更多迭代 ≠ 更好结果** | 11 次测试执行 + 6 次编辑，质量不如 1 次编辑 |
-| **环境错误浪费执行** | 40-60% 首次验证是环境问题 |
-| **验证测试与评估测试不一致** | F→F 中 91% 验证曾成功但最终失败 |
-| **问题描述已经足够** | 84-96% 案例不需要复现执行就能正确定位 |
+| **Verification feedback leads to over-fixing** | Unrestricted patch 26.3 lines vs Prohibited 5.4 lines; 83% cases over-fixed |
+| **Prohibited is actually more precise** | In 70% of different patch cases, Prohibited is closer to correct answer |
+| **More iterations ≠ better results** | 11 test executions + 6 edits, quality worse than 1 edit |
+| **Environment errors waste execution** | 40-60% of first verifications are environment issues |
+| **Verification tests inconsistent with evaluation tests** | In F→F, 91% had successful verification but ultimately failed |
+| **Problem descriptions are sufficient** | 84-96% of cases don't need reproduction execution to correctly locate |
 
-### 核心洞察
+### Core Insight
 
-> **执行反馈可能是一把双刃剑：它能帮助发现问题，但也可能误导 Agent 进行不必要的修改。当问题描述足够清晰时，"一次性正确"比"试错迭代"更有效。**
+> **Execution feedback can be a double-edged sword: It can help discover problems, but may also mislead Agent into making unnecessary modifications. When problem descriptions are clear enough, "getting it right the first time" is more effective than "trial-and-error iteration".**
 
 ---
 
-## 附录：数据来源
+## Appendix: Data Sources
 
-- 分析对象：SWE-bench Lite + Verified（共 200 个实例）
-- Agent：Claude Code, Codex
-- 模式：Unrestricted (run_full), Prohibited (run_free)
-- 分析代码：`/analysis/new_RQ3/`
+- Analysis subjects: SWE-bench Lite + Verified (200 instances total)
+- Agents: Claude Code, Codex
+- Modes: Unrestricted (run_full), Prohibited (run_free)
+- Analysis code: `/analysis/new_RQ3/`

@@ -1,167 +1,167 @@
-# RQ3 综合分析：为什么执行对结果影响有限？
+# RQ3 Comprehensive Analysis: Why Does Execution Have Limited Impact on Outcomes?
 
 *Generated: 2026-01-28 16:46:08*
 
-## 目录
+## Table of Contents
 
-1. [数据概览](#1-数据概览)
-2. [RQ3.1 Verification 分析](#2-rq31-verification-分析)
-3. [RQ3.2 文件定位分析](#3-rq32-文件定位分析)
-4. [Agent 行为对比](#4-agent-行为对比)
-5. [核心发现与结论](#5-核心发现与结论)
+1. [Data Overview](#1-data-overview)
+2. [RQ3.1 Verification Analysis](#2-rq31-verification-analysis)
+3. [RQ3.2 File Localization Analysis](#3-rq32-file-localization-analysis)
+4. [Agent Behavior Comparison](#4-agent-behavior-comparison)
+5. [Key Findings and Conclusions](#5-key-findings-and-conclusions)
 
 ---
 
-## 1. 数据概览
+## 1. Data Overview
 
-### 案例分布
+### Case Distribution
 
-| Agent | P→P (两者都成功) | F→F (两者都失败) |
+| Agent | P→P (Both Succeed) | F→F (Both Fail) |
 |-------|-----------------|-----------------|
 | Claude Code | 116 | 84 |
 | Codex | 142 | 55 |
 
 ---
 
-## 2. RQ3.1 Verification 分析
+## 2. RQ3.1 Verification Analysis
 
-**问题**：首次编辑后的验证执行结果如何？能否说明验证是冗余的？
-
-### Claude Code
-
-#### P→P 案例（两种模式都成功）
-
-| 指标 | Unrestricted | Prohibited |
-|------|-------------|------------|
-| 有验证执行的实例 | 101 (87.1%) | 32 (27.6%) |
-| 首次验证成功 | 6 (5.9%) | 5 (15.6%) |
-| 首次验证失败（测试） | 53 (52.5%) | 23 (71.9%) |
-| 首次验证失败（环境） | 42 (41.6%) | 4 (12.5%) |
-
-#### F→F 案例（两种模式都失败）
-
-| 指标 | Unrestricted | Prohibited |
-|------|-------------|------------|
-| 有验证执行的实例 | 80 (95.2%) | 23 (27.4%) |
-| 任一验证曾成功 | 65 (81.2%) | N/A |
-
-**解读**：
-
-- P→P 案例中首次验证成功率仅 5.9%，说明 Agent 需要多次迭代才能通过验证
-- 41.6% 的首次验证失败是环境错误（pytest 未安装等），不是代码问题
-- F→F 案例中 81.2% 验证曾成功，但最终仍失败 → Agent 测试与评估测试不一致
-
-### Codex
-
-#### P→P 案例（两种模式都成功）
-
-| 指标 | Unrestricted | Prohibited |
-|------|-------------|------------|
-| 有验证执行的实例 | 140 (98.6%) | 0 (0.0%) |
-| 首次验证成功 | 48 (34.3%) | 0 (0.0%) |
-| 首次验证失败（测试） | 92 (65.7%) | 0 (0.0%) |
-| 首次验证失败（环境） | 0 (0.0%) | 0 (0.0%) |
-
-#### F→F 案例（两种模式都失败）
-
-| 指标 | Unrestricted | Prohibited |
-|------|-------------|------------|
-| 有验证执行的实例 | 52 (94.5%) | 1 (1.8%) |
-| 任一验证曾成功 | 52 (100.0%) | N/A |
-
-**解读**：
-
-- P→P 案例中首次验证成功率为 34.3%
-- F→F 案例中 100.0% 验证曾成功，但最终仍失败 → Agent 测试与评估测试不一致
-
----
-
-## 3. RQ3.2 文件定位分析
-
-**问题**：Agent 能否准确定位需要修改的文件？执行是否帮助定位？
+**Question**: What are the results of verification execution after the first edit? Can it demonstrate that verification is redundant?
 
 ### Claude Code
 
-#### P→P 案例
+#### P→P Cases (Both Modes Succeed)
 
-| 指标 | Unrestricted | Prohibited |
+| Metric | Unrestricted | Prohibited |
 |------|-------------|------------|
-| 首次编辑是测试文件 | 52 (44.8%) | 3 (2.6%) |
-| 首次编辑命中 GT | 64 (55.2%) | 111 (95.7%) |
-| 最终编辑命中 GT | 113 (97.4%) | 114 (98.3%) |
-| 平均召回率 | 96.6% | 97.4% |
-| 使用 Reproduction | 19 (16.4%) | 1 (0.9%) |
+| Instances with verification | 101 (87.1%) | 32 (27.6%) |
+| First verification success | 6 (5.9%) | 5 (15.6%) |
+| First verification fail (test) | 53 (52.5%) | 23 (71.9%) |
+| First verification fail (env) | 42 (41.6%) | 4 (12.5%) |
 
-**解读**：
+#### F→F Cases (Both Modes Fail)
 
-- Unrestricted 模式 44.8% 首次编辑是测试文件（vs Prohibited 2.6%）
-  - 这解释了首次编辑命中率的差异：Unrestricted 先写测试复现问题
-- 最终编辑命中率都很高（97.4% vs 98.3%），说明定位能力相当
-- 仅 16.4% 使用 Reproduction，说明问题描述足够清晰
+| Metric | Unrestricted | Prohibited |
+|------|-------------|------------|
+| Instances with verification | 80 (95.2%) | 23 (27.4%) |
+| Any verification succeeded | 65 (81.2%) | N/A |
+
+**Interpretation**:
+
+- In P→P cases, first verification success rate is only 5.9%, indicating Agent needs multiple iterations to pass verification
+- 41.6% of first verification failures are environment errors (pytest not installed, etc.), not code issues
+- In F→F cases, 81.2% had successful verification at some point, but still failed ultimately → Agent's tests are inconsistent with evaluation tests
 
 ### Codex
 
-#### P→P 案例
+#### P→P Cases (Both Modes Succeed)
 
-| 指标 | Unrestricted | Prohibited |
+| Metric | Unrestricted | Prohibited |
 |------|-------------|------------|
-| 首次编辑是测试文件 | 3 (2.1%) | 2 (1.4%) |
-| 首次编辑命中 GT | 137 (96.5%) | 136 (95.8%) |
-| 最终编辑命中 GT | 140 (98.6%) | 136 (95.8%) |
-| 平均召回率 | 96.4% | 93.6% |
-| 使用 Reproduction | 6 (4.2%) | 0 (0.0%) |
+| Instances with verification | 140 (98.6%) | 0 (0.0%) |
+| First verification success | 48 (34.3%) | 0 (0.0%) |
+| First verification fail (test) | 92 (65.7%) | 0 (0.0%) |
+| First verification fail (env) | 0 (0.0%) | 0 (0.0%) |
 
-**解读**：
+#### F→F Cases (Both Modes Fail)
 
-- 最终编辑命中率都很高（98.6% vs 95.8%），说明定位能力相当
-- 仅 4.2% 使用 Reproduction，说明问题描述足够清晰
+| Metric | Unrestricted | Prohibited |
+|------|-------------|------------|
+| Instances with verification | 52 (94.5%) | 1 (1.8%) |
+| Any verification succeeded | 52 (100.0%) | N/A |
+
+**Interpretation**:
+
+- In P→P cases, first verification success rate is 34.3%
+- In F→F cases, 100.0% had successful verification at some point, but still failed ultimately → Agent's tests are inconsistent with evaluation tests
 
 ---
 
-## 4. Agent 行为对比
+## 3. RQ3.2 File Localization Analysis
 
-### P→P 案例行为统计
+**Question**: Can Agent accurately locate the files that need modification? Does execution help with localization?
 
-| Agent | Mode | 平均对话轮数 | 平均编辑次数 | 平均测试次数 |
+### Claude Code
+
+#### P→P Cases
+
+| Metric | Unrestricted | Prohibited |
+|------|-------------|------------|
+| First edit is test file | 52 (44.8%) | 3 (2.6%) |
+| First edit hits GT | 64 (55.2%) | 111 (95.7%) |
+| Final edit hits GT | 113 (97.4%) | 114 (98.3%) |
+| Average recall | 96.6% | 97.4% |
+| Uses Reproduction | 19 (16.4%) | 1 (0.9%) |
+
+**Interpretation**:
+
+- Unrestricted mode has 44.8% first edits on test files (vs Prohibited 2.6%)
+  - This explains the difference in first edit hit rate: Unrestricted writes tests first to reproduce the issue
+- Final edit hit rates are both high (97.4% vs 98.3%), indicating comparable localization ability
+- Only 16.4% use Reproduction, suggesting problem descriptions are clear enough
+
+### Codex
+
+#### P→P Cases
+
+| Metric | Unrestricted | Prohibited |
+|------|-------------|------------|
+| First edit is test file | 3 (2.1%) | 2 (1.4%) |
+| First edit hits GT | 137 (96.5%) | 136 (95.8%) |
+| Final edit hits GT | 140 (98.6%) | 136 (95.8%) |
+| Average recall | 96.4% | 93.6% |
+| Uses Reproduction | 6 (4.2%) | 0 (0.0%) |
+
+**Interpretation**:
+
+- Final edit hit rates are both high (98.6% vs 95.8%), indicating comparable localization ability
+- Only 4.2% use Reproduction, suggesting problem descriptions are clear enough
+
+---
+
+## 4. Agent Behavior Comparison
+
+### P→P Case Behavior Statistics
+
+| Agent | Mode | Avg Conversation Turns | Avg Edit Count | Avg Test Count |
 |-------|------|------------|------------|------------|
 | Claude Code | Unrestricted | 93.7 | 5.0 | 8.8 |
 | Claude Code | Prohibited | 44.5 | 1.8 | 1.1 |
 | Codex | Unrestricted | 70.7 | 3.1 | 3.3 |
 | Codex | Prohibited | 68.3 | 3.2 | 0.0 |
 
-### 行为差异分析
+### Behavior Difference Analysis
 
 **Claude Code**:
-- Unrestricted 平均 8.8 次测试执行 vs Prohibited 1.1 次
-- Unrestricted 平均 5.0 次编辑 vs Prohibited 1.8 次
-- **更多迭代并未带来更好结果**：两者都成功，但 Unrestricted 消耗更多资源
+- Unrestricted averages 8.8 test executions vs Prohibited 1.1
+- Unrestricted averages 5.0 edits vs Prohibited 1.8
+- **More iterations did not lead to better results**: Both succeed, but Unrestricted consumes more resources
 
 ---
 
-## 5. 核心发现与结论
+## 5. Key Findings and Conclusions
 
-### 核心发现
+### Key Findings
 
-| # | 发现 | 证据 |
+| # | Finding | Evidence |
 |---|------|------|
-| 1 | **Claude Code: 验证反馈价值有限** | P→P 首次验证成功率仅 5.9% |
-| 2 | **Codex: 验证反馈价值有限** | P→P 首次验证成功率仅 34.3% |
-| 3 | **Claude Code: 环境错误干扰验证** | 41.6% 首次验证是环境错误 |
-| 4 | **Claude Code: 验证与评估不一致** | F→F 中 81.2% 验证曾成功但最终失败 |
-| 5 | **Codex: 验证与评估不一致** | F→F 中 100.0% 验证曾成功但最终失败 |
-| 6 | **Claude Code: 定位不需要执行** | 仅 16.4% 用 Reproduction，但 97.4% 命中 GT |
-| 7 | **Codex: 定位不需要执行** | 仅 4.2% 用 Reproduction，但 98.6% 命中 GT |
-| 8 | **Claude Code: 更多迭代 ≠ 更好** | Unrestricted 8.8次测试 vs Prohibited 1.1次 |
-| 9 | **Codex: 更多迭代 ≠ 更好** | Unrestricted 3.3次测试 vs Prohibited 0.0次 |
+| 1 | **Claude Code: Limited value of verification feedback** | P→P first verification success rate only 5.9% |
+| 2 | **Codex: Limited value of verification feedback** | P→P first verification success rate only 34.3% |
+| 3 | **Claude Code: Environment errors interfere with verification** | 41.6% of first verifications are environment errors |
+| 4 | **Claude Code: Verification inconsistent with evaluation** | In F→F, 81.2% had successful verification but ultimately failed |
+| 5 | **Codex: Verification inconsistent with evaluation** | In F→F, 100.0% had successful verification but ultimately failed |
+| 6 | **Claude Code: Localization doesn't need execution** | Only 16.4% used Reproduction, but 97.4% hit GT |
+| 7 | **Codex: Localization doesn't need execution** | Only 4.2% used Reproduction, but 98.6% hit GT |
+| 8 | **Claude Code: More iterations ≠ better** | Unrestricted 8.8 tests vs Prohibited 1.1 |
+| 9 | **Codex: More iterations ≠ better** | Unrestricted 3.3 tests vs Prohibited 0.0 |
 
-### 结论
+### Conclusions
 
-**为什么执行对结果影响有限？**
+**Why does execution have limited impact on outcomes?**
 
-1. **问题描述足够清晰**：Agent 可以通过静态分析定位文件，不需要动态执行复现
-2. **验证反馈有噪声**：环境错误和测试不一致降低了验证的价值
-3. **迭代可能带来过度修复**：更多编辑可能引入不必要的改动
-4. **核心能力是理解能力**：无论有无执行，Agent 的代码理解能力是成功的关键
+1. **Problem descriptions are clear enough**: Agent can locate files through static analysis without dynamic execution for reproduction
+2. **Verification feedback is noisy**: Environment errors and test inconsistencies reduce the value of verification
+3. **Iteration may lead to over-fixing**: More edits may introduce unnecessary changes
+4. **Core capability is understanding**: Regardless of execution, Agent's code comprehension ability is the key to success
 
-> **执行反馈是双刃剑**：它能帮助发现问题，但也可能误导 Agent 进行不必要的修改。
-> 当问题描述足够清晰时，"一次性正确"比"试错迭代"更有效。
+> **Execution feedback is a double-edged sword**: It can help discover problems, but may also mislead Agent into making unnecessary modifications.
+> When problem descriptions are clear enough, "getting it right the first time" is more effective than "trial-and-error iteration".

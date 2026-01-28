@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-调查 Unrestricted 模式首次编辑命中率低的原因
+Investigate why Unrestricted mode has lower first edit hit rate
 
-假设：Unrestricted 模式下 Agent 会先编辑测试文件/调试脚本，
-而 Prohibited 模式直接编辑源代码文件。
+Hypothesis: In Unrestricted mode, Agent tends to edit test files/debug scripts first,
+while Prohibited mode directly edits source code files.
 """
 
 import json
@@ -29,16 +29,16 @@ def normalize_path(path: str) -> str:
 
 
 def is_test_file(path: str) -> bool:
-    """判断是否是测试文件"""
+    """Check if the file is a test file"""
     path_lower = path.lower()
-    # 测试文件特征
+    # Test file characteristics
     if '/test_' in path_lower or '/tests/' in path_lower:
         return True
     if path_lower.endswith('_test.py'):
         return True
-    if 'test' in path_lower.split('/')[-1]:  # 文件名包含 test
+    if 'test' in path_lower.split('/')[-1]:  # Filename contains test
         return True
-    # 临时脚本
+    # Temporary scripts
     if 'reproduce' in path_lower or 'debug' in path_lower:
         return True
     if path_lower.endswith('/script.py') or path_lower == 'script.py':
@@ -81,7 +81,7 @@ def load_ground_truth_files(dataset: str, instance_id: str) -> set:
 
 
 def get_first_edit_file_claude(traces: list) -> str:
-    """获取 Claude Code trace 中第一个编辑的文件"""
+    """Get the first edited file from Claude Code trace"""
     for entry in traces:
         if entry.get("type") == "assistant":
             content = entry.get("message", {}).get("content", [])
@@ -96,7 +96,7 @@ def get_first_edit_file_claude(traces: list) -> str:
 
 
 def get_first_edit_file_codex(traces: list) -> str:
-    """获取 Codex trace 中第一个编辑的文件"""
+    """Get the first edited file from Codex trace"""
     for entry in traces:
         if entry.get("type") == "item.completed":
             item = entry.get("item", {})
@@ -160,7 +160,7 @@ def load_pp_cases() -> dict:
 
 def main():
     print("=" * 80)
-    print("调查首次编辑命中率差异")
+    print("Investigating First Edit Hit Rate Difference")
     print("=" * 80)
 
     # Load P→P cases
@@ -169,7 +169,7 @@ def main():
     results = []
 
     for agent in ["claude_code", "codex"]:
-        print(f"\n分析 {agent}...")
+        print(f"\nAnalyzing {agent}...")
 
         for mode in ["run_full", "run_free"]:
             mode_label = "Unrestricted" if mode == "run_full" else "Prohibited"
@@ -229,21 +229,21 @@ def main():
             })
 
             # Print summary
-            print(f"\n  {mode_label} 模式:")
-            print(f"    总实例数: {stats['total']}")
+            print(f"\n  {mode_label} mode:")
+            print(f"    Total instances: {stats['total']}")
             if stats['total'] > 0:
                 test_pct = stats['first_edit_is_test'] / stats['total'] * 100
                 hit_pct = stats['first_edit_hit_gt'] / stats['total'] * 100
-                print(f"    首次编辑是测试文件: {stats['first_edit_is_test']} ({test_pct:.1f}%)")
-                print(f"    首次编辑是源代码文件: {stats['first_edit_is_source']} ({100-test_pct:.1f}%)")
-                print(f"    首次编辑命中 GT: {stats['first_edit_hit_gt']} ({hit_pct:.1f}%)")
+                print(f"    First edit is test file: {stats['first_edit_is_test']} ({test_pct:.1f}%)")
+                print(f"    First edit is source file: {stats['first_edit_is_source']} ({100-test_pct:.1f}%)")
+                print(f"    First edit hits GT: {stats['first_edit_hit_gt']} ({hit_pct:.1f}%)")
 
                 if stats["examples"]:
-                    print(f"\n    未命中示例:")
+                    print(f"\n    Miss examples:")
                     for ex in stats["examples"][:3]:
                         print(f"      - {ex['instance']}")
-                        print(f"        首次编辑: {ex['first_edit']} (测试文件: {ex['is_test']})")
-                        print(f"        GT 文件: {ex['gt_files']}")
+                        print(f"        First edit: {ex['first_edit']} (Test file: {ex['is_test']})")
+                        print(f"        GT files: {ex['gt_files']}")
 
     # Generate markdown report
     generate_report(results)
@@ -252,21 +252,21 @@ def main():
 def generate_report(results: list):
     """Generate markdown report"""
     lines = []
-    lines.append("# 首次编辑命中率差异分析")
+    lines.append("# First Edit Hit Rate Difference Analysis")
     lines.append("")
     lines.append(f"*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
     lines.append("")
-    lines.append("## 问题")
+    lines.append("## Problem")
     lines.append("")
-    lines.append("为什么 P→P 案例中 Unrestricted 模式的首次编辑命中率（55.2%）远低于 Prohibited 模式（95.7%）？")
+    lines.append("Why is the first edit hit rate in P→P cases much lower in Unrestricted mode (55.2%) than in Prohibited mode (95.7%)?")
     lines.append("")
-    lines.append("## 假设")
+    lines.append("## Hypothesis")
     lines.append("")
-    lines.append("**Unrestricted 模式下 Agent 会先编辑测试文件/调试脚本，而不是直接编辑源代码文件。**")
+    lines.append("**In Unrestricted mode, Agent tends to edit test files/debug scripts first, rather than directly editing source code files.**")
     lines.append("")
-    lines.append("## 验证结果")
+    lines.append("## Verification Results")
     lines.append("")
-    lines.append("| Agent | Mode | Total | 首次编辑是测试文件 | 首次编辑是源代码 | 首次编辑命中 GT |")
+    lines.append("| Agent | Mode | Total | First Edit is Test File | First Edit is Source Code | First Edit Hits GT |")
     lines.append("|-------|------|-------|-------------------|-----------------|-----------------|")
 
     for r in results:
@@ -280,7 +280,7 @@ def generate_report(results: list):
             lines.append(f"| {r['agent']} | {r['mode']} | 0 | N/A | N/A | N/A |")
 
     lines.append("")
-    lines.append("## 分析")
+    lines.append("## Analysis")
     lines.append("")
 
     # Find Unrestricted and Prohibited for Claude Code
@@ -293,18 +293,18 @@ def generate_report(results: list):
 
         lines.append("### Claude Code")
         lines.append("")
-        lines.append(f"- **Unrestricted** 模式：{unres_test:.1f}% 的首次编辑是测试/调试文件")
-        lines.append(f"- **Prohibited** 模式：{proh_test:.1f}% 的首次编辑是测试/调试文件")
+        lines.append(f"- **Unrestricted** mode: {unres_test:.1f}% of first edits are test/debug files")
+        lines.append(f"- **Prohibited** mode: {proh_test:.1f}% of first edits are test/debug files")
         lines.append("")
 
         if unres_test > proh_test + 10:
-            lines.append("**结论**：假设验证！Unrestricted 模式下 Agent 倾向于先编辑测试文件进行问题复现，")
-            lines.append("这导致首次编辑命中率显著低于 Prohibited 模式。")
+            lines.append("**Conclusion**: Hypothesis verified! In Unrestricted mode, Agent tends to edit test files first to reproduce the problem,")
+            lines.append("which leads to significantly lower first edit hit rate compared to Prohibited mode.")
         else:
-            lines.append("**注意**：假设未完全验证，需要进一步分析未命中的具体原因。")
+            lines.append("**Note**: Hypothesis not fully verified, further analysis needed for specific reasons of misses.")
 
     lines.append("")
-    lines.append("## 未命中示例")
+    lines.append("## Miss Examples")
     lines.append("")
 
     for r in results:
@@ -313,27 +313,27 @@ def generate_report(results: list):
             lines.append("")
             for ex in r["stats"]["examples"][:3]:
                 lines.append(f"**{ex['instance']}**")
-                lines.append(f"- 首次编辑: `{ex['first_edit']}` (测试文件: {ex['is_test']})")
-                lines.append(f"- GT 文件: `{', '.join(ex['gt_files'])}`")
+                lines.append(f"- First edit: `{ex['first_edit']}` (Test file: {ex['is_test']})")
+                lines.append(f"- GT file: `{', '.join(ex['gt_files'])}`")
                 lines.append("")
 
-    lines.append("## 结论")
+    lines.append("## Conclusion")
     lines.append("")
-    lines.append("首次编辑命中率的差异主要是由于**分析方法的问题**，而非 Agent 能力的差异：")
+    lines.append("The difference in first edit hit rate is mainly due to **analysis methodology issues**, not differences in Agent capability:")
     lines.append("")
-    lines.append("1. **Unrestricted 模式**：Agent 先创建测试脚本复现问题，然后再修复源代码")
-    lines.append("2. **Prohibited 模式**：Agent 无法执行，直接编辑源代码")
+    lines.append("1. **Unrestricted mode**: Agent creates test scripts first to reproduce the problem, then fixes source code")
+    lines.append("2. **Prohibited mode**: Agent cannot execute, so directly edits source code")
     lines.append("")
-    lines.append("**因此，\"首次编辑命中率\"不应作为定位能力的指标**。应该使用：")
-    lines.append("- **最终编辑命中率**：所有编辑文件中是否包含 GT 文件")
-    lines.append("- **文件召回率**：GT 文件中有多少被 Agent 编辑到")
+    lines.append("**Therefore, \"first edit hit rate\" should not be used as an indicator of localization capability**. Should use:")
+    lines.append("- **Final edit hit rate**: Whether all edited files include GT files")
+    lines.append("- **File recall rate**: How many GT files were edited by Agent")
     lines.append("")
 
     # Save report
     report_file = ANALYSIS_DIR / "first_edit_investigation.md"
     with open(report_file, "w") as f:
         f.write("\n".join(lines))
-    print(f"\n报告已保存: {report_file}")
+    print(f"\nReport saved: {report_file}")
 
 
 if __name__ == "__main__":

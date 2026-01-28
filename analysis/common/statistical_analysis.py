@@ -397,18 +397,18 @@ def generate_paper_ready_text(pass_rates: dict, instance_results: dict) -> str:
 
 def equivalence_test(results: dict, dataset: str, agent: str, mode1: str, mode2: str, delta: float = 0.03) -> dict:
     """
-    等效性检验 (TOST - Two One-Sided Tests)
+    Equivalence Testing (TOST - Two One-Sided Tests)
 
-    证明两个模式的差异上界很小（在 ±delta 范围内）
+    Prove that the upper bound of difference between two modes is small (within +/-delta range)
 
-    参数:
-        delta: 等效性阈值（SESOI），默认 3pp (0.03)
+    Parameters:
+        delta: Equivalence threshold (SESOI), default 3pp (0.03)
 
-    返回:
-        - diff: 观测到的差异 (mode2 - mode1)
-        - ci_lower, ci_upper: 差异的 90% 置信区间
-        - equivalent: 是否等效（CI 完全落在 ±delta 内）
-        - max_benefit: 差异上界（CI 上限）
+    Returns:
+        - diff: Observed difference (mode2 - mode1)
+        - ci_lower, ci_upper: 90% confidence interval of difference
+        - equivalent: Whether equivalent (CI falls entirely within +/-delta)
+        - max_benefit: Upper bound of difference (CI upper limit)
     """
     data1 = results.get(dataset, {}).get(agent, {}).get(mode1, {})
     data2 = results.get(dataset, {}).get(agent, {}).get(mode2, {})
@@ -423,34 +423,34 @@ def equivalence_test(results: dict, dataset: str, agent: str, mode1: str, mode2:
     if total == 0:
         return None
 
-    # 计算配对差异
-    # b: mode1 成功但 mode2 失败
-    # c: mode1 失败但 mode2 成功
+    # Calculate paired difference
+    # b: mode1 succeeds but mode2 fails
+    # c: mode1 fails but mode2 succeeds
     b = len(resolved1 - resolved2)
     c = len(resolved2 - resolved1)
-    n = b + c  # 不一致的配对数
+    n = b + c  # Number of discordant pairs
 
-    # 差异估计: (c - b) / total
-    # 正值表示 mode2 更好
+    # Difference estimate: (c - b) / total
+    # Positive value indicates mode2 is better
     diff = (c - b) / total
 
-    # 使用 Wilson 方法计算差异的置信区间
-    # 对于配对比例差异，使用 Agresti-Caffo 方法的简化版本
-    # 90% CI 用于等效性检验（对应 alpha=0.05 的 TOST）
+    # Use Wilson method to calculate confidence interval of difference
+    # For paired proportion difference, use simplified version of Agresti-Caffo method
+    # 90% CI for equivalence testing (corresponding to alpha=0.05 TOST)
     z = 1.645  # 90% CI
 
     if n == 0:
-        # 没有不一致的配对，差异为 0
+        # No discordant pairs, difference is 0
         ci_lower = 0
         ci_upper = 0
     else:
-        # 标准误估计
+        # Standard error estimate
         # SE ≈ sqrt((b+c) - (c-b)^2/(b+c)) / total
         se = math.sqrt(n - (c - b)**2 / n) / total if n > 0 else 0
         ci_lower = diff - z * se
         ci_upper = diff + z * se
 
-    # 等效性判断：90% CI 完全落在 [-delta, +delta] 内
+    # Equivalence judgment: 90% CI falls entirely within [-delta, +delta]
     equivalent = (ci_lower >= -delta) and (ci_upper <= delta)
 
     return {
@@ -463,27 +463,27 @@ def equivalence_test(results: dict, dataset: str, agent: str, mode1: str, mode2:
         "delta": delta,
         "delta_pct": delta * 100,
         "equivalent": equivalent,
-        "max_benefit": ci_upper,  # 差异上界
+        "max_benefit": ci_upper,  # Upper bound of difference
         "max_benefit_pct": ci_upper * 100,
-        "b": b,  # mode1 成功但 mode2 失败
-        "c": c,  # mode1 失败但 mode2 成功
+        "b": b,  # mode1 succeeds but mode2 fails
+        "c": c,  # mode1 fails but mode2 succeeds
         "n_discordant": n
     }
 
 
 def generate_equivalence_analysis(instance_results: dict, delta: float = 0.03) -> str:
-    """生成等效性检验分析（覆盖所有 mode 组合）"""
+    """Generate equivalence testing analysis (covering all mode combinations)"""
     lines = []
-    lines.append("## 等效性检验 (Equivalence Testing)")
+    lines.append("## Equivalence Testing")
     lines.append("")
-    lines.append(f"使用 TOST (Two One-Sided Tests) 检验，等效性阈值 δ = {delta*100:.0f}pp")
+    lines.append(f"Using TOST (Two One-Sided Tests), equivalence threshold delta = {delta*100:.0f}pp")
     lines.append("")
-    lines.append("**核心问题**: 不同执行模式之间的收益上界是多少？")
+    lines.append("**Core question**: What is the upper bound of benefits between different execution modes?")
     lines.append("")
-    lines.append("如果 90% CI 完全落在 ±δ 内，则可以声称两者「实践等效」。")
+    lines.append("If 90% CI falls entirely within +/-delta, we can claim 'practical equivalence'.")
     lines.append("")
 
-    # 定义所有要比较的 mode 组合
+    # Define all mode comparisons
     mode_comparisons = [
         ("run_free", "run_less_k1"),
         ("run_free", "run_less_k3"),
@@ -495,7 +495,7 @@ def generate_equivalence_analysis(instance_results: dict, delta: float = 0.03) -
         ("run_cost", "run_full"),
     ]
 
-    all_results = []  # 收集所有结果用于总结表
+    all_results = []  # Collect all results for summary table
 
     for dataset, dataset_name in DATASETS.items():
         lines.append(f"### {dataset_name}")
@@ -523,38 +523,38 @@ def generate_equivalence_analysis(instance_results: dict, delta: float = 0.03) -
                     mode2_short = mode2.replace("run_", "").replace("_", "-")
                     equiv_str = "✅" if result['equivalent'] else "❌"
 
-                    lines.append(f"**{mode1_short} → {mode2_short}:** 差异 {result['diff_pct']:+.1f}pp, "
+                    lines.append(f"**{mode1_short} -> {mode2_short}:** Diff {result['diff_pct']:+.1f}pp, "
                                 f"CI [{result['ci_lower_pct']:+.1f}, {result['ci_upper_pct']:+.1f}], "
                                 f"b={result['b']}, c={result['c']} {equiv_str}")
 
             lines.append("")
 
-    # 总结表
-    lines.append("### 等效性检验总结表")
+    # Summary table
+    lines.append("### Equivalence Testing Summary Table")
     lines.append("")
-    lines.append("| Dataset | Agent | 比较 | 差异 | 90% CI | b | c | 等效? |")
-    lines.append("|---------|-------|------|------|--------|---|---|-------|")
+    lines.append("| Dataset | Agent | Comparison | Diff | 90% CI | b | c | Equivalent? |")
+    lines.append("|---------|-------|------------|------|--------|---|---|-------------|")
 
     for r in all_results:
         mode1_short = r['mode1'].replace("run_", "").replace("_", "-")
         mode2_short = r['mode2'].replace("run_", "").replace("_", "-")
-        equiv_str = "✅" if r['equivalent'] else "❌"
-        lines.append(f"| {r['dataset'][:8]} | {r['agent'][:6]} | {mode1_short}→{mode2_short} | "
+        equiv_str = "Yes" if r['equivalent'] else "No"
+        lines.append(f"| {r['dataset'][:8]} | {r['agent'][:6]} | {mode1_short}->{mode2_short} | "
                     f"{r['diff_pct']:+.1f}pp | [{r['ci_lower_pct']:+.1f}, {r['ci_upper_pct']:+.1f}] | "
                     f"{r['b']} | {r['c']} | {equiv_str} |")
 
     lines.append("")
 
-    # 对称性分析
-    lines.append("### 配对对称性分析 (Agent 随机性)")
+    # Symmetry analysis
+    lines.append("### Paired Symmetry Analysis (Agent Randomness)")
     lines.append("")
-    lines.append("如果某种模式有系统性优势，应该看到 c >> b（或 b >> c）。")
-    lines.append("如果 b ≈ c，说明差异主要来自 agent 内在随机性，而非模式本身的影响。")
+    lines.append("If a mode has systematic advantage, we should see c >> b (or b >> c).")
+    lines.append("If b is approximately equal to c, it indicates differences mainly come from agent's inherent randomness, not the mode's influence.")
     lines.append("")
 
-    # 计算对称性指标
-    lines.append("| Dataset | Agent | 比较 | b (mode1赢) | c (mode2赢) | 比例 b:c | 对称? |")
-    lines.append("|---------|-------|------|-------------|-------------|----------|-------|")
+    # Calculate symmetry metrics
+    lines.append("| Dataset | Agent | Comparison | b (mode1 wins) | c (mode2 wins) | Ratio b:c | Symmetric? |")
+    lines.append("|---------|-------|------------|----------------|----------------|-----------|------------|")
 
     for r in all_results:
         mode1_short = r['mode1'].replace("run_", "").replace("_", "-")
@@ -567,16 +567,16 @@ def generate_equivalence_analysis(instance_results: dict, delta: float = 0.03) -
         else:
             ratio = min(b, c) / max(b, c) if max(b, c) > 0 else 1.0
             ratio_str = f"{b}:{c}"
-            # 如果比例接近 1:1（比如 0.5 以上），认为是对称的
+            # If ratio is close to 1:1 (e.g., 0.5 or above), consider it symmetric
             symmetric = ratio >= 0.4 or (b + c) < 5
 
-        sym_str = "✅ 对称" if symmetric else "⚠️ 偏斜"
-        lines.append(f"| {r['dataset'][:8]} | {r['agent'][:6]} | {mode1_short}→{mode2_short} | "
+        sym_str = "Yes" if symmetric else "Skewed"
+        lines.append(f"| {r['dataset'][:8]} | {r['agent'][:6]} | {mode1_short}->{mode2_short} | "
                     f"{b} | {c} | {ratio_str} | {sym_str} |")
 
     lines.append("")
 
-    # 对称性总结
+    # Symmetry summary
     def is_symmetric(r):
         b, c = r['b'], r['c']
         if b + c == 0:
@@ -588,22 +588,22 @@ def generate_equivalence_analysis(instance_results: dict, delta: float = 0.03) -
     symmetric_count = sum(1 for r in all_results if is_symmetric(r))
     total_count = len(all_results)
 
-    lines.append(f"**对称性总结**: {symmetric_count}/{total_count} 个比较显示对称分布")
+    lines.append(f"**Symmetry Summary**: {symmetric_count}/{total_count} comparisons show symmetric distribution")
     lines.append("")
-    lines.append("> 大多数比较中 b ≈ c，表明不一致配对是双向的，")
-    lines.append("> 支持「差异主要来自 agent 随机性而非执行模式系统性优势」的结论。")
+    lines.append("> In most comparisons b is approximately equal to c, indicating discordant pairs are bidirectional,")
+    lines.append("> supporting the conclusion that 'differences mainly come from agent randomness rather than systematic advantage of execution modes'.")
     lines.append("")
 
     return "\n".join(lines)
 
 
 def generate_paper_equivalence_text(instance_results: dict, delta: float = 0.03) -> str:
-    """生成可直接放进论文的等效性检验文本"""
+    """Generate paper-ready equivalence testing text"""
     lines = []
-    lines.append("## 等效性检验 - 论文文本")
+    lines.append("## Equivalence Testing - Paper Text")
     lines.append("")
 
-    # 收集所有结果
+    # Collect all results
     all_results = []
     for dataset in ["swebenchlite", "swebenchverified"]:
         for agent in ["claude_code", "codex"]:
@@ -616,10 +616,10 @@ def generate_paper_equivalence_text(instance_results: dict, delta: float = 0.03)
                 })
 
     if not all_results:
-        lines.append("无数据")
+        lines.append("No data")
         return "\n".join(lines)
 
-    # 计算汇总统计
+    # Calculate summary statistics
     max_upper = max(r['ci_upper_pct'] for r in all_results)
     all_equivalent = all(r['equivalent'] for r in all_results)
 
@@ -634,14 +634,14 @@ def generate_paper_equivalence_text(instance_results: dict, delta: float = 0.03)
 
     lines.append("")
 
-    lines.append("### 中文版")
+    lines.append("### Chinese Version")
     lines.append("")
-    lines.append(f"> 为量化执行收益的上界，我们使用等效性检验，设定实践意义阈值 δ = {delta*100:.0f}pp。通过 TOST (Two One-Sided Tests) 方法，我们计算了 Run-Full 与 Run-Free 配对差异的 90% 置信区间。")
+    lines.append(f"> To quantify the upper bound of execution benefits, we used equivalence testing with a practically meaningful threshold delta = {delta*100:.0f}pp. Using the TOST (Two One-Sided Tests) method, we computed the 90% confidence interval for the paired difference between Run-Full and Run-Free.")
 
     if all_equivalent:
-        lines.append(f"在所有 agent-数据集组合中，置信区间均完全落在 ±{delta*100:.0f}pp 内，确立了实践等效性。观测到的最大收益上界为 {max_upper:+.1f}pp，这意味着即使在最有利的解释下，执行带来的收益也极为有限，不足以证明其显著的成本增加是合理的。")
+        lines.append(f"Across all agent-dataset combinations, the confidence intervals fall entirely within +/-{delta*100:.0f}pp, establishing practical equivalence. The maximum observed upper bound of benefits is {max_upper:+.1f}pp, meaning that even in the most favorable interpretation, the benefits from execution are extremely limited, insufficient to justify the substantial cost increase.")
     else:
-        lines.append(f"所有设置中观测到的最大收益上界为 {max_upper:+.1f}pp。部分设置显示等效，但其他设置无法排除执行带来的适度收益。")
+        lines.append(f"The maximum observed upper bound of benefits across all settings is {max_upper:+.1f}pp. Some settings show equivalence, but others cannot rule out modest benefits from execution.")
 
     lines.append("")
 

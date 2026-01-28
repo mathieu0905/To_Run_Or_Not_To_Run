@@ -1,11 +1,11 @@
-# P→P 案例详细分析报告
+# P→P Case Detailed Analysis Report
 
-本报告分析了 30 个 P→P 案例（在 Prohibited 和 Unrestricted 模式下均成功的实例），
-旨在理解为什么这些 bug 的修复**不需要代码执行**。
+This report analyzes 30 P→P cases (instances that succeeded in both Prohibited and Unrestricted modes),
+aiming to understand why fixing these bugs **does not require code execution**.
 
-## 一、总体统计
+## 1. Overall Statistics
 
-| # | 实例 | Prohibited Turns | Unrestricted Turns | Δ Turns | 修改行数 | 文件数 |
+| # | Instance | Prohibited Turns | Unrestricted Turns | Δ Turns | Lines Changed | Files |
 |---|------|-----------------|-------------------|---------|----------|--------|
 | 1 | `astropy__astropy-12907` | 7 | 7 | 0 | 2 | 1 |
 | 2 | `astropy__astropy-14995` | 9 | 10 | +1 | 2 | 1 |
@@ -37,90 +37,90 @@
 | 28 | `django__django-13158` | 39 | 54 | +15 | 2 | 1 |
 | 29 | `django__django-13315` | 40 | 65 | +25 | 2 | 1 |
 | 30 | `django__django-13401` | 21 | 34 | +13 | 17 | 1 |
-| | **平均** | **13.7** | **28.0** | **+14.3** | | |
+| | **Average** | **13.7** | **28.0** | **+14.3** | | |
 
-## 二、核心发现
+## 2. Core Findings
 
-### 1. Prohibited 模式显著更高效
-- 平均 **13.7 turns** vs **28.0 turns**
-- Unrestricted 模式多消耗 **104%** 的交互轮次
+### 1. Prohibited Mode is Significantly More Efficient
+- Average **13.7 turns** vs **28.0 turns**
+- Unrestricted mode consumes **104%** more interaction turns
 
-### 2. 代码执行是"冗余验证"
-- 所有 30 个案例在 Prohibited 模式下均**未执行任何测试**
-- 最终修复结果与 Unrestricted 模式**完全相同**
+### 2. Code Execution is "Redundant Verification"
+- All 30 cases **did not execute any tests** in Prohibited mode
+- Final fix results are **identical** to Unrestricted mode
 
-### 3. LLM 推理能力足够
-- Agent 仅通过**阅读代码和问题描述**即可理解并修复 bug
-- 不需要运行时反馈来验证修复正确性
+### 3. LLM Reasoning Capability is Sufficient
+- Agent can understand and fix bugs solely by **reading code and problem descriptions**
+- No runtime feedback needed to verify fix correctness
 
-## 三、Bug 类型与修复模式分析
+## 3. Bug Types and Fix Pattern Analysis
 
-### 常见 Bug 类型
+### Common Bug Types
 
-| Bug 类型 | 典型案例 | 特点 | 为什么不需要执行 |
-|----------|----------|------|------------------|
-| **正则表达式语义** | django-11099 | `$` vs `\\Z` 锚点问题 | LLM 理解 Python regex 语义 |
-| **API 参数处理** | django-10914 | 默认值设置错误 | 问题描述明确，修复确定 |
-| **字符串/编码** | astropy-6938 | encode 调用位置 | 静态代码分析可定位 |
-| **类型处理** | django-11133 | memoryview 支持 | 添加类型检查分支 |
-| **序列化逻辑** | django-11815 | Enum 序列化 | 理解序列化机制后可直接修复 |
+| Bug Type | Typical Case | Characteristics | Why Execution Not Needed |
+|----------|--------------|-----------------|--------------------------|
+| **Regex Semantics** | django-11099 | `$` vs `\\Z` anchor issue | LLM understands Python regex semantics |
+| **API Parameter Handling** | django-10914 | Incorrect default value | Clear problem description, deterministic fix |
+| **String/Encoding** | astropy-6938 | encode call position | Static code analysis can locate |
+| **Type Handling** | django-11133 | memoryview support | Add type check branch |
+| **Serialization Logic** | django-11815 | Enum serialization | Can fix directly after understanding serialization mechanism |
 
-### Prohibited 模式的典型工作流
+### Typical Workflow in Prohibited Mode
 
 ```
-1. [理解] 阅读问题描述 → 理解预期 vs 实际行为
-2. [定位] Grep/Glob → 搜索相关代码位置
-3. [分析] Read → 阅读代码理解实现逻辑
-4. [修复] Edit → 应用修复
-5. [验证] Read → 确认修改正确（可选）
+1. [Understand] Read problem description → Understand expected vs actual behavior
+2. [Locate] Grep/Glob → Search for relevant code locations
+3. [Analyze] Read → Read code to understand implementation logic
+4. [Fix] Edit → Apply fix
+5. [Verify] Read → Confirm modification is correct (optional)
 ```
 
 ---
 
-## 四、30 个案例逐一分析
+## 4. Analysis of All 30 Cases
 
-### 案例 1: `astropy__astropy-12907`
+### Case 1: `astropy__astropy-12907`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 7 | $0.0159 |
 | Unrestricted | 7 | - |
-| **差异** | **0** | |
+| **Difference** | **0** | |
 
-**修改范围**: +1/-1 行，文件: `separable.py`
+**Scope of Changes**: +1/-1 lines, File: `separable.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze the separability matrix bug for nested CompoundModels in astropy
 2. Bash: `find /testbed -type f -name "*.py" | grep -E "separa" | head -20`
 3. Bash: `find /testbed -type d -name "modeling" | head -5`
 4. Let me read the separable
-   - 工具: Read: separable.py
+   - Tool: Read: separable.py
 5. Read: separable.py
 6. Now let me look at the test file to understand the expected behavior better
 7. Read: test_separable.py
 8. Let me analyze the issue by examining the `_cstack` function more closely, as th...
-   - 工具: Read: separable.py
+   - Tool: Read: separable.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 2: `astropy__astropy-14995`
+### Case 2: `astropy__astropy-14995`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 9 | $0.0641 |
 | Unrestricted | 10 | - |
-| **差异** | **+1** (11% 更多) | |
+| **Difference** | **+1** (11% more) | |
 
-**修改范围**: +2/-0 行，文件: `ndarithmetic.py`
+**Scope of Changes**: +2/-0 lines, File: `ndarithmetic.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me start by exploring the codebase to understand the structure and find the ...
@@ -130,27 +130,27 @@
 6. Read: ndarithmetic.py
 7. TodoWrite
 8. Now I understand the code
-   - 工具: TodoWrite
+   - Tool: TodoWrite
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 3: `astropy__astropy-6938`
+### Case 3: `astropy__astropy-6938`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 4 | $0.0270 |
 | Unrestricted | 4 | - |
-| **差异** | **0** | |
+| **Difference** | **0** | |
 
-**修改范围**: +1/-1 行，文件: `fitsrec.py`
+**Scope of Changes**: +1/-1 lines, File: `fitsrec.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. Grep: `output_field.replace.*encode_a`
 2. Let me read the relevant code in fitsrec
@@ -159,26 +159,26 @@
 5. Edit: fitsrec.py
 6. The fix has been applied
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ 快速解决（<7 turns）：Agent 迅速理解问题本质
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Fast resolution (<7 turns): Agent quickly understood the problem essence
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 4: `django__django-10914`
+### Case 4: `django__django-10914`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 9 | $0.0369 |
 | Unrestricted | 36 | - |
-| **差异** | **+27** (300% 更多) | |
+| **Difference** | **+27** (300% more) | |
 
-**修改范围**: +1/-1 行，文件: `global_settings.py`
+**Scope of Changes**: +1/-1 lines, File: `global_settings.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me understand the problem first
@@ -189,25 +189,25 @@
 7. Read: storage.py
 8. TodoWrite
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 5: `django__django-10924`
+### Case 5: `django__django-10924`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 14 | $0.0386 |
 | Unrestricted | 53 | - |
-| **差异** | **+39** (279% 更多) | |
+| **Difference** | **+39** (279% more) | |
 
-**修改范围**: +8/-3 行，文件: `__init__.py`, `fields.py`
+**Scope of Changes**: +8/-3 lines, Files: `__init__.py`, `fields.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me start by exploring the FilePathField implementation in Django
@@ -218,23 +218,23 @@
 7. Read: fields.py
 8. Let me search for the FilePathField class definition in the models fields file
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 6: `django__django-11001`
+### Case 6: `django__django-11001`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 9 | $0.0300 |
 | Unrestricted | 17 | - |
-| **差异** | **+8** (89% 更多) | |
+| **Difference** | **+8** (89% more) | |
 
-**修改范围**: +1/-1 行，文件: `compiler.py`
+**Scope of Changes**: +1/-1 lines, File: `compiler.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me first find the SQLCompiler class and the `get_order_by` method
@@ -244,56 +244,56 @@
 6. Read: compiler.py
 7. TodoWrite
 8. Now I understand the issue
-   - 工具: TodoWrite
+   - Tool: TodoWrite
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 7: `django__django-11039`
+### Case 7: `django__django-11039`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 19 | $0.0329 |
 | Unrestricted | 36 | - |
-| **差异** | **+17** (89% 更多) | |
+| **Difference** | **+17** (89% more) | |
 
-**修改范围**: +16/-1 行，文件: `sqlmigrate.py`, `test_commands.py`
+**Scope of Changes**: +16/-1 lines, Files: `sqlmigrate.py`, `test_commands.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this issue step by step to understand the problem and implement a f...
 2. Bash: `find /testbed -type f -name "*.py" -path "*/management/commands/*" | grep -i mig`
 3. Bash: `find /testbed -type f -name "*.py" -path "*/migrations/*" | grep -E "(executor|t`
 4. I'll analyze the code to understand the issue and implement the fix
-   - 工具: Read: executor.py, Read: sqlmigrate.py
+   - Tool: Read: executor.py, Read: sqlmigrate.py
 5. Read: executor.py, Read: sqlmigrate.py
 6. Read: executor.py, Read: sqlmigrate.py
 7. Now I can see the issue clearly
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/db/backends/*" | xargs grep -l "can_`, Bash: `grep -n "can_rollback_ddl" /testbed/django/db/migrations/executor.py`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/db/backends/*" | xargs grep -l "can_`, Bash: `grep -n "can_rollback_ddl" /testbed/django/db/migrations/executor.py`
 8. Bash: `find /testbed -type f -name "*.py" -path "*/db/backends/*" | xargs grep -l "can_`, Bash: `grep -n "can_rollback_ddl" /testbed/django/db/migrations/executor.py`
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 8: `django__django-11049`
+### Case 8: `django__django-11049`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 8 | $0.0469 |
 | Unrestricted | 7 | - |
-| **差异** | **-1** | |
+| **Difference** | **-1** | |
 
-**修改范围**: +2/-2 行，文件: `__init__.py`, `test_durationfield.py`
+**Scope of Changes**: +2/-2 lines, Files: `__init__.py`, `test_durationfield.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. Grep: `\[DD\].*\[HH:`
 2. Let me look at the main source file and understand the actual parsing behavior f...
@@ -304,183 +304,183 @@
 7. Now I understand the issue
 8. Edit: __init__.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 9: `django__django-11099`
+### Case 9: `django__django-11099`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 6 | $0.0031 |
 | Unrestricted | 6 | - |
-| **差异** | **0** | |
+| **Difference** | **0** | |
 
-**修改范围**: +2/-2 行，文件: `validators.py`
+**Scope of Changes**: +2/-2 lines, File: `validators.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze and fix the UsernameValidator issue where trailing newlines are inc...
 2. Bash: `find /testbed -type f -name "validators.py" | grep -E "contrib/auth"`
 3. I'll examine the validators file to understand the current implementation and fi...
-   - 工具: Read: validators.py
+   - Tool: Read: validators.py
 4. Read: validators.py
 5. Perfect! I can see the issue clearly
-   - 工具: Edit: validators.py
+   - Tool: Edit: validators.py
 6. Edit: validators.py
 7. Now let me fix the second validator:
-   - 工具: Edit: validators.py
+   - Tool: Edit: validators.py
 8. Edit: validators.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ 快速解决（<7 turns）：Agent 迅速理解问题本质
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Fast resolution (<7 turns): Agent quickly understood the problem essence
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 10: `django__django-11133`
+### Case 10: `django__django-11133`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 4 | $0.0004 |
 | Unrestricted | 6 | - |
-| **差异** | **+2** (50% 更多) | |
+| **Difference** | **+2** (50% more) | |
 
-**修改范围**: +2/-0 行，文件: `response.py`
+**Scope of Changes**: +2/-0 lines, File: `response.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze the Django codebase to understand and fix the issue where HttpRespo...
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/http/*" | grep -E "(response|__init_`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/http/*" | grep -E "(response|__init_`
 2. Bash: `find /testbed -type f -name "*.py" -path "*/http/*" | grep -E "(response|__init_`
 3. I'll analyze the Django HttpResponse code to understand and fix the memoryview h...
-   - 工具: Read: response.py
+   - Tool: Read: response.py
 4. Read: response.py
 5. I'll analyze the code to understand how HttpResponse handles content and identif...
-   - 工具: Edit: response.py
+   - Tool: Edit: response.py
 6. Edit: response.py
 7. Perfect! I've successfully fixed the issue
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ 快速解决（<7 turns）：Agent 迅速理解问题本质
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Fast resolution (<7 turns): Agent quickly understood the problem essence
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 11: `django__django-11179`
+### Case 11: `django__django-11179`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 5 | $0.0133 |
 | Unrestricted | 5 | - |
-| **差异** | **0** | |
+| **Difference** | **0** | |
 
-**修改范围**: +1/-0 行，文件: `deletion.py`
+**Scope of Changes**: +1/-0 lines, File: `deletion.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze the Django deletion code to understand and fix the issue where `del...
 2. Read: deletion.py
 3. I can see the issue
-   - 工具: Read: deletion.py
+   - Tool: Read: deletion.py
 4. Read: deletion.py
 5. Perfect! Now I can see the issue clearly
 6. Edit: deletion.py
 7. Perfect! I've successfully fixed the bug
-   - 工具: Read: deletion.py
+   - Tool: Read: deletion.py
 8. Read: deletion.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ 快速解决（<7 turns）：Agent 迅速理解问题本质
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Fast resolution (<7 turns): Agent quickly understood the problem essence
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 12: `django__django-11422`
+### Case 12: `django__django-11422`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 16 | $0.0978 |
 | Unrestricted | 20 | - |
-| **差异** | **+4** (25% 更多) | |
+| **Difference** | **+4** (25% more) | |
 
-**修改范围**: +8/-2 行，文件: `autoreload.py`
+**Scope of Changes**: +8/-2 lines, File: `autoreload.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me start by exploring the Django autoreload mechanism to understand how it w...
-   - 工具: Glob
+   - Tool: Glob
 3. Glob: `**/autoreload*.py`, Glob
 4. Read: autoreload.py
 5. Now I understand the autoreload mechanism
-   - 工具: Grep: `sys\.argv\[0\]`, Grep: `__main__`
+   - Tool: Grep: `sys\.argv\[0\]`, Grep: `__main__`
 6. Grep: `sys\.argv\[0\]`, Grep: `__main__`
 7. Grep: `sys\.argv\[0\]`, Grep: `__main__`
 8. TodoWrite
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 13: `django__django-11583`
+### Case 13: `django__django-11583`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 11 | $0.0285 |
 | Unrestricted | 8 | - |
-| **差异** | **-3** | |
+| **Difference** | **-3** | |
 
-**修改范围**: +4/-3 行，文件: `autoreload.py`
+**Scope of Changes**: +4/-3 lines, File: `autoreload.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this bug about the intermittent "ValueError: embedded null byte" in...
-   - 工具: Bash: `find /testbed -type f -name "autoreload.py" | head -20`
+   - Tool: Bash: `find /testbed -type f -name "autoreload.py" | head -20`
 2. Bash: `find /testbed -type f -name "autoreload.py" | head -20`
 3. I'll analyze the autoreload
-   - 工具: Read: autoreload.py
+   - Tool: Read: autoreload.py
 4. Read: autoreload.py
 5. Now let me examine the specific area where the error occurs
-   - 工具: Read: autoreload.py
+   - Tool: Read: autoreload.py
 6. Read: autoreload.py
 7. Looking at the code and the error description, I can now analyze the root cause ...
-   - 工具: Read: autoreload.py
+   - Tool: Read: autoreload.py
 8. Read: autoreload.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 14: `django__django-11815`
+### Case 14: `django__django-11815`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 8 | $0.0728 |
 | Unrestricted | 35 | - |
-| **差异** | **+27** (338% 更多) | |
+| **Difference** | **+27** (338% more) | |
 
-**修改范围**: +4/-3 行，文件: `serializer.py`
+**Scope of Changes**: +4/-3 lines, File: `serializer.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me understand the bug first
@@ -491,56 +491,56 @@
 7. TodoWrite
 8. I found the issue
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 15: `django__django-11848`
+### Case 15: `django__django-11848`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 6 | $0.0143 |
 | Unrestricted | 21 | - |
-| **差异** | **+15** (250% 更多) | |
+| **Difference** | **+15** (250% more) | |
 
-**修改范围**: +6/-3 行，文件: `http.py`
+**Scope of Changes**: +6/-3 lines, File: `http.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze the Django code to understand and fix the two-digit year check issu...
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/django/utils/http.py" | head -5`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/django/utils/http.py" | head -5`
 2. Bash: `find /testbed -type f -name "*.py" -path "*/django/utils/http.py" | head -5`
 3. I'll read the `parse_http_date` function to understand the current implementatio...
-   - 工具: Read: http.py
+   - Tool: Read: http.py
 4. Read: http.py
 5. Now I can see the issue clearly
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/tests/*" | grep -i http | head -10`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/tests/*" | grep -i http | head -10`
 6. Bash: `find /testbed -type f -name "*.py" -path "*/tests/*" | grep -i http | head -10`
 7. Let me read the test file to understand the expected behavior better
 8. Read: test_http.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ 快速解决（<7 turns）：Agent 迅速理解问题本质
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Fast resolution (<7 turns): Agent quickly understood the problem essence
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 16: `django__django-11999`
+### Case 16: `django__django-11999`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 12 | $0.0216 |
 | Unrestricted | 43 | - |
-| **差异** | **+31** (258% 更多) | |
+| **Difference** | **+31** (258% more) | |
 
-**修改范围**: +3/-2 行，文件: `__init__.py`
+**Scope of Changes**: +3/-2 lines, File: `__init__.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me start by understanding the bug
@@ -551,183 +551,183 @@
 7. Grep: `get_.*_display|_get_FIELD_disp`
 8. Now I can see the key code
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 17: `django__django-12125`
+### Case 17: `django__django-12125`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 10 | $0.0174 |
 | Unrestricted | 32 | - |
-| **差异** | **+22** (220% 更多) | |
+| **Difference** | **+22** (220% more) | |
 
-**修改范围**: +2/-2 行，文件: `serializer.py`
+**Scope of Changes**: +2/-2 lines, File: `serializer.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this Django bug where `makemigrations` produces incorrect paths for...
-   - 工具: Bash: `find /testbed -type f -name "*.py" | grep -E "(migration|serializer)" | head -20`
+   - Tool: Bash: `find /testbed -type f -name "*.py" | grep -E "(migration|serializer)" | head -20`
 2. Bash: `find /testbed -type f -name "*.py" | grep -E "(migration|serializer)" | head -20`
 3. I'll analyze the Django bug where `makemigrations` produces incorrect paths for ...
 4. Bash: `find /testbed/django -type f -path "*/migrations/*.py" | grep -E "(serializer|wr`
 5. Let me examine the migration serializer code to understand how it handles class ...
-   - 工具: Read: serializer.py
+   - Tool: Read: serializer.py
 6. Read: serializer.py
 7. Now I can see the issue
-   - 工具: Bash: `grep -n "__qualname__" /testbed/django/db/migrations/serializer.py`
+   - Tool: Bash: `grep -n "__qualname__" /testbed/django/db/migrations/serializer.py`
 8. Bash: `grep -n "__qualname__" /testbed/django/db/migrations/serializer.py`
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 18: `django__django-12286`
+### Case 18: `django__django-12286`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 22 | $0.0638 |
 | Unrestricted | 32 | - |
-| **差异** | **+10** (45% 更多) | |
+| **Difference** | **+10** (45% more) | |
 
-**修改范围**: +14/-1 行，文件: `translation.py`
+**Scope of Changes**: +14/-1 lines, File: `translation.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this Django translation issue where `translation
 2. Bash: `find /testbed -type f -name "*.py" | grep -E "(translation|check)" | head -20`
 3. Bash: `grep -r "translation.E004" /testbed --include="*.py"`
 4. I'll analyze the Django translation check issue and fix it
-   - 工具: Read: translation.py, Read: test_translation.py
+   - Tool: Read: translation.py, Read: test_translation.py
 5. Read: translation.py, Read: test_translation.py
 6. Read: translation.py, Read: test_translation.py
 7. Now I can see the issue
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/translation/*" | grep -v __pycache__`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/translation/*" | grep -v __pycache__`
 8. Bash: `find /testbed -type f -name "*.py" -path "*/translation/*" | grep -v __pycache__`
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 19: `django__django-12453`
+### Case 19: `django__django-12453`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 6 | $0.0144 |
 | Unrestricted | 22 | - |
-| **差异** | **+16** (267% 更多) | |
+| **Difference** | **+16** (267% more) | |
 
-**修改范围**: +4/-3 行，文件: `creation.py`
+**Scope of Changes**: +4/-3 lines, File: `creation.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this issue and implement the fix
 2. Bash: `find /testbed -type f -name "creation.py" | grep -E "db/backends/base"`
 3. I'll analyze the issue and implement the fix
 4. Read: creation.py
 5. Now I can see the issue clearly
-   - 工具: Edit: creation.py
+   - Tool: Edit: creation.py
 6. Edit: creation.py
 7. Now let me update the `deserialize_db_from_string` method to wrap the deserializ...
-   - 工具: Edit: creation.py
+   - Tool: Edit: creation.py
 8. Edit: creation.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ 快速解决（<7 turns）：Agent 迅速理解问题本质
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Fast resolution (<7 turns): Agent quickly understood the problem essence
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 20: `django__django-12497`
+### Case 20: `django__django-12497`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 15 | $0.0339 |
 | Unrestricted | 25 | - |
-| **差异** | **+10** (67% 更多) | |
+| **Difference** | **+10** (67% more) | |
 
-**修改范围**: +3/-3 行，文件: `related.py`, `test_relative_fields.py`
+**Scope of Changes**: +3/-3 lines, Files: `related.py`, `test_relative_fields.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this Django bug about the incorrect hint message for recursive rela...
 2. Grep: `If you want to create a recurs`
 3. Let me search for the error message in the source code to understand the issue b...
 4. Read: related.py
 5. Let me search for the specific error message in the file
-   - 工具: Grep: `If you want to create a recurs`
+   - Tool: Grep: `If you want to create a recurs`
 6. Grep: `If you want to create a recurs`
 7. Now let me look at the broader context around these error messages to understand...
 8. Read: related.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 21: `django__django-12700`
+### Case 21: `django__django-12700`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 14 | $0.0586 |
 | Unrestricted | 22 | - |
-| **差异** | **+8** (57% 更多) | |
+| **Difference** | **+8** (57% more) | |
 
-**修改范围**: +4/-0 行，文件: `debug.py`
+**Scope of Changes**: +4/-0 lines, File: `debug.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this security issue where Django's `SafeExceptionReporterFilter
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/views/debug.py" | head -5`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/views/debug.py" | head -5`
 2. Bash: `find /testbed -type f -name "*.py" -path "*/views/debug.py" | head -5`
 3. I'll analyze the Django security issue where `SafeExceptionReporterFilter
-   - 工具: Read: debug.py
+   - Tool: Read: debug.py
 4. Read: debug.py
 5. Now I can see the issue clearly
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/tests/*" | grep -i debug | head -10`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/tests/*" | grep -i debug | head -10`
 6. Bash: `find /testbed -type f -name "*.py" -path "*/tests/*" | grep -i debug | head -10`
 7. Let me check the test file to understand the expected behavior better
-   - 工具: Read: test_debug.py
+   - Tool: Read: test_debug.py
 8. Read: test_debug.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 22: `django__django-12708`
+### Case 22: `django__django-12708`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 10 | $0.0911 |
 | Unrestricted | 44 | - |
-| **差异** | **+34** (340% 更多) | |
+| **Difference** | **+34** (340% more) | |
 
-**修改范围**: +1/-1 行，文件: `schema.py`
+**Scope of Changes**: +1/-1 lines, File: `schema.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me start by reading the relevant file mentioned in the problem description
-   - 工具: Read: schema.py
+   - Tool: Read: schema.py
 3. Read: schema.py
 4. Now I can see the `_delete_composed_index` method at line 402
 5. Grep: `def _constraint_names`
@@ -735,59 +735,59 @@
 7. Now I understand the issue
 8. TodoWrite
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 23: `django__django-12856`
+### Case 23: `django__django-12856`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 34 | $0.0975 |
 | Unrestricted | 45 | - |
-| **差异** | **+11** (32% 更多) | |
+| **Difference** | **+11** (32% more) | |
 
-**修改范围**: +3/-0 行，文件: `base.py`
+**Scope of Changes**: +3/-0 lines, File: `base.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this issue step by step
-   - 工具: Bash: `find /testbed -type f -path "*/models/constraints.py" | head -5`, Bash: `find /testbed -type f -name "*.py" | grep -E "(check|constraint)" | head -20`
+   - Tool: Bash: `find /testbed -type f -path "*/models/constraints.py" | head -5`, Bash: `find /testbed -type f -name "*.py" | grep -E "(check|constraint)" | head -20`
 2. Bash: `find /testbed -type f -path "*/models/constraints.py" | head -5`, Bash: `find /testbed -type f -name "*.py" | grep -E "(check|constraint)" | head -20`
 3. Bash: `find /testbed -type f -path "*/models/constraints.py" | head -5`, Bash: `find /testbed -type f -name "*.py" | grep -E "(check|constraint)" | head -20`
 4. I'll analyze the Django codebase to understand how to add field validation for `...
 5. Read: constraints.py
 6. Bash: `find /testbed -type f -name "*.py" -path "*/models/*" | grep -E "check" | head -`
 7. Now let me look at how `unique_together` implements its field validation to unde...
-   - 工具: Bash: `find /testbed -type f -name "*.py" -path "*/models/*" | grep -E "base|options" |`
+   - Tool: Bash: `find /testbed -type f -name "*.py" -path "*/models/*" | grep -E "base|options" |`
 8. Bash: `find /testbed -type f -name "*.py" -path "*/models/*" | grep -E "base|options" |`
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 24: `django__django-12915`
+### Case 24: `django__django-12915`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 8 | $0.0228 |
 | Unrestricted | 40 | - |
-| **差异** | **+32** (400% 更多) | |
+| **Difference** | **+32** (400% more) | |
 
-**修改范围**: +6/-0 行，文件: `handlers.py`
+**Scope of Changes**: +6/-0 lines, File: `handlers.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this issue step by step to understand the problem and implement a f...
-   - 工具: Read: handlers.py, Read: asgi.py
+   - Tool: Read: handlers.py, Read: asgi.py
 2. Read: handlers.py, Read: asgi.py
 3. Read: handlers.py, Read: asgi.py
 4. Now let me check the base handler to understand how `get_response_async` is impl...
@@ -796,55 +796,55 @@
 7. Grep: `from asgiref`
 8. Now I'll implement the fix
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 25: `django__django-12983`
+### Case 25: `django__django-12983`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 6 | $0.0295 |
 | Unrestricted | 28 | - |
-| **差异** | **+22** (367% 更多) | |
+| **Difference** | **+22** (367% more) | |
 
-**修改范围**: +1/-1 行，文件: `text.py`
+**Scope of Changes**: +1/-1 lines, File: `text.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. Grep: `def slugify`
 2. Let me search for the slugify function in the Django codebase
 3. Glob: `**/text.py`
 4. Read: text.py
 5. I found the `slugify` function at line 394-406 in `/testbed/django/utils/text
-   - 工具: Edit: text.py
+   - Tool: Edit: text.py
 6. Edit: text.py
 7. The fix has been applied
 8. Read: text.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ 快速解决（<7 turns）：Agent 迅速理解问题本质
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Fast resolution (<7 turns): Agent quickly understood the problem essence
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 26: `django__django-13028`
+### Case 26: `django__django-13028`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 11 | $0.1431 |
 | Unrestricted | 29 | - |
-| **差异** | **+18** (164% 更多) | |
+| **Difference** | **+18** (164% more) | |
 
-**修改范围**: +6/-5 行，文件: `query.py`
+**Scope of Changes**: +6/-5 lines, File: `query.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. TodoWrite
 2. Let me understand the bug first
@@ -855,86 +855,86 @@
 7. TodoWrite
 8. Let me look at how the `filterable` attribute is used in Django expressions to u...
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 27: `django__django-13033`
+### Case 27: `django__django-13033`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 29 | $0.2267 |
 | Unrestricted | 55 | - |
-| **差异** | **+26** (90% 更多) | |
+| **Difference** | **+26** (90% more) | |
 
-**修改范围**: +1/-1 行，文件: `compiler.py`
+**Scope of Changes**: +1/-1 lines, File: `compiler.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this Django ORM issue where self-referencing foreign keys cause inc...
 2. Bash: `find /testbed -type f -name "*.py" | grep -E "(query|order)" | head -20`
 3. Bash: `ls -la /testbed`
 4. I'll analyze this Django ORM bug where self-referencing foreign keys cause incor...
-   - 工具: Bash: `find /testbed/django/db/models -type f -name "*.py" | grep -E "(sql|query)" | he`, Bash: `ls -la /testbed/django/db/models`
+   - Tool: Bash: `find /testbed/django/db/models -type f -name "*.py" | grep -E "(sql|query)" | he`, Bash: `ls -la /testbed/django/db/models`
 5. Bash: `find /testbed/django/db/models -type f -name "*.py" | grep -E "(sql|query)" | he`, Bash: `ls -la /testbed/django/db/models`
 6. Bash: `find /testbed/django/db/models -type f -name "*.py" | grep -E "(sql|query)" | he`, Bash: `ls -la /testbed/django/db/models`
 7. Let me explore the Django ORM code to understand how ordering works with self-re...
-   - 工具: Bash: `ls -la /testbed/django/db/models/sql`, Grep: `order_by`
+   - Tool: Bash: `ls -la /testbed/django/db/models/sql`, Grep: `order_by`
 8. Bash: `ls -la /testbed/django/db/models/sql`, Grep: `order_by`
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 28: `django__django-13158`
+### Case 28: `django__django-13158`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 39 | $0.2682 |
 | Unrestricted | 54 | - |
-| **差异** | **+15** (38% 更多) | |
+| **Difference** | **+15** (38% more) | |
 
-**修改范围**: +2/-0 行，文件: `query.py`
+**Scope of Changes**: +2/-0 lines, File: `query.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this Django bug where `QuerySet
-   - 工具: Bash: `ls -la /testbed`, Bash: `find /testbed -type f -name "*.py" | grep -E "(queryset|query)" | head -20`
+   - Tool: Bash: `ls -la /testbed`, Bash: `find /testbed -type f -name "*.py" | grep -E "(queryset|query)" | head -20`
 2. Bash: `ls -la /testbed`, Bash: `find /testbed -type f -name "*.py" | grep -E "(queryset|query)" | head -20`
 3. Bash: `ls -la /testbed`, Bash: `find /testbed -type f -name "*.py" | grep -E "(queryset|query)" | head -20`
 4. I'll analyze this Django bug where `QuerySet
-   - 工具: Read: query.py
+   - Tool: Read: query.py
 5. Read: query.py
 6. Let me search for the `none()` method and understand how it works with combined ...
 7. Bash: `grep -n "def none" /testbed/django/db/models/query.py`
 8. Let me read the `none()` method and understand how it works with combined querie...
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 29: `django__django-13315`
+### Case 29: `django__django-13315`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 40 | $0.1113 |
 | Unrestricted | 65 | - |
-| **差异** | **+25** (62% 更多) | |
+| **Difference** | **+25** (62% more) | |
 
-**修改范围**: +1/-1 行，文件: `models.py`
+**Scope of Changes**: +1/-1 lines, File: `models.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this Django issue about duplicate options in ForeignKey formfields ...
 2. Bash: `find /testbed -type f -name "*.py" | grep -E "(test|regression)" | grep -i "limi`
@@ -945,25 +945,25 @@
 7. Let me search for files related to ForeignKey and limit_choices_to to understand...
 8. Bash: `find /testbed -type f -name "*.py" -path "*/django/db/models/*" | grep -E "(fiel`
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 小范围修改（≤5行）：修复逻辑简单，易于推理验证
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Small scope changes (≤5 lines): Simple fix logic, easy to verify through reasoning
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-### 案例 30: `django__django-13401`
+### Case 30: `django__django-13401`
 
-| 模式 | Turns | 成本 |
+| Mode | Turns | Cost |
 |------|-------|------|
 | Prohibited | 21 | $0.1253 |
 | Unrestricted | 34 | - |
-| **差异** | **+13** (62% 更多) | |
+| **Difference** | **+13** (62% more) | |
 
-**修改范围**: +14/-3 行，文件: `__init__.py`
+**Scope of Changes**: +14/-3 lines, File: `__init__.py`
 
-**Prohibited 模式执行步骤**:
+**Prohibited Mode Execution Steps**:
 
 1. I'll analyze this issue step by step to understand the problem and implement a f...
 2. Bash: `find /testbed -type f -name "*.py" -path "*/django/db/models/*" | grep -E "(fiel`
@@ -974,35 +974,35 @@
 7. Let me read the comparison methods in the Field class
 8. Read: __init__.py
 
-**为什么不需要执行也能成功?**
+**Why Can It Succeed Without Execution?**
 
-- ✅ 单文件修改：问题边界清晰，不涉及跨模块依赖
-- ✅ Bug 类型适合推理：不涉及边界条件、性能、并发等需要运行时验证的问题
+- ✅ Single file modification: Clear problem boundary, no cross-module dependencies
+- ✅ Bug type suitable for reasoning: Does not involve boundary conditions, performance, concurrency, or other issues requiring runtime verification
 
 ---
 
-## 五、结论与启示
+## 5. Conclusions and Insights
 
-### 核心结论
+### Core Conclusions
 
-1. **LLM 内在推理能力足够**：对于这 30 个 P→P 案例，Agent 仅通过代码阅读和理解即可正确修复
+1. **LLM's Intrinsic Reasoning Capability is Sufficient**: For these 30 P→P cases, the Agent can correctly fix bugs solely through code reading and understanding
 
-2. **执行是冗余验证**：Unrestricted 模式下的测试执行并未带来额外价值，反而消耗了更多资源
+2. **Execution is Redundant Verification**: Test execution in Unrestricted mode did not bring additional value, but consumed more resources instead
 
-3. **Prohibited 更高效**：平均节省 51% 的交互轮次，成本更低
+3. **Prohibited is More Efficient**: Saves an average of 51% interaction turns with lower cost
 
-### 适合 Prohibited 模式的 Bug 特征
+### Bug Characteristics Suitable for Prohibited Mode
 
-| 特征 | 描述 |
-|------|------|
-| 问题描述清晰 | Issue 明确说明预期 vs 实际行为 |
-| 确定性修复 | 理解问题后可直接给出正确答案 |
-| 语义/逻辑错误 | 如 regex、API 调用、类型处理 |
-| 小范围修改 | 通常 ≤10 行代码 |
-| 无运行时依赖 | 不涉及边界条件、并发、性能 |
+| Characteristic | Description |
+|----------------|-------------|
+| Clear problem description | Issue clearly states expected vs actual behavior |
+| Deterministic fix | Can directly provide correct answer after understanding the problem |
+| Semantic/logic errors | Such as regex, API calls, type handling |
+| Small scope changes | Usually ≤10 lines of code |
+| No runtime dependencies | Does not involve boundary conditions, concurrency, performance |
 
-### 对 RQ3 的支撑
+### Support for RQ3
 
-> 这 30 个案例证明：对于大多数成功修复的 bug（P→P），LLM 的推理能力已经足够。
-> 代码执行在这些场景下是**冗余验证**，而非修复的必要条件。
-> 这解释了为什么 Prohibited 模式能够达到与 Unrestricted 模式相当的 resolve rate。
+> These 30 cases demonstrate: For most successfully fixed bugs (P→P), LLM's reasoning capability is sufficient.
+> Code execution in these scenarios is **redundant verification**, not a necessary condition for fixing.
+> This explains why Prohibited mode can achieve a resolve rate comparable to Unrestricted mode.

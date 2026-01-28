@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-RQ3 补充分析：完整的 Verification/Reproduction 统计
+RQ3 Supplementary Analysis: Complete Verification/Reproduction Statistics
 
-补齐两个口径：
-1. Reproduction success/fail (count) - 复现执行是否提供有效定位信号
-2. Verification 总尝试次数统计 - 不只是 first/any
+Complete two metrics:
+1. Reproduction success/fail (count) - Whether reproduction execution provides effective localization signals
+2. Verification total attempt count statistics - Not just first/any
 """
 
 import json
@@ -46,22 +46,22 @@ def is_test_execution(cmd: str) -> bool:
 
 
 def is_test_file(path: str) -> bool:
-    """判断是否是测试文件（而非源代码文件）"""
+    """Check if it's a test file (not a source code file)"""
     path_lower = path.lower()
-    # 测试文件特征
+    # Test file characteristics
     if '/test_' in path_lower or '/tests/' in path_lower:
         return True
     if path_lower.endswith('_test.py'):
         return True
-    if 'test' in path_lower.split('/')[-1]:  # 文件名包含 test
+    if 'test' in path_lower.split('/')[-1]:  # Filename contains test
         return True
-    # 临时脚本（用于复现）
+    # Temporary scripts (for reproduction)
     if 'reproduce' in path_lower or 'debug' in path_lower:
         return True
     if 'script' in path_lower.split('/')[-1]:
         return True
-    # 检查是否在项目根目录的临时文件
-    if path_lower.count('/') == 0:  # 没有目录，可能是临时脚本
+    # Check if it's a temporary file in project root
+    if path_lower.count('/') == 0:  # No directory, may be a temporary script
         if path_lower.endswith('.py'):
             return True
     return False
@@ -69,15 +69,15 @@ def is_test_file(path: str) -> bool:
 
 def classify_execution_result(content: str) -> str:
     """
-    分类执行结果：
-    - actionable: 包含有效信息（stacktrace, 文件路径, 测试名）
-    - env_error: 环境错误（pytest 没装，路径错误等）
-    - success: 测试通过
-    - test_fail: 测试失败但有有效信息
+    Classify execution result:
+    - actionable: Contains useful information (stacktrace, file path, test name)
+    - env_error: Environment errors (pytest not installed, path errors, etc.)
+    - success: Tests passed
+    - test_fail: Test failure (but contains useful information)
     """
     content_lower = content.lower()
 
-    # 环境错误
+    # Environment errors
     env_errors = ['No module named', 'ModuleNotFoundError', 'command not found',
                   'FileNotFoundError', 'No such file or directory',
                   'Permission denied', 'UnicodeDecodeError', 'encoding']
@@ -85,35 +85,35 @@ def classify_execution_result(content: str) -> str:
         if err in content or err.lower() in content_lower:
             return "env_error"
 
-    # 成功
+    # Success
     if 'passed' in content_lower and 'failed' not in content_lower:
         return "success"
     if content.strip().endswith('OK') or '\nOK' in content:
         return "success"
 
-    # 测试失败（但包含有效信息）
+    # Test failure (but contains useful information)
     if 'FAILED' in content or 'AssertionError' in content:
         return "test_fail"
     if 'Traceback (most recent call last)' in content:
         return "test_fail"
 
-    # 默认：可能有信息但不确定
+    # Default: may have information but uncertain
     return "unknown"
 
 
 def is_actionable(content: str, result_type: str) -> bool:
     """
-    判断执行结果是否 actionable（提供了可用于定位的信息）
-    - 包含文件路径
-    - 包含 stacktrace
-    - 包含具体的测试名/错误信息
+    Check if execution result is actionable (provides information useful for localization)
+    - Contains file path
+    - Contains stacktrace
+    - Contains specific test name/error message
     """
     if result_type == "env_error":
         return False
     if result_type == "success":
-        return True  # 成功复现 = 确认 bug 存在的位置
+        return True  # Successful reproduction = confirms bug location
 
-    # 检查是否包含有用信息
+    # Check if it contains useful information
     has_filepath = bool(re.search(r'[a-zA-Z_][a-zA-Z0-9_/]*\.py', content))
     has_traceback = 'Traceback' in content or 'File "' in content
     has_line_number = bool(re.search(r'line \d+', content.lower()))
@@ -143,7 +143,7 @@ class InstanceStats:
 def analyze_claude_trace(traces: list, instance_id: str, outcome: str) -> InstanceStats:
     stats = InstanceStats(instance_id=instance_id, agent="claude_code", outcome=outcome)
 
-    first_source_edit_found = False  # 改为：第一次编辑源代码文件
+    first_source_edit_found = False  # Changed to: first source code file edit
     pending_exec = None
 
     for entry in traces:
@@ -157,7 +157,7 @@ def analyze_claude_trace(traces: list, instance_id: str, outcome: str) -> Instan
 
                     if tool_name in ["Edit", "Write"]:
                         file_path = item.get("input", {}).get("file_path", "")
-                        # 只有编辑源代码文件才算"第一次编辑"
+                        # Only editing source code files counts as "first edit"
                         if file_path and not is_test_file(file_path):
                             first_source_edit_found = True
 
@@ -176,7 +176,7 @@ def analyze_claude_trace(traces: list, instance_id: str, outcome: str) -> Instan
                         actionable = is_actionable(result, result_type)
 
                         if pending_exec["is_after_source_edit"]:
-                            # Verification: 编辑源代码后的测试执行
+                            # Verification: test execution after editing source code
                             stats.verification_count += 1
                             if result_type == "success":
                                 stats.verification_success += 1
@@ -187,7 +187,7 @@ def analyze_claude_trace(traces: list, instance_id: str, outcome: str) -> Instan
                             else:
                                 stats.verification_unknown += 1
                         else:
-                            # Reproduction: 编辑源代码前的测试执行（包括先写测试再跑）
+                            # Reproduction: test execution before editing source code (including writing tests first then running)
                             stats.reproduction_count += 1
                             if actionable:
                                 stats.reproduction_actionable += 1
@@ -202,7 +202,7 @@ def analyze_claude_trace(traces: list, instance_id: str, outcome: str) -> Instan
 def analyze_codex_trace(traces: list, instance_id: str, outcome: str) -> InstanceStats:
     stats = InstanceStats(instance_id=instance_id, agent="codex", outcome=outcome)
 
-    first_source_edit_found = False  # 改为：第一次编辑源代码文件
+    first_source_edit_found = False  # Changed to: first source code file edit
 
     for entry in traces:
         entry_type = entry.get("type", "")
@@ -212,7 +212,7 @@ def analyze_codex_trace(traces: list, instance_id: str, outcome: str) -> Instanc
             item_type = item.get("type", "")
 
             if item_type in ["file_edit", "file_change"]:
-                # 获取文件路径
+                # Get file path
                 file_path = ""
                 changes = item.get("changes", [])
                 for change in changes:
@@ -223,7 +223,7 @@ def analyze_codex_trace(traces: list, instance_id: str, outcome: str) -> Instanc
                 if not file_path:
                     file_path = item.get("file_path", "")
 
-                # 只有编辑源代码文件才算"第一次编辑"
+                # Only editing source code files counts as "first edit"
                 if file_path and not is_test_file(file_path):
                     first_source_edit_found = True
 
@@ -249,7 +249,7 @@ def analyze_codex_trace(traces: list, instance_id: str, outcome: str) -> Instanc
                     actionable = is_actionable(result, result_type)
 
                     if first_source_edit_found:
-                        # Verification: 编辑源代码后的测试执行
+                        # Verification: test execution after editing source code
                         stats.verification_count += 1
                         if result_type == "success":
                             stats.verification_success += 1
@@ -260,7 +260,7 @@ def analyze_codex_trace(traces: list, instance_id: str, outcome: str) -> Instanc
                         else:
                             stats.verification_unknown += 1
                     else:
-                        # Reproduction: 编辑源代码前的测试执行
+                        # Reproduction: test execution before editing source code
                         stats.reproduction_count += 1
                         if actionable:
                             stats.reproduction_actionable += 1
@@ -332,12 +332,12 @@ def load_outcome_cases() -> dict:
 
 def main():
     print("=" * 80)
-    print("RQ3 补充分析：Verification/Reproduction 完整统计")
+    print("RQ3 Supplementary Analysis: Complete Verification/Reproduction Statistics")
     print("=" * 80)
 
     cases = load_outcome_cases()
 
-    # 只分析 Unrestricted 模式
+    # Only analyze Unrestricted mode
     results = {
         "claude_code": {"pp": [], "ff": []},
         "codex": {"pp": [], "ff": []}
@@ -345,7 +345,7 @@ def main():
 
     for agent in ["claude_code", "codex"]:
         for outcome in ["pp", "ff"]:
-            print(f"\n分析 {agent} {outcome.upper()}...")
+            print(f"\nAnalyzing {agent} {outcome.upper()}...")
 
             for dataset, instance in cases[agent][outcome]:
                 traces = load_trace(dataset, agent, "run_full", instance)
@@ -359,27 +359,27 @@ def main():
 
                 results[agent][outcome].append(stats)
 
-    # 生成报告
+    # Generate report
     generate_report(results)
 
 
 def generate_report(results: dict):
     lines = []
-    lines.append("# RQ3 补充分析：Verification/Reproduction 完整统计")
+    lines.append("# RQ3 Supplementary Analysis: Complete Verification/Reproduction Statistics")
     lines.append("")
     lines.append(f"*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
     lines.append("")
 
-    # 1. Reproduction 统计
-    lines.append("## 1. Reproduction Execution 统计")
+    # 1. Reproduction statistics
+    lines.append("## 1. Reproduction Execution Statistics")
     lines.append("")
-    lines.append("**定义**：发生在第一次 file edit 之前的测试执行，用于理解/定位 bug。")
+    lines.append("**Definition**: Test executions that occur before the first file edit, used for understanding/localizing bugs.")
     lines.append("")
-    lines.append("- **Actionable**: 执行结果包含有效信息（文件路径、stacktrace、行号），可用于定位")
-    lines.append("- **Non-actionable**: 环境错误或无有效信息")
+    lines.append("- **Actionable**: Execution result contains useful information (file path, stacktrace, line number), can be used for localization")
+    lines.append("- **Non-actionable**: Environment errors or no useful information")
     lines.append("")
 
-    lines.append("### P→P 案例 (Unrestricted 模式)")
+    lines.append("### P->P Cases (Unrestricted Mode)")
     lines.append("")
     lines.append("| Agent | Has Repro. | Total Execs | Actionable | Non-actionable |")
     lines.append("|-------|-----------|-------------|------------|----------------|")
@@ -400,13 +400,13 @@ def generate_report(results: dict):
 
     lines.append("")
 
-    # 2. Verification 统计
-    lines.append("## 2. Verification Execution 统计")
+    # 2. Verification statistics
+    lines.append("## 2. Verification Execution Statistics")
     lines.append("")
-    lines.append("**定义**：发生在第一次 file edit 之后的测试执行，用于验证补丁。")
+    lines.append("**Definition**: Test executions that occur after the first file edit, used for verifying patches.")
     lines.append("")
 
-    lines.append("### P→P 案例 (Unrestricted 模式)")
+    lines.append("### P->P Cases (Unrestricted Mode)")
     lines.append("")
     lines.append("| Agent | Has Verif. | Total Execs | Success | Test Fail | Env Error |")
     lines.append("|-------|-----------|-------------|---------|-----------|-----------|")
@@ -430,7 +430,7 @@ def generate_report(results: dict):
 
     lines.append("")
 
-    lines.append("### F→F 案例 (Unrestricted 模式)")
+    lines.append("### F->F Cases (Unrestricted Mode)")
     lines.append("")
     lines.append("| Agent | Has Verif. | Total Execs | Success | Test Fail | Env Error |")
     lines.append("|-------|-----------|-------------|---------|-----------|-----------|")
@@ -454,8 +454,8 @@ def generate_report(results: dict):
 
     lines.append("")
 
-    # 3. 平均统计
-    lines.append("## 3. 每实例平均执行次数")
+    # 3. Average statistics
+    lines.append("## 3. Average Executions Per Instance")
     lines.append("")
     lines.append("| Agent | Outcome | Avg. Repro/Instance | Avg. Verif/Instance |")
     lines.append("|-------|---------|---------------------|---------------------|")
@@ -463,7 +463,7 @@ def generate_report(results: dict):
     for agent in ["claude_code", "codex"]:
         agent_label = "Claude Code" if agent == "claude_code" else "Codex"
         for outcome in ["pp", "ff"]:
-            outcome_label = "P→P" if outcome == "pp" else "F→F"
+            outcome_label = "P->P" if outcome == "pp" else "F->F"
             stats_list = results[agent][outcome]
 
             if stats_list:
@@ -473,11 +473,11 @@ def generate_report(results: dict):
 
     lines.append("")
 
-    # 4. 关键发现
-    lines.append("## 4. 关键发现")
+    # 4. Key findings
+    lines.append("## 4. Key Findings")
     lines.append("")
 
-    # Claude Code P→P
+    # Claude Code P->P
     cc_pp = results["claude_code"]["pp"]
     if cc_pp:
         total_repro = sum(s.reproduction_count for s in cc_pp)
@@ -489,11 +489,11 @@ def generate_report(results: dict):
         lines.append("### Claude Code")
         lines.append("")
         if total_repro > 0:
-            lines.append(f"- **Reproduction**: {total_repro} 次执行中 {actionable} 次 ({actionable/total_repro*100:.1f}%) 提供了可用于定位的信息")
-        lines.append(f"- **Verification**: {total_verif} 次执行中 {success} 次 ({success/total_verif*100:.1f}%) 成功，{env_error} 次 ({env_error/total_verif*100:.1f}%) 是环境错误")
+            lines.append(f"- **Reproduction**: Out of {total_repro} executions, {actionable} ({actionable/total_repro*100:.1f}%) provided information useful for localization")
+        lines.append(f"- **Verification**: Out of {total_verif} executions, {success} ({success/total_verif*100:.1f}%) succeeded, {env_error} ({env_error/total_verif*100:.1f}%) were environment errors")
         lines.append("")
 
-    # Codex P→P
+    # Codex P->P
     cx_pp = results["codex"]["pp"]
     if cx_pp:
         total_repro = sum(s.reproduction_count for s in cx_pp)
@@ -505,15 +505,15 @@ def generate_report(results: dict):
         lines.append("### Codex")
         lines.append("")
         if total_repro > 0:
-            lines.append(f"- **Reproduction**: {total_repro} 次执行中 {actionable} 次 ({actionable/total_repro*100:.1f}%) 提供了可用于定位的信息")
-        lines.append(f"- **Verification**: {total_verif} 次执行中 {success} 次 ({success/total_verif*100:.1f}%) 成功，{env_error} 次 ({env_error/total_verif*100:.1f}%) 是环境错误")
+            lines.append(f"- **Reproduction**: Out of {total_repro} executions, {actionable} ({actionable/total_repro*100:.1f}%) provided information useful for localization")
+        lines.append(f"- **Verification**: Out of {total_verif} executions, {success} ({success/total_verif*100:.1f}%) succeeded, {env_error} ({env_error/total_verif*100:.1f}%) were environment errors")
         lines.append("")
 
     # Save
     report_file = ANALYSIS_DIR / "rq3_detailed_counts.md"
     with open(report_file, "w") as f:
         f.write("\n".join(lines))
-    print(f"\n报告已保存: {report_file}")
+    print(f"\nReport saved: {report_file}")
 
     # Also save JSON
     json_file = ANALYSIS_DIR / "rq3_detailed_counts.json"
@@ -541,7 +541,7 @@ def generate_report(results: dict):
 
     with open(json_file, "w") as f:
         json.dump(json_data, f, indent=2)
-    print(f"JSON 已保存: {json_file}")
+    print(f"JSON saved: {json_file}")
 
 
 if __name__ == "__main__":

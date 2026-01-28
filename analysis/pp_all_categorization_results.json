@@ -21,13 +21,13 @@
     "high_gain_cases": 78
   },
   "categories": {
-    "简单确定性修复": 17,
-    "局部语义修复": 85,
-    "代码理解充分": 9,
-    "复杂但可推理": 147
+    "Simple Deterministic Fix": 17,
+    "Local Semantic Fix": 85,
+    "Sufficient Code Understanding": 9,
+    "Complex but Reasonable": 147
   },
   "category_instances": {
-    "简单确定性修复": [
+    "Simple Deterministic Fix": [
       "cc_lite_pp::astropy__astropy-6938",
       "cc_lite_pp::django__django-11099",
       "cc_lite_pp::django__django-11133",
@@ -46,7 +46,7 @@
       "cc_verified_pp::django__django-11451",
       "codex_verified_pp::django__django-11951"
     ],
-    "局部语义修复": [
+    "Local Semantic Fix": [
       "cc_lite_pp::astropy__astropy-12907",
       "cc_lite_pp::astropy__astropy-14995",
       "cc_lite_pp::django__django-10914",
@@ -133,7 +133,7 @@
       "cc_verified_pp::django__django-13109",
       "codex_lite_pp::django__django-12915"
     ],
-    "代码理解充分": [
+    "Sufficient Code Understanding": [
       "cc_lite_pp::django__django-10924",
       "cc_lite_pp::django__django-11039",
       "cc_lite_pp::django__django-12497",
@@ -144,7 +144,7 @@
       "cc_verified_pp::django__django-12713",
       "cc_verified_pp::django__django-12741"
     ],
-    "复杂但可推理": [
+    "Complex but Reasonable": [
       "cc_lite_pp::django__django-11049",
       "cc_lite_pp::django__django-13925",
       "cc_lite_pp::django__django-14017",
