@@ -1,0 +1,62 @@
+{
+  "claude_code": {
+    "pp": {
+      "count": 116,
+      "reproduction": {
+        "total": 164,
+        "actionable": 80,
+        "non_actionable": 84
+      },
+      "verification": {
+        "total": 851,
+        "success": 414,
+        "test_fail": 154,
+        "env_error": 127
+      }
+    },
+    "ff": {
+      "count": 84,
+      "reproduction": {
+        "total": 170,
+        "actionable": 85,
+        "non_actionable": 85
+      },
+      "verification": {
+        "total": 668,
+        "success": 272,
+        "test_fail": 102,
+        "env_error": 121
+      }
+    }
+  },
+  "codex": {
+    "pp": {
+      "count": 142,
+      "reproduction": {
+        "total": 17,
+        "actionable": 11,
+        "non_actionable": 6
+      },
+      "verification": {
+        "total": 445,
+        "success": 230,
+        "test_fail": 60,
+        "env_error": 152
+      }
+    },
+    "ff": {
+      "count": 55,
+      "reproduction": {
+        "total": 10,
+        "actionable": 5,
+        "non_actionable": 5
+      },
+      "verification": {
+        "total": 153,
+        "success": 85,
+        "test_fail": 17,
+        "env_error": 49
+      }
+    }
+  }
+}

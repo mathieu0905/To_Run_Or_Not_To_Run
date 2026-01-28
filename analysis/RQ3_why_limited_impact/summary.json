@@ -1,0 +1,79 @@
+{
+  "claude_code_swebenchlite": {
+    "hurt": [
+      "django__django-12184",
+      "django__django-12908",
+      "django__django-14016",
+      "django__django-15695",
+      "django__django-13230"
+    ],
+    "helped": [
+      "django__django-14997",
+      "django__django-15498",
+      "django__django-12470",
+      "django__django-11620",
+      "django__django-11797",
+      "django__django-12284"
+    ],
+    "hurt_count": 5,
+    "helped_count": 6,
+    "both_pass_count": 58,
+    "both_fail_count": 31
+  },
+  "codex_swebenchlite": {
+    "hurt": [
+      "django__django-12497",
+      "django__django-11964",
+      "django__django-11848",
+      "django__django-12747"
+    ],
+    "helped": [
+      "django__django-15202",
+      "django__django-15781",
+      "django__django-15252"
+    ],
+    "hurt_count": 4,
+    "helped_count": 3,
+    "both_pass_count": 70,
+    "both_fail_count": 22
+  },
+  "claude_code_swebenchverified": {
+    "hurt": [
+      "django__django-11532",
+      "astropy__astropy-14365",
+      "django__django-11555",
+      "django__django-13121",
+      "django__django-11728",
+      "django__django-11790"
+    ],
+    "helped": [
+      "django__django-11206",
+      "django__django-11490",
+      "astropy__astropy-14096",
+      "django__django-12304",
+      "django__django-10973",
+      "django__django-12965",
+      "django__django-12663",
+      "django__django-11265",
+      "astropy__astropy-7166"
+    ],
+    "hurt_count": 6,
+    "helped_count": 9,
+    "both_pass_count": 58,
+    "both_fail_count": 27
+  },
+  "codex_swebenchverified": {
+    "hurt": [
+      "django__django-10973"
+    ],
+    "helped": [
+      "django__django-11490",
+      "django__django-12304",
+      "django__django-11265"
+    ],
+    "hurt_count": 1,
+    "helped_count": 3,
+    "both_pass_count": 72,
+    "both_fail_count": 23
+  }
+}

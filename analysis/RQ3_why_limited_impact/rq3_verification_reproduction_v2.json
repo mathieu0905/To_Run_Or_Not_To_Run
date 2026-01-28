@@ -1,0 +1,86 @@
+{
+  "claude_code": {
+    "pp": {
+      "total": 116,
+      "has_verification": 101,
+      "first_verification_success": 10,
+      "first_verification_fail": 91,
+      "with_reproduction": {
+        "count": 19,
+        "total_hit": 18,
+        "total_recall": 18.0,
+        "avg_hit": 0.9473684210526315,
+        "avg_recall": 0.9473684210526315
+      },
+      "without_reproduction": {
+        "count": 97,
+        "total_hit": 95,
+        "total_recall": 94.0,
+        "avg_hit": 0.979381443298969,
+        "avg_recall": 0.9690721649484536
+      }
+    },
+    "ff": {
+      "total": 84,
+      "has_verification": 80,
+      "first_verification_success": 5,
+      "first_verification_fail": 75,
+      "with_reproduction": {
+        "count": 9,
+        "total_hit": 8,
+        "total_recall": 6.333333333333333,
+        "avg_hit": 0.8888888888888888,
+        "avg_recall": 0.7037037037037037
+      },
+      "without_reproduction": {
+        "count": 75,
+        "total_hit": 64,
+        "total_recall": 60.03333333333334,
+        "avg_hit": 0.8533333333333334,
+        "avg_recall": 0.8004444444444445
+      }
+    }
+  },
+  "codex": {
+    "pp": {
+      "total": 142,
+      "has_verification": 140,
+      "first_verification_success": 48,
+      "first_verification_fail": 92,
+      "with_reproduction": {
+        "count": 6,
+        "total_hit": 6,
+        "total_recall": 6.0,
+        "avg_hit": 1.0,
+        "avg_recall": 1.0
+      },
+      "without_reproduction": {
+        "count": 136,
+        "total_hit": 134,
+        "total_recall": 130.9,
+        "avg_hit": 0.9852941176470589,
+        "avg_recall": 0.9625
+      }
+    },
+    "ff": {
+      "total": 55,
+      "has_verification": 52,
+      "first_verification_success": 15,
+      "first_verification_fail": 37,
+      "with_reproduction": {
+        "count": 2,
+        "total_hit": 2,
+        "total_recall": 2.0,
+        "avg_hit": 1.0,
+        "avg_recall": 1.0
+      },
+      "without_reproduction": {
+        "count": 53,
+        "total_hit": 48,
+        "total_recall": 44.166666666666664,
+        "avg_hit": 0.9056603773584906,
+        "avg_recall": 0.8333333333333333
+      }
+    }
+  }
+}

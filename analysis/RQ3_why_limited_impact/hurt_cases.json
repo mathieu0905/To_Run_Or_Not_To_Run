@@ -1,0 +1,82 @@
+[
+  {
+    "instance": "django__django-12184",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-12908",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-14016",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-15695",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-13230",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-12497",
+    "agent": "codex",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-11964",
+    "agent": "codex",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-11848",
+    "agent": "codex",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-12747",
+    "agent": "codex",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-11532",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "astropy__astropy-14365",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-11555",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-13121",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-11728",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-11790",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-10973",
+    "agent": "codex",
+    "dataset": "swebenchverified"
+  }
+]

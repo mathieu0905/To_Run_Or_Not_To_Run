@@ -1,0 +1,1488 @@
+{
+  "hurt": [
+    {
+      "instance": "django__django-12184",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 2,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 25647,
+          "output": 834,
+          "total": 26481
+        }
+      },
+      "unbounded": {
+        "total_commands": 26,
+        "test_executions": 14,
+        "error_commands": 5,
+        "repeated_commands": 5,
+        "tokens": {
+          "input": 189957,
+          "output": 2861,
+          "total": 192818
+        },
+        "error_types": {
+          "TypeError": 1,
+          "AttributeError": 1,
+          "ImportError": 1,
+          "Other": 2
+        }
+      },
+      "delta": {
+        "commands": 24,
+        "test_executions": 14,
+        "tokens": 166337,
+        "repeated": 5
+      }
+    },
+    {
+      "instance": "django__django-12908",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 11,
+        "test_executions": 2,
+        "error_commands": 2,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 69590,
+          "output": 2401,
+          "total": 71991
+        }
+      },
+      "unbounded": {
+        "total_commands": 17,
+        "test_executions": 14,
+        "error_commands": 5,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 161614,
+          "output": 2975,
+          "total": 164589
+        },
+        "error_types": {
+          "Other": 5
+        }
+      },
+      "delta": {
+        "commands": 6,
+        "test_executions": 12,
+        "tokens": 92598,
+        "repeated": 1
+      }
+    },
+    {
+      "instance": "django__django-14016",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 17,
+        "test_executions": 2,
+        "error_commands": 2,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 77971,
+          "output": 2026,
+          "total": 79997
+        }
+      },
+      "unbounded": {
+        "total_commands": 23,
+        "test_executions": 14,
+        "error_commands": 3,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 129484,
+          "output": 2713,
+          "total": 132197
+        },
+        "error_types": {
+          "TypeError": 1,
+          "TestFailed": 1,
+          "ImportError": 1
+        }
+      },
+      "delta": {
+        "commands": 6,
+        "test_executions": 12,
+        "tokens": 52200,
+        "repeated": -1
+      }
+    },
+    {
+      "instance": "django__django-15695",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 2,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 30843,
+          "output": 1305,
+          "total": 32148
+        }
+      },
+      "unbounded": {
+        "total_commands": 22,
+        "test_executions": 12,
+        "error_commands": 6,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 321971,
+          "output": 6274,
+          "total": 328245
+        },
+        "error_types": {
+          "Other": 4,
+          "AssertionError": 2
+        }
+      },
+      "delta": {
+        "commands": 20,
+        "test_executions": 12,
+        "tokens": 296097,
+        "repeated": 3
+      }
+    },
+    {
+      "instance": "django__django-13230",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 1,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 6069,
+          "output": 822,
+          "total": 6891
+        }
+      },
+      "unbounded": {
+        "total_commands": 17,
+        "test_executions": 8,
+        "error_commands": 4,
+        "repeated_commands": 2,
+        "tokens": {
+          "input": 103673,
+          "output": 2040,
+          "total": 105713
+        },
+        "error_types": {
+          "ImportError": 2,
+          "Other": 1,
+          "TypeError": 1
+        }
+      },
+      "delta": {
+        "commands": 16,
+        "test_executions": 8,
+        "tokens": 98822,
+        "repeated": 2
+      }
+    },
+    {
+      "instance": "django__django-12497",
+      "agent": "codex",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 18,
+        "test_executions": 0,
+        "error_commands": 4,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 16,
+        "test_executions": 3,
+        "error_commands": 10,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "Other": 9,
+          "AttributeError": 1
+        }
+      },
+      "delta": {
+        "commands": -2,
+        "test_executions": 3,
+        "tokens": 0,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-11964",
+      "agent": "codex",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 28,
+        "test_executions": 0,
+        "error_commands": 12,
+        "repeated_commands": 4,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 27,
+        "test_executions": 2,
+        "error_commands": 12,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "Other": 8,
+          "ImportError": 1,
+          "KeyError": 1,
+          "SyntaxError": 1,
+          "TypeError": 1
+        }
+      },
+      "delta": {
+        "commands": -1,
+        "test_executions": 2,
+        "tokens": 0,
+        "repeated": -1
+      }
+    },
+    {
+      "instance": "django__django-11848",
+      "agent": "codex",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 8,
+        "test_executions": 0,
+        "error_commands": 2,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 12,
+        "test_executions": 3,
+        "error_commands": 6,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "Other": 5,
+          "ValueError": 1
+        }
+      },
+      "delta": {
+        "commands": 4,
+        "test_executions": 3,
+        "tokens": 0,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-12747",
+      "agent": "codex",
+      "dataset": "swebenchlite",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 22,
+        "test_executions": 0,
+        "error_commands": 5,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 19,
+        "test_executions": 3,
+        "error_commands": 3,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "TypeError": 1,
+          "Other": 2
+        }
+      },
+      "delta": {
+        "commands": -3,
+        "test_executions": 3,
+        "tokens": 0,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-11532",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 0,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 11476,
+          "output": 485,
+          "total": 11961
+        }
+      },
+      "unbounded": {
+        "total_commands": 15,
+        "test_executions": 10,
+        "error_commands": 5,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 123256,
+          "output": 1697,
+          "total": 124953
+        },
+        "error_types": {
+          "ValueError": 1,
+          "ImportError": 2,
+          "Other": 2
+        }
+      },
+      "delta": {
+        "commands": 15,
+        "test_executions": 10,
+        "tokens": 112992,
+        "repeated": 3
+      }
+    },
+    {
+      "instance": "astropy__astropy-14365",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "hurt",
+      "repo": "astropy",
+      "offline": {
+        "total_commands": 0,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 15294,
+          "output": 474,
+          "total": 15768
+        }
+      },
+      "unbounded": {
+        "total_commands": 6,
+        "test_executions": 3,
+        "error_commands": 3,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 38295,
+          "output": 881,
+          "total": 39176
+        },
+        "error_types": {
+          "Other": 1,
+          "TestFailed": 1,
+          "ValueError": 1
+        }
+      },
+      "delta": {
+        "commands": 6,
+        "test_executions": 3,
+        "tokens": 23408,
+        "repeated": 1
+      }
+    },
+    {
+      "instance": "django__django-11555",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 4,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 62596,
+          "output": 2710,
+          "total": 65306
+        }
+      },
+      "unbounded": {
+        "total_commands": 24,
+        "test_executions": 15,
+        "error_commands": 9,
+        "repeated_commands": 4,
+        "tokens": {
+          "input": 189962,
+          "output": 3451,
+          "total": 193413
+        },
+        "error_types": {
+          "ImportError": 2,
+          "Other": 3,
+          "TypeError": 4
+        }
+      },
+      "delta": {
+        "commands": 20,
+        "test_executions": 15,
+        "tokens": 128107,
+        "repeated": 4
+      }
+    },
+    {
+      "instance": "django__django-13121",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 6,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 188121,
+          "output": 3756,
+          "total": 191877
+        }
+      },
+      "unbounded": {
+        "total_commands": 18,
+        "test_executions": 7,
+        "error_commands": 5,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 272410,
+          "output": 3314,
+          "total": 275724
+        },
+        "error_types": {
+          "Other": 2,
+          "AttributeError": 1,
+          "ImportError": 2
+        }
+      },
+      "delta": {
+        "commands": 12,
+        "test_executions": 7,
+        "tokens": 83847,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-11728",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 16,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 79652,
+          "output": 3356,
+          "total": 83008
+        }
+      },
+      "unbounded": {
+        "total_commands": 16,
+        "test_executions": 10,
+        "error_commands": 5,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 75876,
+          "output": 1755,
+          "total": 77631
+        },
+        "error_types": {
+          "Other": 4,
+          "ImportError": 1
+        }
+      },
+      "delta": {
+        "commands": 0,
+        "test_executions": 10,
+        "tokens": -5377,
+        "repeated": 1
+      }
+    },
+    {
+      "instance": "django__django-11790",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 14,
+        "test_executions": 4,
+        "error_commands": 2,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 128565,
+          "output": 4037,
+          "total": 132602
+        }
+      },
+      "unbounded": {
+        "total_commands": 17,
+        "test_executions": 6,
+        "error_commands": 5,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 172342,
+          "output": 4117,
+          "total": 176459
+        },
+        "error_types": {
+          "Other": 4,
+          "ImportError": 1
+        }
+      },
+      "delta": {
+        "commands": 3,
+        "test_executions": 2,
+        "tokens": 43857,
+        "repeated": 1
+      }
+    },
+    {
+      "instance": "django__django-10973",
+      "agent": "codex",
+      "dataset": "swebenchverified",
+      "case_type": "hurt",
+      "repo": "django",
+      "offline": {
+        "total_commands": 17,
+        "test_executions": 0,
+        "error_commands": 2,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 17,
+        "test_executions": 6,
+        "error_commands": 5,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "Other": 4,
+          "ImportError": 1
+        }
+      },
+      "delta": {
+        "commands": 0,
+        "test_executions": 6,
+        "tokens": 0,
+        "repeated": -2
+      }
+    }
+  ],
+  "helped": [
+    {
+      "instance": "django__django-14997",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 6,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 282298,
+          "output": 3329,
+          "total": 285627
+        }
+      },
+      "unbounded": {
+        "total_commands": 19,
+        "test_executions": 5,
+        "error_commands": 7,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 249228,
+          "output": 2644,
+          "total": 251872
+        },
+        "error_types": {
+          "Other": 2,
+          "AttributeError": 3,
+          "KeyError": 1,
+          "TypeError": 1
+        }
+      },
+      "delta": {
+        "commands": 13,
+        "test_executions": 5,
+        "tokens": -33755,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-15498",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 9,
+        "test_executions": 0,
+        "error_commands": 2,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 56506,
+          "output": 2359,
+          "total": 58865
+        }
+      },
+      "unbounded": {
+        "total_commands": 18,
+        "test_executions": 7,
+        "error_commands": 5,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 81494,
+          "output": 1901,
+          "total": 83395
+        },
+        "error_types": {
+          "TypeError": 2,
+          "ImportError": 1,
+          "Other": 2
+        }
+      },
+      "delta": {
+        "commands": 9,
+        "test_executions": 7,
+        "tokens": 24530,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-12470",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 18,
+        "test_executions": 3,
+        "error_commands": 1,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 87060,
+          "output": 3611,
+          "total": 90671
+        }
+      },
+      "unbounded": {
+        "total_commands": 38,
+        "test_executions": 12,
+        "error_commands": 9,
+        "repeated_commands": 4,
+        "tokens": {
+          "input": 699580,
+          "output": 14972,
+          "total": 714552
+        },
+        "error_types": {
+          "Other": 4,
+          "AssertionError": 4,
+          "KeyError": 1
+        }
+      },
+      "delta": {
+        "commands": 20,
+        "test_executions": 9,
+        "tokens": 623881,
+        "repeated": 4
+      }
+    },
+    {
+      "instance": "django__django-11620",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 7,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 149019,
+          "output": 10936,
+          "total": 159955
+        }
+      },
+      "unbounded": {
+        "total_commands": 16,
+        "test_executions": 12,
+        "error_commands": 5,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 207542,
+          "output": 4422,
+          "total": 211964
+        },
+        "error_types": {
+          "KeyError": 1,
+          "Other": 1,
+          "IndexError": 1,
+          "ImportError": 1,
+          "ValueError": 1
+        }
+      },
+      "delta": {
+        "commands": 9,
+        "test_executions": 12,
+        "tokens": 52009,
+        "repeated": 3
+      }
+    },
+    {
+      "instance": "django__django-11797",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 11,
+        "test_executions": 5,
+        "error_commands": 3,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 267786,
+          "output": 8003,
+          "total": 275789
+        }
+      },
+      "unbounded": {
+        "total_commands": 41,
+        "test_executions": 8,
+        "error_commands": 5,
+        "repeated_commands": 4,
+        "tokens": {
+          "input": 730495,
+          "output": 7296,
+          "total": 737791
+        },
+        "error_types": {
+          "TestFailed": 1,
+          "TypeError": 1,
+          "SyntaxError": 2,
+          "Other": 1
+        }
+      },
+      "delta": {
+        "commands": 30,
+        "test_executions": 3,
+        "tokens": 462002,
+        "repeated": 4
+      }
+    },
+    {
+      "instance": "django__django-12284",
+      "agent": "claude_code",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 0,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 23001,
+          "output": 1104,
+          "total": 24105
+        }
+      },
+      "unbounded": {
+        "total_commands": 26,
+        "test_executions": 18,
+        "error_commands": 8,
+        "repeated_commands": 4,
+        "tokens": {
+          "input": 167608,
+          "output": 2906,
+          "total": 170514
+        },
+        "error_types": {
+          "Other": 3,
+          "AttributeError": 2,
+          "ImportError": 2,
+          "AssertionError": 1
+        }
+      },
+      "delta": {
+        "commands": 26,
+        "test_executions": 18,
+        "tokens": 146409,
+        "repeated": 4
+      }
+    },
+    {
+      "instance": "django__django-15202",
+      "agent": "codex",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 12,
+        "test_executions": 0,
+        "error_commands": 6,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 34,
+        "test_executions": 4,
+        "error_commands": 15,
+        "repeated_commands": 5,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "TypeError": 2,
+          "Other": 4,
+          "ValueError": 5,
+          "TestFailed": 2,
+          "KeyError": 1,
+          "SyntaxError": 1
+        }
+      },
+      "delta": {
+        "commands": 22,
+        "test_executions": 4,
+        "tokens": 0,
+        "repeated": 5
+      }
+    },
+    {
+      "instance": "django__django-15781",
+      "agent": "codex",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 23,
+        "test_executions": 0,
+        "error_commands": 6,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 18,
+        "test_executions": 2,
+        "error_commands": 9,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "TypeError": 1,
+          "Other": 7,
+          "AttributeError": 1
+        }
+      },
+      "delta": {
+        "commands": -5,
+        "test_executions": 2,
+        "tokens": 0,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-15252",
+      "agent": "codex",
+      "dataset": "swebenchlite",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 35,
+        "test_executions": 0,
+        "error_commands": 3,
+        "repeated_commands": 2,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 33,
+        "test_executions": 5,
+        "error_commands": 7,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "AttributeError": 1,
+          "Other": 6
+        }
+      },
+      "delta": {
+        "commands": -2,
+        "test_executions": 5,
+        "tokens": 0,
+        "repeated": -2
+      }
+    },
+    {
+      "instance": "django__django-11206",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 0,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 7270,
+          "output": 742,
+          "total": 8012
+        }
+      },
+      "unbounded": {
+        "total_commands": 25,
+        "test_executions": 21,
+        "error_commands": 10,
+        "repeated_commands": 8,
+        "tokens": {
+          "input": 204315,
+          "output": 5445,
+          "total": 209760
+        },
+        "error_types": {
+          "Other": 4,
+          "SyntaxError": 1,
+          "ImportError": 1,
+          "TestFailed": 1,
+          "AssertionError": 3
+        }
+      },
+      "delta": {
+        "commands": 25,
+        "test_executions": 21,
+        "tokens": 201748,
+        "repeated": 8
+      }
+    },
+    {
+      "instance": "django__django-11490",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 7,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 34712,
+          "output": 1654,
+          "total": 36366
+        }
+      },
+      "unbounded": {
+        "total_commands": 15,
+        "test_executions": 11,
+        "error_commands": 7,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 122427,
+          "output": 2249,
+          "total": 124676
+        },
+        "error_types": {
+          "Other": 6,
+          "AssertionError": 1
+        }
+      },
+      "delta": {
+        "commands": 8,
+        "test_executions": 11,
+        "tokens": 88310,
+        "repeated": 3
+      }
+    },
+    {
+      "instance": "astropy__astropy-14096",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "astropy",
+      "offline": {
+        "total_commands": 0,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 12374,
+          "output": 1394,
+          "total": 13768
+        }
+      },
+      "unbounded": {
+        "total_commands": 17,
+        "test_executions": 12,
+        "error_commands": 8,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 100578,
+          "output": 1824,
+          "total": 102402
+        },
+        "error_types": {
+          "AttributeError": 5,
+          "Other": 2,
+          "TestFailed": 1
+        }
+      },
+      "delta": {
+        "commands": 17,
+        "test_executions": 12,
+        "tokens": 88634,
+        "repeated": 1
+      }
+    },
+    {
+      "instance": "django__django-12304",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 3,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 16352,
+          "output": 1046,
+          "total": 17398
+        }
+      },
+      "unbounded": {
+        "total_commands": 24,
+        "test_executions": 5,
+        "error_commands": 5,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 145268,
+          "output": 1853,
+          "total": 147121
+        },
+        "error_types": {
+          "AssertionError": 1,
+          "TypeError": 1,
+          "ImportError": 1,
+          "AttributeError": 1,
+          "Other": 1
+        }
+      },
+      "delta": {
+        "commands": 21,
+        "test_executions": 5,
+        "tokens": 129723,
+        "repeated": 3
+      }
+    },
+    {
+      "instance": "django__django-10973",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 1,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 7648,
+          "output": 995,
+          "total": 8643
+        }
+      },
+      "unbounded": {
+        "total_commands": 9,
+        "test_executions": 2,
+        "error_commands": 2,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 50015,
+          "output": 1792,
+          "total": 51807
+        },
+        "error_types": {
+          "ImportError": 1,
+          "TestFailed": 1
+        }
+      },
+      "delta": {
+        "commands": 8,
+        "test_executions": 2,
+        "tokens": 43164,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-12965",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 5,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 185237,
+          "output": 5858,
+          "total": 191095
+        }
+      },
+      "unbounded": {
+        "total_commands": 20,
+        "test_executions": 7,
+        "error_commands": 1,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 222461,
+          "output": 2603,
+          "total": 225064
+        },
+        "error_types": {
+          "Other": 1
+        }
+      },
+      "delta": {
+        "commands": 15,
+        "test_executions": 7,
+        "tokens": 33969,
+        "repeated": 1
+      }
+    },
+    {
+      "instance": "django__django-12663",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 8,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 83862,
+          "output": 1684,
+          "total": 85546
+        }
+      },
+      "unbounded": {
+        "total_commands": 17,
+        "test_executions": 12,
+        "error_commands": 7,
+        "repeated_commands": 4,
+        "tokens": {
+          "input": 434896,
+          "output": 5767,
+          "total": 440663
+        },
+        "error_types": {
+          "Other": 2,
+          "TypeError": 2,
+          "AttributeError": 1,
+          "ImportError": 2
+        }
+      },
+      "delta": {
+        "commands": 9,
+        "test_executions": 12,
+        "tokens": 355117,
+        "repeated": 4
+      }
+    },
+    {
+      "instance": "django__django-11265",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 9,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 146767,
+          "output": 3629,
+          "total": 150396
+        }
+      },
+      "unbounded": {
+        "total_commands": 25,
+        "test_executions": 22,
+        "error_commands": 12,
+        "repeated_commands": 5,
+        "tokens": {
+          "input": 1131251,
+          "output": 15878,
+          "total": 1147129
+        },
+        "error_types": {
+          "Other": 7,
+          "AssertionError": 3,
+          "TestFailed": 2
+        }
+      },
+      "delta": {
+        "commands": 16,
+        "test_executions": 22,
+        "tokens": 996733,
+        "repeated": 5
+      }
+    },
+    {
+      "instance": "astropy__astropy-7166",
+      "agent": "claude_code",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "astropy",
+      "offline": {
+        "total_commands": 0,
+        "test_executions": 0,
+        "error_commands": 0,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 12748,
+          "output": 1181,
+          "total": 13929
+        }
+      },
+      "unbounded": {
+        "total_commands": 21,
+        "test_executions": 2,
+        "error_commands": 2,
+        "repeated_commands": 1,
+        "tokens": {
+          "input": 79512,
+          "output": 2478,
+          "total": 81990
+        },
+        "error_types": {
+          "Other": 1,
+          "AssertionError": 1
+        }
+      },
+      "delta": {
+        "commands": 21,
+        "test_executions": 2,
+        "tokens": 68061,
+        "repeated": 1
+      }
+    },
+    {
+      "instance": "django__django-11490",
+      "agent": "codex",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 17,
+        "test_executions": 0,
+        "error_commands": 3,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 18,
+        "test_executions": 2,
+        "error_commands": 3,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "NameError": 1,
+          "ValueError": 1,
+          "Other": 1
+        }
+      },
+      "delta": {
+        "commands": 1,
+        "test_executions": 2,
+        "tokens": 0,
+        "repeated": 0
+      }
+    },
+    {
+      "instance": "django__django-12304",
+      "agent": "codex",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 13,
+        "test_executions": 0,
+        "error_commands": 3,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 15,
+        "test_executions": 3,
+        "error_commands": 4,
+        "repeated_commands": 2,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "Other": 2,
+          "AttributeError": 1,
+          "TypeError": 1
+        }
+      },
+      "delta": {
+        "commands": 2,
+        "test_executions": 3,
+        "tokens": 0,
+        "repeated": 2
+      }
+    },
+    {
+      "instance": "django__django-11265",
+      "agent": "codex",
+      "dataset": "swebenchverified",
+      "case_type": "helped",
+      "repo": "django",
+      "offline": {
+        "total_commands": 22,
+        "test_executions": 0,
+        "error_commands": 6,
+        "repeated_commands": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        }
+      },
+      "unbounded": {
+        "total_commands": 34,
+        "test_executions": 8,
+        "error_commands": 11,
+        "repeated_commands": 3,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "total": 0
+        },
+        "error_types": {
+          "Other": 5,
+          "AttributeError": 1,
+          "ValueError": 3,
+          "AssertionError": 2
+        }
+      },
+      "delta": {
+        "commands": 12,
+        "test_executions": 8,
+        "tokens": 0,
+        "repeated": 3
+      }
+    }
+  ]
+}

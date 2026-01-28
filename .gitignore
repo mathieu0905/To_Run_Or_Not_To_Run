@@ -40,3 +40,9 @@ Thumbs.db
 
 dashboard/node_modules/
 node_modules/
+
+# Deprecated analysis scripts
+analysis/_deprecated/
+
+# Large trace data (download separately)
+analysis/RQ1_execution_behavior/data/

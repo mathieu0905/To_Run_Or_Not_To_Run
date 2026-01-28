@@ -1,0 +1,107 @@
+[
+  {
+    "instance": "django__django-14997",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-15498",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-12470",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-11620",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-11797",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-12284",
+    "agent": "claude_code",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-15202",
+    "agent": "codex",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-15781",
+    "agent": "codex",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-15252",
+    "agent": "codex",
+    "dataset": "swebenchlite"
+  },
+  {
+    "instance": "django__django-11206",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-11490",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "astropy__astropy-14096",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-12304",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-10973",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-12965",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-12663",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-11265",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "astropy__astropy-7166",
+    "agent": "claude_code",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-11490",
+    "agent": "codex",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-12304",
+    "agent": "codex",
+    "dataset": "swebenchverified"
+  },
+  {
+    "instance": "django__django-11265",
+    "agent": "codex",
+    "dataset": "swebenchverified"
+  }
+]

@@ -1,0 +1,70 @@
+{
+  "claude_code": {
+    "run_full": {
+      "instances_analyzed": 200,
+      "instances_with_edit": 200,
+      "instances_with_reproduction": 28,
+      "instances_with_verification": 181,
+      "reproduction": {
+        "total": 69,
+        "success": 50,
+        "fail": 19
+      },
+      "verification": {
+        "total": 1784,
+        "success": 1263,
+        "fail": 521
+      }
+    },
+    "run_free": {
+      "instances_analyzed": 200,
+      "instances_with_edit": 200,
+      "instances_with_reproduction": 3,
+      "instances_with_verification": 55,
+      "reproduction": {
+        "total": 3,
+        "success": 2,
+        "fail": 1
+      },
+      "verification": {
+        "total": 269,
+        "success": 183,
+        "fail": 86
+      }
+    }
+  },
+  "codex": {
+    "run_full": {
+      "instances_analyzed": 200,
+      "instances_with_edit": 200,
+      "instances_with_reproduction": 8,
+      "instances_with_verification": 195,
+      "reproduction": {
+        "total": 15,
+        "success": 8,
+        "fail": 7
+      },
+      "verification": {
+        "total": 618,
+        "success": 322,
+        "fail": 296
+      }
+    },
+    "run_free": {
+      "instances_analyzed": 200,
+      "instances_with_edit": 200,
+      "instances_with_reproduction": 0,
+      "instances_with_verification": 1,
+      "reproduction": {
+        "total": 0,
+        "success": 0,
+        "fail": 0
+      },
+      "verification": {
+        "total": 1,
+        "success": 1,
+        "fail": 0
+      }
+    }
+  }
+}

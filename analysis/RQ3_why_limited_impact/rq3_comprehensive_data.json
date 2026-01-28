@@ -1,0 +1,150 @@
+{
+  "claude_code": {
+    "pp": {
+      "unrestricted": {
+        "count": 116,
+        "first_edit_is_test": 52,
+        "first_edit_hit": 64,
+        "any_edit_hit": 113,
+        "avg_recall": 0.9655172413793104,
+        "has_verification": 101,
+        "first_verif_success": 6,
+        "first_verif_test_fail": 53,
+        "first_verif_env_error": 42,
+        "any_verif_success": 92,
+        "has_reproduction": 19,
+        "avg_turns": 93.74137931034483,
+        "avg_edits": 4.956896551724138,
+        "avg_test_runs": 8.78448275862069,
+        "total_verifications": 969
+      },
+      "prohibited": {
+        "count": 116,
+        "first_edit_is_test": 3,
+        "first_edit_hit": 111,
+        "any_edit_hit": 114,
+        "avg_recall": 0.9741379310344828,
+        "has_verification": 32,
+        "first_verif_success": 5,
+        "first_verif_test_fail": 23,
+        "first_verif_env_error": 4,
+        "any_verif_success": 18,
+        "has_reproduction": 1,
+        "avg_turns": 44.53448275862069,
+        "avg_edits": 1.8362068965517242,
+        "avg_test_runs": 1.1120689655172413,
+        "total_verifications": 128
+      }
+    },
+    "ff": {
+      "unrestricted": {
+        "count": 84,
+        "first_edit_is_test": 50,
+        "first_edit_hit": 31,
+        "any_edit_hit": 72,
+        "avg_recall": 0.790079365079365,
+        "has_verification": 80,
+        "first_verif_success": 1,
+        "first_verif_test_fail": 49,
+        "first_verif_env_error": 30,
+        "any_verif_success": 65,
+        "has_reproduction": 9,
+        "avg_turns": 126.32142857142857,
+        "avg_edits": 6.773809523809524,
+        "avg_test_runs": 10.047619047619047,
+        "total_verifications": 815
+      },
+      "prohibited": {
+        "count": 84,
+        "first_edit_is_test": 0,
+        "first_edit_hit": 70,
+        "any_edit_hit": 71,
+        "avg_recall": 0.7871031746031745,
+        "has_verification": 23,
+        "first_verif_success": 3,
+        "first_verif_test_fail": 15,
+        "first_verif_env_error": 5,
+        "any_verif_success": 16,
+        "has_reproduction": 2,
+        "avg_turns": 66.63095238095238,
+        "avg_edits": 2.3333333333333335,
+        "avg_test_runs": 1.7023809523809523,
+        "total_verifications": 141
+      }
+    }
+  },
+  "codex": {
+    "pp": {
+      "unrestricted": {
+        "count": 142,
+        "first_edit_is_test": 3,
+        "first_edit_hit": 137,
+        "any_edit_hit": 140,
+        "avg_recall": 0.9640845070422536,
+        "has_verification": 140,
+        "first_verif_success": 48,
+        "first_verif_test_fail": 92,
+        "first_verif_env_error": 0,
+        "any_verif_success": 139,
+        "has_reproduction": 6,
+        "avg_turns": 70.72535211267606,
+        "avg_edits": 3.1267605633802815,
+        "avg_test_runs": 3.2535211267605635,
+        "total_verifications": 454
+      },
+      "prohibited": {
+        "count": 142,
+        "first_edit_is_test": 2,
+        "first_edit_hit": 136,
+        "any_edit_hit": 136,
+        "avg_recall": 0.9362676056338027,
+        "has_verification": 0,
+        "first_verif_success": 0,
+        "first_verif_test_fail": 0,
+        "first_verif_env_error": 0,
+        "any_verif_success": 0,
+        "has_reproduction": 0,
+        "avg_turns": 68.29577464788733,
+        "avg_edits": 3.1971830985915495,
+        "avg_test_runs": 0.0,
+        "total_verifications": 0
+      }
+    },
+    "ff": {
+      "unrestricted": {
+        "count": 55,
+        "first_edit_is_test": 2,
+        "first_edit_hit": 45,
+        "any_edit_hit": 50,
+        "avg_recall": 0.8393939393939394,
+        "has_verification": 52,
+        "first_verif_success": 15,
+        "first_verif_test_fail": 37,
+        "first_verif_env_error": 0,
+        "any_verif_success": 52,
+        "has_reproduction": 2,
+        "avg_turns": 79.25454545454545,
+        "avg_edits": 3.4363636363636365,
+        "avg_test_runs": 2.963636363636364,
+        "total_verifications": 156
+      },
+      "prohibited": {
+        "count": 55,
+        "first_edit_is_test": 0,
+        "first_edit_hit": 48,
+        "any_edit_hit": 49,
+        "avg_recall": 0.8212121212121212,
+        "has_verification": 1,
+        "first_verif_success": 1,
+        "first_verif_test_fail": 0,
+        "first_verif_env_error": 0,
+        "any_verif_success": 1,
+        "has_reproduction": 0,
+        "avg_turns": 76.2,
+        "avg_edits": 3.0727272727272728,
+        "avg_test_runs": 0.01818181818181818,
+        "total_verifications": 1
+      }
+    }
+  }
+}
