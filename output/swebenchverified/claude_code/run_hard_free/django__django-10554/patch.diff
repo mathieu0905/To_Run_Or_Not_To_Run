@@ -1,0 +1,15 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 08d7faf194..dd1be45458 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -2032,6 +2032,10 @@ class Query(BaseExpression):
+         self.clear_deferred_loading()
+         self.clear_select_fields()
+ 
++        if self.combined_queries:
++            # Clone combined queries to prevent mutating the original queries
++            self.combined_queries = tuple(query.clone() for query in self.combined_queries)
++
+         if self.group_by is True:
+             self.add_fields((f.attname for f in self.model._meta.concrete_fields), False)
+             self.set_group_by()

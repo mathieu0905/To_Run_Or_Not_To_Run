@@ -1,0 +1,22 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 30616c0172..47500445f1 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -563,6 +563,17 @@ class MigrationAutodetector:
+                 if isinstance(base, str) and "." in base:
+                     base_app_label, base_name = base.split(".", 1)
+                     dependencies.append((base_app_label, base_name, None, True))
++                    # Check if any fields in the new model were removed from the base
++                    # If so, depend on the removal of those fields from the base
++                    base_key = (base_app_label, base_name.lower())
++                    if base_key in self.kept_model_keys:
++                        old_base_model_state = self.from_state.models.get(base_key)
++                        if old_base_model_state:
++                            for field_name in model_state.fields:
++                                if field_name in old_base_model_state.fields:
++                                    # This field exists in both the new model and the old base
++                                    # We need to depend on its removal from the base
++                                    dependencies.append((base_app_label, base_name.lower(), field_name, False))
+             # Depend on the other end of the primary key if it's a relation
+             if primary_key_rel:
+                 dependencies.append((

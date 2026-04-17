@@ -1,0 +1,23 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 3a462f1c4c..f5332e2de6 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -232,9 +232,17 @@ class Collector:
+         """
+         Get a QuerySet of objects related to `objs` via the relation `related`.
+         """
+-        return related.related_model._base_manager.using(self.using).filter(
++        qs = related.related_model._base_manager.using(self.using).filter(
+             **{"%s__in" % related.field.name: objs}
+         )
++        # Avoid loading all fields by only fetching those needed for deletion:
++        # the pk and parent link fields for multi-table inheritance.
++        model = related.related_model
++        fields = [model._meta.pk.name]
++        for ptr in model._meta.parents.values():
++            if ptr:
++                fields.append(ptr.name)
++        return qs.only(*fields)
+ 
+     def instances_with_model(self):
+         for model, instances in self.data.items():

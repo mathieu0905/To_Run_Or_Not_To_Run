@@ -1,0 +1,44 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index ee45bb941e..df5c5bbae6 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -763,8 +763,11 @@ class Field(RegisterLookupMixin):
+             if not getattr(cls, self.attname, None):
+                 setattr(cls, self.attname, self.descriptor_class(self))
+         if self.choices is not None:
+-            setattr(cls, 'get_%s_display' % self.name,
+-                    partialmethod(cls._get_FIELD_display, field=self))
++            # Don't override a get_FOO_display() method defined explicitly on
++            # this class, but allow it to be inherited from a parent class.
++            if 'get_%s_display' % self.name not in cls.__dict__:
++                setattr(cls, 'get_%s_display' % self.name,
++                        partialmethod(cls._get_FIELD_display, field=self))
+ 
+     def get_filter_kwargs_for_object(self, obj):
+         """
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index 0d6e930b06..2cecabe947 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -186,6 +186,21 @@ class GetFieldDisplayTests(SimpleTestCase):
+         self.assertIsNone(WhizIterEmpty(c=None).c)         # Blank value
+         self.assertEqual(WhizIterEmpty(c='').c, '')        # Empty value
+ 
++    def test_overriding_FIELD_display(self):
++        """
++        Overriding get_FIELD_display() method on a model should work.
++        """
++        class CustomWhiz(models.Model):
++            c = models.IntegerField(choices=Whiz.CHOICES)
++
++            def get_c_display(self):
++                return "custom"
++
++            class Meta:
++                app_label = 'model_fields'
++
++        self.assertEqual(CustomWhiz(c=1).get_c_display(), 'custom')
++
+ 
+ class GetChoicesTests(SimpleTestCase):
+ 

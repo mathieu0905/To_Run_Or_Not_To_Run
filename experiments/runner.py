@@ -104,7 +104,7 @@ def run_experiment(
 
     # 2. Build prompt
     print(f"Building prompt for mode: {mode}" + (f" (k={k})" if mode == "run_less" else ""))
-    prompt = PromptBuilder.build_prompt(instance, mode, k)
+    prompt = PromptBuilder.build_prompt(instance, mode, k, agent_type)
 
     # Save prompt to instance directory
     prompt_file = instance_output_dir / "prompt.txt"
@@ -114,14 +114,18 @@ def run_experiment(
     # 3. Call agent (trace written in real-time to output directory)
     print(f"Calling {agent_type} agent (timeout={timeout}s)...")
     trace_file = instance_output_dir / "trace.jsonl"
-    caller = AgentCaller(agent_type=agent_type, instance_id=instance_id)
+    caller = AgentCaller(agent_type=agent_type, instance_id=instance_id, mode=mode)
     trace: AgentTrace = caller.call(prompt, timeout=timeout, trace_output_path=str(trace_file))
     print(f"Trace saved to: {trace_file}")
     if trace.error:
         print(f"Agent error: {trace.error}")
 
-    # 4. Prefer git-diff patch emitted by agent runner (docker mode); otherwise fall back to parsing
-    # diff from the agent output, and finally to raw output (for simple/integration tasks).
+    # 4. Prefer git-diff patch emitted by agent runner (docker mode); otherwise
+    # fall back to extracting a diff block from the agent's text output. We
+    # intentionally do NOT fall back to raw trace.output: SWE-bench needs a
+    # valid git diff, and counting plain prose as a "patch" was hiding cases
+    # where the model never called the edit tool (resulting in misleading
+    # success=True for what is really an empty/no-op submission).
     patch = ""
     patch_file = instance_output_dir / "patch.diff"
     if patch_file.exists():
@@ -129,8 +133,8 @@ def run_experiment(
         print(f"Patch loaded from git diff: {patch_file}")
     if not patch:
         patch = extract_patch(trace.output).strip()
-    if not patch:
-        patch = (trace.output or "").strip()
+        if patch:
+            print("Patch extracted from agent text output")
 
     # 5. Build result
     result = ExperimentResult(
@@ -226,8 +230,8 @@ def main():
     dataset_name = sys.argv[6] if len(sys.argv) > 6 else "princeton-nlp/SWE-bench_Lite"
 
     # Validate mode
-    if mode not in ["run_free", "run_less", "run_cost", "run_full"]:
-        print(f"Error: Invalid mode '{mode}'. Must be one of: run_free, run_less, run_cost, run_full")
+    if mode not in ["run_free", "run_less", "run_cost", "run_full", "run_hard_free"]:
+        print(f"Error: Invalid mode '{mode}'. Must be one of: run_free, run_less, run_cost, run_full, run_hard_free")
         sys.exit(1)
 
     # Run experiment

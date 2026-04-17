@@ -1,0 +1,20 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index e3b14a41a0..ed814d2c8f 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -840,6 +840,7 @@ class Model(metaclass=ModelBase):
+                        if f.name in update_fields or f.attname in update_fields]
+ 
+         pk_val = self._get_pk_val(meta)
++        pk_is_set = pk_val is not None
+         if pk_val is None:
+             pk_val = meta.pk.get_pk_value_on_save(self)
+             setattr(self, meta.pk.attname, pk_val)
+@@ -851,6 +852,7 @@ class Model(metaclass=ModelBase):
+         if (
+             not force_insert and
+             self._state.adding and
++            not pk_is_set and
+             self._meta.pk.default and
+             self._meta.pk.default is not NOT_PROVIDED
+         ):

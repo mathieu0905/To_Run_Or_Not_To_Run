@@ -10,9 +10,14 @@ build/
 
 # Environment
 .env
+.env.*
 .venv
 env/
 venv/
+
+# Claude Code local settings (contain API keys and auth tokens)
+.claude/
+.opencode.json
 
 
 # Docker build artifacts

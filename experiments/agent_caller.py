@@ -28,16 +28,20 @@ class AgentTrace:
 class AgentCaller:
     """Unified Agent call interface"""
 
-    def __init__(self, agent_type: str = "claude_code", instance_id: Optional[str] = None):
+    def __init__(self, agent_type: str = "claude_code", instance_id: Optional[str] = None, mode: str = ""):
         """
         Initialize Agent caller
 
         Args:
-            agent_type: "claude_code" or "codex"
+            agent_type: "claude_code", "codex", or "opencode"
             instance_id: SWE-bench instance ID (used to determine Docker image)
+            mode: Execution mode — used to activate hard-limit flags when the
+                mode starts with "run_hard_" (e.g. "run_hard_free" removes the
+                Bash tool from the agent's toolset at the CLI level).
         """
         self.agent_type = agent_type
         self.instance_id = instance_id
+        self.mode = mode
 
     def call(self, prompt: str, timeout: int = 600, trace_output_path: Optional[str] = None) -> AgentTrace:
         """
@@ -54,6 +58,8 @@ class AgentCaller:
             return self._call_claude_code(prompt, timeout, trace_output_path)
         elif self.agent_type == "codex":
             return self._call_codex(prompt, timeout, trace_output_path)
+        elif self.agent_type == "opencode":
+            return self._call_opencode(prompt, timeout, trace_output_path)
         else:
             raise ValueError(f"Unknown agent type: {self.agent_type}")
 
@@ -262,6 +268,17 @@ class AgentCaller:
         # 3. Activate testbed conda environment and run Claude Code
         # Note: nonroot user cannot write to mounted directory, so use pipe to let root write files
         container_prompt_path = "/workspace/output/prompt.txt"
+
+        # Hard-limit mode: remove Bash tool at the CLI level so the agent
+        # cannot invoke shell commands. Do NOT add --permission-mode plan:
+        # it would also restrict Write/Edit to plan files, blocking patch
+        # generation. --disallowedTools Bash alone keeps Read/Write/Edit/
+        # Glob/Grep available, which is what the hard-Prohibited experiment
+        # requires (the agent must still be able to modify source files).
+        hard_flags = ""
+        if self.mode == "run_hard_free":
+            hard_flags = " --disallowedTools Bash"
+
         claude_cmd = (
             f"bash /workspace/docker/configure_models.sh && "
             f"cp -r /root/.claude /home/nonroot/.claude && "
@@ -270,8 +287,8 @@ class AgentCaller:
             f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
             f"cd /testbed && "
             # Claude CLI flag compatibility: some versions use --output-type, others --output-format.
-            f"(cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions --verbose --output-type stream-json || "
-            f"cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions --verbose --output-format stream-json)"
+            f"(cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions{hard_flags} --verbose --output-type stream-json || "
+            f"cat {container_prompt_path} | claude -p --model {claude_model} --dangerously-skip-permissions{hard_flags} --verbose --output-format stream-json)"
             f"\" > {container_trace_path}; "
             f"cd /testbed && git diff > {container_patch_path}"
         )
@@ -412,6 +429,261 @@ class AgentCaller:
             # Only clean up temporary files (don't clean up specified output files)
             if not trace_output_path:
                 Path(trace_path).unlink(missing_ok=True)
+
+    def _call_opencode(self, prompt: str, timeout: int, trace_output_path: Optional[str] = None) -> AgentTrace:
+        """Call OpenCode with local LLM via vLLM"""
+        import time
+        start = time.time()
+
+        if trace_output_path:
+            trace_path = trace_output_path
+            Path(trace_path).parent.mkdir(parents=True, exist_ok=True)
+        else:
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.jsonl', delete=False) as trace_file:
+                trace_path = trace_file.name
+
+        # Generate a unique container name so we can clean it up on timeout.
+        # subprocess.run kills the docker CLI client on timeout but the
+        # container itself keeps running unless explicitly stopped.
+        container_name = f"opencode-{self.instance_id or 'noinst'}-{os.getpid()}-{int(time.time()*1000)%10**9}"
+        try:
+            cmd = self._build_opencode_command(
+                prompt, trace_path, container_name=container_name
+            )
+
+            work_dir = "/testbed" if os.path.exists("/testbed") else None
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=work_dir,
+                env=self._build_sandboxed_env()
+            )
+
+            duration = time.time() - start
+
+            raw_trace = self._read_trace_file(trace_path)
+
+            output = ""
+            if raw_trace:
+                output = self._extract_opencode_output(raw_trace).strip()
+            if not output:
+                output = (result.stdout or "").strip()
+
+            tokens = self._extract_opencode_tokens(raw_trace)
+            if tokens == 0:
+                tokens = max(1, len(prompt) // 4)
+            exec_count = self._count_opencode_executions(raw_trace)
+
+            error = None
+            if result.returncode != 0:
+                stderr = (result.stderr or "").strip()
+                error = stderr or f"Non-zero exit code: {result.returncode}"
+            # Check for error events in trace
+            if not error:
+                for entry in raw_trace:
+                    if entry.get("type") == "error":
+                        err_data = entry.get("error", {})
+                        error = err_data.get("data", {}).get("message", str(err_data))
+                        break
+            if not output and not error:
+                error = "No output produced by agent"
+
+            return AgentTrace(
+                agent_type="opencode",
+                prompt=prompt,
+                output=output,
+                tokens_used=tokens,
+                exec_count=exec_count,
+                duration_sec=duration,
+                raw_trace=raw_trace,
+                error=error
+            )
+
+        except subprocess.TimeoutExpired:
+            duration = time.time() - start
+            # subprocess.run's timeout kills the docker CLI client but NOT the
+            # container itself. BEFORE killing the container, rescue any
+            # in-progress git diff so we don't lose partial edits the agent
+            # already applied to /testbed. This writes to the same
+            # /workspace/output/patch.diff that the normal post-run command
+            # would have produced.
+            try:
+                subprocess.run(
+                    ["docker", "exec", container_name, "bash", "-c",
+                     "cd /testbed && git diff > /workspace/output/patch.diff"],
+                    capture_output=True, timeout=30
+                )
+            except Exception:
+                pass
+            try:
+                subprocess.run(
+                    ["docker", "kill", container_name],
+                    capture_output=True, timeout=30
+                )
+            except Exception:
+                pass
+            raw_trace = self._read_trace_file(trace_path)
+            output = self._extract_opencode_output(raw_trace).strip() if raw_trace else ""
+            tokens = self._extract_opencode_tokens(raw_trace) if raw_trace else 0
+            exec_count = self._count_opencode_executions(raw_trace) if raw_trace else 0
+            if tokens == 0:
+                tokens = max(1, len(prompt) // 4)
+
+            return AgentTrace(
+                agent_type="opencode",
+                prompt=prompt,
+                output=output,
+                tokens_used=tokens,
+                exec_count=exec_count,
+                duration_sec=duration if duration > 0 else float(timeout),
+                raw_trace=raw_trace,
+                error=None if output else "Timeout"
+            )
+        except Exception as e:
+            return AgentTrace(
+                agent_type="opencode",
+                prompt=prompt,
+                output="",
+                tokens_used=0,
+                exec_count=0,
+                duration_sec=time.time() - start,
+                raw_trace=[],
+                error=str(e)
+            )
+        finally:
+            if not trace_output_path:
+                Path(trace_path).unlink(missing_ok=True)
+
+    def _build_opencode_command(self, prompt: str, trace_path: str,
+                                 container_name: str = "") -> List[str]:
+        """Build OpenCode command for Docker execution"""
+        docker_image = self._get_docker_image(self.instance_id) if self.instance_id else None
+
+        if not docker_image:
+            raise RuntimeError(f"No Docker image found for instance: {self.instance_id}. "
+                             f"Please build the agent image first.")
+
+        container_trace_path = "/workspace/output/trace.jsonl"
+        container_patch_path = "/workspace/output/patch.diff"
+        host_trace_dir = str(Path(trace_path).parent.absolute())
+
+        container_prompt_path = "/workspace/output/prompt.txt"
+
+        # Write prompt to host directory
+        prompt_file = Path(host_trace_dir) / "prompt.txt"
+        prompt_file.write_text(prompt, encoding='utf-8')
+
+        # Write opencode.json config to XDG config dir inside container.
+        # Direct connection to vLLM on 8000 (no proxy). vLLM uses the hanXen
+        # qwen2_5_coder parser + jinja chat template that injects <tools>
+        # few-shot examples — these together produce well-formed tool_calls.
+        vllm_endpoint = os.environ.get('VLLM_ENDPOINT', 'http://localhost:8000/v1')
+        # Model ID as served by vLLM (without provider prefix)
+        vllm_model_id = os.environ.get('VLLM_MODEL_ID', 'Qwen/Qwen2.5-Coder-32B-Instruct')
+        opencode_config = {
+            "provider": {
+                "local": {
+                    "options": {
+                        "apiKey": "dummy",
+                        "baseURL": vllm_endpoint
+                    },
+                    "models": {
+                        vllm_model_id: {
+                            "name": vllm_model_id,
+                            "tool_call": True,
+                            "limit": {
+                                "context": 65536,
+                                "output": 4096
+                            }
+                        }
+                    }
+                }
+            },
+            "agent": {
+                "build": {
+                    "model": f"local/{vllm_model_id}"
+                }
+            }
+        }
+        config_file = Path(host_trace_dir) / "opencode.json"
+        config_file.write_text(json.dumps(opencode_config), encoding='utf-8')
+
+        # OpenCode run command inside container
+        # Write config to XDG config dir, then run with --format json
+        opencode_cmd = (
+            f"mkdir -p /root/.config/opencode && "
+            f"cp /workspace/output/opencode.json /root/.config/opencode/opencode.json && "
+            f"source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
+            f"cd /testbed && "
+            f"opencode run --dangerously-skip-permissions --format json \"$(cat {container_prompt_path})\" "
+            f"> {container_trace_path}; "
+            f"cd /testbed && git diff > {container_patch_path}"
+        )
+
+        docker_cmd = [
+            "docker", "run", "--rm",
+        ]
+        if container_name:
+            docker_cmd.extend(["--name", container_name])
+        docker_cmd.extend([
+            "-v", f"{host_trace_dir}:/workspace/output",
+            "--network", "host",
+            "-e", "no_proxy=localhost,127.0.0.1",
+            "-e", "NO_PROXY=localhost,127.0.0.1",
+            "-e", "http_proxy=",
+            "-e", "HTTP_PROXY=",
+            "-e", "https_proxy=",
+            "-e", "HTTPS_PROXY=",
+        ])
+
+        # Some agent images shipped with opencode v1.3.0 (which lacks
+        # --dangerously-skip-permissions). Mount a host-side v1.4.0 binary to
+        # override, ensuring all containers have the same version.
+        host_opencode = "/home/zhihao/hdd/run_free_run_less_run_full/bin/opencode"
+        if os.path.exists(host_opencode):
+            docker_cmd.extend(["-v", f"{host_opencode}:/usr/local/bin/opencode:ro"])
+
+        docker_cmd.extend([
+            docker_image,
+            "bash", "-c",
+            opencode_cmd
+        ])
+
+        return docker_cmd
+
+    def _extract_opencode_output(self, trace: List[Dict[str, Any]]) -> str:
+        """Extract text output from OpenCode JSONL trace"""
+        output_parts = []
+        for entry in trace:
+            if entry.get("type") == "text":
+                part = entry.get("part", {})
+                text = part.get("text", "")
+                if text:
+                    output_parts.append(text)
+        return "\n".join(output_parts) if output_parts else ""
+
+    def _extract_opencode_tokens(self, trace: List[Dict[str, Any]]) -> int:
+        """Extract total token usage from OpenCode trace (sum of all step_finish events)"""
+        total = 0
+        for entry in trace:
+            if entry.get("type") == "step_finish":
+                part = entry.get("part", {})
+                tokens = part.get("tokens", {})
+                total += tokens.get("input", 0) + tokens.get("output", 0)
+        return total
+
+    def _count_opencode_executions(self, trace: List[Dict[str, Any]]) -> int:
+        """Count bash tool invocations from OpenCode trace"""
+        count = 0
+        for entry in trace:
+            if entry.get("type") == "tool_use":
+                part = entry.get("part", {})
+                if part.get("tool", "").lower() == "bash":
+                    count += 1
+        return count
 
     def _read_trace_file(self, trace_path: str) -> List[Dict[str, Any]]:
         """Read stream-json format trace file"""

@@ -1,0 +1,14 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8c..11f0aec4d3 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -1454,7 +1454,8 @@ class TableDataDiff(_BaseDiff):
+                     [
+                         idx
+                         for idx in range(len(arra))
+-                        if not np.allclose(
++                        if arra[idx] is not arrb[idx]
++                        and not np.allclose(
+                             arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+                         )
+                     ],

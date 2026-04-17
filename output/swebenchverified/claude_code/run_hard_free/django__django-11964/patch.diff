@@ -1,0 +1,18 @@
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+index 189fb4fa44..7e82ae17f3 100644
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -138,6 +138,13 @@ class DeferredAttribute:
+             data[field_name] = val
+         return data[field_name]
+ 
++    def __set__(self, instance, value):
++        """
++        Set the value on the instance, converting it to the appropriate Python
++        type using the field's to_python() method.
++        """
++        instance.__dict__[self.field.attname] = self.field.to_python(value)
++
+     def _check_parent_chain(self, instance):
+         """
+         Check if the field value can be fetched from a parent field already

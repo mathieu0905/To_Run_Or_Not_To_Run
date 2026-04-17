@@ -1,0 +1,40 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8efb..fcf184dc8f 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -27,7 +27,7 @@ class SimpleRSTHeader(FixedWidthHeader):
+ 
+ 
+ class SimpleRSTData(FixedWidthData):
+-    start_line = 3
++    start_line = None
+     end_line = -1
+     splitter_class = FixedWidthTwoLineDataSplitter
+ 
+@@ -57,10 +57,23 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None):
++        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
++        # For RST format, data starts after: position_line + header_rows + another position_line
++        # position_line is at index 0, header rows start at index 1
++        # So data starts at: 1 + len(header_rows) + 1 = 2 + len(header_rows)
++        if header_rows is not None:
++            self.data.start_line = 2 + len(header_rows)
++        else:
++            self.data.start_line = 3  # default: position + name + position
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++        # Find the position line (separator line with '===')
++        # It's located after all header rows
++        header_rows = getattr(self.data, "header_rows", ["name"])
++        separator_index = len(header_rows)
++        separator_line = lines[separator_index]
++        # Add separator at the beginning and end
++        lines = [separator_line] + lines + [separator_line]
+         return lines

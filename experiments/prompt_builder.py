@@ -24,22 +24,33 @@ class PromptBuilder:
 **Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results."""
 
     # Common section: FREE Operations
-    FREE_OPERATIONS = """## FREE Operations (No Cost)
-✅ `ls` - list directory contents
-✅ `cat` - view file contents
-✅ `grep` - search text patterns
-✅ `find` - locate files
-✅ `head` / `tail` - view file portions
-✅ `wc` - count lines/words"""
+    # NOTE: do NOT enumerate tool names here. The agent runtime injects its
+    # own tool schema; listing shell commands by name causes weaker models to
+    # try to call them as top-level tools (e.g. `find`) instead of via bash.
+    FREE_OPERATIONS = """## Investigation
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted."""
 
     # Common section: FORBIDDEN Operations
     FORBIDDEN_OPERATIONS = """## FORBIDDEN Operations
 ❌ `git` commands (interferes with experiment)"""
 
     # Common section: Output Format
-    OUTPUT_FORMAT = """## Output Format
-**You MUST use the Edit tool to actually modify the source files.**
-Do NOT just output a diff as text - make real changes to the files."""
+    OUTPUT_FORMAT = """## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug."""
 
     # Common section: Cost Table
     COST_TABLE = """## Cost Table
@@ -83,34 +94,25 @@ Do NOT just output a diff as text - make real changes to the files."""
 You cannot execute/run any Python code (cannot run tests).
 
 This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
-Any attempt to execute Python code will be blocked by the sandbox.
 
-## ALLOWED Operations
-You may ONLY use these commands:
-- `ls` - list directory contents
-- `cat` - view file contents
-- `grep` - search text patterns
-- `find` - locate files
-- `head` / `tail` - view file portions
-- `wc` - count lines/words
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
 
-## FORBIDDEN Operations
-❌ `python` / `python3` - ANY Python execution
-❌ `pytest` / `unittest` / `tox` / `nose` - Test frameworks
-❌ `pip` / `pip3` - Package management
-❌ `git` commands (interferes with experiment)
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
 
 ## Debugging Strategy
-
-**Read with purpose.**
-
-- Before reading a file: Know what you're looking for
-- Reason deeply about the code based on what you read
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
 
 ## Your Task
-1. Read and analyze the source code to understand the bug
+1. Investigate the source code to understand the bug
 2. Reason about the root cause through static analysis
-3. Generate a fix using the Edit tool to modify source files
+3. **Apply the fix by calling the edit tool on real source files**
 
 {PromptBuilder.OUTPUT_FORMAT}
 """
@@ -145,19 +147,12 @@ You have a budget of {k} test run(s). **Unused budget is wasted opportunity!**
 {PromptBuilder.DEBUGGING_STRATEGY}
 
 ## Execution Protocol
-**BEFORE each execution, note:**
-```
-[BUDGET] Using 1 of {k} | Purpose: <what you want to verify>
-```
-
-**AFTER each execution, note:**
-```
-[BUDGET] Remaining: X of {k}
-```
+Before each test execution, briefly state in plain English: which budget unit you are spending and what hypothesis you want to verify.
+After each test execution, briefly state in plain English: how many budget units remain and what you learned.
 
 ## Your Task
 1. Read and analyze the source code to understand the bug
-2. **Use your {k} execution(s)** to verify your understanding or test your fix
+2. Use your {k} execution(s) to verify your understanding or test your fix
 3. Generate a fix using the Edit tool to modify source files
 
 {PromptBuilder.OUTPUT_FORMAT}
@@ -193,10 +188,7 @@ You CAN run tests and scripts, but each execution has a cost.
 {PromptBuilder.DEBUGGING_STRATEGY}
 
 ## Execution Protocol
-**BEFORE each Python execution, briefly note:**
-```
-[COST] X.X points | Purpose: <what you want to verify>
-```
+Before each test execution, briefly state in plain English: how many points the run will cost and what you want to verify.
 
 ## Your Task
 1. Read and analyze the source code to understand the bug
@@ -243,8 +235,38 @@ This is a research experiment. Feel free to run tests and scripts as many times 
 """
         return prompt
 
+    # Tool usage reminder for smaller open-source models (e.g., Qwen2.5-Coder)
+    # served via OpenCode. Larger commercial models follow tool-use instructions
+    # implicitly; smaller models need explicit reminders to actually invoke
+    # tools instead of describing them in prose.
+    OPENCODE_TOOL_REMINDER = """
+## CRITICAL: TOOL INVOCATION
+
+You have access to tools. You MUST INVOKE them, not describe them in prose.
+
+Available tools (call them by name):
+- `read` — read file contents. Args: `{"filePath": "/absolute/path"}`
+- `edit` — edit a file by replacing text. Args: `{"filePath": "...", "oldString": "...", "newString": "..."}`
+  IMPORTANT: You MUST `read` a file before you can `edit` it.
+- `bash` — run a shell command. Args: `{"command": "..."}`
+- `glob` — find files by pattern. Args: `{"pattern": "..."}`
+- `grep` — search files for a pattern. Args: `{"pattern": "...", "path": "..."}`
+- `write` — overwrite a file. Args: `{"filePath": "...", "content": "..."}`
+
+The repository is at `/testbed`. Use absolute paths like `/testbed/django/...`.
+
+DO NOT output `[bash command="..."]` or `{"name": "read", "arguments": {...}}` as plain text.
+INSTEAD, actually invoke the tools through the standard tool-call mechanism.
+The system will execute them and return results to you.
+
+WORKFLOW:
+1. `read` the relevant file(s) to understand the bug
+2. `edit` the file to apply the fix (you must have read it first)
+3. Stop. Do not produce a final summary."""
+
     @staticmethod
-    def build_prompt(instance: Dict[str, Any], mode: str, k: int = 2) -> str:
+    def build_prompt(instance: Dict[str, Any], mode: str, k: int = 2,
+                     agent_type: str = "claude_code") -> str:
         """
         Build prompt based on mode
 
@@ -252,20 +274,28 @@ This is a research experiment. Feel free to run tests and scripts as many times 
             instance: SWE-bench instance data
             mode: Execution mode ("run_free", "run_less", "run_cost", "run_full")
             k: Execution limit for Run-Less mode
+            agent_type: Agent type ("claude_code", "codex", "opencode")
 
         Returns:
             Complete prompt string
         """
-        if mode == "run_free":
-            return PromptBuilder.build_run_free_prompt(instance)
+        if mode == "run_free" or mode == "run_hard_free":
+            prompt = PromptBuilder.build_run_free_prompt(instance)
         elif mode == "run_less":
-            return PromptBuilder.build_run_less_prompt(instance, k)
+            prompt = PromptBuilder.build_run_less_prompt(instance, k)
         elif mode == "run_cost":
-            return PromptBuilder.build_run_cost_prompt(instance)
+            prompt = PromptBuilder.build_run_cost_prompt(instance)
         elif mode == "run_full":
-            return PromptBuilder.build_run_full_prompt(instance)
+            prompt = PromptBuilder.build_run_full_prompt(instance)
         else:
             raise ValueError(f"Unknown mode: {mode}")
+
+        # NOTE: previously we appended OPENCODE_TOOL_REMINDER for opencode+Qwen,
+        # but the reminder's `read — Args: {"filePath": ...}` descriptions caused
+        # the model to pattern-match and emit literal `read {...}` text instead
+        # of real tool calls. Rely on OpenCode's native tool schema + vLLM hermes
+        # parser instead.
+        return prompt
 
 
 # Example usage

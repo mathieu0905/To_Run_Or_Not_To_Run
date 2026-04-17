@@ -1,0 +1,9 @@
+{
+  "instance_id": "django__django-12708",
+  "mode": "run_hard_free",
+  "agent_type": "claude_code",
+  "success": true,
+  "duration_sec": 596.2986550331116,
+  "patch_len": 754,
+  "error": ""
+}

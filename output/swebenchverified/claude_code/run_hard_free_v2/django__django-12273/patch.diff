@@ -1,0 +1,17 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 844c01e95e..04d42b1f6c 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -816,7 +816,11 @@ class Model(metaclass=ModelBase):
+                 inserted = True
+             # Set the parent's PK value to self.
+             if field:
+-                setattr(self, field.attname, self._get_pk_val(parent._meta))
++                # Only update the child's link field if the parent was inserted
++                # or if the child's link field is not already set. This prevents
++                # overwriting a deliberately set None value when resetting the PK.
++                if not updated or getattr(self, field.attname) is not None:
++                    setattr(self, field.attname, self._get_pk_val(parent._meta))
+                 # Since we didn't have an instance of the parent handy set
+                 # attname directly, bypassing the descriptor. Invalidate
+                 # the related object cache, in case it's been accidentally
