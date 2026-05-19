@@ -1,0 +1,96 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: ef082ebb84f00e38af4e8880d04e8365c2766d34
+
+## Problem Description
+Incorrect removal of order_by clause created as multiline RawSQL
+Description
+	
+Hi.
+The SQLCompiler is ripping off one of my "order by" clause, because he "thinks" the clause was already "seen" (in SQLCompiler.get_order_by()). I'm using expressions written as multiline RawSQLs, which are similar but not the same. 
+The bug is located in SQLCompiler.get_order_by(), somewhere around line computing part of SQL query without ordering:
+without_ordering = self.ordering_parts.search(sql).group(1)
+The sql variable contains multiline sql. As a result, the self.ordering_parts regular expression is returning just a line containing ASC or DESC words. This line is added to seen set, and because my raw queries have identical last lines, only the first clasue is returing from SQLCompiler.get_order_by().
+As a quick/temporal fix I can suggest making sql variable clean of newline characters, like this:
+sql_oneline = ' '.join(sql.split('\n'))
+without_ordering = self.ordering_parts.search(sql_oneline).group(1)
+Note: beware of unicode (Py2.x u'') and EOL dragons (\r).
+Example of my query:
+	return MyModel.objects.all().order_by(
+		RawSQL('''
+			case when status in ('accepted', 'verification')
+				 then 2 else 1 end''', []).desc(),
+		RawSQL('''
+			case when status in ('accepted', 'verification')
+				 then (accepted_datetime, preferred_datetime)
+				 else null end''', []).asc(),
+		RawSQL('''
+			case when status not in ('accepted', 'verification')
+				 then (accepted_datetime, preferred_datetime, created_at)
+				 else null end''', []).desc())
+The ordering_parts.search is returing accordingly:
+'				 then 2 else 1 end)'
+'				 else null end'
+'				 else null end'
+Second RawSQL with a				 else null end part is removed from query.
+The fun thing is that the issue can be solved by workaround by adding a space or any other char to the last line. 
+So in case of RawSQL I can just say, that current implementation of avoiding duplicates in order by clause works only for special/rare cases (or does not work in all cases). 
+The bug filed here is about wrong identification of duplicates (because it compares only last line of SQL passed to order by clause).
+Hope my notes will help you fixing the issue. Sorry for my english.
+
+
+## EXECUTION MODE - UNLIMITED
+
+✅ **YOU HAVE UNLIMITED PYTHON EXECUTIONS** ✅
+
+You can freely run tests and scripts.
+
+This is a research experiment. Feel free to run tests and scripts as many times as needed.
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## Investigation
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests and experiments freely to verify your understanding
+3. Generate a fix using the Edit tool to modify source files
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

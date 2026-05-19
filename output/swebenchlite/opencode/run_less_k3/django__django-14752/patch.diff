@@ -1,0 +1,299 @@
+diff --git a/django/contrib/admin/views/autocomplete.py b/django/contrib/admin/views/autocomplete.py
+index 3903e4c98c..b7d68208dd 100644
+--- a/django/contrib/admin/views/autocomplete.py
++++ b/django/contrib/admin/views/autocomplete.py
+@@ -10,6 +10,262 @@ class AutocompleteJsonView(BaseListView):
+     admin_site = None
+ 
+     def get(self, request, *args, **kwargs):
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        self.term, self.model_admin, self.source_field, to_field_name = self.process_request(request)
++
++        if not self.has_perm(request):
++            raise PermissionDenied
++
++        self.object_list = self.get_queryset()
++        context = self.get_context_data()
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++
++        return JsonResponse({
++            'results': [
++                self.serialize_result(obj, to_field_name) for obj in context['object_list']
++            ],
++            'pagination': {'more': context['page_obj'].has_next()},
++        })
++def serialize_result(self, obj, to_field_name):
++    return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
+         """
+         Return a JsonResponse with search results of the form:
+         {
+@@ -36,6 +292,31 @@ class AutocompleteJsonView(BaseListView):
+         """Use the ModelAdmin's paginator."""
+         return self.model_admin.get_paginator(self.request, *args, **kwargs)
+ 
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        """Use the ModelAdmin's paginator."""
++        return self.model_admin.get_paginator(self.request, *args, **kwargs)
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        """Use the ModelAdmin's paginator."""
++        return self.model_admin.get_paginator(self.request, *args, **kwargs)
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        """Use the ModelAdmin's paginator."""
++        return self.model_admin.get_paginator(self.request, *args, **kwargs)
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        """Use the ModelAdmin's paginator."""
++        return self.model_admin.get_paginator(self.request, *args, **kwargs)
++
++    def serialize_result(self, obj, to_field_name):
++        return {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++        """Use the ModelAdmin's paginator."""
++        return self.model_admin.get_paginator(self.request, *args, **kwargs)
++
+     def get_queryset(self):
+         """Return queryset based on ModelAdmin.get_search_results()."""
+         qs = self.model_admin.get_queryset(self.request)

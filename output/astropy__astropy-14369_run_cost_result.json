@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14369",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/astropy/units/format/cds.py b/astropy/units/format/cds.py\nindex 307e987ed..04fac55b0 100644\n--- a/astropy/units/format/cds.py\n+++ b/astropy/units/format/cds.py\n@@ -171,8 +171,8 @@ class CDS(Base):\n \n         def p_product_of_units(p):\n             \"\"\"\n-            product_of_units : unit_expression PRODUCT combined_units\n-                             | unit_expression\n+product_of_units : unit_expression combined_units\n+                              | unit_expression\n             \"\"\"\n             if len(p) == 4:\n                 p[0] = p[1] * p[3]\n@@ -181,7 +181,7 @@ class CDS(Base):\n \n         def p_division_of_units(p):\n             \"\"\"\n-            division_of_units : DIVISION unit_expression\n+            division_of_units : unit_expression DIVISION unit_expression\n                               | unit_expression DIVISION combined_units\n             \"\"\"\n             if len(p) == 3:",
+  "tokens_used": 372721,
+  "exec_count": 2,
+  "duration_sec": 1520.2242231369019,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

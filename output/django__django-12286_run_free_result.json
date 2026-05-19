@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12286",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/core/checks/translation.py b/django/core/checks/translation.py\nindex 138ed07ff8..08faad513a 100644\n--- a/django/core/checks/translation.py\n+++ b/django/core/checks/translation.py\n@@ -56,6 +56,6 @@ def check_setting_languages_bidi(app_configs, **kwargs):\n def check_language_settings_consistent(app_configs, **kwargs):\n     \"\"\"Error if language settings are not consistent with each other.\"\"\"\n     available_tags = {i for i, _ in settings.LANGUAGES} | {'en-us'}\n-    if settings.LANGUAGE_CODE not in available_tags:\n+    if settings.LANGUAGE_CODE not in available_tags and settings.LANGUAGE_CODE.split('-')[0] not in available_tags:\n         return [E004]\n     return []",
+  "tokens_used": 215522,
+  "exec_count": 0,
+  "duration_sec": 126.31093907356262,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

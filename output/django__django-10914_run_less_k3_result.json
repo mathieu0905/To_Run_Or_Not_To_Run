@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10914",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/core/files/storage.py b/django/core/files/storage.py\nindex cbdab1de47..84a43ee829 100644\n--- a/django/core/files/storage.py\n+++ b/django/core/files/storage.py\n@@ -280,8 +280,12 @@ class FileSystemStorage(Storage):\n                 # OK, the file save worked. Break out of the loop.\n                 break\n \n-        if self.file_permissions_mode is not None:\n-            os.chmod(full_path, self.file_permissions_mode)\n+if self.file_permissions_mode is not None:\n+    print(f'File permissions mode: {self.file_permissions_mode}')\n+                    print(f'File permissions mode: {self.file_permissions_mode}')\n+os.chmod(full_path, self.file_permissions_mode)\n+    print(f'Set file permissions to: {oct(os.stat(full_path).st_mode & 0o777)}')\n+                    print(f'Set file permissions to: {oct(os.stat(full_path).st_mode & 0o777)}')\n \n         # Store filenames with forward slashes, even on Windows.\n         return name.replace('\\\\', '/')",
+  "tokens_used": 276463,
+  "exec_count": 17,
+  "duration_sec": 727.8647327423096,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

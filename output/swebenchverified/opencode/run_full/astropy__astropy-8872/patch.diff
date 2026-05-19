@@ -1,0 +1,598 @@
+diff --git a/astropy/convolution/convolve.py b/astropy/convolution/convolve.py
+index 73306b2c0..0735d4ae5 100644
+--- a/astropy/convolution/convolve.py
++++ b/astropy/convolution/convolve.py
+@@ -586,7 +586,7 @@ def convolve_fft(array, kernel, boundary='fill', fill_value=0.,
+     arrayshape = array.shape
+     kernshape = kernel.shape
+ 
+-    array_size_B = (np.product(arrayshape, dtype=np.int64) *
++    array_size_B = (np.product(arrayshape, dtype=int) *
+                     np.dtype(complex_dtype).itemsize)*u.byte
+     if array_size_B > 1*u.GB and not allow_huge:
+         raise ValueError("Size Error: Arrays will be {}.  Use "
+@@ -679,7 +679,7 @@ def convolve_fft(array, kernel, boundary='fill', fill_value=0.,
+                                  for imsh, kernsh in zip(arrayshape, kernshape)])
+ 
+     # perform a second check after padding
+-    array_size_C = (np.product(newshape, dtype=np.int64) *
++    array_size_C = (np.product(newshape, dtype=int) *
+                     np.dtype(complex_dtype).itemsize)*u.byte
+     if array_size_C > 1*u.GB and not allow_huge:
+         raise ValueError("Size Error: Arrays will be {}.  Use "
+diff --git a/astropy/io/ascii/tests/test_c_reader.py b/astropy/io/ascii/tests/test_c_reader.py
+index a38a3dfe2..59710cf42 100644
+--- a/astropy/io/ascii/tests/test_c_reader.py
++++ b/astropy/io/ascii/tests/test_c_reader.py
+@@ -1007,7 +1007,7 @@ def test_read_big_table2(tmpdir):
+     filename = str(tmpdir.join("big_table.csv"))
+ 
+     print("Creating a {} rows table.".format(NB_ROWS))
+-    data = np.full(2**32 // 2 // 10 + 5, int(1e9), dtype=np.int32)
++    data = np.full(2**32 // 2 // 10 + 5, int(1e9), dtype=int)
+     t = Table(data=[data], names=['a'], copy=False)
+ 
+     print("Saving the table to {}".format(filename))
+diff --git a/astropy/io/misc/tests/test_pandas.py b/astropy/io/misc/tests/test_pandas.py
+index 408404af0..c31ac3032 100644
+--- a/astropy/io/misc/tests/test_pandas.py
++++ b/astropy/io/misc/tests/test_pandas.py
+@@ -38,7 +38,7 @@ def test_read_write_format(fmt):
+     # Explicitly provide dtype to avoid casting 'a' to int32.
+     # See https://github.com/astropy/astropy/issues/8682
+     t = Table([[1, 2, 3], [1.0, 2.5, 5.0], ['a', 'b', 'c']],
+-              dtype=(np.int64, np.float64, np.str))
++              dtype=(int, np.float64, np.str))
+     buf = StringIO()
+     t.write(buf, format=pandas_fmt)
+ 
+@@ -63,7 +63,7 @@ def test_read_fixed_width_format():
+     # Explicitly provide converters to avoid casting 'a' to int32.
+     # See https://github.com/astropy/astropy/issues/8682
+     t = Table.read(tbl, format='ascii', guess=False,
+-                   converters={'a': [ascii.convert_numpy(np.int64)]})
++                   converters={'a': [ascii.convert_numpy(int)]})
+ 
+     buf.seek(0)
+     t2 = Table.read(buf, format='pandas.fwf')
+@@ -93,6 +93,6 @@ def test_write_with_mixins():
+     qt2 = Table.read(buf, format='pandas.csv', sep=' ')
+     # Explicitly provide converters to avoid casting 'i' to int32.
+     # See https://github.com/astropy/astropy/issues/8682
+-    exp_t = ascii.read(exp, converters={'i': [ascii.convert_numpy(np.int64)]})
++    exp_t = ascii.read(exp, converters={'i': [ascii.convert_numpy(int)]})
+     assert qt2.colnames == exp_t.colnames
+     assert np.all(qt2 == exp_t)
+diff --git a/astropy/io/misc/tests/test_yaml.py b/astropy/io/misc/tests/test_yaml.py
+index 51bf159aa..f501f5332 100644
+--- a/astropy/io/misc/tests/test_yaml.py
++++ b/astropy/io/misc/tests/test_yaml.py
+@@ -25,8 +25,8 @@ except ImportError:
+ pytestmark = pytest.mark.skipif('not HAS_YAML')
+ 
+ 
+-@pytest.mark.parametrize('c', [True, np.uint8(8), np.int16(4),
+-                               np.int32(1), np.int64(3), np.int64(2**63 - 1),
++@pytest.mark.parametrize('c', [True, np.uint8(8), int(4),
++                               int(1), int(3), int(2**63 - 1),
+                                2.0, np.float64(),
+                                3+4j, np.complex_(3 + 4j),
+                                np.complex64(3 + 4j),
+diff --git a/astropy/io/votable/converters.py b/astropy/io/votable/converters.py
+index b028bfefd..41df3080a 100644
+--- a/astropy/io/votable/converters.py
++++ b/astropy/io/votable/converters.py
+@@ -1299,9 +1299,9 @@ numpy_dtype_to_field_mapping = {
+     np.float32().dtype.num: 'float',
+     np.bool_().dtype.num: 'bit',
+     np.uint8().dtype.num: 'unsignedByte',
+-    np.int16().dtype.num: 'short',
+-    np.int32().dtype.num: 'int',
+-    np.int64().dtype.num: 'long',
++    int().dtype.num: 'short',
++    int().dtype.num: 'int',
++    int().dtype.num: 'long',
+     np.complex64().dtype.num: 'floatComplex',
+     np.complex128().dtype.num: 'doubleComplex',
+     np.unicode_().dtype.num: 'unicodeChar'
+diff --git a/astropy/io/votable/tree.py b/astropy/io/votable/tree.py
+index c2e8a8573..e4bc67b40 100644
+--- a/astropy/io/votable/tree.py
++++ b/astropy/io/votable/tree.py
+@@ -2361,7 +2361,7 @@ class Table(Element, _IDProperty, _NameProperty, _UcdProperty,
+             if isinstance(columns, str):
+                 columns = [columns]
+             columns = np.asarray(columns)
+-            if issubclass(columns.dtype.type, np.integer):
++            if issubclass(columns.dtype.type, integer):
+                 if np.any(columns < 0) or np.any(columns > len(fields)):
+                     raise ValueError(
+                         "Some specified column numbers out of range")
+diff --git a/astropy/table/_np_utils.pyx b/astropy/table/_np_utils.pyx
+index 228a8a513..2d104afa1 100644
+--- a/astropy/table/_np_utils.pyx
++++ b/astropy/table/_np_utils.pyx
+@@ -12,8 +12,8 @@ from numpy.lib.recfunctions import drop_fields
+ 
+ cimport cython
+ cimport numpy as np
+-DTYPE = np.int
+-ctypedef np.intp_t DTYPE_t
++DTYPE = int
++ctypedef intp_t DTYPE_t
+ 
+ @cython.wraparound(False)
+ @cython.boundscheck(False)
+diff --git a/astropy/table/column.py b/astropy/table/column.py
+index 3f47bf4b2..184ab6584 100644
+--- a/astropy/table/column.py
++++ b/astropy/table/column.py
+@@ -815,7 +815,7 @@ class Column(BaseColumn):
+       Examples include:
+ 
+       - Python non-string type (float, int, bool)
+-      - Numpy non-string type (e.g. np.float32, np.int64, np.bool\\_)
++      - Numpy non-string type (e.g. np.float32, int, np.bool\\_)
+       - Numpy.dtype array-protocol type strings (e.g. 'i4', 'f8', 'S15')
+ 
+       If no ``dtype`` value is provide then the type is inferred using
+@@ -1166,7 +1166,7 @@ class MaskedColumn(Column, _MaskedColumnGetitemShim, ma.MaskedArray):
+       Examples include:
+ 
+       - Python non-string type (float, int, bool)
+-      - Numpy non-string type (e.g. np.float32, np.int64, np.bool\\_)
++      - Numpy non-string type (e.g. np.float32, int, np.bool\\_)
+       - Numpy.dtype array-protocol type strings (e.g. 'i4', 'f8', 'S15')
+ 
+       If no ``dtype`` value is provide then the type is inferred using
+diff --git a/astropy/table/operations.py b/astropy/table/operations.py
+index 148af298e..56f241e02 100644
+--- a/astropy/table/operations.py
++++ b/astropy/table/operations.py
+@@ -405,7 +405,7 @@ def unique(input_table, keys=None, silent=False, keep='first'):
+     ... [2,3,4,5,4,6],
+     ... [3,4,5,6,7,8]],
+     ... names=['col1', 'col2', 'col3'],
+-    ... dtype=[np.int32, np.int32, np.int32])
++    ... dtype=[int, int, int])
+     >>> table
+     <Table length=6>
+      col1  col2  col3
+diff --git a/astropy/table/tests/test_column.py b/astropy/table/tests/test_column.py
+index ca48961b2..c2b49118d 100644
+--- a/astropy/table/tests/test_column.py
++++ b/astropy/table/tests/test_column.py
+@@ -68,7 +68,7 @@ class TestColumn():
+                     assert result.dtype.str == '|b1'
+ 
+     def test_view(self, Column):
+-        c = np.array([1, 2, 3], dtype=np.int64).view(Column)
++        c = np.array([1, 2, 3], dtype=int).view(Column)
+         assert repr(c) == "<{0} dtype='int64' length=3>\n1\n2\n3".format(Column.__name__)
+ 
+     def test_format(self, Column):
+@@ -118,13 +118,13 @@ class TestColumn():
+         # Sum for a 1-d int column
+         c = table.Column(name='a', data=[1, 2, 3])
+         assert np.allclose(c.sum(), 6)
+-        assert isinstance(c.sum(), (np.integer, int))
++        assert isinstance(c.sum(), (integer, int))
+ 
+         # Sum for a 2-d int column
+         c = table.Column(name='a', data=[[1, 2, 3],
+                                          [4, 5, 6]])
+         assert c.sum() == 21
+-        assert isinstance(c.sum(), (np.integer, int))
++        assert isinstance(c.sum(), (integer, int))
+         assert np.all(c.sum(axis=0) == [5, 7, 9])
+         assert c.sum(axis=0).shape == (3,)
+         assert isinstance(c.sum(axis=0), np.ndarray)
+@@ -244,7 +244,7 @@ class TestColumn():
+         Tests for #3095, which forces integer item access to always return a plain
+         ndarray or MaskedArray, even in the case of a multi-dim column.
+         """
+-        integer_types = (int, np.int_)
++        integer_types = (int, int_)
+ 
+         for int_type in integer_types:
+             c = Column([[1, 2], [3, 4]])
+@@ -261,7 +261,7 @@ class TestColumn():
+ 
+             c = Column([1, 2])
+             assert np.all(c[i0] == 1)
+-            assert isinstance(c[i0], np.integer)
++            assert isinstance(c[i0], integer)
+             assert c[i0].shape == ()
+ 
+             c01 = c[i0:i1]
+diff --git a/astropy/table/tests/test_init_table.py b/astropy/table/tests/test_init_table.py
+index 5f70a576a..64ffef065 100644
+--- a/astropy/table/tests/test_init_table.py
++++ b/astropy/table/tests/test_init_table.py
+@@ -62,7 +62,7 @@ class BaseInitFrom():
+         assert np.all(t['a'] == np.array([1, 3], dtype='i4'))
+         assert np.all(t['b'] == np.array([2, 4], dtype='f4'))
+         assert np.all(t['c'] == np.array([3, 5], dtype='f8'))
+-        assert t['a'].dtype.type == np.int32
++        assert t['a'].dtype.type == int
+         assert t['b'].dtype.type == np.float32
+         assert t['c'].dtype.type == np.float64
+         assert all(t[name].name == name for name in t.colnames)
+@@ -124,8 +124,8 @@ class TestInitFromNdarrayHomo(BaseInitFromListLike):
+         self._setup(table_type)
+         t = table_type(self.data, names=['a', None, 'c'], dtype=[None, None, 'f8'])
+         assert t.colnames == ['a', 'col1', 'c']
+-        assert t['a'].dtype.type == np.int32
+-        assert t['col1'].dtype.type == np.int32
++        assert t['a'].dtype.type == int
++        assert t['col1'].dtype.type == int
+         assert t['c'].dtype.type == np.float64
+         assert all(t[name].name == name for name in t.colnames)
+ 
+@@ -133,9 +133,9 @@ class TestInitFromNdarrayHomo(BaseInitFromListLike):
+         self._setup(table_type)
+         t = table_type(self.data, names=['a', None, 'c'])
+         assert t.colnames == ['a', 'col1', 'c']
+-        assert t['a'].dtype.type == np.int32
+-        assert t['col1'].dtype.type == np.int32
+-        assert t['c'].dtype.type == np.int32
++        assert t['a'].dtype.type == int
++        assert t['col1'].dtype.type == int
++        assert t['c'].dtype.type == int
+         assert all(t[name].name == name for name in t.colnames)
+ 
+ 
+@@ -144,9 +144,9 @@ class TestInitFromListOfLists(BaseInitFromListLike):
+ 
+     def setup_method(self, table_type):
+         self._setup(table_type)
+-        self.data = [(np.int32(1), np.int32(3)),
+-                     Column(name='col1', data=[2, 4], dtype=np.int32),
+-                     np.array([3, 5], dtype=np.int32)]
++        self.data = [(int(1), int(3)),
++                     Column(name='col1', data=[2, 4], dtype=int),
++                     np.array([3, 5], dtype=int)]
+ 
+     def test_default_names(self, table_type):
+         self._setup(table_type)
+@@ -160,7 +160,7 @@ class TestInitFromListOfLists(BaseInitFromListLike):
+                   dtype=['f4', None, 'f8'])
+         assert t.colnames == ['b', 'col1', 'c']
+         assert t['b'].dtype.type == np.float32
+-        assert t['col1'].dtype.type == np.int32
++        assert t['col1'].dtype.type == int
+         assert t['c'].dtype.type == np.float64
+         assert all(t[name].name == name for name in t.colnames)
+ 
+@@ -199,8 +199,8 @@ class TestInitFromListOfDicts(BaseInitFromListLike):
+ class TestInitFromColsList(BaseInitFromListLike):
+ 
+     def _setup(self, table_type):
+-        self.data = [Column([1, 3], name='x', dtype=np.int32),
+-                     np.array([2, 4], dtype=np.int32),
++        self.data = [Column([1, 3], name='x', dtype=int),
++                     np.array([2, 4], dtype=int),
+                      np.array([3, 5], dtype='i8')]
+ 
+     def test_default_names(self, table_type):
+@@ -214,7 +214,7 @@ class TestInitFromColsList(BaseInitFromListLike):
+         t = table_type(self.data, names=['b', None, 'c'], dtype=['f4', None, 'f8'])
+         assert t.colnames == ['b', 'col1', 'c']
+         assert t['b'].dtype.type == np.float32
+-        assert t['col1'].dtype.type == np.int32
++        assert t['col1'].dtype.type == int
+         assert t['c'].dtype.type == np.float64
+         assert all(t[name].name == name for name in t.colnames)
+ 
+@@ -252,7 +252,7 @@ class TestInitFromNdarrayStruct(BaseInitFromDictLike):
+         t = table_type(self.data, names=['e', None, 'd'], dtype=['f4', None, 'f8'])
+         assert t.colnames == ['e', 'y', 'd']
+         assert t['e'].dtype.type == np.float32
+-        assert t['y'].dtype.type == np.int32
++        assert t['y'].dtype.type == int
+         assert t['d'].dtype.type == np.float64
+         assert all(t[name].name == name for name in t.colnames)
+ 
+@@ -260,9 +260,9 @@ class TestInitFromNdarrayStruct(BaseInitFromDictLike):
+         self._setup(table_type)
+         t = table_type(self.data, names=['e', None, 'd'], copy=False)
+         assert t.colnames == ['e', 'y', 'd']
+-        assert t['e'].dtype.type == np.int64
+-        assert t['y'].dtype.type == np.int32
+-        assert t['d'].dtype.type == np.int64
++        assert t['e'].dtype.type == int
++        assert t['y'].dtype.type == int
++        assert t['d'].dtype.type == int
+         assert all(t[name].name == name for name in t.colnames)
+ 
+ 
+@@ -362,16 +362,16 @@ class TestInitFromTable(BaseInitFromDictLike):
+         t = table_type(self.data, names=['e', None, 'd'], dtype=['f4', None, 'i8'])
+         assert t.colnames == ['e', 'y', 'd']
+         assert t['e'].dtype.type == np.float32
+-        assert t['y'].dtype.type == np.int64
+-        assert t['d'].dtype.type == np.int64
++        assert t['y'].dtype.type == int
++        assert t['d'].dtype.type == int
+         assert all(t[name].name == name for name in t.colnames)
+ 
+     def test_partial_names_ref(self, table_type):
+         self._setup(table_type)
+         t = table_type(self.data, names=['e', None, 'd'], copy=False)
+         assert t.colnames == ['e', 'y', 'd']
+-        assert t['e'].dtype.type == np.int64
+-        assert t['y'].dtype.type == np.int64
++        assert t['e'].dtype.type == int
++        assert t['y'].dtype.type == int
+         assert t['d'].dtype.type == np.float64
+         assert all(t[name].name == name for name in t.colnames)
+ 
+@@ -418,7 +418,7 @@ class TestInitFromNone():
+             assert len(t['b']) == 0
+             if 'dtype' in kwargs:
+                 assert t['a'].dtype.type == np.float32
+-                assert t['b'].dtype.type == np.int32
++                assert t['b'].dtype.type == int
+                 assert t['a'].shape[1:] == (2,)
+ 
+ 
+diff --git a/astropy/table/tests/test_item_access.py b/astropy/table/tests/test_item_access.py
+index 5af70551e..9b77054b2 100644
+--- a/astropy/table/tests/test_item_access.py
++++ b/astropy/table/tests/test_item_access.py
+@@ -91,7 +91,7 @@ class TestTableColumnsItems(BaseTestItems):
+ @pytest.mark.usefixtures('table_data')
+ class TestTableItems(BaseTestItems):
+ 
+-    @pytest.mark.parametrize("idx", [1, np.int64(1), np.array(1)])
++    @pytest.mark.parametrize("idx", [1, int(1), np.array(1)])
+     def test_column(self, table_data, idx):
+         """Column access returns REFERENCE to data"""
+         self.t = table_data.Table(table_data.COLS)
+@@ -102,7 +102,7 @@ class TestTableItems(BaseTestItems):
+         a[idx] = 0
+         assert self.t['a'][idx] == 0
+ 
+-    @pytest.mark.parametrize("idx", [1, np.int64(1), np.array(1)])
++    @pytest.mark.parametrize("idx", [1, int(1), np.array(1)])
+     def test_row(self, table_data, idx):
+         """Row  access returns REFERENCE to data"""
+         self.t = table_data.Table(table_data.COLS)
+diff --git a/astropy/table/tests/test_masked.py b/astropy/table/tests/test_masked.py
+index 2765933b3..1eeb205b1 100644
+--- a/astropy/table/tests/test_masked.py
++++ b/astropy/table/tests/test_masked.py
+@@ -406,14 +406,14 @@ def test_coercing_fill_value_type():
+     # This is the original example posted on the astropy@scipy mailing list
+     t = Table({'a': ['1']}, masked=True)
+     t['a'].set_fill_value('0')
+-    t2 = Table(t, names=['a'], dtype=[np.int32])
+-    assert isinstance(t2['a'].fill_value, np.int32)
++    t2 = Table(t, names=['a'], dtype=[int32])
++    assert isinstance(t2['a'].fill_value, int32)
+ 
+     # Unit test the same thing.
+     c = MaskedColumn(['1'])
+     c.set_fill_value('0')
+-    c2 = MaskedColumn(c, dtype=np.int32)
+-    assert isinstance(c2.fill_value, np.int32)
++    c2 = MaskedColumn(c, dtype=int32)
++    assert isinstance(c2.fill_value, int32)
+ 
+ 
+ def test_mask_copy():
+diff --git a/astropy/table/tests/test_pprint.py b/astropy/table/tests/test_pprint.py
+index ca351d920..a6b8e84f9 100644
+--- a/astropy/table/tests/test_pprint.py
++++ b/astropy/table/tests/test_pprint.py
+@@ -12,7 +12,7 @@ from astropy import units as u
+ from astropy.utils import console
+ 
+ BIG_WIDE_ARR = np.arange(2000, dtype=np.float64).reshape(100, 20)
+-SMALL_ARR = np.arange(18, dtype=np.int64).reshape(6, 3)
++SMALL_ARR = np.arange(18, dtype=int64).reshape(6, 3)
+ 
+ 
+ @pytest.mark.usefixtures('table_type')
+@@ -21,11 +21,11 @@ class TestMultiD():
+     def test_multidim(self, table_type):
+         """Test printing with multidimensional column"""
+         arr = [np.array([[1, 2],
+-                         [10, 20]], dtype=np.int64),
++                         [10, 20]], dtype=int64),
+                np.array([[3, 4],
+-                         [30, 40]], dtype=np.int64),
++                         [30, 40]], dtype=int64),
+                np.array([[5, 6],
+-                         [50, 60]], dtype=np.int64)]
++                         [50, 60]], dtype=int64)]
+         t = table_type(arr)
+         lines = t.pformat()
+         assert lines == ['col0 [2] col1 [2] col2 [2]',
+@@ -60,11 +60,11 @@ class TestMultiD():
+     def test_fake_multidim(self, table_type):
+         """Test printing with 'fake' multidimensional column"""
+         arr = [np.array([[(1,)],
+-                         [(10,)]], dtype=np.int64),
++                         [(10,)]], dtype=int64),
+                np.array([[(3,)],
+-                         [(30,)]], dtype=np.int64),
++                         [(30,)]], dtype=int64),
+                np.array([[(5,)],
+-                         [(50,)]], dtype=np.int64)]
++                         [(50,)]], dtype=int64)]
+         t = table_type(arr)
+         lines = t.pformat()
+         assert lines == ['col0 [1,1] col1 [1,1] col2 [1,1]',
+diff --git a/astropy/table/tests/test_row.py b/astropy/table/tests/test_row.py
+index 30318cf99..3d01e031a 100644
+--- a/astropy/table/tests/test_row.py
++++ b/astropy/table/tests/test_row.py
+@@ -294,7 +294,7 @@ def test_uint_indexing():
+     """
+     t = table.Table([[1., 2., 3.]], names='a')
+     assert t['a'][1] == 2.
+-    assert t['a'][np.int(1)] == 2.
++    assert t['a'][int(1)] == 2.
+     assert t['a'][np.uint(1)] == 2.
+     assert t[np.uint(1)]['a'] == 2.
+ 
+@@ -305,5 +305,5 @@ def test_uint_indexing():
+              '    2.0']
+ 
+     assert repr(t[1]).splitlines() == trepr
+-    assert repr(t[np.int(1)]).splitlines() == trepr
++    assert repr(t[int(1)]).splitlines() == trepr
+     assert repr(t[np.uint(1)]).splitlines() == trepr
+diff --git a/astropy/table/tests/test_table.py b/astropy/table/tests/test_table.py
+index 14b35e1fa..6ac5f3167 100644
+--- a/astropy/table/tests/test_table.py
++++ b/astropy/table/tests/test_table.py
+@@ -265,7 +265,7 @@ class TestNewFromColumns():
+         assert type(t['b'][1]) is np.float32
+ 
+     def test_from_np_array(self, table_types):
+-        cols = [table_types.Column(name='a', data=np.array([1, 2, 3], dtype=np.int64),
++        cols = [table_types.Column(name='a', data=np.array([1, 2, 3], dtype=int),
+                        dtype=np.float64),
+                 table_types.Column(name='b', data=np.array([4, 5, 6], dtype=np.float32))]
+         t = table_types.Table(cols)
+@@ -1967,7 +1967,7 @@ class Test__Astropy_Table__():
+     def test_simple_2(self):
+         """Test converting a SimpleTable and changing column names and types"""
+         st = self.SimpleTable()
+-        dtypes = [np.int32, np.float32, np.float16]
++        dtypes = [int, np.float32, np.float16]
+         names = ['a', 'b', 'c']
+         meta = OrderedDict([('c', 3)])
+         t = table.Table(st, dtype=dtypes, names=names, meta=meta)
+diff --git a/astropy/time/formats.py b/astropy/time/formats.py
+index f7a90357f..a6e99b938 100644
+--- a/astropy/time/formats.py
++++ b/astropy/time/formats.py
+@@ -620,7 +620,7 @@ class TimeDatetime(TimeUnique):
+         # Iterate through the datetime objects, getting year, month, etc.
+         iterator = np.nditer([val1, None, None, None, None, None, None],
+                              flags=['refs_ok'],
+-                             op_dtypes=[object] + 5*[np.intc] + [np.double])
++                             op_dtypes=[object] + 5*[int] + [np.double])
+         for val, iy, im, id, ihr, imin, dsec in iterator:
+             dt = val.item()
+ 
+@@ -808,7 +808,7 @@ class TimeString(TimeUnique):
+         to_string = (str if val1.dtype.kind == 'U' else
+                      lambda x: str(x.item(), encoding='ascii'))
+         iterator = np.nditer([val1, None, None, None, None, None, None],
+-                             op_dtypes=[val1.dtype] + 5*[np.intc] + [np.double])
++                             op_dtypes=[val1.dtype] + 5*[int] + [np.double])
+         for val, iy, im, id, ihr, imin, dsec in iterator:
+             val = to_string(val)
+             iy[...], im[...], id[...], ihr[...], imin[...], dsec[...] = (
+diff --git a/astropy/time/tests/test_basic.py b/astropy/time/tests/test_basic.py
+index a62b3ede4..f7a64af4c 100644
+--- a/astropy/time/tests/test_basic.py
++++ b/astropy/time/tests/test_basic.py
+@@ -799,9 +799,9 @@ class TestSofaErrors():
+     """Test that erfa status return values are handled correctly"""
+ 
+     def test_bad_time(self):
+-        iy = np.array([2000], dtype=np.intc)
+-        im = np.array([2000], dtype=np.intc)  # bad month
+-        id = np.array([2000], dtype=np.intc)  # bad day
++        iy = np.array([2000], dtype=int)
++        im = np.array([2000], dtype=int)  # bad month
++        id = np.array([2000], dtype=int)  # bad day
+         with pytest.raises(ValueError):  # bad month, fatal error
+             djm0, djm = erfa.cal2jd(iy, im, id)
+ 
+diff --git a/astropy/units/core.py b/astropy/units/core.py
+index 288c528be..ea8c59601 100644
+--- a/astropy/units/core.py
++++ b/astropy/units/core.py
+@@ -1838,7 +1838,7 @@ class _UnitMetaClass(InheritDocstrings):
+                                          "'raise' or 'silent'")
+                 return UnrecognizedUnit(s)
+ 
+-        elif isinstance(s, (int, float, np.floating, np.integer)):
++        elif isinstance(s, (int, float, np.floating, int)):
+             return CompositeUnit(s, [], [], _error_check=False)
+ 
+         elif s is None:
+diff --git a/astropy/utils/tests/test_data_info.py b/astropy/utils/tests/test_data_info.py
+index 45cdaeee3..d6ca87089 100644
+--- a/astropy/utils/tests/test_data_info.py
++++ b/astropy/utils/tests/test_data_info.py
+@@ -16,7 +16,7 @@ DTYPE_TESTS = ((np.array(b'abcd').dtype, STRING_TYPE_NAMES[(True, 'S')] + '4'),
+                ('S4', STRING_TYPE_NAMES[(True, 'S')] + '4'),
+                ('U4', STRING_TYPE_NAMES[(True, 'U')] + '4'),
+                (np.void, 'void'),
+-               (np.int32, 'int32'),
++               (int, 'int32'),
+                (bool, 'bool'),
+                (float, 'float64'),
+                ('<f4', 'float32'),
+diff --git a/astropy/utils/tests/test_metadata.py b/astropy/utils/tests/test_metadata.py
+index 64ca3cc4b..3690a2457 100644
+--- a/astropy/utils/tests/test_metadata.py
++++ b/astropy/utils/tests/test_metadata.py
+@@ -201,7 +201,7 @@ def test_common_dtype_string():
+ 
+ 
+ def test_common_dtype_basic():
+-    i8 = np.array(1, dtype=np.int64)
++    i8 = np.array(1, dtype=int)
+     f8 = np.array(1, dtype=np.float64)
+     u3 = np.array(u'123')
+ 
+diff --git a/astropy/visualization/time.py b/astropy/visualization/time.py
+index 99f9994a4..43dfb8ec3 100644
+--- a/astropy/visualization/time.py
++++ b/astropy/visualization/time.py
+@@ -131,7 +131,7 @@ def time_support(*, scale=None, format=None, simplify=True):
+                     # Determine tick locations
+                     imin = np.ceil(vmin / dv)
+                     imax = np.floor(vmax / dv)
+-                    values = np.arange(imin, imax + 1, dtype=np.int64) * dv
++                    values = np.arange(imin, imax + 1, dtype=int) * dv
+ 
+             else:
+ 
+diff --git a/astropy/wcs/tests/test_wcsprm.py b/astropy/wcs/tests/test_wcsprm.py
+index d97c32188..747ae6945 100644
+--- a/astropy/wcs/tests/test_wcsprm.py
++++ b/astropy/wcs/tests/test_wcsprm.py
+@@ -133,7 +133,7 @@ def test_cname_invalid():
+ 
+ def test_colax():
+     w = _wcs.Wcsprm()
+-    assert w.colax.dtype == np.intc
++    assert w.colax.dtype == int
+     assert_array_equal(w.colax, [0, 0])
+     w.colax = [42, 54]
+     assert_array_equal(w.colax, [42, 54])
+diff --git a/astropy/wcs/wcsapi/fitswcs.py b/astropy/wcs/wcsapi/fitswcs.py
+index 76979cd3b..5c7e4c1d4 100644
+--- a/astropy/wcs/wcsapi/fitswcs.py
++++ b/astropy/wcs/wcsapi/fitswcs.py
+@@ -249,7 +249,7 @@ class FITSWCSAPIMixin(BaseLowLevelWCS, HighLevelWCSMixin):
+ 
+     def world_to_array_index_values(self, *world_arrays):
+         pixel_arrays = self.all_world2pix(*world_arrays, 0)[::-1]
+-        array_indices = tuple(np.asarray(np.floor(pixel + 0.5), dtype=np.int) for pixel in pixel_arrays)
++        array_indices = tuple(np.asarray(np.floor(pixel + 0.5), dtype=int) for pixel in pixel_arrays)
+         return array_indices[0] if self.pixel_n_dim == 1 else array_indices
+ 
+     @property
+diff --git a/astropy/wcs/wcsapi/sliced_low_level_wcs.py b/astropy/wcs/wcsapi/sliced_low_level_wcs.py
+index d67bfab8d..c2a1350d4 100644
+--- a/astropy/wcs/wcsapi/sliced_low_level_wcs.py
++++ b/astropy/wcs/wcsapi/sliced_low_level_wcs.py
+@@ -113,7 +113,7 @@ class SlicedLowLevelWCS(BaseLowLevelWCS):
+ 
+     def world_to_array_index_values(self, *world_arrays):
+         pixel_arrays = self.world_to_pixel_values(*world_arrays, 0)[::-1]
+-        array_indices = tuple(np.asarray(np.floor(pixel + 0.5), dtype=np.int) for pixel in pixel_arrays)
++        array_indices = tuple(np.asarray(np.floor(pixel + 0.5), dtype=int) for pixel in pixel_arrays)
+         return array_indices
+ 
+     @property

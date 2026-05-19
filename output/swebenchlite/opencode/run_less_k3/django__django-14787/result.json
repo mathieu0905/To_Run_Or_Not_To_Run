@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14787",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/utils/decorators.py b/django/utils/decorators.py\nindex 5c9a5d01c7..a6559d8d8c 100644\n--- a/django/utils/decorators.py\n+++ b/django/utils/decorators.py\n@@ -37,7 +37,7 @@ def _multi_decorate(decorators, method):\n         # 'self' argument, but it's a closure over self so it can call\n         # 'func'. Also, wrap method.__get__() in a function because new\n         # attributes can't be set on bound method objects, only on functions.\n-        bound_method = partial(method.__get__(self, type(self)))\n+        bound_method = method.__get__(self, type(self))\n         for dec in decorators:\n             bound_method = dec(bound_method)\n         return bound_method(*args, **kwargs)",
+  "tokens_used": 81988,
+  "exec_count": 8,
+  "duration_sec": 152.92794156074524,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

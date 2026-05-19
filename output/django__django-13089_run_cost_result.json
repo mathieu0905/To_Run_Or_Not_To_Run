@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13089",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/core/cache/backends/db.py b/django/core/cache/backends/db.py\nindex 33c79c5a14..9cc8c59142 100644\n--- a/django/core/cache/backends/db.py\n+++ b/django/core/cache/backends/db.py\n@@ -267,9 +267,13 @@ class DatabaseCache(BaseDatabaseCache):\n                 cursor.execute(\n                     connection.ops.cache_key_culling_sql() % table,\n                     [cull_num])\n-                cursor.execute(\"DELETE FROM %s \"\n-                               \"WHERE cache_key < %%s\" % table,\n-                               [cursor.fetchone()[0]])\n+cursor.execute(connection.ops.cache_key_culling_sql() % table,\n+                             [cull_num])\n+                     row = cursor.fetchone()\n+                     if row is not None:\n+                         cursor.execute(\"DELETE FROM %s \"\n+                                        \"WHERE cache_key < %%s\" % table,\n+                                        [row[0]])\n \n     def clear(self):\n         db = router.db_for_write(self.cache_model_class)",
+  "tokens_used": 337294,
+  "exec_count": 26,
+  "duration_sec": 2484.556983232498,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

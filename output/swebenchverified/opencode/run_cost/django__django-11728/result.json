@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11728",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py\nindex 2ff8b2c775..642bc48e71 100644\n--- a/django/urls/resolvers.py\n+++ b/django/urls/resolvers.py\n@@ -237,6 +237,8 @@ def _route_to_regex(route, is_endpoint=False):\n             )\n         converters[parameter] = converter\n         parts.append('(?P<' + parameter + '>' + converter.regex + ')')\n+            if is_endpoint and not route.endswith('/'):\n+                parts.append('/')\n     if is_endpoint:\n         parts.append('$')\n     return ''.join(parts), converters",
+  "tokens_used": 351456,
+  "exec_count": 4,
+  "duration_sec": 1108.4997129440308,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

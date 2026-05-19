@@ -1,0 +1,28 @@
+diff --git a/astropy/io/ascii/html.py b/astropy/io/ascii/html.py
+index 266cf229c..5d92a19d0 100644
+--- a/astropy/io/ascii/html.py
++++ b/astropy/io/ascii/html.py
+@@ -136,6 +136,14 @@ class HTMLSplitter(core.BaseSplitter):
+ 
+ 
+ class HTMLOutputter(core.TableOutputter):
++
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.formatters = kwargs.get('formatters', {})
++
++    def formatter(self, col_name, value):
++        formatter_func = self.formatters.get(col_name, str)
++        return formatter_func(value)
+     """
+     Output the HTML data as an ``astropy.table.Table`` object.
+ 
+@@ -449,7 +457,7 @@ class HTML(core.BaseReader):
+                                 method = ('escape_xml' if col_escaped else 'bleach_clean')
+                                 with w.xml_cleaning_method(method, **raw_html_clean_kwargs):
+                                     w.start('td')
+-                                    w.data(el.strip())
++                                    w.data(self.outputter.formatter(col.info.name, el.strip()))
+                                     w.end(indent=False)
+ 
+         # Fixes XMLWriter's insertion of unwanted line breaks

@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-7746",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py\nindex d3a06f2b31..760b40e520 100644\n--- a/astropy/wcs/wcs.py\n+++ b/astropy/wcs/wcs.py\n@@ -1206,6 +1206,8 @@ reduce these to 2 dimensions using the naxis kwarg.\n             return out\n \n     def _array_converter(self, func, sky, *args, ra_dec_order=False):\n+        if not args or all(not np.any(arg) for arg in args):\n+            return []\n         \"\"\"\n         A helper function to support reading either a pair of arrays\n         or a single Nx2 array.\n@@ -1347,6 +1349,17 @@ reduce these to 2 dimensions using the naxis kwarg.\n                    __.RETURNS('sky coordinates, in degrees', 8))\n \n     def wcs_pix2world(self, *args, **kwargs):\n+        if not args or all(len(arg) == 0 for arg in args):\n+            return []\n+        if self.wcs is None:\n+            raise ValueError(\"No basic WCS settings were created.\")\n+        return self._array_converter(\n+            lambda xy, o: self.wcs.p2s(xy, o)['world'],\n+            'output', *args, **kwargs)\n+        if not args or all(not np.any(arg) for arg in args):\n+            return []\n+        if self.wcs is None:\n+            raise ValueError(\"No basic WCS settings were created.\")\n         if self.wcs is None:\n             raise ValueError(\"No basic WCS settings were created.\")\n         return self._array_converter(",
+  "tokens_used": 625353,
+  "exec_count": 17,
+  "duration_sec": 1832.9748775959015,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

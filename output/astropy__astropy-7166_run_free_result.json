@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-7166",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py\nindex de3fb01d1..7aa0a05ac 100644\n--- a/astropy/utils/misc.py\n+++ b/astropy/utils/misc.py\n@@ -528,9 +528,9 @@ class InheritDocstrings(type):\n                 not key.startswith('_'))\n \n         for key, val in dct.items():\n-            if (inspect.isfunction(val) and\n-                is_public_member(key) and\n-                val.__doc__ is None):\n+if ((inspect.isfunction(val) or isinstance(val, property)) and\n+            is_public_member(key) and\n+            val.__doc__ is None):\n                 for base in cls.__mro__[1:]:\n                     super_method = getattr(base, key, None)\n                     if super_method is not None:",
+  "tokens_used": 150789,
+  "exec_count": 0,
+  "duration_sec": 652.1820788383484,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

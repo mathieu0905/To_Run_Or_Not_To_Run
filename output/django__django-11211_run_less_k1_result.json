@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11211",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/contrib/contenttypes/fields.py b/django/contrib/contenttypes/fields.py\nindex ed98ecb48c..10c28ed697 100644\n--- a/django/contrib/contenttypes/fields.py\n+++ b/django/contrib/contenttypes/fields.py\n@@ -191,7 +191,9 @@ class GenericForeignKey(FieldCacheMixin):\n         for ct_id, fkeys in fk_dict.items():\n             instance = instance_dict[ct_id]\n             ct = self.get_content_type(id=ct_id, using=instance._state.db)\n-            ret_val.extend(ct.get_all_objects_for_this_type(pk__in=fkeys))\n+            print(f'ct: {ct}')\n+print(f'fkeys: {fkeys}')\n+ret_val.extend(ct.get_all_objects_for_this_type(pk__in=fkeys))\n \n         # For doing the join in Python, we have to match both the FK val and the\n         # content type, so we use a callable that returns a (fk, class) pair.",
+  "tokens_used": 124044,
+  "exec_count": 4,
+  "duration_sec": 302.4774646759033,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

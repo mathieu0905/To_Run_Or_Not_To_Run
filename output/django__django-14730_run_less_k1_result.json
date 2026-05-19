@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14730",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py\nindex febaadbb5b..d417db4b81 100644\n--- a/django/db/models/fields/related.py\n+++ b/django/db/models/fields/related.py\n@@ -1225,6 +1225,21 @@ class ManyToManyField(RelatedField):\n                     id='fields.E330',\n                 )\n             ]\n+        if self.remote_field.symmetrical and self.remote_field.related_name:\n+            return [\n+                checks.Error(\n+                    'related_name cannot be set if symmetrical=True.',\n+                    obj=self,\n+                    id='fields.E331',\n+                )\n+            ]\n+            return [\n+                checks.Error(\n+                    'ManyToManyFields cannot be unique.',\n+                    obj=self,\n+                    id='fields.E330',\n+                )\n+            ]\n         return []\n \n     def _check_ignored_options(self, **kwargs):",
+  "tokens_used": 385060,
+  "exec_count": 10,
+  "duration_sec": 914.9329226016998,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

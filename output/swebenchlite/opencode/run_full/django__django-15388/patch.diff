@@ -1,0 +1,57 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 583c2be647..da7d81e9a2 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -373,6 +373,9 @@ class BaseReloader:
+ 
+ 
+ class StatReloader(BaseReloader):
++    # Unique identifier for tick method
++    def tick(self):
++        print(f'Watching directories: {self.directory_globs}')
+     SLEEP_TIME = 1  # Check for changes once per second.
+ 
+     def tick(self):
+@@ -392,6 +395,30 @@ class StatReloader(BaseReloader):
+             yield
+ 
+     def snapshot_files(self):
++        print(f'Snapshotting files: {self.watched_files()}')
++        seen_files = set()
++        for file in self.watched_files():
++            if file in seen_files:
++                continue
++            try:
++                mtime = file.stat().st_mtime
++            except OSError:
++                # This is thrown when the file does not exist.
++                continue
++            seen_files.add(file)
++            yield file, mtime
++        print(f'Snapshotting files: {self.watched_files()}')
++        seen_files = set()
++        for file in self.watched_files():
++            if file in seen_files:
++                continue
++            try:
++                mtime = file.stat().st_mtime
++            except OSError:
++                # This is thrown when the file does not exist.
++                continue
++            seen_files.add(file)
++            yield file, mtime
+         # watched_files may produce duplicate paths if globs overlap.
+         seen_files = set()
+         for file in self.watched_files():
+@@ -508,6 +535,11 @@ class WatchmanReloader(BaseReloader):
+         self._subscribe(directory, '%s:%s' % (prefix, directory), expression)
+ 
+     def watched_roots(self, watched_files):
++        print(f'Watched roots: {common_roots(self.watched_roots(watched_files))}')
++        extra_directories = self.directory_globs.keys()
++        watched_file_dirs = [f.parent for f in watched_files]
++        sys_paths = list(sys_path_directories())
++        return frozenset((*extra_directories, *watched_file_dirs, *sys_paths))
+         extra_directories = self.directory_globs.keys()
+         watched_file_dirs = [f.parent for f in watched_files]
+         sys_paths = list(sys_path_directories())

@@ -1,0 +1,57 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 2f72480fbd27896c986c45193e1603e35c0b19a7
+
+## Problem Description
+Prevent using __isnull lookup with non-boolean value.
+Description
+	 
+		(last modified by Mariusz Felisiak)
+	 
+__isnull should not allow for non-boolean values. Using truthy/falsey doesn't promote INNER JOIN to an OUTER JOIN but works fine for a simple queries. Using non-boolean values is ​undocumented and untested. IMO we should raise an error for non-boolean values to avoid confusion and for consistency.
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+You cannot execute/run any Python code (cannot run tests).
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
+
+## Debugging Strategy
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
+
+## Your Task
+1. Investigate the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. **Apply the fix by calling the edit tool on real source files**
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

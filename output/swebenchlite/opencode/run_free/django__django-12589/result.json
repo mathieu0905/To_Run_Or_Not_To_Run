@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12589",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py\nindex 63ca817355..1291e11c0d 100644\n--- a/django/db/models/sql/compiler.py\n+++ b/django/db/models/sql/compiler.py\n@@ -570,7 +570,7 @@ class SQLCompiler:\n                     if distinct_fields:\n                         raise NotImplementedError('annotate() + distinct(fields) is not implemented.')\n                     order_by = order_by or self.connection.ops.force_no_ordering()\n-                    result.append('GROUP BY %s' % ', '.join(grouping))\n+                    result.append('GROUP BY %s' % ', '.join(['{} AS {}'.format(g, i) for i, g in enumerate(grouping)]))\n                     if self._meta_ordering:\n                         order_by = None\n                 if having:",
+  "tokens_used": 109773,
+  "exec_count": 0,
+  "duration_sec": 244.5853579044342,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10924",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py\nindex 0c64748ccd..a498dbfd56 100644\n--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -1663,7 +1663,8 @@ class FilePathField(Field):\n \n     def __init__(self, verbose_name=None, name=None, path='', match=None,\n                  recursive=False, allow_files=True, allow_folders=False, **kwargs):\n-        self.path, self.match, self.recursive = path, match, recursive\n+        self.path = path() if callable(path) else path\n+        self.match, self.recursive = match, recursive\n         self.allow_files, self.allow_folders = allow_files, allow_folders\n         kwargs.setdefault('max_length', 100)\n         super().__init__(verbose_name, name, **kwargs)\n@@ -1709,7 +1710,7 @@ class FilePathField(Field):\n \n     def formfield(self, **kwargs):\n         return super().formfield(**{\n-            'path': self.path,\n+            'path': self.path() if callable(self.path) else self.path,\n             'match': self.match,\n             'recursive': self.recursive,\n             'form_class': forms.FilePathField,",
+  "tokens_used": 88101,
+  "exec_count": 2,
+  "duration_sec": 382.33790707588196,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

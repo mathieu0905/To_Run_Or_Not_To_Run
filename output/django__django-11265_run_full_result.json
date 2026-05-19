@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11265",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py\nindex d69c24419b..6c0286d42a 100644\n--- a/django/db/models/sql/query.py\n+++ b/django/db/models/sql/query.py\n@@ -1643,6 +1643,10 @@ class Query(BaseExpression):\n             return col\n \n     def split_exclude(self, filter_expr, can_reuse, names_with_path):\n+        print('Filter expr:', filter_expr)\n+        print('Names with path:', names_with_path)\n+        print('Query:', self)\n+\n         \"\"\"\n         When doing an exclude against any kind of N-to-many relation, we need\n         to use a subquery. This method constructs the nested query, given the\ndiff --git a/tests/filtered_relation/tests.py b/tests/filtered_relation/tests.py\nindex 5e85dff16c..628719f9de 100644\n--- a/tests/filtered_relation/tests.py\n+++ b/tests/filtered_relation/tests.py\n@@ -97,7 +97,12 @@ class FilteredRelationTests(TestCase):\n             ).filter(book_alice__isnull=False),\n             [self.author1]\n         )\n-\n+        self.assertSequenceEqual(\n+            Author.objects.annotate(\n+                book_alice=FilteredRelation('book', condition=Q(book__title__iexact='poem by alice')),\n+            ).exclude(book_alice__id__isnull=False),\n+            [],\n+        )\n     def test_with_join_and_complex_condition(self):\n         self.assertSequenceEqual(\n             Author.objects.annotate(",
+  "tokens_used": 151848,
+  "exec_count": 11,
+  "duration_sec": 598.3928275108337,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14508",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/astropy/convolution/utils.py b/astropy/convolution/utils.py\nindex bb2e68444..17c58ca78 100644\n--- a/astropy/convolution/utils.py\n+++ b/astropy/convolution/utils.py\n@@ -159,14 +159,14 @@ def discretize_model(model, x_range, y_range=None, mode=\"center\", factor=10):\n     if ndim > 2:\n         raise ValueError(\"discretize_model only supports 1-d and 2-d models.\")\n \n-    if not float(np.diff(x_range)).is_integer():\n+    if not float(np.diff(x_range)[0]).is_integer():\n         raise ValueError(\n             \"The difference between the upper and lower limit of\"\n             \" 'x_range' must be a whole number.\"\n         )\n \n     if y_range:\n-        if not float(np.diff(y_range)).is_integer():\n+        if not float(np.diff(y_range)[0]).is_integer():\n             raise ValueError(\n                 \"The difference between the upper and lower limit of\"\n                 \" 'y_range' must be a whole number.\"",
+  "tokens_used": 238423,
+  "exec_count": 6,
+  "duration_sec": 1244.9034900665283,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

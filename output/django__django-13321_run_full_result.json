@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13321",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/contrib/sessions/backends/base.py b/django/contrib/sessions/backends/base.py\nindex 187e14b1b7..d02d2bc654 100644\n--- a/django/contrib/sessions/backends/base.py\n+++ b/django/contrib/sessions/backends/base.py\n@@ -141,7 +141,7 @@ class SessionBase:\n                 raise SuspiciousSession(\"Session data corrupted\")\n             else:\n                 return self.serializer().loads(serialized)\n-        except Exception as e:\n+        except (Exception, signing.BadSignature) as e:\n             # ValueError, SuspiciousOperation, unpickling exceptions. If any of\n             # these happen, just return an empty dictionary (an empty session).\n             if isinstance(e, SuspiciousOperation):",
+  "tokens_used": 389921,
+  "exec_count": 112,
+  "duration_sec": 1295.059110403061,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

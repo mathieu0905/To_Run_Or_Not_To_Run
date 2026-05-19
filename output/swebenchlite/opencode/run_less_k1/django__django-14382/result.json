@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14382",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/core/management/templates.py b/django/core/management/templates.py\nindex 8dc6068286..f248ab1b71 100644\n--- a/django/core/management/templates.py\n+++ b/django/core/management/templates.py\n@@ -74,7 +74,7 @@ class TemplateCommand(BaseCommand):\n                 raise CommandError(e)\n         else:\n             if app_or_project == 'app':\n-                self.validate_name(os.path.basename(target), 'directory')\n+                self.validate_name(os.path.basename(target.rstrip(os.sep)), 'directory')\n             top_dir = os.path.abspath(os.path.expanduser(target))\n             if not os.path.exists(top_dir):\n                 raise CommandError(\"Destination directory '%s' does not \"",
+  "tokens_used": 306678,
+  "exec_count": 14,
+  "duration_sec": 893.5650837421417,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

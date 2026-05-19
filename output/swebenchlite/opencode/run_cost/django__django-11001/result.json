@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11001",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/conf/global_settings.py b/django/conf/global_settings.py\nindex 61d08ddba5..2cd09bece6 100644\n--- a/django/conf/global_settings.py\n+++ b/django/conf/global_settings.py\n@@ -208,7 +208,15 @@ EMAIL_SSL_KEYFILE = None\n EMAIL_TIMEOUT = None\n \n # List of strings representing installed apps.\n-INSTALLED_APPS = []\n+INSTALLED_APPS = [\n+    'django.contrib.auth',\n+    'django.contrib.contenttypes',\n+    'django.contrib.sessions',\n+    'django.contrib.sites',\n+    'django.contrib.messages',\n+    'django.contrib.staticfiles',\n+    # Add other necessary apps here\n+]\n \n TEMPLATES = []",
+  "tokens_used": 159352,
+  "exec_count": 7,
+  "duration_sec": 643.5696446895599,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

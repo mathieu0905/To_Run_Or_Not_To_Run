@@ -1,0 +1,23 @@
+diff --git a/django/core/management/__init__.py b/django/core/management/__init__.py
+index 1ba093e51f..d485b99891 100644
+--- a/django/core/management/__init__.py
++++ b/django/core/management/__init__.py
+@@ -310,7 +310,7 @@ class ManagementUtility:
+                     # Fail silently if DJANGO_SETTINGS_MODULE isn't set. The
+                     # user will find out once they execute the command.
+                     pass
+-            parser = subcommand_cls.create_parser('', cwords[0])
++            parser = subcommand_cls.create_parser(self.prog_name, cwords[0])
+             options.extend(
+                 (min(s_opt.option_strings), s_opt.nargs != 0)
+                 for s_opt in parser._actions if s_opt.option_strings
+@@ -344,7 +344,8 @@ class ManagementUtility:
+         # Preprocess options to extract --settings and --pythonpath.
+         # These options could affect the commands that are available, so they
+         # must be processed early.
+-        parser = CommandParser(usage='%(prog)s subcommand [options] [args]', add_help=False, allow_abbrev=False)
++        parser = CommandParser(
++            prog=self.prog_name,usage='%(prog)s subcommand [options] [args]', add_help=False, allow_abbrev=False)
+         parser.add_argument('--settings')
+         parser.add_argument('--pythonpath')
+         parser.add_argument('args', nargs='*')  # catch-all

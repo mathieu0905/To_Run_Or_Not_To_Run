@@ -1,0 +1,83 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..301544f90 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -57,10 +57,74 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
+-
+-    def write(self, lines):
++def __init__(self, delimiter=None, comment='#', names=True, header_rows=0, **kwargs):
++    super().__init__(delimiter=delimiter, comment=comment, names=names, **kwargs)
++    self.header_rows = header_rows
++
++def write(self, table):
++    lines = super().write(table)
++    if self.header_rows > 0:
++        header_lines = self.header_lines()
++        lines = header_lines + lines[len(header_lines):]
++    return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write(lines)
++        header_lines = self.header_lines()
++        header_length = len(header_lines[0]) if header_lines else 0
++        lines = ['=' * header_length] + header_lines + ['=' * header_length] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        lines = ['=' * len(header_lines[0])] + header_lines + ['=' * len(header_lines[0])] + lines[1:]  # Remove the first line from super().write()
++        return lines
++        lines = super().write([])
++        header_lines = self.header_lines()
++        lines = ['=' * len(header_lines[0])] + header_lines + ['=' * len(header_lines[0])] + lines
++        return lines
+         lines = super().write(lines)
+         lines = [lines[1]] + lines + [lines[1]]
+         return lines

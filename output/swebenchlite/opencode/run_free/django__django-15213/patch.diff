@@ -1,0 +1,30 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index ec697989a8..f3a9b850b7 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -978,8 +978,12 @@ class ExpressionWrapper(SQLiteNumericMixin, Expression):
+         # `expression` must be included in the GROUP BY clause.
+         return super().get_group_by_cols()
+ 
+-    def as_sql(self, compiler, connection):
+-        return compiler.compile(self.expression)
++def as_sql(self, compiler, connection):
++    try:
++        expression_sql, params = compiler.compile(self.expression)
++    except EmptyResultSet:
++        return '', []
++    return expression_sql, params
+ 
+     def __repr__(self):
+         return "{}({})".format(self.__class__.__name__, self.expression)
+@@ -1269,6 +1273,10 @@ class OrderBy(Expression):
+         try:
+     try:
+     expression_sql, params = compiler.compile(self.expression)
++except EmptyResultSet:
++    return '', []
++except EmptyResultSet:
++    return ('', [])
+ except EmptyResultSet:
+     return ('', [])
+ except EmptyResultSet:

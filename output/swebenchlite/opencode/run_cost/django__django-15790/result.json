@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15790",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/core/checks/templates.py b/django/core/checks/templates.py\nindex 5214276987..66779ae3b1 100644\n--- a/django/core/checks/templates.py\n+++ b/django/core/checks/templates.py\n@@ -61,15 +61,15 @@ def check_for_template_tags_with_the_same_name(app_configs, **kwargs):\n         libraries[module_name].append(module_path)\n \n     for library_name, items in libraries.items():\n-        if len(items) > 1:\n-            errors.append(\n-                Error(\n-                    E003.msg.format(\n-                        repr(library_name),\n-                        \", \".join(repr(item) for item in items),\n-                    ),\n-                    id=E003.id,\n-                )\n-            )\n+if len(items) > 1 and any(libraries[library_name] != library for library in items):\n+    errors.append(\n+        Error(\n+            E003.msg.format(\n+                repr(library_name),\n+                \", \".join(repr(item) for item in items),\n+            ),\n+            id=E003.id,\n+        )\n+    )\n \n     return errors",
+  "tokens_used": 182425,
+  "exec_count": 16,
+  "duration_sec": 473.584685087204,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

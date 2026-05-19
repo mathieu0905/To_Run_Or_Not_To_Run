@@ -1,0 +1,13 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..5e63d5a31 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -60,7 +60,7 @@ class RST(FixedWidth):
+     def __init__(self):
+         super().__init__(delimiter_pad=None, bookend=False)
+ 
+-    def write(self, lines):
++    def write(self, lines, header_rows=None):
+         lines = super().write(lines)
+         lines = [lines[1]] + lines + [lines[1]]
+         return lines

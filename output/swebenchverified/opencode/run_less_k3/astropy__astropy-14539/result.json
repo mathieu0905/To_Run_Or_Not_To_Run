@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14539",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "",
+  "tokens_used": 450256,
+  "exec_count": 15,
+  "duration_sec": 1223.3417344093323,
+  "success": false,
+  "error": "",
+  "agent_type": "opencode"
+}

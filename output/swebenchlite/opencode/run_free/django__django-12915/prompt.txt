@@ -1,0 +1,67 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 4652f1f0aa459a7b980441d629648707c32e36bf
+
+## Problem Description
+Add get_response_async for ASGIStaticFilesHandler
+Description
+	
+It looks like the StaticFilesHandlerMixin is missing the the async response function.
+Without this, when trying to use the ASGIStaticFilesHandler, this is the traceback:
+Exception inside application: 'NoneType' object is not callable
+Traceback (most recent call last):
+ File ".../lib/python3.7/site-packages/daphne/cli.py", line 30, in asgi
+	await self.app(scope, receive, send)
+ File ".../src/django/django/contrib/staticfiles/handlers.py", line 86, in __call__
+	return await super().__call__(scope, receive, send)
+ File ".../src/django/django/core/handlers/asgi.py", line 161, in __call__
+	response = await self.get_response_async(request)
+ File ".../src/django/django/core/handlers/base.py", line 148, in get_response_async
+	response = await self._middleware_chain(request)
+TypeError: 'NoneType' object is not callable
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+You cannot execute/run any Python code (cannot run tests).
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
+
+## Debugging Strategy
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
+
+## Your Task
+1. Investigate the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. **Apply the fix by calling the edit tool on real source files**
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

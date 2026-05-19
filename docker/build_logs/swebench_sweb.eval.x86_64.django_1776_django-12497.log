@@ -2,4 +2,77 @@ Building swebench/sweb.eval.x86_64.django_1776_django-12497
 Base tag: swebench/sweb.eval.x86_64.django_1776_django-12497:latest
 Agent tag: swebench/sweb.eval.x86_64.django_1776_django-12497-agent:latest
 
-Image already exists, skipping
+============================================================
+PULLING BASE IMAGE
+============================================================
+latest: Pulling from swebench/sweb.eval.x86_64.django_1776_django-12497
+762bedf4b1b7: Already exists
+9e922f6570e0: Already exists
+51fe70848edc: Already exists
+f44bfaa346f0: Already exists
+8a23aac55853: Already exists
+2778ec4c4033: Already exists
+580b2c775a62: Already exists
+3a58af4f7e9d: Already exists
+c1fbaff9ec87: Already exists
+d83d1825e1c7: Already exists
+52ddd30e6078: Already exists
+3d1aaaecea18: Pulling fs layer
+3cb6179d826a: Pulling fs layer
+3d1aaaecea18: Verifying Checksum
+3d1aaaecea18: Download complete
+3d1aaaecea18: Pull complete
+3cb6179d826a: Verifying Checksum
+3cb6179d826a: Download complete
+3cb6179d826a: Pull complete
+Digest: sha256:0b925bc1e7b19f265b45500ec889b02c0ea3c23bda109e9b6172760a7e525e29
+Status: Image is up to date for swebench/sweb.eval.x86_64.django_1776_django-12497:latest
+docker.io/swebench/sweb.eval.x86_64.django_1776_django-12497:latest
+
+============================================================
+BUILDING AGENT IMAGE
+============================================================
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.opencode-overlay
+#1 transferring dockerfile: 439B done
+#1 WARN: InvalidDefaultArgInFrom: Default value for ARG ${BASE_IMAGE} results in empty or invalid base image name (line 5)
+#1 DONE 0.1s
+
+#2 [internal] load metadata for docker.io/swebench/sweb.eval.x86_64.django_1776_django-12497:latest
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context:
+#3 transferring context: 2B done
+#3 DONE 0.1s
+
+#4 [internal] load build context
+#4 transferring context: 32B done
+#4 DONE 0.0s
+
+#5 [1/4] FROM docker.io/swebench/sweb.eval.x86_64.django_1776_django-12497:latest
+#5 DONE 2.8s
+
+#6 [2/4] COPY opencode /usr/local/bin/opencode
+#6 DONE 2.0s
+
+#7 [3/4] RUN chmod +x /usr/local/bin/opencode
+#7 DONE 1.3s
+
+#8 [4/4] WORKDIR /testbed
+#8 DONE 0.1s
+
+#9 exporting to image
+#9 exporting layers
+#9 exporting layers 0.8s done
+#9 writing image sha256:bd328d26cf06a917089523947b4245d8b002f93b12b67d38d86806281888e880 done
+#9 naming to docker.io/swebench/sweb.eval.x86_64.django_1776_django-12497-agent:latest done
+#9 DONE 0.8s
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - InvalidDefaultArgInFrom: Default value for ARG ${BASE_IMAGE} results in empty or invalid base image name (line 5)
+
+============================================================
+BUILD SUCCESSFUL
+============================================================

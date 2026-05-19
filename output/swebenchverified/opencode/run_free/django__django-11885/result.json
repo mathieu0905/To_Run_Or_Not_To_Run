@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11885",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py\nindex ae82d26340..d41f10471c 100644\n--- a/django/db/models/deletion.py\n+++ b/django/db/models/deletion.py\n@@ -310,9 +310,29 @@ class Collector:\n                     )\n \n             # fast deletes\n-            for qs in self.fast_deletes:\n-                count = qs._raw_delete(using=self.using)\n-                deleted_counter[qs.model._meta.label] += count\n+fast_delete_map = {}\n+for qs in self.fast_deletes:\n+    model_label = qs.model._meta.label\n+    if model_label not in fast_delete_map:\n+        fast_delete_map[model_label] = {\n+            'model': qs.model,\n+            'pks': [],\n+            'fields': set()\n+        }\n+    fast_delete_map[model_label]['pks'].extend(qs.values_list('pk', flat=True))\n+    for field in qs.model._meta.fields:\n+        fast_delete_map[model_label]['fields'].add(field.name)\n+\n+for model_label, data in fast_delete_map.items():\n+    model = data['model']\n+    pks = data['pks']\n+    fields = data['fields']\n+    query = model.objects.filter(pk__in=pks)\n+    for field in fields:\n+        if field != 'pk':\n+            query |= model.objects.filter(**{f'{field}__in': pks})\n+    count = query._raw_delete(using=self.using)\n+    deleted_counter[model_label] += count\n \n             # update fields\n             for model, instances_for_fieldvalues in self.field_updates.items():",
+  "tokens_used": 113949,
+  "exec_count": 1,
+  "duration_sec": 709.3577582836151,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

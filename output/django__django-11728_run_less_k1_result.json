@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11728",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/contrib/admindocs/utils.py b/django/contrib/admindocs/utils.py\nindex 1ce4594501..87ebbd10db 100644\n--- a/django/contrib/admindocs/utils.py\n+++ b/django/contrib/admindocs/utils.py\n@@ -169,8 +169,8 @@ def replace_named_groups(pattern):\n         for idx, val in enumerate(pattern[end:]):\n             # If brackets are balanced, the end of the string for the current\n             # named capture group pattern has been reached.\n-            if unmatched_open_brackets == 0:\n-                group_pattern_and_name.append((pattern[start:end + idx], group_name))\n+            if unmatched_open_brackets == 0 or idx == len(pattern[end:]) - 1:\n+                group_pattern_and_name.append((pattern[start:end + idx + 1], group_name))\n                 break\n \n             # Check for unescaped `(` and `)`. They mark the start and end of a\n@@ -201,8 +201,8 @@ def replace_unnamed_groups(pattern):\n         # Handle nested parentheses, e.g. '^b/((x|y)\\w+)$'.\n         unmatched_open_brackets, prev_char = 1, None\n         for idx, val in enumerate(pattern[start + 1:]):\n-            if unmatched_open_brackets == 0:\n-                group_indices.append((start, start + 1 + idx))\n+if unmatched_open_brackets == 0 or idx == len(pattern[end:]) - 1:\n+                group_pattern_and_name.append((pattern[start:end + idx + 1], group_name))\n                 break\n \n             # Check for unescaped `(` and `)`. They mark the start and end of",
+  "tokens_used": 589404,
+  "exec_count": 14,
+  "duration_sec": 871.4068281650543,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11532",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/core/mail/utils.py b/django/core/mail/utils.py\nindex d18dfe4667..eca23fb96d 100644\n--- a/django/core/mail/utils.py\n+++ b/django/core/mail/utils.py\n@@ -13,7 +13,8 @@ class CachedDnsName:\n \n     def get_fqdn(self):\n         if not hasattr(self, '_fqdn'):\n-            self._fqdn = socket.getfqdn()\n+            import idna\n+self._fqdn = idna.encode(socket.getfqdn()).decode('ascii')\n         return self._fqdn",
+  "tokens_used": 43255,
+  "exec_count": 0,
+  "duration_sec": 269.24585366249084,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

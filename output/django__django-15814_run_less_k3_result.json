@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15814",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py\nindex 33cc636b22..ec3d3b43b1 100644\n--- a/django/db/models/sql/query.py\n+++ b/django/db/models/sql/query.py\n@@ -748,7 +748,8 @@ class Query(BaseExpression):\n                     cur_model = source.related_model\n                 else:\n                     cur_model = source.remote_field.model\n-                opts = cur_model._meta\n+                import pdb; pdb.set_trace()\n+opts = cur_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta.concrete_model._meta\n                 # Even if we're \"just passing through\" this model, we must add\n                 # both the current model's pk and the related reference field\n                 # (if it's not a reverse relation) to the things we select.",
+  "tokens_used": 433833,
+  "exec_count": 82,
+  "duration_sec": 1789.4733290672302,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

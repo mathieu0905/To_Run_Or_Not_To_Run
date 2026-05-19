@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13925",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/options.py b/django/db/models/options.py\nindex 4028e05b99..5cc1a85047 100644\n--- a/django/db/models/options.py\n+++ b/django/db/models/options.py\n@@ -268,7 +268,7 @@ class Options:\n         else:\n             self.order_with_respect_to = None\n \n-        if self.pk is None:\n+        print('Checking primary key'); if self.pk is None:\n             if self.parents:\n                 # Promote the first parent link in lieu of adding yet another\n                 # field.\n@@ -276,14 +276,14 @@ class Options:\n                 # Look for a local field with the same name as the\n                 # first parent link. If a local field has already been\n                 # created, use it instead of promoting the parent\n-                already_created = [fld for fld in self.local_fields if fld.name == field.name]\n+                already_created = [fld for fld in self.local_fields if fld.name == field.name]; print(f'Already created fields: {already_created}')\n                 if already_created:\n                     field = already_created[0]\n-                field.primary_key = True\n+                field.primary_key = True; print(f'Setting primary key: {field.name}')\n                 self.setup_pk(field)\n             else:\n-                pk_class = self._get_default_pk_class()\n-                auto = pk_class(verbose_name='ID', primary_key=True, auto_created=True)\n+                pk_class = self._get_default_pk_class(); print(f'Using default PK class: {pk_class}')\n+                auto = pk_class(verbose_name='ID', primary_key=True, auto_created=True); print(f'Creating auto primary key: {auto.name}')\n                 model.add_to_class('id', auto)\n \n     def add_manager(self, manager):",
+  "tokens_used": 341609,
+  "exec_count": 111,
+  "duration_sec": 1889.6580860614777,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

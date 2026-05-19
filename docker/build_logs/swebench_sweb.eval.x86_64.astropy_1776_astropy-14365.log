@@ -2,4 +2,70 @@ Building swebench/sweb.eval.x86_64.astropy_1776_astropy-14365
 Base tag: swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest
 Agent tag: swebench/sweb.eval.x86_64.astropy_1776_astropy-14365-agent:latest
 
-Image already exists, skipping
+============================================================
+PULLING BASE IMAGE
+============================================================
+latest: Pulling from swebench/sweb.eval.x86_64.astropy_1776_astropy-14365
+857cc8cb19c0: Already exists
+3f7fc75e0986: Already exists
+f8d2d48431b1: Already exists
+72a765079ad3: Already exists
+3ab6df53b88e: Already exists
+7cd589973a38: Already exists
+dbd6e9df81f0: Already exists
+dbd6e9df81f0: Already exists
+ac19725aedcb: Already exists
+b40e3501b4c6: Already exists
+4485e2b8dc6a: Already exists
+7340c0fa6812: Already exists
+61dbb9a4fa84: Pulling fs layer
+084461a65ec4: Pulling fs layer
+61dbb9a4fa84: Download complete
+61dbb9a4fa84: Pull complete
+084461a65ec4: Verifying Checksum
+084461a65ec4: Download complete
+084461a65ec4: Pull complete
+Digest: sha256:bb1ec8d27d478ab7469805680c824a4030fa3f32a592558f7a02485b76f3226b
+Status: Image is up to date for swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest
+docker.io/swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest
+
+============================================================
+BUILDING AGENT IMAGE
+============================================================
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.opencode-overlay
+#1 transferring dockerfile:
+#1 transferring dockerfile: 625B done
+#1 DONE 0.8s
+
+#2 [internal] load metadata for docker.io/swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest
+#2 DONE 0.2s
+
+#3 [internal] load .dockerignore
+#3 transferring context:
+#3 transferring context: 2B done
+#3 DONE 0.9s
+
+#4 [1/3] FROM docker.io/swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest
+#4 DONE 0.8s
+
+#5 [2/3] RUN curl -fsSL -o /tmp/opencode.tar.gz         https://github.com/anomalyco/opencode/releases/download/v1.4.0/opencode-linux-x64.tar.gz     && tar xzf /tmp/opencode.tar.gz -C /usr/local/bin/     && chmod +x /usr/local/bin/opencode     && rm /tmp/opencode.tar.gz
+#5 DONE 9.8s
+
+#6 [3/3] WORKDIR /testbed
+#6 DONE 1.2s
+
+#7 exporting to image
+#7 exporting layers
+#7 exporting layers 0.8s done
+#7 writing image sha256:cc3cc8d5889642c594525ceed53df8103fe46124fa254d124cf0016e5d2c1d88 done
+#7 naming to docker.io/swebench/sweb.eval.x86_64.astropy_1776_astropy-14365-agent:latest done
+#7 DONE 0.9s
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - InvalidDefaultArgInFrom: Default value for ARG ${BASE_IMAGE} results in empty or invalid base image name (line 5)
+
+============================================================
+BUILD SUCCESSFUL
+============================================================

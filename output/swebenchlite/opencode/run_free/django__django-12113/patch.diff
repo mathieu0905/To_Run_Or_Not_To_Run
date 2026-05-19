@@ -1,0 +1,20 @@
+diff --git a/tests/admin_views/test_multidb.py b/tests/admin_views/test_multidb.py
+index a02b637d34..d0b8dfa8ed 100644
+--- a/tests/admin_views/test_multidb.py
++++ b/tests/admin_views/test_multidb.py
+@@ -21,6 +21,7 @@ class Router:
+ site = admin.AdminSite(name='test_adminsite')
+ site.register(Book)
+ 
++
+ urlpatterns = [
+     path('admin/', site.urls),
+ ]
+@@ -31,6 +32,7 @@ class MultiDatabaseTests(TestCase):
+     databases = {'default', 'other'}
+ 
+     @classmethod
++    @transaction.atomic
+     def setUpTestData(cls):
+         cls.superusers = {}
+         cls.test_book_ids = {}

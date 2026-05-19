@@ -1,0 +1,23 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 7d226955d5..61f0409797 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -194,6 +194,9 @@ class IterableSerializer(BaseSerializer):
+ 
+ 
+ class ModelFieldSerializer(DeconstructableSerializer):
++    def __init__(self, value, custom_path=None):
++        super().__init__(value)
++        self.custom_path = custom_path
+     def serialize(self):
+         attr_name, path, args, kwargs = self.value.deconstruct()
+         return self.serialize_deconstructed(path, args, kwargs)
+@@ -320,6 +323,8 @@ def serializer_factory(value):
+         value = value.__reduce__()[1][0]
+ 
+     if isinstance(value, models.Field):
++            path = '.'.join([c.__name__ for c in type(value).__mro__ if c.__module__ == value.__class__.__module__ and c.__name__ != 'object'])
++            return ModelFieldSerializer(value, custom_path=path)
+         return ModelFieldSerializer(value)
+     if isinstance(value, models.manager.BaseManager):
+         return ModelManagerSerializer(value)

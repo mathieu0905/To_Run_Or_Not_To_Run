@@ -1,0 +1,29 @@
+diff --git a/django/templatetags/static.py b/django/templatetags/static.py
+index 39712aaba0..97dc55a873 100644
+--- a/django/templatetags/static.py
++++ b/django/templatetags/static.py
+@@ -102,8 +102,12 @@ class StaticNode(template.Node):
+         path = self.path.resolve(context)
+         return self.handle_simple(path)
+ 
+-    def render(self, context):
++def render(self, context):
+         url = self.url(context)
++        request = context.get('request')
++        if request:
++            script_name = request.META.get('SCRIPT_NAME', '')
++            url = urljoin(script_name, url)
+         if context.autoescape:
+             url = conditional_escape(url)
+         if self.varname is None:
+@@ -115,7 +119,9 @@ class StaticNode(template.Node):
+     def handle_simple(cls, path):
+         if apps.is_installed('django.contrib.staticfiles'):
+             from django.contrib.staticfiles.storage import staticfiles_storage
+-            return staticfiles_storage.url(path)
++            request = context.request
++script_name = request.META.get('SCRIPT_NAME', '')
++return urljoin(script_name, staticfiles_storage.url(path))
+         else:
+             return urljoin(PrefixNode.handle_simple("STATIC_URL"), quote(path))
+ 

@@ -1,0 +1,26 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index febaadbb5b..d417db4b81 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -1225,6 +1225,21 @@ class ManyToManyField(RelatedField):
+                     id='fields.E330',
+                 )
+             ]
++        if self.remote_field.symmetrical and self.remote_field.related_name:
++            return [
++                checks.Error(
++                    'related_name cannot be set if symmetrical=True.',
++                    obj=self,
++                    id='fields.E331',
++                )
++            ]
++            return [
++                checks.Error(
++                    'ManyToManyFields cannot be unique.',
++                    obj=self,
++                    id='fields.E330',
++                )
++            ]
+         return []
+ 
+     def _check_ignored_options(self, **kwargs):

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12304",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/forms/fields.py b/django/forms/fields.py\nindex c5374c7e9d..8c25a30e3a 100644\n--- a/django/forms/fields.py\n+++ b/django/forms/fields.py\n@@ -768,6 +768,7 @@ class CallableChoiceIterator:\n \n \n class ChoiceField(Field):\n+    do_not_call_in_templates = True\n     widget = Select\n     default_error_messages = {\n         'invalid_choice': _('Select a valid choice. %(value)s is not one of the available choices.'),",
+  "tokens_used": 460314,
+  "exec_count": 9,
+  "duration_sec": 1341.162139415741,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

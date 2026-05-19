@@ -1,0 +1,60 @@
+diff --git a/django/db/models/constraints.py b/django/db/models/constraints.py
+index e7f81d3ee9..0a0a510d77 100644
+--- a/django/db/models/constraints.py
++++ b/django/db/models/constraints.py
+@@ -37,53 +37,10 @@ class CheckConstraint(BaseConstraint):
+         where = query.build_where(self.check)
+         compiler = query.get_compiler(connection=schema_editor.connection)
+         sql, params = where.as_sql(compiler, schema_editor.connection)
++        # Strip table names from the SQL
++        sql = re.sub(r'"(\w+)"\.', '', sql)
+         return sql % tuple(schema_editor.quote_value(p) for p in params)
+ 
+-    def constraint_sql(self, model, schema_editor):
+-        check = self._get_check_sql(model, schema_editor)
+-        return schema_editor._check_sql(self.name, check)
+-
+-    def create_sql(self, model, schema_editor):
+-        check = self._get_check_sql(model, schema_editor)
+-        return schema_editor._create_check_sql(model, self.name, check)
+-
+-    def remove_sql(self, model, schema_editor):
+-        return schema_editor._delete_check_sql(model, self.name)
+-
+-    def __repr__(self):
+-        return "<%s: check='%s' name=%r>" % (self.__class__.__name__, self.check, self.name)
+-
+-    def __eq__(self, other):
+-        return (
+-            isinstance(other, CheckConstraint) and
+-            self.name == other.name and
+-            self.check == other.check
+-        )
+-
+-    def deconstruct(self):
+-        path, args, kwargs = super().deconstruct()
+-        kwargs['check'] = self.check
+-        return path, args, kwargs
+-
+-
+-class UniqueConstraint(BaseConstraint):
+-    def __init__(self, *, fields, name, condition=None):
+-        if not fields:
+-            raise ValueError('At least one field is required to define a unique constraint.')
+-        if not isinstance(condition, (type(None), Q)):
+-            raise ValueError('UniqueConstraint.condition must be a Q instance.')
+-        self.fields = tuple(fields)
+-        self.condition = condition
+-        super().__init__(name)
+-
+-    def _get_condition_sql(self, model, schema_editor):
+-        if self.condition is None:
+-            return None
+-        query = Query(model=model)
+-        where = query.build_where(self.condition)
+-        compiler = query.get_compiler(connection=schema_editor.connection)
+-        sql, params = where.as_sql(compiler, schema_editor.connection)
+-        return sql % tuple(schema_editor.quote_value(p) for p in params)
+ 
+     def constraint_sql(self, model, schema_editor):
+         fields = [model._meta.get_field(field_name).column for field_name in self.fields]

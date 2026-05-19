@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15400",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/utils/functional.py b/django/utils/functional.py\nindex 9e1be0fe0f..263366cf3a 100644\n--- a/django/utils/functional.py\n+++ b/django/utils/functional.py\n@@ -383,6 +383,12 @@ def unpickle_lazyobject(wrapped):\n \n \n class SimpleLazyObject(LazyObject):\n+\n+    def __radd__(self, other):\n+        if self._wrapped is empty:\n+            self._setup()\n+        return other + self._wrapped\n+\n     \"\"\"\n     A lazy object initialized from any function.",
+  "tokens_used": 40239,
+  "exec_count": 0,
+  "duration_sec": 452.03648495674133,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

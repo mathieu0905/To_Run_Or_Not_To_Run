@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-8872",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py\nindex ded609cbe..fef682f0a 100644\n--- a/astropy/units/quantity.py\n+++ b/astropy/units/quantity.py\n@@ -293,6 +293,28 @@ class Quantity(np.ndarray, metaclass=InheritDocstrings):\n                 value = value.view(cls)\n \n             if dtype is None:\n+                if isinstance(value, np.float16):\n+                    dtype = np.float16\n+                elif isinstance(value, np.float32):\n+                    dtype = np.float32\n+                elif isinstance(value, np.float64):\n+                    dtype = np.float64\n+                elif isinstance(value, np.float128):\n+                    dtype = np.float128\n+                elif not (np.can_cast(np.float32, value.dtype) or\n+                        value.dtype.fields):\n+                    dtype = float\n+                # Ensure dtype is not overridden\n+                if isinstance(value, np.float16):\n+                    dtype = np.float16\n+            # Create the Quantity object with the specified dtype\n+            obj = np.array(value, dtype=dtype, copy=copy, order=order,\n+                           subok=True, ndmin=ndmin)\n+            if isinstance(value, Quantity):\n+                obj = obj.view(cls)\n+            else:\n+                obj = obj.view(cls)\n+            return obj\n                 if not copy:\n                     return value",
+  "tokens_used": 455268,
+  "exec_count": 8,
+  "duration_sec": 583.4736640453339,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

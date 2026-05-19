@@ -1,0 +1,47 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e2729..ee0636d88 100644
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -168,7 +168,7 @@ def _arith_oper(left, right):
+     return result
+ 
+ 
+-def _coord_matrix(model, pos, noutp):
++def _coord_matrix(model, pos, noutp, nest_level=0):
+     """
+     Create an array representing inputs and outputs of a simple model.
+ 
+@@ -213,10 +213,14 @@ def _coord_matrix(model, pos, noutp):
+             mat[i, i] = 1
+         if pos == 'right':
+             mat = np.roll(mat, (noutp - model.n_outputs))
++        elif pos == 'nested':
++            mat = np.roll(mat, (noutp - model.n_outputs) * (nest_level + 1))
++        elif pos == 'nested':
++            mat = np.roll(mat, (noutp - model.n_outputs))
+     return mat
+ 
+ 
+-def _cstack(left, right):
++def _cstack(left, right, nest_level=0):
+     """
+     Function corresponding to '&' operation.
+ 
+@@ -247,7 +251,7 @@ def _cstack(left, right):
+     return np.hstack([cleft, cright])
+ 
+ 
+-def _cdot(left, right):
++def _cdot(left, right, nest_level=0):
+     """
+     Function corresponding to "|" operation.
+ 
+@@ -287,7 +291,7 @@ def _cdot(left, right):
+     return result
+ 
+ 
+-def _separable(transform):
++def _separable(transform, nest_level=0):
+     """
+     Calculate the separability of outputs.
+ 

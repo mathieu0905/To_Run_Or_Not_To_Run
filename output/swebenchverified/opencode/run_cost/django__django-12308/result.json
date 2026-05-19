@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12308",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py\nindex e4ddc8f017..fcc32ce145 100644\n--- a/django/contrib/admin/utils.py\n+++ b/django/contrib/admin/utils.py\n@@ -398,6 +398,9 @@ def display_for_field(value, field, empty_value_display):\n         return formats.number_format(value)\n     elif isinstance(field, models.FileField) and value:\n         return format_html('<a href=\"{}\">{}</a>', value.url, value)\n+    elif isinstance(field, models.JSONField):\n+        return field.prepare_value(value)\n+        return format_html('<a href=\"{}\">{}</a>', value.url, value)\n     else:\n         return display_for_value(value, empty_value_display)\n \ndiff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py\nindex e69de29bb2..6bf3e8f5c2 100644\n--- a/tests/i18n/sampleproject/sampleproject/settings.py\n+++ b/tests/i18n/sampleproject/sampleproject/settings.py\n@@ -0,0 +1,13 @@\n+SECRET_KEY = 'your-secret-key-here'\n+\n+INSTALLED_APPS = [\n+    'django.contrib.admin',\n+    'django.contrib.auth',\n+    'django.contrib.contenttypes',\n+    'django.contrib.sessions',\n+    'django.contrib.messages',\n+    'django.contrib.staticfiles',\n+    # Third-party apps\n+    # Local apps\n+    'sampleapp',\n+]",
+  "tokens_used": 913133,
+  "exec_count": 67,
+  "duration_sec": 1385.1707561016083,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,15 @@
+diff --git a/django/contrib/staticfiles/storage.py b/django/contrib/staticfiles/storage.py
+index ba3b62620d..b14d2b374d 100644
+--- a/django/contrib/staticfiles/storage.py
++++ b/django/contrib/staticfiles/storage.py
+@@ -126,7 +126,10 @@ class HashedFilesMixin:
+                     args += (hashed_files,)
+                 hashed_name = hashed_name_func(*args)
+ 
++        request = context.get('request', None)
++        script_name = request.META.get('SCRIPT_NAME', '') if request else ''
+         final_url = super().url(hashed_name)
++        final_url = urljoin(script_name, final_url)
+ 
+         # Special casing for a @font-face hack, like url(myfont.eot?#iefix")
+         # http://www.fontspring.com/blog/the-new-bulletproof-font-face-syntax

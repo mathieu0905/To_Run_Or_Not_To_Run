@@ -1,0 +1,30 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index 982816be3a..d8e368021e 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -434,15 +434,16 @@ class AlterModelTable(ModelOptionOperation):
+     def state_forwards(self, app_label, state):
+         state.alter_model_options(app_label, self.name_lower, {'db_table': self.table})
+ 
+-    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+-        new_model = to_state.apps.get_model(app_label, self.name)
+-        if self.allow_migrate_model(schema_editor.connection.alias, new_model):
+-            old_model = from_state.apps.get_model(app_label, self.name)
+-            schema_editor.alter_db_table(
+-                new_model,
+-                old_model._meta.db_table,
+-                new_model._meta.db_table,
+-            )
++def database_forwards(self, app_label, schema_editor, from_state, to_state):
++        new_model = to_state.apps.get_model(app_label, self.new_name)
++        old_model = from_state.apps.get_model(app_label, self.old_name)
++        if self.db_table is not None and self.db_table == old_model._meta.db_table:
++            return
++        schema_editor.alter_db_table(
++            new_model,
++            old_model._meta.db_table,
++            self.db_table,
++        )
+             # Rename M2M fields whose name is based on this model's db_table
+             for (old_field, new_field) in zip(old_model._meta.local_many_to_many, new_model._meta.local_many_to_many):
+                 if new_field.remote_field.through._meta.auto_created:

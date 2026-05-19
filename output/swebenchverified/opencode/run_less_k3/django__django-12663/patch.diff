@@ -1,0 +1,159 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index caa03665ea..8e60a0ab20 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -801,6 +801,9 @@ class Field(RegisterLookupMixin):
+         return getattr(model_instance, self.attname)
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         """Perform preliminary non-db specific value checks and conversions."""
+         if isinstance(value, Promise):
+             value = value._proxy____cast()
+@@ -959,6 +962,9 @@ class BooleanField(Field):
+         )
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         if value is None:
+             return None
+@@ -1025,6 +1031,9 @@ class CharField(Field):
+         return str(value)
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         return self.to_python(value)
+ 
+@@ -1211,6 +1220,9 @@ class DateField(DateTimeCheckMixin, Field):
+             )
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         return self.to_python(value)
+ 
+@@ -1352,6 +1364,9 @@ class DateTimeField(DateField):
+     # get_next_by_FOO and get_prev_by_FOO
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         value = self.to_python(value)
+         if value is not None and settings.USE_TZ and timezone.is_naive(value):
+@@ -1510,6 +1525,9 @@ class DecimalField(Field):
+         return connection.ops.adapt_decimalfield_value(self.to_python(value), self.max_digits, self.decimal_places)
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         return self.to_python(value)
+ 
+@@ -1650,6 +1668,9 @@ class FilePathField(Field):
+         return name, path, args, kwargs
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         if value is None:
+             return None
+@@ -1678,6 +1699,9 @@ class FloatField(Field):
+     description = _("Floating point number")
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         if value is None:
+             return None
+@@ -1765,11 +1789,14 @@ class IntegerField(Field):
+         return validators_
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         if value is None:
+             return None
+         try:
+-            return int(value)
++            return int(value._setup() if isinstance(value, SimpleLazyObject) else value)
+         except (TypeError, ValueError) as e:
+             raise e.__class__(
+                 "Field '%s' expected a number but got %r." % (self.name, value),
+@@ -1782,7 +1809,7 @@ class IntegerField(Field):
+         if value is None:
+             return value
+         try:
+-            return int(value)
++            return int(value._setup() if isinstance(value, SimpleLazyObject) else value)
+         except (TypeError, ValueError):
+             raise exceptions.ValidationError(
+                 self.error_messages['invalid'],
+@@ -1834,6 +1861,9 @@ class IPAddressField(Field):
+         return name, path, args, kwargs
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         if value is None:
+             return None
+@@ -1905,6 +1935,9 @@ class GenericIPAddressField(Field):
+         return connection.ops.adapt_ipaddressfield_value(value)
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         if value is None:
+             return None
+@@ -2053,6 +2086,9 @@ class TextField(Field):
+         return str(value)
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         return self.to_python(value)
+ 
+@@ -2179,6 +2215,9 @@ class TimeField(DateTimeCheckMixin, Field):
+             return super().pre_save(model_instance, add)
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         return self.to_python(value)
+ 
+@@ -2306,6 +2345,9 @@ class UUIDField(Field):
+         return "UUIDField"
+ 
+     def get_prep_value(self, value):
++        if isinstance(value, SimpleLazyObject):
++            value = value._setup()
++        return value
+         value = super().get_prep_value(value)
+         return self.to_python(value)
+ 

@@ -1,0 +1,40 @@
+{
+  "prohibited": {
+    "mode": "prohibited",
+    "total_instances": 199,
+    "single_edit_instances": 133,
+    "multiple_edit_instances": 66,
+    "single_edit_ratio": 0.6683417085427136,
+    "avg_edits_per_instance": 1.6381909547738693,
+    "avg_files_per_instance": 1.0603015075376885,
+    "max_edits_per_file_distribution": {
+      "1": 133,
+      "2": 41,
+      "3": 13,
+      "4": 6,
+      "5": 4,
+      "6": 1,
+      "10": 1
+    }
+  },
+  "unrestricted": {
+    "mode": "unrestricted",
+    "total_instances": 198,
+    "single_edit_instances": 124,
+    "multiple_edit_instances": 74,
+    "single_edit_ratio": 0.6262626262626263,
+    "avg_edits_per_instance": 1.9141414141414141,
+    "avg_files_per_instance": 1.0707070707070707,
+    "max_edits_per_file_distribution": {
+      "1": 124,
+      "2": 44,
+      "3": 11,
+      "4": 8,
+      "5": 3,
+      "6": 1,
+      "7": 2,
+      "8": 2,
+      "10": 3
+    }
+  }
+}

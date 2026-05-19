@@ -1,0 +1,13 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 63ca817355..1291e11c0d 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -570,7 +570,7 @@ class SQLCompiler:
+                     if distinct_fields:
+                         raise NotImplementedError('annotate() + distinct(fields) is not implemented.')
+                     order_by = order_by or self.connection.ops.force_no_ordering()
+-                    result.append('GROUP BY %s' % ', '.join(grouping))
++                    result.append('GROUP BY %s' % ', '.join(['{} AS {}'.format(g, i) for i, g in enumerate(grouping)]))
+                     if self._meta_ordering:
+                         order_by = None
+                 if having:

@@ -1,0 +1,24 @@
+diff --git a/django/db/models/aggregates.py b/django/db/models/aggregates.py
+index da4ff928aa..a3fd53db29 100644
+--- a/django/db/models/aggregates.py
++++ b/django/db/models/aggregates.py
+@@ -97,6 +97,9 @@ class Aggregate(Func):
+ 
+ 
+ class Avg(FixDurationInputMixin, NumericOutputFieldMixin, Aggregate):
++    allow_distinct = True
++    allow_distinct = True
++    allow_distinct = True
+     function = 'AVG'
+     name = 'Avg'
+ 
+@@ -140,6 +143,9 @@ class StdDev(NumericOutputFieldMixin, Aggregate):
+ 
+ 
+ class Sum(FixDurationInputMixin, Aggregate):
++    allow_distinct = True
++    allow_distinct = True
++    allow_distinct = True
+     function = 'SUM'
+     name = 'Sum'
+ 

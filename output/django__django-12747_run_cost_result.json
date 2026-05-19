@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12747",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py\nindex 16dff6a1cd..3abb5e0d36 100644\n--- a/django/db/models/deletion.py\n+++ b/django/db/models/deletion.py\n@@ -442,4 +442,9 @@ class Collector:\n         for model, instances in self.data.items():\n             for instance in instances:\n                 setattr(instance, model._meta.pk.attname, None)\n-        return sum(deleted_counter.values()), dict(deleted_counter)\n+        print(f'Deleted counter: {deleted_counter}')\n+if not deleted_counter:\n+    deleted_counter[model._meta.label] = 0\n+if not deleted_counter:\n+    deleted_counter[model._meta.label] = 0\n+return sum(deleted_counter.values()), dict(deleted_counter)",
+  "tokens_used": 764524,
+  "exec_count": 91,
+  "duration_sec": 2135.945148706436,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

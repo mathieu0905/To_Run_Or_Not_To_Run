@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "total_actionable": 46,
+    "degraded": 1,
+    "improved": 0,
+    "same": 45
+  },
+  "degraded_cases": [
+    {
+      "instance": "django__django-13158",
+      "dataset": "swebenchlite",
+      "gt_files": [
+        "django/db/models/sql/query.py"
+      ],
+      "prohibited_files": [
+        "django/db/models/sql/query.py"
+      ],
+      "unrestricted_files": [
+        "django/db/models/sql/compiler.py"
+      ],
+      "prohibited_hit": true,
+      "unrestricted_hit": false,
+      "reproduction_outputs": [
+        {
+          "cmd": "python test_union_none_bug.py",
+          "category": "actionable",
+          "output_preview": "Exit code 1\nTraceback (most recent call last):\n  File \"/testbed/django/db/backends/utils.py\", line 82, in _execute\n    return self.cursor.execute(sql)\n  File \"/testbed/django/db/backends/sqlite3/base.py\", line 412, in execute\n    return Database.Cursor.execute(self, query)\nsqlite3.OperationalError: table \"test_app_article_publications\" already exists\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"test_union_none_bug.py\", line 51,"
+        },
+        {
+          "cmd": "python test_union_none_bug.py",
+          "category": "actionable",
+          "output_preview": "Exit code 1\nTraceback (most recent call last):\n  File \"/testbed/django/db/backends/utils.py\", line 84, in _execute\n    return self.cursor.execute(sql, params)\n  File \"/testbed/django/db/backends/sqlite3/base.py\", line 414, in execute\n    return Database.Cursor.execute(self, query, params)\nsqlite3.OperationalError: index test_app_article_publications_article_id_publication_id_5380881f_uniq already exists\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent"
+        },
+        {
+          "cmd": "python test_simple_union_none.py",
+          "category": "non_actionable",
+          "output_preview": "Testing with OR query:\nOR queryset: [1, 6, 7, 8, 9, 10]\nOR queryset.none(): []\n\nTesting with union query:\nUnion queryset: [1, 6, 7, 8, 9, 10]\nUnion queryset.none(): [1, 6, 7, 8, 9, 10]\n\n==================================================\nExpected: Both .none() calls should return []\nActual: OR query returns [], but union query returns all results!"
+        }
+      ]
+    }
+  ],
+  "improved_cases": []
+}

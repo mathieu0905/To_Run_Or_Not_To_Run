@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11333",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py\nindex 247e3680c0..ef235e6677 100644\n--- a/django/urls/resolvers.py\n+++ b/django/urls/resolvers.py\n@@ -65,6 +65,8 @@ class ResolverMatch:\n \n @functools.lru_cache(maxsize=None)\n def get_resolver(urlconf=None):\n+    if urlconf is None:\n+        urlconf = settings.ROOT_URLCONF\n     if urlconf is None:\n         urlconf = settings.ROOT_URLCONF\n     return URLResolver(RegexPattern(r'^/'), urlconf)",
+  "tokens_used": 188308,
+  "exec_count": 5,
+  "duration_sec": 591.5506315231323,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

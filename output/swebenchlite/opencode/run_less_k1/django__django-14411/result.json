@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14411",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/contrib/auth/forms.py b/django/contrib/auth/forms.py\nindex 20d8922799..a492d3e17a 100644\n--- a/django/contrib/auth/forms.py\n+++ b/django/contrib/auth/forms.py\n@@ -30,7 +30,11 @@ def _unicode_ci_compare(s1, s2):\n     return unicodedata.normalize('NFKC', s1).casefold() == unicodedata.normalize('NFKC', s2).casefold()\n \n \n-class ReadOnlyPasswordHashWidget(forms.Widget):\n+class CustomReadOnlyPasswordHashWidget(forms.Widget):\n+    def id_for_label(self, id_):\n+        return None\n+\n+class ReadOnlyPasswordHashWidget(CustomReadOnlyPasswordHashWidget):\n     template_name = 'auth/widgets/read_only_password_hash.html'\n     read_only = True",
+  "tokens_used": 211362,
+  "exec_count": 9,
+  "duration_sec": 896.9837481975555,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

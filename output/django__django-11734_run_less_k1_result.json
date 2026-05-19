@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11734",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py\nindex 2b59dd301a..9da9486a5d 100644\n--- a/django/db/models/expressions.py\n+++ b/django/db/models/expressions.py\n@@ -1090,7 +1090,7 @@ class Exists(Subquery):\n     def as_sql(self, compiler, connection, template=None, **extra_context):\n         sql, params = super().as_sql(compiler, connection, template, **extra_context)\n         if self.negated:\n-            sql = 'NOT {}'.format(sql)\n+            sql = 'NOT EXISTS (%s)' % self.query.get_compiler(connection).as_sql()[0]\n         return sql, params\n \n     def select_format(self, compiler, sql, params):",
+  "tokens_used": 197251,
+  "exec_count": 3,
+  "duration_sec": 408.71108293533325,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

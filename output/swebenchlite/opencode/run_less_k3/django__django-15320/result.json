@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15320",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py\nindex 6f26dff0e0..4607d674e9 100644\n--- a/django/db/models/expressions.py\n+++ b/django/db/models/expressions.py\n@@ -1148,6 +1148,22 @@ class Subquery(BaseExpression, Combinable):\n     empty_result_set_value = None\n \n     def __init__(self, queryset, output_field=None, **extra):\n+        super().__init__(output_field)\n+        self.query = getattr(queryset, 'query', queryset)\n+        self.query.subquery = True\n+        self.extra = extra\n+        super().__init__(output_field)\n+        self.query = getattr(queryset, 'query', queryset)\n+        self.query.subquery = True\n+        self.extra = extra\n+        super().__init__(output_field)\n+        self.query = getattr(queryset, 'query', queryset)\n+        self.query.subquery = True\n+        self.extra = extra\n+        super().__init__(output_field)\n+        self.query = getattr(queryset, 'query', queryset)\n+        self.query.subquery = True\n+        self.extra = extra\n         # Allow the usage of both QuerySet and sql.Query objects.\n         self.query = getattr(queryset, 'query', queryset)\n         self.extra = extra",
+  "tokens_used": 167692,
+  "exec_count": 4,
+  "duration_sec": 166.06885647773743,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

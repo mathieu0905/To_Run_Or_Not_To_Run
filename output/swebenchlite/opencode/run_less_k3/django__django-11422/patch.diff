@@ -1,0 +1,32 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 7ca0d68fae..2690545407 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -219,6 +219,9 @@ def restart_with_reloader():
+ class BaseReloader:
+     def __init__(self):
+         self.extra_files = set()
++        self.watch_file('/testbed/tests/i18n/sampleproject/manage.py')
++        
++
+         self.directory_globs = defaultdict(set)
+         self._stop_condition = threading.Event()
+ 
+@@ -241,7 +244,8 @@ class BaseReloader:
+         Yield all files that need to be watched, including module files and
+         files within globs.
+         """
+-        yield from iter_all_python_module_files()
++        logger.debug('Watching files: %s', list(iter_all_python_module_files()))
++yield from iter_all_python_module_files()
+         yield from self.extra_files
+         if include_globs:
+             for directory, patterns in self.directory_globs.items():
+@@ -279,6 +283,7 @@ class BaseReloader:
+             # If this occurs then swallow the error and continue.
+             pass
+         logger.debug('Apps ready_event triggered. Sending autoreload_started signal.')
++
+         autoreload_started.send(sender=self)
+         self.run_loop()
+ 

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11433",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/forms/forms.py b/django/forms/forms.py\nindex 0ab25643da..05f2ac1e13 100644\n--- a/django/forms/forms.py\n+++ b/django/forms/forms.py\n@@ -385,9 +385,11 @@ class BaseForm:\n             if field.disabled:\n                 value = self.get_initial_for_field(field, name)\n             else:\n-                value = field.widget.value_from_datadict(self.data, self.files, self.add_prefix(name))\n-            try:\n-                if isinstance(field, FileField):\n+value = field.widget.value_from_datadict(self.data, self.files, self.add_prefix(name))\n+if value is None:\n+    value = field.initial\n+try:\n+    if isinstance(field, FileField):\n                     initial = self.get_initial_for_field(field, name)\n                     value = field.clean(value, initial)\n                 else:",
+  "tokens_used": 1155727,
+  "exec_count": 88,
+  "duration_sec": 2258.441890478134,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

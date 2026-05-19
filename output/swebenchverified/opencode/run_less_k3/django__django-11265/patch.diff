@@ -1,0 +1,104 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index d69c24419b..93f3fdcb42 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1388,6 +1388,99 @@ class Query(BaseExpression):
+         self._filtered_relations[filtered_relation.alias] = filtered_relation
+ 
+     def names_to_path(self, names, opts, allow_many=True, fail_on_missing=False):
++    """
++    Walk the list of names and turns them into PathInfo tuples. A single
++    name in 'names' can generate multiple PathInfos (m2m, for example).
++
++    'names' is the path of names to travel, 'opts' is the model Options we
++    start the name resolving from, 'allow_many' is as for setup_joins().
++    If fail_on_missing is set to True, then a name that can't be resolved
++    will generate a FieldError.
++    """
++    parts = []
++    for name in names:
++        if name in self.annotation_col_map:
++            parts.append(PathInfo(name, self.annotation_col_map[name]['relation_name'], opts))
++            opts = self.annotation_col_map[name]['relation_name'].model._meta
++        else:
++            try:
++                field, model, direct, m2m = opts.get_field(name)
++            except FieldDoesNotExist:
++                if fail_on_missing:
++                    raise FieldError("Cannot resolve keyword '%s' into field. Choices are: %s" % (name, ", ".join(opts.get_fields())))
++                else:
++                    break
++            parts.append(PathInfo(name, field, direct, m2m))
++            if isinstance(field, RelatedField):
++                opts = field.remote_field.model._meta
++            elif isinstance(field, MultiValueField):
++                raise FieldError("MultiValueField '%s' does not support nested queries." % name)
++        if model is None:
++            break
++    return parts
++
++    """
++    Walk the list of names and turns them into PathInfo tuples. A single
++    name in 'names' can generate multiple PathInfos (m2m, for example).
++
++    'names' is the path of names to travel, 'opts' is the model Options we
++    start the name resolving from, 'allow_many' is as for setup_joins().
++    If fail_on_missing is set to True, then a name that can't be resolved
++    will generate a FieldError.
++    """
++    parts = []
++    for name in names:
++        if name in self.annotation_col_map:
++            parts.append(PathInfo(name, self.annotation_col_map[name]['relation_name'], opts))
++            opts = self.annotation_col_map[name]['relation_name'].model._meta
++        else:
++            try:
++                field, model, direct, m2m = opts.get_field(name)
++            except FieldDoesNotExist:
++                if fail_on_missing:
++                    raise FieldError("Cannot resolve keyword '%s' into field. Choices are: %s" % (name, ", ".join(opts.get_fields())))
++                else:
++                    break
++            parts.append(PathInfo(name, field, direct, m2m))
++            if isinstance(field, RelatedField):
++                opts = field.remote_field.model._meta
++            elif isinstance(field, MultiValueField):
++                raise FieldError("MultiValueField '%s' does not support nested queries." % name)
++        if model is None:
++            break
++    return parts
++
++    """
++    Walk the list of names and turns them into PathInfo tuples. A single
++    name in 'names' can generate multiple PathInfos (m2m, for example).
++
++    'names' is the path of names to travel, 'opts' is the model Options we
++    start the name resolving from, 'allow_many' is as for setup_joins().
++    If fail_on_missing is set to True, then a name that can't be resolved
++    will generate a FieldError.
++    """
++    parts = []
++    for name in names:
++        if name in self.annotation_col_map:
++            parts.append(PathInfo(name, self.annotation_col_map[name]['relation_name'], opts))
++            opts = self.annotation_col_map[name]['relation_name'].model._meta
++        else:
++            try:
++                field, model, direct, m2m = opts.get_field_by_name(name)
++            except FieldDoesNotExist:
++                if fail_on_missing:
++                    raise FieldError("Cannot resolve keyword '%s' into field. Choices are: %s" % (name, ", ".join(opts.get_all_field_names())))
++                else:
++                    break
++            parts.append(PathInfo(name, field, direct, m2m))
++            if isinstance(field, RelatedField):
++                opts = field.remote_field.model._meta
++            elif isinstance(field, MultiValueField):
++                raise FieldError("MultiValueField '%s' does not support nested queries." % name)
++        if model is None:
++            break
++    return parts
++
+         """
+         Walk the list of names and turns them into PathInfo tuples. A single
+         name in 'names' can generate multiple PathInfos (m2m, for example).

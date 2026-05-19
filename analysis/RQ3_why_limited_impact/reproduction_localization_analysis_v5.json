@@ -1,0 +1,80 @@
+{
+  "claude_code": {
+    "pp": {
+      "actionable": {
+        "count": 32,
+        "prohibited_hit_rate": 0.9375,
+        "unrestricted_hit_rate": 0.90625,
+        "delta_hit": -0.03125
+      },
+      "non_actionable": {
+        "count": 32,
+        "prohibited_hit_rate": 0.96875,
+        "unrestricted_hit_rate": 0.96875,
+        "delta_hit": 0.0
+      },
+      "none": {
+        "count": 52,
+        "prohibited_hit_rate": 1.0,
+        "unrestricted_hit_rate": 1.0,
+        "delta_hit": 0.0
+      }
+    },
+    "ff": {
+      "actionable": {
+        "count": 31,
+        "prohibited_hit_rate": 0.8387096774193549,
+        "unrestricted_hit_rate": 0.8387096774193549,
+        "delta_hit": 0.0
+      },
+      "non_actionable": {
+        "count": 22,
+        "prohibited_hit_rate": 0.7272727272727273,
+        "unrestricted_hit_rate": 0.7727272727272727,
+        "delta_hit": 0.045454545454545414
+      },
+      "none": {
+        "count": 31,
+        "prohibited_hit_rate": 0.9354838709677419,
+        "unrestricted_hit_rate": 0.9354838709677419,
+        "delta_hit": 0.0
+      }
+    }
+  },
+  "codex": {
+    "pp": {
+      "actionable": {
+        "count": 5,
+        "prohibited_hit_rate": 0.8,
+        "unrestricted_hit_rate": 0.8,
+        "delta_hit": 0.0
+      },
+      "non_actionable": {
+        "count": 3,
+        "prohibited_hit_rate": 1.0,
+        "unrestricted_hit_rate": 1.0,
+        "delta_hit": 0.0
+      },
+      "none": {
+        "count": 134,
+        "prohibited_hit_rate": 0.9477611940298507,
+        "unrestricted_hit_rate": 0.9776119402985075,
+        "delta_hit": 0.029850746268656803
+      }
+    },
+    "ff": {
+      "actionable": {
+        "count": 4,
+        "prohibited_hit_rate": 1.0,
+        "unrestricted_hit_rate": 1.0,
+        "delta_hit": 0.0
+      },
+      "none": {
+        "count": 51,
+        "prohibited_hit_rate": 0.8823529411764706,
+        "unrestricted_hit_rate": 0.9019607843137255,
+        "delta_hit": 0.019607843137254943
+      }
+    }
+  }
+}

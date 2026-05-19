@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12497",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py\nindex 8ddbb5ba68..536b3dd601 100644\n--- a/django/db/models/fields/related.py\n+++ b/django/db/models/fields/related.py\n@@ -1309,7 +1309,7 @@ class ManyToManyField(RelatedField):\n                              \"through_fields keyword argument.\") % (self, from_model_name),\n                             hint=(\n                                 'If you want to create a recursive relationship, '\n-                                'use ForeignKey(\"%s\", symmetrical=False, through=\"%s\").'\n+                                'use ManyToManyField(\"%s\", through=\"%s\").'\n                             ) % (\n                                 RECURSIVE_RELATIONSHIP_CONSTANT,\n                                 relationship_model_name,\n@@ -1329,7 +1329,7 @@ class ManyToManyField(RelatedField):\n                             \"through_fields keyword argument.\" % (self, to_model_name),\n                             hint=(\n                                 'If you want to create a recursive relationship, '\n-                                'use ForeignKey(\"%s\", symmetrical=False, through=\"%s\").'\n+                                'use ManyToManyField(\"%s\", through=\"%s\").'\n                             ) % (\n                                 RECURSIVE_RELATIONSHIP_CONSTANT,\n                                 relationship_model_name,",
+  "tokens_used": 156606,
+  "exec_count": 2,
+  "duration_sec": 275.383572101593,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

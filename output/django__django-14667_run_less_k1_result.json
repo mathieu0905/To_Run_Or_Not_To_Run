@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14667",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py\nindex 8837881579..99660e0849 100644\n--- a/django/db/models/sql/query.py\n+++ b/django/db/models/sql/query.py\n@@ -224,7 +224,7 @@ class Query(BaseExpression):\n         # A tuple that is a set of model field names and either True, if these\n         # are the fields to defer, or False if these are the only fields to\n         # load.\n-        self.deferred_loading = (frozenset(), True)\n+        self.deferred_loading = (frozenset(), self.deferred_loading[1])\n \n         self._filtered_relations = {}\n \n@@ -2066,7 +2066,7 @@ class Query(BaseExpression):\n \n     def clear_deferred_loading(self):\n         \"\"\"Remove any fields from the deferred loading set.\"\"\"\n-        self.deferred_loading = (frozenset(), True)\n+        self.deferred_loading = (frozenset(), self.deferred_loading[1])\n \n     def add_deferred_loading(self, field_names):\n         \"\"\"",
+  "tokens_used": 524294,
+  "exec_count": 33,
+  "duration_sec": 1085.2886037826538,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

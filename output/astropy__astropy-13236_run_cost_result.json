@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-13236",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/astropy/table/table.py b/astropy/table/table.py\nindex 5afe2127a..c7ea2b7f1 100644\n--- a/astropy/table/table.py\n+++ b/astropy/table/table.py\n@@ -1241,8 +1241,15 @@ class Table:\n \n         # Structured ndarray gets viewed as a mixin unless already a valid\n         # mixin class\n-        if (not isinstance(data, Column) and not data_is_mixin\n-                and isinstance(data, np.ndarray) and len(data.dtype) > 1):\n+import warnings\n+\n+import warnings\n+\n+if (not isinstance(data, Column) and not data_is_mixin\n+        and isinstance(data, np.ndarray) and len(data.dtype) > 1):\n+    warnings.warn('Structured numpy arrays will be added as Columns in future versions. Wrap data in Column if you want this behavior now.', FutureWarning)\n+    data = data.view(NdarrayMixin)  # TODO: Remove this line in version 5.2\n+    data_is_mixin = True\n             data = data.view(NdarrayMixin)\n             data_is_mixin = True",
+  "tokens_used": 302855,
+  "exec_count": 5,
+  "duration_sec": 538.7280538082123,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

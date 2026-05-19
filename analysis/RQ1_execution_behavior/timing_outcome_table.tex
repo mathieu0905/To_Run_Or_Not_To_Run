@@ -1,0 +1,26 @@
+\begin{table}[h]
+  \centering
+  \small
+  \caption{Test execution success rate by timing stage. Early = 0--33\% of conversation, Middle = 33--66\%, Late = 66--100\%.}
+  \label{tab:timing-outcome}
+  \begin{tabular}{llccc}
+    \toprule
+    Agent & Model & Early & Middle & Late \\
+    \midrule
+    OpenHands & Claude-3.5-Sonnet & 44\% & 50\% & 69\% \\
+    OpenHands & Claude-3.5-Sonnet & 42\% & 52\% & 72\% \\
+    OpenHands & Claude-4-Sonnet & 71\% & 61\% & 76\% \\
+    OpenHands & GPT-5 & 55\% & 67\% & 72\% \\
+    OpenHands & Kimi-K2 & 64\% & 61\% & 71\% \\
+    OpenHands & Unknown & 61\% & 55\% & 72\% \\
+    SWE-agent & Claude-3-Opus & 36\% & 41\% & 50\% \\
+    SWE-agent & Claude-3-Opus & 32\% & 33\% & 51\% \\
+    SWE-agent & Claude-3.5-Sonnet & 40\% & 27\% & 46\% \\
+    SWE-agent & Claude-3.5-Sonnet & 36\% & 31\% & 49\% \\
+    SWE-agent & GPT-4 & 42\% & 35\% & 55\% \\
+    SWE-agent & GPT-4 & 37\% & 34\% & 58\% \\
+    SWE-agent & GPT-4o & 32\% & 26\% & 44\% \\
+    SWE-agent & GPT-4o & 25\% & 23\% & 36\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}

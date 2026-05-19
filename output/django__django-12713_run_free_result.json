@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12713",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py\nindex 69a5fbf389..06bb97ce2f 100644\n--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -179,7 +179,9 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):\n         for klass in db_field.__class__.mro():\n             if klass in self.formfield_overrides:\n                 kwargs = {**copy.deepcopy(self.formfield_overrides[klass]), **kwargs}\n-                return db_field.formfield(**kwargs)\n+if 'widget' in kwargs:\n+            kwargs['widget'] = kwargs['widget']\n+        return db_field.formfield(**kwargs)\n \n         # For any other type of field, just call its formfield() method.\n         return db_field.formfield(**kwargs)",
+  "tokens_used": 64042,
+  "exec_count": 0,
+  "duration_sec": 271.44580364227295,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

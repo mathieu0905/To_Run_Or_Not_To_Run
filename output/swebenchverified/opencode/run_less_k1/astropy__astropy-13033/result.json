@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-13033",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py\nindex c279f35f8..61d1238a0 100644\n--- a/astropy/timeseries/core.py\n+++ b/astropy/timeseries/core.py\n@@ -76,9 +76,10 @@ class BaseTimeSeries(QTable):\n \n             elif self.colnames[:len(required_columns)] != required_columns:\n \n-                raise ValueError(\"{} object is invalid - expected '{}' \"\n-                                 \"as the first column{} but found '{}'\"\n-                                 .format(self.__class__.__name__, required_columns[0], plural, self.colnames[0]))\n+                missing_columns = set(required_columns) - set(self.colnames)\n+                if missing_columns:\n+                    missing_cols_str = ', '.join(missing_columns)\n+                    raise ValueError(f\"'{self.__class__.__name__}' object is missing required columns: {missing_cols_str}\")\n \n             if (self._required_columns_relax\n                     and self._required_columns == self.colnames[:len(self._required_columns)]):",
+  "tokens_used": 130267,
+  "exec_count": 4,
+  "duration_sec": 1091.7851295471191,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

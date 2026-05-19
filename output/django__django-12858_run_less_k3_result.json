@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12858",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "",
+  "tokens_used": 122716,
+  "exec_count": 3,
+  "duration_sec": 642.4092528820038,
+  "success": false,
+  "error": "",
+  "agent_type": "opencode"
+}

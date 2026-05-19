@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12193",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/forms/widgets.py b/django/forms/widgets.py\nindex 6fe220bea7..433a0c6c74 100644\n--- a/django/forms/widgets.py\n+++ b/django/forms/widgets.py\n@@ -522,9 +522,9 @@ class CheckboxInput(Input):\n \n     def get_context(self, name, value, attrs):\n         if self.check_test(value):\n-            if attrs is None:\n-                attrs = {}\n-            attrs['checked'] = True\n+            attrs_copy = attrs.copy() if attrs else {}\n+            attrs_copy['checked'] = True\n+            attrs = attrs_copy\n         return super().get_context(name, value, attrs)\n \n     def value_from_datadict(self, data, files, name):",
+  "tokens_used": 31784,
+  "exec_count": 0,
+  "duration_sec": 88.54427456855774,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

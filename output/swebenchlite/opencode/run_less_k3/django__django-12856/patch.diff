@@ -1,0 +1,16 @@
+diff --git a/django/db/migrations/state.py b/django/db/migrations/state.py
+index c8cb704aee..604b4eaffc 100644
+--- a/django/db/migrations/state.py
++++ b/django/db/migrations/state.py
+@@ -565,6 +565,11 @@ class ModelState:
+             raise InvalidBasesError("Cannot resolve one or more bases from %r" % (self.bases,))
+         # Clone fields for the body, add other bits.
+         body = {name: field.clone() for name, field in self.fields.items()}
++# Add check for UniqueConstraint fields
++for constraint in self.options['constraints']:
++    for field_name in constraint.fields:
++        if field_name not in self.fields:
++            raise ValueError(f'UniqueConstraint field {field_name} does not exist in model {self.name}')
+         body['Meta'] = meta
+         body['__module__'] = "__fake__"
+ 

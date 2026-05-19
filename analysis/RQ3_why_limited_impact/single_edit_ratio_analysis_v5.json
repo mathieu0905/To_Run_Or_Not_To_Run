@@ -1,0 +1,62 @@
+{
+  "prohibited": {
+    "mode": "prohibited",
+    "total_traces": 400,
+    "total_with_edits": 394,
+    "single_edit": 242,
+    "single_ratio": 0.6142131979695431,
+    "with_exec": 34,
+    "edit_after_exec": 9,
+    "edit_after_ratio": 0.2647058823529412,
+    "multiple_edits": 152,
+    "multi_by_exec": 4,
+    "by_agent": {
+      "claude_code": {
+        "total": 197,
+        "single": 129,
+        "with_exec": 33,
+        "edit_after": 9,
+        "multi": 68,
+        "multi_by_exec": 4
+      },
+      "codex": {
+        "total": 197,
+        "single": 113,
+        "with_exec": 1,
+        "edit_after": 0,
+        "multi": 84,
+        "multi_by_exec": 0
+      }
+    }
+  },
+  "unrestricted": {
+    "mode": "unrestricted",
+    "total_traces": 400,
+    "total_with_edits": 395,
+    "single_edit": 224,
+    "single_ratio": 0.5670886075949367,
+    "with_exec": 378,
+    "edit_after_exec": 197,
+    "edit_after_ratio": 0.5211640211640212,
+    "multiple_edits": 171,
+    "multi_by_exec": 83,
+    "by_agent": {
+      "claude_code": {
+        "total": 197,
+        "single": 105,
+        "with_exec": 180,
+        "edit_after": 135,
+        "multi": 92,
+        "multi_by_exec": 38
+      },
+      "codex": {
+        "total": 198,
+        "single": 119,
+        "with_exec": 198,
+        "edit_after": 62,
+        "multi": 79,
+        "multi_by_exec": 45
+      }
+    }
+  }
+}

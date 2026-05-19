@@ -1,0 +1,32 @@
+diff --git a/django/contrib/admin/utils.py b/django/contrib/admin/utils.py
+index e4ddc8f017..fcc32ce145 100644
+--- a/django/contrib/admin/utils.py
++++ b/django/contrib/admin/utils.py
+@@ -398,6 +398,9 @@ def display_for_field(value, field, empty_value_display):
+         return formats.number_format(value)
+     elif isinstance(field, models.FileField) and value:
+         return format_html('<a href="{}">{}</a>', value.url, value)
++    elif isinstance(field, models.JSONField):
++        return field.prepare_value(value)
++        return format_html('<a href="{}">{}</a>', value.url, value)
+     else:
+         return display_for_value(value, empty_value_display)
+ 
+diff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py
+index e69de29bb2..6bf3e8f5c2 100644
+--- a/tests/i18n/sampleproject/sampleproject/settings.py
++++ b/tests/i18n/sampleproject/sampleproject/settings.py
+@@ -0,0 +1,13 @@
++SECRET_KEY = 'your-secret-key-here'
++
++INSTALLED_APPS = [
++    'django.contrib.admin',
++    'django.contrib.auth',
++    'django.contrib.contenttypes',
++    'django.contrib.sessions',
++    'django.contrib.messages',
++    'django.contrib.staticfiles',
++    # Third-party apps
++    # Local apps
++    'sampleapp',
++]

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11179",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py\nindex 92fe4affb9..0e325af62f 100644\n--- a/django/db/models/deletion.py\n+++ b/django/db/models/deletion.py\n@@ -312,7 +312,8 @@ class Collector:\n \n                 if not model._meta.auto_created:\n                     for obj in instances:\n-                        signals.post_delete.send(\n+                        print('PK before delete:', self.pk)\n+signals.post_delete.send(\n                             sender=model, instance=obj, using=self.using\n                         )",
+  "tokens_used": 233540,
+  "exec_count": 8,
+  "duration_sec": 1878.9505622386932,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

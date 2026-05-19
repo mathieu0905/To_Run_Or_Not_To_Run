@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15498",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/middleware/http.py b/django/middleware/http.py\nindex 84c5466bb6..2fdbada25a 100644\n--- a/django/middleware/http.py\n+++ b/django/middleware/http.py\n@@ -21,15 +21,23 @@ class ConditionalGetMiddleware(MiddlewareMixin):\n             set_response_etag(response)\n \n         etag = response.get(\"ETag\")\n-        last_modified = response.get(\"Last-Modified\")\n-        last_modified = last_modified and parse_http_date_safe(last_modified)\n-\n-        if etag or last_modified:\n-            return get_conditional_response(\n-                request,\n-                etag=etag,\n-                last_modified=last_modified,\n-                response=response,\n+last_modified = response.get(\"Last-Modified\")\n+if_modified_since = request.META.get('HTTP_IF_MODIFIED_SINCE')\n+if if_modified_since and if_modified_since.strip():\n+    if_modified_since = parse_http_date_safe(if_modified_since)\n+if_none_match = request.META.get('HTTP_IF_NONE_MATCH')\n+if if_modified_since:\n+    last_modified_rfc_1123 = last_modified and http_date(parse_http_date_safe(last_modified))\n+    if if_modified_since >= parse_http_date_safe(last_modified_rfc_1123):\n+        response = HttpResponseNotModified()\n+        response_was_modified = True\n+if etag or last_modified:\n+    return get_conditional_response(\n+        request,\n+        etag=etag,\n+        last_modified=last_modified,\n+        response=response,\n+\n             )\n \n         return response",
+  "tokens_used": 205951,
+  "exec_count": 2,
+  "duration_sec": 932.5692830085754,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

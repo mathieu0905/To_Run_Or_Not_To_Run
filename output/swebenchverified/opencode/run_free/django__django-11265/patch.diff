@@ -1,0 +1,12 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index d69c24419b..b8604af1db 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1643,6 +1643,7 @@ class Query(BaseExpression):
+             return col
+ 
+     def split_exclude(self, filter_expr, can_reuse, names_with_path):
++        names_with_path.update(self.annotations.keys())
+         """
+         When doing an exclude against any kind of N-to-many relation, we need
+         to use a subquery. This method constructs the nested query, given the

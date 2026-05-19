@@ -1,0 +1,90 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 63ca817355..e0b385bc04 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -56,6 +56,76 @@ class SQLCompiler:
+         return extra_select, order_by, group_by
+ 
+     def get_group_by(self, select, order_by):
++    # Add a method to generate a new alias
++    def next_alias(self):
++        self.col_count += 1
++        return 'col%d' % self.col_count
++
++    if self.query.group_by is None:
++        return []
++    expressions = []
++    if self.query.group_by is not True:
++        # If the group by is set to a list (by .values() call most likely),
++        # then we need to add everything in it to the GROUP BY clause.
++        # Backwards compatibility hack for setting query.group_by. Remove
++        # when  we have public API way of forcing the GROUP BY clause.
++        # Converts string references to expressions.
++        for expr in self.query.group_by:
++            if not hasattr(expr, 'as_sql'):
++                expressions.append(self.query.resolve_ref(expr))
++            else:
++                expressions.append(expr)
++    # Note that even if the group_by is set, it is only the minimal
++    # set to group by. So, we need to add cols in select, order_by, and
++    # having into the select in any case.
++    ref_sources = {
++        expr.source for expr in expressions if isinstance(expr, Ref)
++    }
++    for expr, _, _ in select:
++        # Skip members of the select clause that are already included
++        # by reference.
++        if expr in ref_sources:
++            continue
++        cols = expr.get_group_by_cols()
++        for col in cols:
++            if isinstance(col, Subquery):
++                alias = self.next_alias()
++                expressions.append((col, alias))
++            else:
++                expressions.append(col)
++    for expr, (sql, params, is_ref) in order_by:
++        # Skip References to the select clause, as all expressions in the
++        # select clause are already part of the group by.
++        if not is_ref:
++            cols = expr.get_group_by_cols()
++            for col in cols:
++                if isinstance(col, Subquery):
++                    alias = self.next_alias()
++                    expressions.append((col, alias))
++                else:
++                    expressions.append(col)
++    having_group_by = self.having.get_group_by_cols() if self.having else ()
++    for expr in having_group_by:
++        if isinstance(expr, Subquery):
++            alias = self.next_alias()
++            expressions.append((expr, alias))
++        else:
++            expressions.append(expr)
++    result = []
++    seen = set()
++    expressions = self.collapse_group_by(expressions, having_group_by)
++    for expr in expressions:
++        if isinstance(expr, tuple):
++            col, alias = expr
++            sql, params = self.compile(col)
++            sql = f"{sql} AS {self.quote_name_unless_alias(alias)}"
++        else:
++            sql, params = self.compile(expr)
++        params_hash = make_hashable(params)
++        if (sql, params_hash) not in seen:
++            result.append((sql, params))
++            seen.add((sql, params_hash))
++    return result
+         """
+         Return a list of 2-tuples of form (sql, params).
+ 
+@@ -119,7 +189,7 @@ class SQLCompiler:
+                 continue
+             cols = expr.get_group_by_cols()
+             for col in cols:
+-                expressions.append(col)
++                expressions.append((col, self.next_alias()))
+         for expr, (sql, params, is_ref) in order_by:
+             # Skip References to the select clause, as all expressions in the
+             # select clause are already part of the group by.

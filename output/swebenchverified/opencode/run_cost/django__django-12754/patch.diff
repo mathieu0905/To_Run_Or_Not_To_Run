@@ -1,0 +1,20 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 30616c0172..4bb98c8321 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -349,8 +349,13 @@ class MigrationAutodetector:
+                     dep = self._resolve_dependency(dep)[0]
+                     if dep[0] == app_label:
+                         for op2 in ops:
+-                            if self.check_dependency(op2, dep):
+-                                dependency_graph[op].add(op2)
++if self.check_dependency(op2, dep):
++dependency_graph[op].add(op2)
++# Prioritize RemoveField operations over CreateModel operations
++if isinstance(op, operations.CreateModel) and isinstance(op2, operations.RemoveField):
++dependency_graph[op2].add(op)
++if isinstance(op2, operations.CreateModel) and isinstance(op, operations.RemoveField):
++dependency_graph[op].add(op2)
+ 
+             # we use a stable sort for deterministic tests & general behavior
+             self.generated_operations[app_label] = stable_topological_sort(ops, dependency_graph)

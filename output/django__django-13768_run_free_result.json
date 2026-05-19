@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13768",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/dispatch/dispatcher.py b/django/dispatch/dispatcher.py\nindex b7d9d26389..c7f586e9ef 100644\n--- a/django/dispatch/dispatcher.py\n+++ b/django/dispatch/dispatcher.py\n@@ -1,4 +1,7 @@\n import threading\n+import logging\n+\n+logger = logging.getLogger(__name__)\n import warnings\n import weakref\n \n@@ -208,6 +211,7 @@ class Signal:\n             try:\n                 response = receiver(signal=self, sender=sender, **named)\n             except Exception as err:\n+                logger.exception(f'Exception in receiver {receiver} for signal {self.__class__.__name__}')\n                 responses.append((receiver, err))\n             else:\n                 responses.append((receiver, response))",
+  "tokens_used": 37018,
+  "exec_count": 0,
+  "duration_sec": 154.6499936580658,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

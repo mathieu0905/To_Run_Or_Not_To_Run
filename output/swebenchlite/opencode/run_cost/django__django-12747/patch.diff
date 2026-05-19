@@ -1,0 +1,15 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 16dff6a1cd..3abb5e0d36 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -442,4 +442,9 @@ class Collector:
+         for model, instances in self.data.items():
+             for instance in instances:
+                 setattr(instance, model._meta.pk.attname, None)
+-        return sum(deleted_counter.values()), dict(deleted_counter)
++        print(f'Deleted counter: {deleted_counter}')
++if not deleted_counter:
++    deleted_counter[model._meta.label] = 0
++if not deleted_counter:
++    deleted_counter[model._meta.label] = 0
++return sum(deleted_counter.values()), dict(deleted_counter)

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11333",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py\nindex 247e3680c0..ba0e37aa84 100644\n--- a/django/urls/resolvers.py\n+++ b/django/urls/resolvers.py\n@@ -65,9 +65,7 @@ class ResolverMatch:\n \n @functools.lru_cache(maxsize=None)\n def get_resolver(urlconf=None):\n-    if urlconf is None:\n-        urlconf = settings.ROOT_URLCONF\n-    return URLResolver(RegexPattern(r'^/'), urlconf)\n+return URLResolver(RegexPattern(r'^/'), settings.ROOT_URLCONF)\n \n \n @functools.lru_cache(maxsize=None)",
+  "tokens_used": 153815,
+  "exec_count": 3,
+  "duration_sec": 1714.1676244735718,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

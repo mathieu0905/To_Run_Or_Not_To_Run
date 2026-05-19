@@ -2,4 +2,9 @@ Building swebench/sweb.eval.x86_64.django_1776_django-12589
 Base tag: swebench/sweb.eval.x86_64.django_1776_django-12589:latest
 Agent tag: swebench/sweb.eval.x86_64.django_1776_django-12589-agent:latest
 
-Image already exists, skipping
+============================================================
+PULLING BASE IMAGE
+============================================================
+Error response from daemon: Head "https://registry-1.docker.io/v2/swebench/sweb.eval.x86_64.django_1776_django-12589/manifests/latest": EOF
+
+Pull failed and no local image found (exit code 1)

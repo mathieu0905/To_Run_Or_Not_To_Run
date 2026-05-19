@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12308",
+  "mode": "run_full",
+  "k": null,
+  "patch": "",
+  "tokens_used": 93647,
+  "exec_count": 0,
+  "duration_sec": 872.4088191986084,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

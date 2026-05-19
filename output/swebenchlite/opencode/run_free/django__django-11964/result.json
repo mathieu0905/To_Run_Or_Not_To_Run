@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11964",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/models/enums.py b/django/db/models/enums.py\nindex bbe362a6ab..6d28c514fc 100644\n--- a/django/db/models/enums.py\n+++ b/django/db/models/enums.py\n@@ -59,16 +59,30 @@ class ChoicesMeta(enum.EnumMeta):\n \n \n class Choices(enum.Enum, metaclass=ChoicesMeta):\n+\n+    def __str__(self):\n+        return self.value\n+\n     \"\"\"Class for creating enumerated choices.\"\"\"\n     pass\n \n \n class IntegerChoices(int, Choices):\n+\n+    def __str__(self):\n+        return self.value\n+\n     \"\"\"Class for creating enumerated integer choices.\"\"\"\n     pass\n \n \n class TextChoices(str, Choices):\n+\n+    def __str__(self):\n+        return self.value\n+\n+    def _generate_next_value_(name, start, count, last_values):\n+        return name\n     \"\"\"Class for creating enumerated string choices.\"\"\"\n \n     def _generate_next_value_(name, start, count, last_values):",
+  "tokens_used": 286766,
+  "exec_count": 124,
+  "duration_sec": 1603.8266456127167,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

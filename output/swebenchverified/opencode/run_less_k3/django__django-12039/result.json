@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12039",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/backends/ddl_references.py b/django/db/backends/ddl_references.py\nindex 44e49806f8..76d12a4eda 100644\n--- a/django/db/backends/ddl_references.py\n+++ b/django/db/backends/ddl_references.py\n@@ -114,7 +114,7 @@ class IndexColumns(Columns):\n             # length as self.columns.\n             col = '{} {}'.format(self.quote_name(column), self.opclasses[idx])\n             try:\n-                col = '{} {}'.format(col, self.col_suffixes[idx])\n+                if self.col_suffixes[idx]: if self.col_suffixes[idx]: col = '{} {}'.format(col, self.col_suffixes[idx])\n             except IndexError:\n                 pass\n             return col",
+  "tokens_used": 297903,
+  "exec_count": 16,
+  "duration_sec": 1597.7487399578094,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10554",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/query.py b/django/db/models/query.py\nindex 1544beb613..fcc98f6fb9 100644\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -321,7 +321,7 @@ class QuerySet:\n         combined.query.combine(other.query, sql.AND)\n         return combined\n \n-    def __or__(self, other):\n+    def __or__(self, other, order_by=None):\n         self._merge_sanity_check(other)\n         if isinstance(self, EmptyQuerySet):\n             return other\n@@ -936,7 +936,7 @@ class QuerySet:\n         clone.query.combinator_all = all\n         return clone\n \n-    def union(self, *other_qs, all=False):\n+    def union(self, *other_qs, all=False, order_by=None):\n         # If the query is an EmptyQuerySet, combine all nonempty querysets.\n         if isinstance(self, EmptyQuerySet):\n             qs = [q for q in other_qs if not isinstance(q, EmptyQuerySet)]",
+  "tokens_used": 396450,
+  "exec_count": 13,
+  "duration_sec": 652.3520882129669,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

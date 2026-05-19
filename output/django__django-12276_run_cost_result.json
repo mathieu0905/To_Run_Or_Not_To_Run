@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12276",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/forms/widgets.py b/django/forms/widgets.py\nindex 338d54d72f..f53b5174aa 100644\n--- a/django/forms/widgets.py\n+++ b/django/forms/widgets.py\n@@ -371,7 +371,7 @@ class MultipleHiddenInput(HiddenInput):\n         return [] if value is None else value\n \n \n-class FileInput(Input):\n+class FileInput(Input):\\n    def use_required_attribute(self, initial):\\n        return super().use_required_attribute(initial) and not initial\n     input_type = 'file'\n     needs_multipart_form = True\n     template_name = 'django/forms/widgets/file.html'\n@@ -451,8 +451,7 @@ class ClearableFileInput(FileInput):\n             return False\n         return upload\n \n-    def use_required_attribute(self, initial):\n-        return super().use_required_attribute(initial) and not initial\n+\n \n     def value_omitted_from_data(self, data, files, name):\n         return (",
+  "tokens_used": 213539,
+  "exec_count": 7,
+  "duration_sec": 715.6981852054596,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

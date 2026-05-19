@@ -1,0 +1,48 @@
+diff --git a/django/utils/html.py b/django/utils/html.py
+index 9c519978f5..60ccf1c2a9 100644
+--- a/django/utils/html.py
++++ b/django/utils/html.py
+@@ -6,6 +6,15 @@ from html.parser import HTMLParser
+ from urllib.parse import (
+     parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit,
+ )
++from html import escape
++from html import escape
++from html import escape
++from html import escape
++from html import escape
++from html import escape
++from html import escape
++from html import escape
++from html import escape
+ 
+ from django.utils.functional import Promise, keep_lazy, keep_lazy_text
+ from django.utils.http import RFC3986_GENDELIMS, RFC3986_SUBDELIMS
+@@ -24,26 +33,10 @@ word_split_re = re.compile(r'''([\s<>"']+)''')
+ simple_url_re = re.compile(r'^https?://\[?\w', re.IGNORECASE)
+ simple_url_2_re = re.compile(r'^www\.|^(?!http)\w[^@]+\.(com|edu|gov|int|mil|net|org)($|/.*)$', re.IGNORECASE)
+ 
+-_html_escapes = {
+-    ord('&'): '&amp;',
+-    ord('<'): '&lt;',
+-    ord('>'): '&gt;',
+-    ord('"'): '&quot;',
+-    ord("'"): '&#39;',
+-}
+ 
+ 
+-@keep_lazy(str, SafeString)
+-def escape(text):
+-    """
+-    Return the given text with ampersands, quotes and angle brackets encoded
+-    for use in HTML.
+ 
+-    Always escape input, even if it's already escaped and marked as such.
+-    This may result in double-escaping. If this is a concern, use
+-    conditional_escape() instead.
+-    """
+-    return mark_safe(str(text).translate(_html_escapes))
++from html import escape
+ 
+ 
+ _js_escapes = {

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14997",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/backends/sqlite3/schema.py b/django/db/backends/sqlite3/schema.py\nindex f0c81c123b..9091662b0d 100644\n--- a/django/db/backends/sqlite3/schema.py\n+++ b/django/db/backends/sqlite3/schema.py\n@@ -238,6 +238,11 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):\n \n         constraints = list(model._meta.constraints)\n \n+        # Apply constraints to the new model\n+        for constraint in constraints:\n+            if isinstance(constraint, UniqueConstraint):\n+                self.add_constraint(new_model, constraint)\n+\n         # Provide isolated instances of the fields to the new model body so\n         # that the existing model's internals aren't interfered with when\n         # the dummy model is constructed.",
+  "tokens_used": 88789,
+  "exec_count": 0,
+  "duration_sec": 633.4783718585968,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

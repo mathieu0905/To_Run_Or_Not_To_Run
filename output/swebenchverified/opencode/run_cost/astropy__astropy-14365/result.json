@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14365",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/astropy/io/ascii/qdp.py b/astropy/io/ascii/qdp.py\nindex 83a4f004a..51502576c 100644\n--- a/astropy/io/ascii/qdp.py\n+++ b/astropy/io/ascii/qdp.py\n@@ -18,6 +18,7 @@ from . import basic, core\n \n \n def _line_type(line, delimiter=None):\n+    line = line.upper()\n     \"\"\"Interpret a QDP file line.\n \n     Parameters",
+  "tokens_used": 104155,
+  "exec_count": 3,
+  "duration_sec": 608.2786500453949,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

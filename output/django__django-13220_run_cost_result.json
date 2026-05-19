@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13220",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/core/exceptions.py b/django/core/exceptions.py\nindex dc084b8692..a6e9c1a6f9 100644\n--- a/django/core/exceptions.py\n+++ b/django/core/exceptions.py\n@@ -179,6 +179,16 @@ class ValidationError(Exception):\n             return repr(dict(self))\n         return repr(list(self))\n \n+        def __eq__(self, other):\n+        if not isinstance(other, ValidationError):\n+            return NotImplemented\n+        return sorted(self.messages) == sorted(other.messages)\n+\n+    def __eq__(self, other):\n+        if not isinstance(other, ValidationError):\n+            return NotImplemented\n+        return sorted(self.messages) == sorted(other.messages)\n+\n     def __repr__(self):\n         return 'ValidationError(%s)' % self",
+  "tokens_used": 186509,
+  "exec_count": 11,
+  "duration_sec": 521.324170589447,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

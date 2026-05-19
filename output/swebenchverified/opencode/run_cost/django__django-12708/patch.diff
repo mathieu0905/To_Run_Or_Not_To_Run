@@ -1,0 +1,20 @@
+diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+index 61f88401ab..6d4422c7bc 100644
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -407,7 +407,7 @@ class BaseDatabaseSchemaEditor:
+             model, columns, exclude=meta_constraint_names | meta_index_names,
+             **constraint_kwargs
+         )
+-        if len(constraint_names) != 1:
++        if len(constraint_names) == 2:
+             raise ValueError("Found wrong number (%s) of constraints for %s(%s)" % (
+                 len(constraint_names),
+                 model._meta.db_table,
+diff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py
+index e69de29bb2..4c779cd7e1 100644
+--- a/tests/i18n/sampleproject/sampleproject/settings.py
++++ b/tests/i18n/sampleproject/sampleproject/settings.py
+@@ -0,0 +1 @@
++SECRET_KEY = 'your_random_secret_key_here'
+\ No newline at end of file

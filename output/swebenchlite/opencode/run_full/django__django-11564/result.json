@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11564",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/templatetags/static.py b/django/templatetags/static.py\nindex 39712aaba0..97dc55a873 100644\n--- a/django/templatetags/static.py\n+++ b/django/templatetags/static.py\n@@ -102,8 +102,12 @@ class StaticNode(template.Node):\n         path = self.path.resolve(context)\n         return self.handle_simple(path)\n \n-    def render(self, context):\n+def render(self, context):\n         url = self.url(context)\n+        request = context.get('request')\n+        if request:\n+            script_name = request.META.get('SCRIPT_NAME', '')\n+            url = urljoin(script_name, url)\n         if context.autoescape:\n             url = conditional_escape(url)\n         if self.varname is None:\n@@ -115,7 +119,9 @@ class StaticNode(template.Node):\n     def handle_simple(cls, path):\n         if apps.is_installed('django.contrib.staticfiles'):\n             from django.contrib.staticfiles.storage import staticfiles_storage\n-            return staticfiles_storage.url(path)\n+            request = context.request\n+script_name = request.META.get('SCRIPT_NAME', '')\n+return urljoin(script_name, staticfiles_storage.url(path))\n         else:\n             return urljoin(PrefixNode.handle_simple(\"STATIC_URL\"), quote(path))",
+  "tokens_used": 344362,
+  "exec_count": 242,
+  "duration_sec": 1507.0387494564056,
+  "success": false,
+  "error": "\"list index out of range\"",
+  "agent_type": "opencode"
+}

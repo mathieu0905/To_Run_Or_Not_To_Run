@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14182",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py\nindex abdeba8ef..4e630cfc4 100644\n--- a/astropy/io/ascii/rst.py\n+++ b/astropy/io/ascii/rst.py\n@@ -57,10 +57,12 @@ class RST(FixedWidth):\n     data_class = SimpleRSTData\n     header_class = SimpleRSTHeader\n \n-    def __init__(self):\n+    def __init__(self, header_rows=None):\n         super().__init__(delimiter_pad=None, bookend=False)\n \n     def write(self, lines):\n         lines = super().write(lines)\n+        if header_rows is not None:\n+            lines = header_rows + lines\n         lines = [lines[1]] + lines + [lines[1]]\n         return lines",
+  "tokens_used": 77816,
+  "exec_count": 0,
+  "duration_sec": 299.45346546173096,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

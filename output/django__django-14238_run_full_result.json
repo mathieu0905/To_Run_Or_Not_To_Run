@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14238",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py\nindex 0f53d9c30b..9be8218c61 100644\n--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -2518,7 +2518,7 @@ class AutoFieldMeta(type):\n \n     @property\n     def _subclasses(self):\n-        return (BigAutoField, SmallAutoField)\n+        return (BigAutoField, SmallAutoField, AutoFieldMixin)\n \n     def __instancecheck__(self, instance):\n         return isinstance(instance, self._subclasses) or super().__instancecheck__(instance)",
+  "tokens_used": 247012,
+  "exec_count": 1,
+  "duration_sec": 777.0041863918304,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-13453",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/astropy/io/ascii/html.py b/astropy/io/ascii/html.py\nindex 266cf229c..d90bcd92a 100644\n--- a/astropy/io/ascii/html.py\n+++ b/astropy/io/ascii/html.py\n@@ -449,7 +449,7 @@ class HTML(core.BaseReader):\n                                 method = ('escape_xml' if col_escaped else 'bleach_clean')\n                                 with w.xml_cleaning_method(method, **raw_html_clean_kwargs):\n                                     w.start('td')\n-                                    w.data(el.strip())\n+                                    w.data(self.formats[col.info.name](el.strip()) if col.info.name in self.formats else el.strip())\n                                     w.end(indent=False)\n \n         # Fixes XMLWriter's insertion of unwanted line breaks",
+  "tokens_used": 137466,
+  "exec_count": 0,
+  "duration_sec": 214.8923201560974,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

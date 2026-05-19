@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13315",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py\nindex 397146a354..7029240138 100644\n--- a/django/db/models/fields/related.py\n+++ b/django/db/models/fields/related.py\n@@ -988,7 +988,7 @@ class ForeignKey(ForeignObject):\n                              (self.name, self.remote_field.model))\n         return super().formfield(**{\n             'form_class': forms.ModelChoiceField,\n-            'queryset': self.remote_field.model._default_manager.using(using),\n+            'queryset': self.remote_field.model._default_manager.using(using).filter(self.get_limit_choices_to()),\n             'to_field_name': self.remote_field.field_name,\n             **kwargs,\n             'blank': self.blank,\n@@ -1672,7 +1672,7 @@ class ManyToManyField(RelatedField):\n     def formfield(self, *, using=None, **kwargs):\n         defaults = {\n             'form_class': forms.ModelMultipleChoiceField,\n-            'queryset': self.remote_field.model._default_manager.using(using),\n+            'queryset': self.remote_field.model._default_manager.using(using).filter(self.get_limit_choices_to()),\n             **kwargs,\n         }\n         # If initial is passed in, it's a list of related objects, but the",
+  "tokens_used": 180149,
+  "exec_count": 3,
+  "duration_sec": 359.22159481048584,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

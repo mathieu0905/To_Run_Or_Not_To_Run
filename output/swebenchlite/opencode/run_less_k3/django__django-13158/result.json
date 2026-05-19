@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13158",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/models/query.py b/django/db/models/query.py\nindex 07d6ffd4ca..4355a9843c 100644\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -917,6 +917,15 @@ class QuerySet:\n         ).distinct().filter(plain_field__isnull=False).order_by(('-' if order == 'DESC' else '') + 'datetimefield')\n \n     def none(self):\n+        print('None called')\n+        print(f'Current query: {self}')\n+        clone = self._chain()\n+        clone.query.set_empty()\n+        return clone\n+        print('None called')\n+        clone = self._chain()\n+        clone.query.set_empty()\n+        return clone\n         \"\"\"Return an empty QuerySet.\"\"\"\n         clone = self._chain()\n         clone.query.set_empty()",
+  "tokens_used": 539776,
+  "exec_count": 14,
+  "duration_sec": 1606.9018743038177,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

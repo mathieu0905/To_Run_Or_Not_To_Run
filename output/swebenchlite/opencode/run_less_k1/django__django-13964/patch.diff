@@ -1,0 +1,26 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 2428218696..23b0a07058 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -865,7 +865,7 @@ class Model(metaclass=ModelBase):
+                 fields = [f for f in fields if f is not meta.auto_field]
+ 
+             returning_fields = meta.db_returning_fields
+-            results = self._do_insert(cls._base_manager, using, fields, returning_fields, raw)
++            print('Inserting %s' % self); print('PK before insert: %s' % self._get_pk_val()); results = self._do_insert(cls._base_manager, using, fields, returning_fields, raw); print('PK after insert: %s' % self._get_pk_val())
+             if results:
+                 for value, field in zip(results[0], returning_fields):
+                     setattr(self, field.attname, value)
+diff --git a/django/db/models/fields/related_descriptors.py b/django/db/models/fields/related_descriptors.py
+index 872a4c98dc..3830f463c8 100644
+--- a/django/db/models/fields/related_descriptors.py
++++ b/django/db/models/fields/related_descriptors.py
+@@ -649,7 +649,7 @@ def create_reverse_many_to_one_manager(superclass, rel):
+                     raise TypeError("'%s' instance expected, got %r" % (
+                         self.model._meta.object_name, obj,
+                     ))
+-                setattr(obj, self.field.name, self.instance)
++                print('Setting %s to %s' % (self.field.name, self.instance)); print('Setting %s to %s' % (self.field.name, self.instance)); print('obj.%s before: %s' % (self.field.name, getattr(obj, self.field.name))); print('Setting %s to %s' % (self.field.name, self.instance)); print('obj.%s before: %s' % (self.field.name, getattr(obj, self.field.name))); print('Setting %s to %s' % (self.field.name, self.instance)); print('obj.%s before: %s' % (self.field.name, getattr(obj, self.field.name))); print('Setting %s to %s' % (self.field.name, self.instance)); print('obj.%s before: %s' % (self.field.name, getattr(obj, self.field.name))); setattr(obj, self.field.name, self.instance); print('obj.%s after: %s' % (self.field.name, getattr(obj, self.field.name))); print('obj.%s after: %s' % (self.field.name, getattr(obj, self.field.name))); print('obj.%s after: %s' % (self.field.name, getattr(obj, self.field.name))); print('obj.%s after: %s' % (self.field.name, getattr(obj, self.field.name)))
+ 
+             if bulk:
+                 pks = []

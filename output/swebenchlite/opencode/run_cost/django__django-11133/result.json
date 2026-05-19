@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11133",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/http/response.py b/django/http/response.py\nindex 6a84e193ba..073f30a5ed 100644\n--- a/django/http/response.py\n+++ b/django/http/response.py\n@@ -111,13 +111,11 @@ class HttpResponseBase:\n         `charset` must be 'ascii' or 'latin-1'. If `mime_encode` is True and\n         `value` can't be represented in the given charset, apply MIME-encoding.\n         \"\"\"\n-        if not isinstance(value, (bytes, str)):\n-            value = str(value)\n-        if ((isinstance(value, bytes) and (b'\\n' in value or b'\\r' in value)) or\n-                isinstance(value, str) and ('\\n' in value or '\\r' in value)):\n-            raise BadHeaderError(\"Header values can't contain newlines (got %r)\" % value)\n-        try:\n-            if isinstance(value, str):\n+if not isinstance(value, (bytes, str)):\n+    value = str(value)\n+if isinstance(value, memoryview):\n+    value = bytes(value)\n+if isinstance(value, str):\n                 # Ensure string is valid in given charset\n                 value.encode(charset)\n             else:",
+  "tokens_used": 272825,
+  "exec_count": 6,
+  "duration_sec": 452.95302534103394,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

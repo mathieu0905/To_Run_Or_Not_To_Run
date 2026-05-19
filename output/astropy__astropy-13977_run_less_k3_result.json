@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-13977",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py\nindex b98abfafb..1639c8771 100644\n--- a/astropy/units/quantity.py\n+++ b/astropy/units/quantity.py\n@@ -667,7 +667,52 @@ class Quantity(np.ndarray):\n         arrays = []\n         for input_, converter in zip(inputs, converters):\n             input_ = getattr(input_, \"value\", input_)\n-            arrays.append(converter(input_) if converter else input_)\n+            try: try: try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    try:\n+    arrays.append(converter(input_) if converter else input_)\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented\n+except ValueError:\n+    return NotImplemented; except ValueError: return NotImplemented; except ValueError: return NotImplemented\n \n         # Call our superclass's __array_ufunc__\n         result = super().__array_ufunc__(function, method, *arrays, **kwargs)",
+  "tokens_used": 291451,
+  "exec_count": 17,
+  "duration_sec": 2686.4364993572235,
+  "success": false,
+  "error": "\"list index out of range\"",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,40 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+index 0dc1c77c53..f68c26c3c3 100644
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -95,7 +95,7 @@ class MigrationAutodetector:
+         fields_def = []
+         for name, field in sorted(fields):
+             deconstruction = self.deep_deconstruct(field)
+-            if field.remote_field and field.remote_field.model:
++dependencies.extend(self._get_dependencies_for_foreign_key(field))
+                 del deconstruction[2]['to']
+             fields_def.append(deconstruction)
+         return fields_def
+@@ -483,7 +483,7 @@ class MigrationAutodetector:
+                     if model_fields_def == rem_model_fields_def:
+                         if self.questioner.ask_rename_model(rem_model_state, model_state):
+                             model_opts = self.new_apps.get_model(app_label, model_name)._meta
+-                            dependencies = []
++dependencies = self._get_dependencies_for_foreign_key(field) if isinstance(operation, operations.AddField) and field.remote_field and field.remote_field.model else []
+                             for field in model_opts.get_fields():
+                                 if field.is_relation:
+                                     dependencies.extend(self._get_dependencies_for_foreign_key(field))
+@@ -853,7 +853,7 @@ class MigrationAutodetector:
+         field = self.new_apps.get_model(app_label, model_name)._meta.get_field(field_name)
+         # Fields that are foreignkeys/m2ms depend on stuff
+         dependencies = []
+-        if field.remote_field and field.remote_field.model:
++        dependencies.extend(self._get_dependencies_for_foreign_key(field))
+             dependencies.extend(self._get_dependencies_for_foreign_key(field))
+         # You can't just add NOT NULL fields with no default or fields
+         # which don't allow empty strings as default.
+@@ -1101,7 +1101,7 @@ class MigrationAutodetector:
+                 for foo_togethers in new_value:
+                     for field_name in foo_togethers:
+                         field = self.new_apps.get_model(app_label, model_name)._meta.get_field(field_name)
+-                        if field.remote_field and field.remote_field.model:
++dependencies.extend(self._get_dependencies_for_foreign_key(field))
+                             dependencies.extend(self._get_dependencies_for_foreign_key(field))
+ 
+                 self.add_operation(

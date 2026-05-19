@@ -1,0 +1,13 @@
+diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py
+index 5c2266ca1d..ebbd306ec3 100644
+--- a/django/core/checks/model_checks.py
++++ b/django/core/checks/model_checks.py
+@@ -36,7 +36,7 @@ def check_all_models(app_configs=None, **kwargs):
+         for model_constraint in model._meta.constraints:
+             constraints[model_constraint.name].append(model._meta.label)
+     for db_table, model_labels in db_table_models.items():
+-        if len(model_labels) != 1:
++        if len(model_labels) != 1 and len({model.split('.')[0] for model in model_labels}) == 1:
+             errors.append(
+                 Error(
+                     "db_table '%s' is used by multiple models: %s."

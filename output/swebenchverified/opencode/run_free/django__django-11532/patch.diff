@@ -1,0 +1,14 @@
+diff --git a/django/core/mail/utils.py b/django/core/mail/utils.py
+index d18dfe4667..eca23fb96d 100644
+--- a/django/core/mail/utils.py
++++ b/django/core/mail/utils.py
+@@ -13,7 +13,8 @@ class CachedDnsName:
+ 
+     def get_fqdn(self):
+         if not hasattr(self, '_fqdn'):
+-            self._fqdn = socket.getfqdn()
++            import idna
++self._fqdn = idna.encode(socket.getfqdn()).decode('ascii')
+         return self._fqdn
+ 
+ 

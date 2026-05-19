@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10914",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/core/files/storage.py b/django/core/files/storage.py\nindex cbdab1de47..e7fe81af7c 100644\n--- a/django/core/files/storage.py\n+++ b/django/core/files/storage.py\n@@ -257,7 +257,7 @@ class FileSystemStorage(Storage):\n                 # This is a normal uploadedfile that we can stream.\n                 else:\n                     # The current umask value is masked out by os.open!\n-                    fd = os.open(full_path, self.OS_OPEN_FLAGS, 0o666)\n+                    fd = os.open(full_path, self.OS_OPEN_FLAGS, 0o644)\n                     _file = None\n                     try:\n                         locks.lock(fd, locks.LOCK_EX)",
+  "tokens_used": 58073,
+  "exec_count": 0,
+  "duration_sec": 251.5561966896057,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

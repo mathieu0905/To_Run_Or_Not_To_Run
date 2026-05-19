@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12708",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py\nindex 61f88401ab..c15760c9a0 100644\n--- a/django/db/backends/base/schema.py\n+++ b/django/db/backends/base/schema.py\n@@ -403,7 +403,10 @@ class BaseDatabaseSchemaEditor:\n         meta_constraint_names = {constraint.name for constraint in model._meta.constraints}\n         meta_index_names = {constraint.name for constraint in model._meta.indexes}\n         columns = [model._meta.get_field(field).column for field in fields]\n-        constraint_names = self._constraint_names(\n+        print(f&quot;Deleting constraints for fields: {fields}&quot;)\n+print(f&quot;Meta constraints: {meta_constraint_names}&quot;)\n+print(f&quot;Meta indexes: {meta_index_names}&quot;)\n+constraint_names = self._constraint_names(\n             model, columns, exclude=meta_constraint_names | meta_index_names,\n             **constraint_kwargs\n         )",
+  "tokens_used": 198201,
+  "exec_count": 20,
+  "duration_sec": 1336.0089092254639,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

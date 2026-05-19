@@ -1,0 +1,37 @@
+diff --git a/django/middleware/http.py b/django/middleware/http.py
+index 84c5466bb6..2fdbada25a 100644
+--- a/django/middleware/http.py
++++ b/django/middleware/http.py
+@@ -21,15 +21,23 @@ class ConditionalGetMiddleware(MiddlewareMixin):
+             set_response_etag(response)
+ 
+         etag = response.get("ETag")
+-        last_modified = response.get("Last-Modified")
+-        last_modified = last_modified and parse_http_date_safe(last_modified)
+-
+-        if etag or last_modified:
+-            return get_conditional_response(
+-                request,
+-                etag=etag,
+-                last_modified=last_modified,
+-                response=response,
++last_modified = response.get("Last-Modified")
++if_modified_since = request.META.get('HTTP_IF_MODIFIED_SINCE')
++if if_modified_since and if_modified_since.strip():
++    if_modified_since = parse_http_date_safe(if_modified_since)
++if_none_match = request.META.get('HTTP_IF_NONE_MATCH')
++if if_modified_since:
++    last_modified_rfc_1123 = last_modified and http_date(parse_http_date_safe(last_modified))
++    if if_modified_since >= parse_http_date_safe(last_modified_rfc_1123):
++        response = HttpResponseNotModified()
++        response_was_modified = True
++if etag or last_modified:
++    return get_conditional_response(
++        request,
++        etag=etag,
++        last_modified=last_modified,
++        response=response,
++
+             )
+ 
+         return response

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13023",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py\nindex 0fd69059ee..a2dc7e775e 100644\n--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -1499,6 +1499,12 @@ class DecimalField(Field):\n             return value\n         if isinstance(value, float):\n             return self.context.create_decimal_from_float(value)\n+        if isinstance(value, dict):\n+            raise exceptions.ValidationError(\n+                self.error_messages['invalid'],\n+                code='invalid',\n+                params={'value': value},\n+            )\n         try:\n             return decimal.Decimal(value)\n         except decimal.InvalidOperation:",
+  "tokens_used": 266282,
+  "exec_count": 39,
+  "duration_sec": 948.0791685581207,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

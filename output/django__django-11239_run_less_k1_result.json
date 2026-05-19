@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11239",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/backends/postgresql/client.py b/django/db/backends/postgresql/client.py\nindex cf4df76882..5f78ddc645 100644\n--- a/django/db/backends/postgresql/client.py\n+++ b/django/db/backends/postgresql/client.py\n@@ -22,8 +22,15 @@ class DatabaseClient(BaseDatabaseClient):\n             args += ['-U', user]\n         if host:\n             args += ['-h', host]\n-        if port:\n+if port:\n             args += ['-p', str(port)]\n+        if 'sslrootcert' in conn_params:\n+            args += ['-r', conn_params['sslrootcert']]\n+        if 'sslcert' in conn_params:\n+            args += ['-c', conn_params['sslcert']]\n+        if 'sslkey' in conn_params:\n+            args += ['-k', conn_params['sslkey']]\n+        print(f'Args: {args}')\n         args += [dbname]\n \n         sigint_handler = signal.getsignal(signal.SIGINT)",
+  "tokens_used": 160456,
+  "exec_count": 5,
+  "duration_sec": 448.94930124282837,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

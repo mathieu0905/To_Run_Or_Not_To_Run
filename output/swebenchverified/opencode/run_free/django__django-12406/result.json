@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12406",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/forms/widgets.py b/django/forms/widgets.py\nindex 40ac1d3162..db3e514936 100644\n--- a/django/forms/widgets.py\n+++ b/django/forms/widgets.py\n@@ -585,7 +585,7 @@ class ChoiceWidget(Widget):\n         has_selected = False\n \n         for index, (option_value, option_label) in enumerate(self.choices):\n-            if option_value is None:\n+            if option_value is None and self.field.blank:\n                 option_value = ''\n \n             subgroup = []",
+  "tokens_used": 133059,
+  "exec_count": 0,
+  "duration_sec": 356.5602617263794,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

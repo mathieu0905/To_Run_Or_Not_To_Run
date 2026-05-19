@@ -1,0 +1,39 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index abbb1e37cb..bcd386c0b0 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -345,6 +345,34 @@ class SQLCompiler:
+                 # '-field1__field2__field', etc.
+                 order_by.extend(self.find_ordering_name(
+                     field, self.query.get_meta(), default_order=asc))
++                # Handle self-referencing foreign key _id fields
++                if '.' in field and field.endswith('_id'):
++                    table, col = field.rsplit('.', 1)
++                    if col.endswith('_id'):
++                        col = col[:-4]
++                        order_by.extend(self.find_ordering_name(
++                            f'{table}__{col}', self.query.get_meta(), default_order=asc))
++                # Handle self-referencing foreign key _id fields
++                if '.' in field and field.endswith('_id'):
++                    table, col = field.rsplit('.', 1)
++                    if col.endswith('_id'):
++                        col = col[:-4]
++                        order_by.extend(self.find_ordering_name(
++                            f'{table}__{col}', self.query.get_meta(), default_order=asc))
++                # Handle self-referencing foreign key _id fields
++                if '.' in field and field.endswith('_id'):
++                    table, col = field.rsplit('.', 1)
++                    if col.endswith('_id'):
++                        col = col[:-4]
++                        order_by.extend(self.find_ordering_name(
++                            f'{table}__{col}', self.query.get_meta(), default_order=asc))
++                # Handle self-referencing foreign key _id fields
++                if '.' in field and field.endswith('_id'):
++                    table, col = field.rsplit('.', 1)
++                    if col.endswith('_id'):
++                        col = col[:-4]
++                        order_by.extend(self.find_ordering_name(
++                            f'{table}__{col}', self.query.get_meta(), default_order=asc))
+             else:
+                 if col not in self.query.extra_select:
+                     order_by.append((

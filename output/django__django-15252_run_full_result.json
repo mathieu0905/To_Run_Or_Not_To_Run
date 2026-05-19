@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15252",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/migrations/recorder.py b/django/db/migrations/recorder.py\nindex 1a37c6b7d0..b1cce707d2 100644\n--- a/django/db/migrations/recorder.py\n+++ b/django/db/migrations/recorder.py\n@@ -64,7 +64,7 @@ class MigrationRecorder:\n             return\n         # Make the table\n         try:\n-            with self.connection.schema_editor() as editor:\n+            with self.connection.schema_editor(atomic=False) if self.connection.allow_migrate(self.connection.alias, self.Migration) else None as editor:\n                 editor.create_model(self.Migration)\n         except DatabaseError as exc:\n             raise MigrationSchemaMissing(\"Unable to create the django_migrations table (%s)\" % exc)",
+  "tokens_used": 156689,
+  "exec_count": 3,
+  "duration_sec": 2417.29963350296,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

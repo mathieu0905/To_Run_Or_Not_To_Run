@@ -1,0 +1,61 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 08a4ee06510ae45562c228eefbdcaac84bd38c7a
+
+## Problem Description
+Migration auth.0011_update_proxy_permissions fails for models recreated as a proxy.
+Description
+	 
+		(last modified by Mariusz Felisiak)
+	 
+I am trying to update my project to Django 2.2. When I launch python manage.py migrate, I get this error message when migration auth.0011_update_proxy_permissions is applying (full stacktrace is available ​here):
+django.db.utils.IntegrityError: duplicate key value violates unique constraint "idx_18141_auth_permission_content_type_id_01ab375a_uniq" DETAIL: Key (co.ntent_type_id, codename)=(12, add_agency) already exists.
+It looks like the migration is trying to re-create already existing entries in the auth_permission table. At first I though it cloud because we recently renamed a model. But after digging and deleting the entries associated with the renamed model from our database in the auth_permission table, the problem still occurs with other proxy models.
+I tried to update directly from 2.0.13 and 2.1.8. The issues appeared each time. I also deleted my venv and recreated it without an effect.
+I searched for a ticket about this on the bug tracker but found nothing. I also posted this on ​django-users and was asked to report this here.
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+You cannot execute/run any Python code (cannot run tests).
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
+
+## Debugging Strategy
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
+
+## Your Task
+1. Investigate the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. **Apply the fix by calling the edit tool on real source files**
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

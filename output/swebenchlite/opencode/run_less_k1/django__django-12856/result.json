@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12856",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/constraints.py b/django/db/models/constraints.py\nindex 64bd60484e..004881a4d6 100644\n--- a/django/db/models/constraints.py\n+++ b/django/db/models/constraints.py\n@@ -80,6 +80,10 @@ class UniqueConstraint(BaseConstraint):\n     def __init__(self, *, fields, name, condition=None, deferrable=None):\n         if not fields:\n             raise ValueError('At least one field is required to define a unique constraint.')\n+        for field in fields:\n+            if field not in model._meta.get_fields():\n+                raise FieldDoesNotExist(f'{model.__name__} has no field named {field}')\n+            raise ValueError('At least one field is required to define a unique constraint.')\n         if not isinstance(condition, (type(None), Q)):\n             raise ValueError('UniqueConstraint.condition must be a Q instance.')\n         if condition and deferrable:",
+  "tokens_used": 126052,
+  "exec_count": 3,
+  "duration_sec": 307.73349165916443,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

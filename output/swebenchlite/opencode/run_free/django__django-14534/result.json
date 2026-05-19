@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14534",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py\nindex 2ff8b0ee26..c93959b1e3 100644\n--- a/django/forms/boundfield.py\n+++ b/django/forms/boundfield.py\n@@ -277,7 +277,7 @@ class BoundWidget:\n \n     @property\n     def id_for_label(self):\n-        return 'id_%s_%s' % (self.data['name'], self.data['index'])\n+        return self.data['attrs']['id']\n \n     @property\n     def choice_label(self):",
+  "tokens_used": 66879,
+  "exec_count": 2,
+  "duration_sec": 132.55227208137512,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

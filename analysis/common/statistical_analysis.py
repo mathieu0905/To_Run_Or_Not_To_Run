@@ -48,41 +48,84 @@ def wilson_ci(successes: int, total: int, confidence: float = 0.95) -> tuple:
 
 
 def load_instance_level_results() -> dict:
-    """Load instance-level results (for paired testing)"""
+    """Load instance-level results (for paired testing).
+
+    Handles all three agents (claude_code, codex, opencode) and prefers the
+    authoritative _fixed reports for OpenCode when multiple versions exist.
+    """
     results = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
 
     sb_cli_reports_dir = PROJECT_ROOT / "sb-cli-reports"
     if not sb_cli_reports_dir.exists():
         return results
 
+    def _priority(fname: str) -> int:
+        low = fname.lower()
+        if "_fixed" in low:
+            return 100
+        if "_final" in low:
+            return 50
+        if "_v2" in low:
+            return 40
+        if "_snap" in low:
+            return 30
+        if "_v1" in low:
+            return 10
+        return 20
+
+    # Collect candidates per (dataset, agent, mode)
+    candidates = defaultdict(list)
+
     for report_file in sb_cli_reports_dir.glob("*.json"):
-        try:
-            report = json.loads(report_file.read_text(encoding="utf-8"))
-            filename = report_file.stem
-
-            # Determine dataset
-            if "lite" in filename.lower():
-                dataset = "swebenchlite"
-            elif "verified" in filename.lower():
-                dataset = "swebenchverified"
-            else:
-                continue
-
-            # Determine agent and mode
-            for agent in ["claude_code", "codex"]:
-                if agent in filename:
-                    for mode in MODE_ORDER:
-                        if mode in filename:
-                            resolved_ids = set(report.get("resolved_ids", []))
-                            total_ids = report.get("completed_instances", 0)
-                            results[dataset][agent][mode] = {
-                                "resolved_ids": resolved_ids,
-                                "total": total_ids
-                            }
-                            break
-                    break
-        except:
+        filename = report_file.stem
+        if "lite" in filename.lower():
+            dataset = "swebenchlite"
+        elif "verified" in filename.lower():
+            dataset = "swebenchverified"
+        else:
             continue
+
+        # Normalise suffix-less OpenCode naming
+        norm = filename.replace("runfree", "run_free") \
+                       .replace("runfull", "run_full") \
+                       .replace("runcost", "run_cost") \
+                       .replace("runlessk1", "run_less_k1") \
+                       .replace("runlessk2", "run_less_k2") \
+                       .replace("runlessk3", "run_less_k3")
+
+        matched_agent = None
+        for agent in ["claude_code", "codex", "opencode"]:
+            if agent in norm:
+                matched_agent = agent
+                break
+        if matched_agent is None:
+            continue
+
+        matched_mode = None
+        for mode in sorted(MODE_ORDER, key=len, reverse=True):
+            if mode in norm:
+                matched_mode = mode
+                break
+        if matched_mode is None:
+            continue
+
+        candidates[(dataset, matched_agent, matched_mode)].append(
+            (_priority(filename), report_file)
+        )
+
+    for (ds, agent, mode), cands in candidates.items():
+        cands.sort(key=lambda x: x[0], reverse=True)
+        _, best = cands[0]
+        try:
+            report = json.loads(best.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        resolved_ids = set(report.get("resolved_ids", []))
+        total_ids = report.get("completed_instances", 0)
+        results[ds][agent][mode] = {
+            "resolved_ids": resolved_ids,
+            "total": total_ids,
+        }
 
     return results
 
@@ -253,7 +296,7 @@ def generate_mcnemar_analysis(instance_results: dict) -> str:
         lines.append(f"### {dataset_name}")
         lines.append("")
 
-        for agent in ["claude_code", "codex"]:
+        for agent in ["claude_code", "codex", "opencode"]:
             if agent not in instance_results.get(dataset, {}):
                 continue
 
@@ -501,7 +544,7 @@ def generate_equivalence_analysis(instance_results: dict, delta: float = 0.03) -
         lines.append(f"### {dataset_name}")
         lines.append("")
 
-        for agent in ["claude_code", "codex"]:
+        for agent in ["claude_code", "codex", "opencode"]:
             if agent not in instance_results.get(dataset, {}):
                 continue
 
@@ -606,7 +649,7 @@ def generate_paper_equivalence_text(instance_results: dict, delta: float = 0.03)
     # Collect all results
     all_results = []
     for dataset in ["swebenchlite", "swebenchverified"]:
-        for agent in ["claude_code", "codex"]:
+        for agent in ["claude_code", "codex", "opencode"]:
             result = equivalence_test(instance_results, dataset, agent, "run_free", "run_full", delta)
             if result:
                 all_results.append({

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15498",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/views/static.py b/django/views/static.py\nindex 1c558a53ff..c842cf3595 100644\n--- a/django/views/static.py\n+++ b/django/views/static.py\n@@ -42,7 +42,7 @@ def serve(request, path, document_root=None, show_indexes=False):\n     # Respect the If-Modified-Since header.\n     statobj = fullpath.stat()\n     if not was_modified_since(\n-        request.META.get(\"HTTP_IF_MODIFIED_SINCE\"), statobj.st_mtime, statobj.st_size\n+        request.META.get(\"HTTP_IF_MODIFIED_SINCE\", \"\").strip() or None, statobj.st_mtime, statobj.st_size\n     ):\n         return HttpResponseNotModified()\n     content_type, encoding = mimetypes.guess_type(str(fullpath))",
+  "tokens_used": 81159,
+  "exec_count": 0,
+  "duration_sec": 469.5140702724457,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

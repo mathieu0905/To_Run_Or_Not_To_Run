@@ -5,12 +5,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 DOCKERFILE = Path(__file__).parent / "Dockerfile.agent-overlay"
+DOCKERFILE_OPENCODE = Path(__file__).parent / "Dockerfile.opencode-overlay"
 IMAGE_LIST_LITE = Path(__file__).parent / "image_list.txt"
 IMAGE_LIST_VERIFIED = Path(__file__).parent / "image_list_verified.txt"
 LOG_DIR = Path(__file__).parent / "build_logs"
 MAX_WORKERS = 16
 
-def build_one(base_image: str) -> tuple[str, bool, str]:
+def build_one(base_image: str, dockerfile: Path = DOCKERFILE) -> tuple[str, bool, str]:
     """Pull base image and build agent overlay. Returns (image, success, msg)."""
     base_tag = f"{base_image}:latest"
     agent_tag = f"{base_image}-agent:latest"
@@ -42,9 +43,14 @@ def build_one(base_image: str) -> tuple[str, bool, str]:
         log.write(r.stderr)
         log.flush()
         if r.returncode != 0:
-            log.write(f"\nPull failed with exit code {r.returncode}\n")
+            # Check if image exists locally despite pull failure
+            r2 = subprocess.run(["docker", "image", "inspect", base_tag], capture_output=True, text=True)
+            if r2.returncode != 0:
+                log.write(f"\nPull failed and no local image found (exit code {r.returncode})\n")
+                log.flush()
+                return base_image, False, f"pull failed (see {log_file.name})"
+            log.write(f"\nPull failed but local image exists, continuing with build\n")
             log.flush()
-            return base_image, False, f"pull failed (see {log_file.name})"
 
         # Build
         log.write("\n" + "=" * 60 + "\n")
@@ -56,8 +62,8 @@ def build_one(base_image: str) -> tuple[str, bool, str]:
             "--network", "host",
             "--build-arg", f"BASE_IMAGE={base_tag}",
             "-t", agent_tag,
-            "-f", str(DOCKERFILE),
-            str(DOCKERFILE.parent)
+            "-f", str(dockerfile),
+            str(dockerfile.parent)
         ], capture_output=True, text=True)
         log.write(r.stdout)
         log.write(r.stderr)
@@ -83,8 +89,10 @@ def main():
         image_list = IMAGE_LIST_VERIFIED
     elif dataset == "lite":
         image_list = IMAGE_LIST_LITE
+    elif Path(dataset).exists():
+        image_list = Path(dataset)
     else:
-        print(f"Usage: {sys.argv[0]} [lite|verified]")
+        print(f"Usage: {sys.argv[0]} [lite|verified|<path_to_image_list>]")
         print(f"Unknown dataset: {dataset}")
         sys.exit(1)
 
@@ -92,13 +100,20 @@ def main():
         print(f"Error: Image list not found: {image_list}")
         sys.exit(1)
 
+    # Use opencode overlay if --opencode flag is passed
+    dockerfile = DOCKERFILE
+    if "--opencode" in sys.argv:
+        dockerfile = DOCKERFILE_OPENCODE
+        sys.argv.remove("--opencode")
+        print(f"Using OpenCode overlay: {dockerfile}")
+
     images = [l.strip() for l in image_list.read_text().splitlines() if l.strip()]
     total = len(images)
-    print(f"Building {total} images from {dataset} dataset with {MAX_WORKERS} workers...")
+    print(f"Building {total} images with {MAX_WORKERS} workers...")
 
     success, failed = 0, []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = {ex.submit(build_one, img): img for img in images}
+        futures = {ex.submit(build_one, img, dockerfile): img for img in images}
         for i, f in enumerate(as_completed(futures), 1):
             img, ok, msg = f.result()
             short = img.split(".")[-1]

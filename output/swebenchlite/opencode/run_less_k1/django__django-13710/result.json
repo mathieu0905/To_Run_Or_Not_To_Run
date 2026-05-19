@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13710",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py\nindex dadd4acfa1..000984d870 100644\n--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -2039,7 +2039,9 @@ class InlineModelAdmin(BaseModelAdmin):\n         super().__init__()\n         if self.verbose_name is None:\n             self.verbose_name = self.model._meta.verbose_name\n-        if self.verbose_name_plural is None:\n+        if self.verbose_name is not None and self.verbose_name_plural is None:\n+    self.verbose_name_plural = f\"{self.verbose_name}s\"\n+else:\n             self.verbose_name_plural = self.model._meta.verbose_name_plural\n \n     @property",
+  "tokens_used": 458957,
+  "exec_count": 9,
+  "duration_sec": 2011.2968611717224,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

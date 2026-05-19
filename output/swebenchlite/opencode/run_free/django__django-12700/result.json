@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12700",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/views/debug.py b/django/views/debug.py\nindex e6b7d4d821..383cdefbf0 100644\n--- a/django/views/debug.py\n+++ b/django/views/debug.py\n@@ -90,6 +90,8 @@ class SafeExceptionReporterFilter:\n                 cleansed = self.cleansed_substitute\n             elif isinstance(value, dict):\n                 cleansed = {k: self.cleanse_setting(k, v) for k, v in value.items()}\n+            elif isinstance(value, (list, tuple)):\n+                cleansed = [self.cleanse_setting(k, v) for k, v in enumerate(value)]\n             else:\n                 cleansed = value\n         except TypeError:",
+  "tokens_used": 60132,
+  "exec_count": 0,
+  "duration_sec": 227.42531204223633,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

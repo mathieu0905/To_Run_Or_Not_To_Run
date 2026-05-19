@@ -1,0 +1,129 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index d610dc86f0..18b2d320ee 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -1008,7 +1008,7 @@ class CharField(Field):
+         return "CharField"
+ 
+     def to_python(self, value):
+-        if isinstance(value, str) or value is None:
++        if isinstance(value, (str, Enum)) or value is None:
+             return value
+         return str(value)
+ 
+@@ -1280,34 +1280,17 @@ class DateTimeField(DateField):
+     def get_internal_type(self):
+         return "DateTimeField"
+ 
+-    def to_python(self, value):
+-        if value is None:
+-            return value
+-        if isinstance(value, datetime.datetime):
+-            return value
+-        if isinstance(value, datetime.date):
+-            value = datetime.datetime(value.year, value.month, value.day)
+-            if settings.USE_TZ:
+-                # For backwards compatibility, interpret naive datetimes in
+-                # local time. This won't work during DST change, but we can't
+-                # do much about it, so we let the exceptions percolate up the
+-                # call stack.
+-                warnings.warn("DateTimeField %s.%s received a naive datetime "
+-                              "(%s) while time zone support is active." %
+-                              (self.model.__name__, self.name, value),
+-                              RuntimeWarning)
+-                default_timezone = timezone.get_default_timezone()
+-                value = timezone.make_aware(value, default_timezone)
++def to_python(self, value):
++        if isinstance(value, Enum):
++            return value.value
++        elif isinstance(value, int) or value is None:
+             return value
+-
+         try:
+-            parsed = parse_datetime(value)
+-            if parsed is not None:
+-                return parsed
+-        except ValueError:
++            return int(value)
++        except (TypeError, ValueError):
+             raise exceptions.ValidationError(
+-                self.error_messages['invalid_datetime'],
+-                code='invalid_datetime',
++                self.error_messages['invalid'],
++                code='invalid',
+                 params={'value': value},
+             )
+ 
+@@ -1679,11 +1662,13 @@ class FloatField(Field):
+     def get_internal_type(self):
+         return "FloatField"
+ 
+-    def to_python(self, value):
+-        if value is None:
++def to_python(self, value):
++        if isinstance(value, Enum):
++            return value.value
++        elif isinstance(value, int) or value is None:
+             return value
+         try:
+-            return float(value)
++            return int(value)
+         except (TypeError, ValueError):
+             raise exceptions.ValidationError(
+                 self.error_messages['invalid'],
+@@ -1769,14 +1754,7 @@ class IntegerField(Field):
+     def to_python(self, value):
+         if value is None:
+             return value
+-        try:
+-            return int(value)
+-        except (TypeError, ValueError):
+-            raise exceptions.ValidationError(
+-                self.error_messages['invalid'],
+-                code='invalid',
+-                params={'value': value},
+-            )
++        
+ 
+     def formfield(self, **kwargs):
+         return super().formfield(**{
+@@ -2023,7 +2001,7 @@ class TextField(Field):
+         return "TextField"
+ 
+     def to_python(self, value):
+-        if isinstance(value, str) or value is None:
++        if isinstance(value, (str, Enum)) or value is None:
+             return value
+         return str(value)
+ 
+@@ -2294,17 +2272,19 @@ class UUIDField(Field):
+             return value
+         return value.hex
+ 
+-    def to_python(self, value):
+-        if value is not None and not isinstance(value, uuid.UUID):
+-            input_form = 'int' if isinstance(value, int) else 'hex'
+-            try:
+-                return uuid.UUID(**{input_form: value})
+-            except (AttributeError, ValueError):
+-                raise exceptions.ValidationError(
+-                    self.error_messages['invalid'],
+-                    code='invalid',
+-                    params={'value': value},
+-                )
++def to_python(self, value):
++        if isinstance(value, Enum):
++            return value.value
++        elif isinstance(value, int) or value is None:
++            return value
++        try:
++            return int(value)
++        except (TypeError, ValueError):
++            raise exceptions.ValidationError(
++                self.error_messages['invalid'],
++                code='invalid',
++                params={'value': value},
++            )
+         return value
+ 
+     def formfield(self, **kwargs):

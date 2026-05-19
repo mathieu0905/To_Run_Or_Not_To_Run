@@ -1,0 +1,59 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 2f13c476abe4ba787b6cb71131818341911f43cc
+
+## Problem Description
+ResolverMatch.__repr__() doesn't handle functools.partial() nicely.
+Description
+	 
+		(last modified by Nick Pope)
+	 
+When a partial function is passed as the view, the __repr__ shows the func argument as functools.partial which isn't very helpful, especially as it doesn't reveal the underlying function or arguments provided.
+Because a partial function also has arguments provided up front, we need to handle those specially so that they are accessible in __repr__.
+ISTM that we can simply unwrap functools.partial objects in ResolverMatch.__init__().
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+You cannot execute/run any Python code (cannot run tests).
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
+
+## Debugging Strategy
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
+
+## Your Task
+1. Investigate the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. **Apply the fix by calling the edit tool on real source files**
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

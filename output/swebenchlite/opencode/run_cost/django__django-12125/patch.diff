@@ -1,0 +1,21 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 72f29ce410..fd8c0d2a7d 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -782,6 +782,16 @@ class Field(RegisterLookupMixin):
+         return self.name
+ 
+     def get_attname_column(self):
++        attname = self.get_attname()
++        if hasattr(self, 'outer_class'):
++            attname = f'{self.outer_class.__name__}.{attname}'
++        column = self.db_column or attname
++        return attname, column
++        attname = self.get_attname()
++        if hasattr(self, 'outer_class'):
++            attname = f'{self.outer_class.__name__}.{attname}'
++        column = self.db_column or attname
++        return attname, column
+         attname = self.get_attname()
+         if hasattr(self, 'outer_class'):
+             attname = f'{self.outer_class.__name__}.{attname}'

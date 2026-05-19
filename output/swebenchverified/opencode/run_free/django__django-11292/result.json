@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11292",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/core/management/base.py b/django/core/management/base.py\nindex 0c3a981290..e770c88462 100644\n--- a/django/core/management/base.py\n+++ b/django/core/management/base.py\n@@ -278,10 +278,14 @@ class BaseCommand:\n             help='A directory to add to the Python path, e.g. \"/home/djangoprojects/myproject\".',\n         )\n         parser.add_argument('--traceback', action='store_true', help='Raise on CommandError exceptions')\n-        parser.add_argument(\n-            '--no-color', action='store_true',\n-            help=\"Don't colorize the command output.\",\n-        )\n+parser.add_argument(\n+                '--no-color', action='store_true',\n+                help=\"Don't colorize the command output.\",\n+            )\n+            parser.add_argument(\n+                '--skip-checks', action='store_true',\n+                help='Skip system checks.',\n+            )\n         parser.add_argument(\n             '--force-color', action='store_true',\n             help='Force colorization of the command output.',",
+  "tokens_used": 54583,
+  "exec_count": 0,
+  "duration_sec": 464.161404132843,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

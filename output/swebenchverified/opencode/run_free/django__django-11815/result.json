@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11815",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py\nindex 27b5cbd379..68119619a9 100644\n--- a/django/db/migrations/serializer.py\n+++ b/django/db/migrations/serializer.py\n@@ -120,7 +120,7 @@ class EnumSerializer(BaseSerializer):\n     def serialize(self):\n         enum_class = self.value.__class__\n         module = enum_class.__module__\n-        v_string, v_imports = serializer_factory(self.value.value).serialize()\n+        v_string, v_imports = serializer_factory(self.value.name).serialize()\n         imports = {'import %s' % module, *v_imports}\n         return \"%s.%s(%s)\" % (module, enum_class.__name__, v_string), imports",
+  "tokens_used": 483447,
+  "exec_count": 0,
+  "duration_sec": 2168.404083251953,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

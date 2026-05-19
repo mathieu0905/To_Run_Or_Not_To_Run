@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11422",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py\nindex 7ca0d68fae..2cf6799f21 100644\n--- a/django/utils/autoreload.py\n+++ b/django/utils/autoreload.py\n@@ -351,6 +351,7 @@ class StatReloader(BaseReloader):\n                 # This is thrown when the file does not exist.\n                 continue\n             seen_files.add(file)\n+            print(f'Checking {file}')\n             yield file, mtime\n \n     @classmethod",
+  "tokens_used": 123237,
+  "exec_count": 0,
+  "duration_sec": 1361.480337381363,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,21 @@
+diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py
+index 1b3285ddc..0ed8278ea 100644
+--- a/astropy/io/fits/card.py
++++ b/astropy/io/fits/card.py
+@@ -768,6 +768,7 @@ class Card(_Verify):
+         if m.group("bool") is not None:
+             value = m.group("bool") == "T"
+         elif m.group("strg") is not None:
++                value = re.sub("''", "'", m.group("strg")).rstrip('\').replace("''", "'").rstrip('\')
+             value = re.sub("''", "'", m.group("strg"))
+         elif m.group("numr") is not None:
+             #  Check for numbers with leading 0s.
+@@ -809,7 +810,7 @@ class Card(_Verify):
+         if self.keyword in Card._commentary_keywords or self._invalid:
+             return ""
+ 
+-        valuecomment = self._split()[1]
++        valuecomment = self._split()[1].rstrip('\').replace("''", "'").rstrip('\')
+         m = self._value_NFSC_RE.match(valuecomment)
+         comment = ""
+         if m is not None:

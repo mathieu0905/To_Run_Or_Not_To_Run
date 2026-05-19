@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12754",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py\nindex 30616c0172..5c359c9aab 100644\n--- a/django/db/migrations/autodetector.py\n+++ b/django/db/migrations/autodetector.py\n@@ -576,7 +576,7 @@ class MigrationAutodetector:\n                 app_label,\n                 operations.CreateModel(\n                     name=model_state.name,\n-                    fields=[d for d in model_state.fields.items() if d[0] not in related_fields],\n+                    fields=[],\n                     options=model_state.options,\n                     bases=model_state.bases,\n                     managers=model_state.managers,\n@@ -585,6 +585,19 @@ class MigrationAutodetector:\n                 beginning=True,\n             )\n \n+            # Add fields after creating the model\n+            for name, field in sorted(model_state.fields.items()):\n+                if name not in related_fields:\n+                    self.add_operation(\n+                        app_label,\n+                        operations.AddField(\n+                            model_name=model_name,\n+                            name=name,\n+                            field=field,\n+                        ),\n+                        dependencies=[(app_label, model_name, None, True)]\n+                    )\n+\n             # Don't add operations which modify the database for unmanaged models\n             if not model_opts.managed:\n                 continue\n@@ -759,13 +772,15 @@ class MigrationAutodetector:\n                     )\n                 )\n             # Then remove each related field\n+            # Add RemoveField operations after CreateModel for the new model\n             for name in sorted(related_fields):\n                 self.add_operation(\n                     app_label,\n                     operations.RemoveField(\n                         model_name=model_name,\n                         name=name,\n-                    )\n+                    ),\n+                    dependencies=[(app_label, model_name, None, True)]\n                 )\n             # Finally, remove the model.\n             # This depends on both the removal/alteration of all incoming fields",
+  "tokens_used": 82841,
+  "exec_count": 1,
+  "duration_sec": 450.47625255584717,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

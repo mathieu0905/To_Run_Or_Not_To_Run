@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12209",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/base.py b/django/db/models/base.py\nindex e3b14a41a0..63ac5db67c 100644\n--- a/django/db/models/base.py\n+++ b/django/db/models/base.py\n@@ -848,12 +848,13 @@ class Model(metaclass=ModelBase):\n             raise ValueError(\"Cannot force an update in save() with no primary key.\")\n         updated = False\n         # Skip an UPDATE when adding an instance and primary key has a default.\n-        if (\n-            not force_insert and\n-            self._state.adding and\n-            self._meta.pk.default and\n-            self._meta.pk.default is not NOT_PROVIDED\n-        ):\n+if (\n+    not force_insert and\n+    self._state.adding and\n+    self._meta.pk.default and\n+    self._meta.pk.default is not NOT_PROVIDED and\n+    self._meta.pk.attname not in self.__dict__\n+):\n             force_insert = True\n         # If possible, try an UPDATE. If that doesn't update anything, do an INSERT.\n         if pk_set and not force_insert:",
+  "tokens_used": 392552,
+  "exec_count": 17,
+  "duration_sec": 753.3310415744781,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

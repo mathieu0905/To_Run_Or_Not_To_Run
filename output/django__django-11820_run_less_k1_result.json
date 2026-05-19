@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11820",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "",
+  "tokens_used": 34494,
+  "exec_count": 1,
+  "duration_sec": 348.9281675815582,
+  "success": false,
+  "error": "\"list index out of range\"",
+  "agent_type": "opencode"
+}

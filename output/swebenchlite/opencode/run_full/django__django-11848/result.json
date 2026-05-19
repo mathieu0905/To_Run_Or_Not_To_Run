@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11848",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/utils/http.py b/django/utils/http.py\nindex 572cfb4347..b12288c339 100644\n--- a/django/utils/http.py\n+++ b/django/utils/http.py\n@@ -175,8 +175,9 @@ def parse_http_date(date):\n         raise ValueError(\"%r is not in a valid HTTP date format\" % date)\n     try:\n         year = int(m.group('year'))\n-        if year < 100:\n-            if year < 70:\n+if year < 100:\n+            current_year = datetime.datetime.now().year\n+            if year < current_year - 50:\n                 year += 2000\n             else:\n                 year += 1900",
+  "tokens_used": 542644,
+  "exec_count": 50,
+  "duration_sec": 1553.917557001114,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

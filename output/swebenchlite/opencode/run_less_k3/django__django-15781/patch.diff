@@ -1,0 +1,101 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index d37d43d5c5..79d519af32 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -288,7 +288,7 @@ class BaseCommand:
+         """
+         parser = CommandParser(
+             prog="%s %s" % (os.path.basename(prog_name), subcommand),
+-            description=self.help or None,
++            description=(self.help + '\n') if self.help else None,
+             formatter_class=DjangoHelpFormatter,
+             missing_args_message=getattr(self, "missing_args_message", None),
+             called_from_command_line=getattr(self, "_called_from_command_line", None),
+diff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py
+index e69de29bb2..fba589db88 100644
+--- a/tests/i18n/sampleproject/sampleproject/settings.py
++++ b/tests/i18n/sampleproject/sampleproject/settings.py
+@@ -0,0 +1,83 @@
++from pathlib import Path
++
++BASE_DIR = Path(__file__).resolve().parent.parent
++
++SECRET_KEY = 'django-insecure-k_3g)wqj!d9&=k^j+5%32@)2^2w*4@qj+5%32@)2^2w*4@qj+5%'
++
++DEBUG = True
++
++ALLOWED_HOSTS = []
++
++INSTALLED_APPS = [
++    'django.contrib.admin',
++    'django.contrib.auth',
++    'django.contrib.contenttypes',
++    'django.contrib.sessions',
++    'django.contrib.messages',
++    'django.contrib.staticfiles',
++    'sampleapp',
++]
++
++MIDDLEWARE = [
++    'django.middleware.security.SecurityMiddleware',
++    'django.contrib.sessions.middleware.SessionMiddleware',
++    'django.middleware.common.CommonMiddleware',
++    'django.middleware.csrf.CsrfViewMiddleware',
++    'django.contrib.auth.middleware.AuthenticationMiddleware',
++    'django.contrib.messages.middleware.MessageMiddleware',
++    'django.middleware.clickjacking.XFrameOptionsMiddleware',
++]
++
++ROOT_URLCONF = 'sampleproject.urls'
++
++TEMPLATES = [
++    {
++        'BACKEND': 'django.template.backends.django.DjangoTemplates',
++        'DIRS': [],
++        'APP_DIRS': True,
++        'OPTIONS': {
++            'context_processors': [
++                'django.template.context_processors.debug',
++                'django.template.context_processors.request',
++                'django.contrib.auth.context_processors.auth',
++                'django.contrib.messages.context_processors.messages',
++            ],
++        },
++    },
++]
++
++WSGI_APPLICATION = 'sampleproject.wsgi.application'
++
++DATABASES = {
++    'default': {
++        'ENGINE': 'django.db.backends.sqlite3',
++        'NAME': BASE_DIR / 'db.sqlite3',
++    }
++}
++
++AUTH_PASSWORD_VALIDATORS = [
++    {
++        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
++    },
++    {
++        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
++    },
++    {
++        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
++    },
++    {
++        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
++    },
++]
++
++LANGUAGE_CODE = 'en-us'
++
++TIME_ZONE = 'UTC'
++
++USE_I18N = True
++
++USE_TZ = True
++
++STATIC_URL = 'static/'
++
++DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11095",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py\nindex 5e7b23f9a0..b03643fa57 100644\n--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -580,7 +580,24 @@ class ModelAdmin(BaseModelAdmin):\n     def __str__(self):\n         return \"%s.%s\" % (self.model._meta.app_label, self.__class__.__name__)\n \n+    def get_inlines(self, request, obj=None):\n+        return self.inlines\n+\n     def get_inline_instances(self, request, obj=None):\n+        inline_instances = []\n+        inlines = self.get_inlines(request, obj)\n+        for inline_class in inlines:\n+            inline = inline_class(self.model, self.admin_site)\n+            if request:\n+                if not (inline.has_view_or_change_permission(request, obj) or\n+                        inline.has_add_permission(request, obj) or\n+                        inline.has_delete_permission(request, obj)):\n+                    continue\n+                if not inline.has_add_permission(request, obj):\n+                    inline.max_num = 0\n+            inline_instances.append(inline)\n+\n+        return inline_instances\n         inline_instances = []\n         for inline_class in self.inlines:\n             inline = inline_class(self.model, self.admin_site)",
+  "tokens_used": 126303,
+  "exec_count": 0,
+  "duration_sec": 238.09503769874573,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

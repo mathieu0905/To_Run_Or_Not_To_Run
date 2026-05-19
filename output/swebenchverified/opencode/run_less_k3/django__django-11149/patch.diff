@@ -1,0 +1,13 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 880a2cc17b..511a56ee3c 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -246,7 +246,7 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
+         """
+         # If it uses an intermediary model that isn't auto created, don't show
+         # a field in admin.
+-        if not db_field.remote_field.through._meta.auto_created:
++        if not db_field.remote_field.through._meta.auto_created or not self.has_change_permission(request, obj):
+             return None
+         db = kwargs.get('using')
+ 

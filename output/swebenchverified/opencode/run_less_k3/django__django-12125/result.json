@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12125",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py\nindex 7d226955d5..97bea06a9e 100644\n--- a/django/db/migrations/serializer.py\n+++ b/django/db/migrations/serializer.py\n@@ -90,7 +90,12 @@ class DeconstructableSerializer(BaseSerializer):\n \n     @staticmethod\n     def _serialize_path(path):\n-        module, name = path.rsplit(\".\", 1)\n+        module, name = path.rsplit('.', 1)\n+        if '.' in module:\n+            module_parts = module.split('.')\n+            parent_class = module_parts[-1]\n+            module = '.'.join(module_parts[:-1])\n+            name = f'{parent_class}.{name}'\n         if module == \"django.db.models\":\n             imports = {\"from django.db import models\"}\n             name = \"models.%s\" % name",
+  "tokens_used": 362873,
+  "exec_count": 12,
+  "duration_sec": 754.0551917552948,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

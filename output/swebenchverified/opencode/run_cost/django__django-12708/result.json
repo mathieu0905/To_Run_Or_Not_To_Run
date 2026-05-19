@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12708",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py\nindex 61f88401ab..6d4422c7bc 100644\n--- a/django/db/backends/base/schema.py\n+++ b/django/db/backends/base/schema.py\n@@ -407,7 +407,7 @@ class BaseDatabaseSchemaEditor:\n             model, columns, exclude=meta_constraint_names | meta_index_names,\n             **constraint_kwargs\n         )\n-        if len(constraint_names) != 1:\n+        if len(constraint_names) == 2:\n             raise ValueError(\"Found wrong number (%s) of constraints for %s(%s)\" % (\n                 len(constraint_names),\n                 model._meta.db_table,\ndiff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py\nindex e69de29bb2..4c779cd7e1 100644\n--- a/tests/i18n/sampleproject/sampleproject/settings.py\n+++ b/tests/i18n/sampleproject/sampleproject/settings.py\n@@ -0,0 +1 @@\n+SECRET_KEY = 'your_random_secret_key_here'\n\\ No newline at end of file",
+  "tokens_used": 784779,
+  "exec_count": 13,
+  "duration_sec": 1173.0398890972137,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

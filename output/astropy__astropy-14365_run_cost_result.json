@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14365",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/astropy/io/ascii/qdp.py b/astropy/io/ascii/qdp.py\nindex 83a4f004a..bc32c3e0f 100644\n--- a/astropy/io/ascii/qdp.py\n+++ b/astropy/io/ascii/qdp.py\n@@ -19,6 +19,42 @@ from . import basic, core\n \n def _line_type(line, delimiter=None):\n     \"\"\"Interpret a QDP file line.\n+    \n+    Parameters\n+    ----------\n+    line : str\n+        a single line of the file\n+    \n+    Returns\n+    -------\n+    type : str\n+        Line type: \"comment\", \"command\", or \"data\"\n+    \"\"\"\n+    _decimal_re = r\"[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?\"\n+    _command_re = r\"read\\s+serr(\\s+[0-9]+)+|read\\s+terr(\\s+[0-9]+)+\"\n+\n+    sep = delimiter\n+    if delimiter is None:\n+        sep = r\"\\s+\"\n+    _new_re = rf\"NO({sep}NO)+\"\n+    _data_re = rf\"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)\"\n+    _type_re = rf\"^\\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\\s*(\\!(?P<comment>.*))?\\s*$\"\n+    _line_type_re = re.compile(_type_re)\n+    line = line.strip().lower()  # Convert line to lowercase\n+    if not line:\n+        return \"comment\"\n+    match = _line_type_re.match(line)\n+\n+    if match is None:\n+        raise ValueError(f\"Unrecognized QDP line: {line}\")\n+    for type_, val in match.groupdict().items():\n+        if val is None:\n+            continue\n+        if type_ == \"data\":\n+            return f\"data,{len(val.split(sep=delimiter))}\"\n+        else:\n+            return type_\n+    \"\"\"Interpret a QDP file line.\n \n     Parameters\n     ----------",
+  "tokens_used": 672773,
+  "exec_count": 9,
+  "duration_sec": 1749.0926308631897,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

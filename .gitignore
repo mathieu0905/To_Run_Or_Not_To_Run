@@ -51,3 +51,13 @@ analysis/_deprecated/
 
 # Large trace data (download separately)
 analysis/RQ1_execution_behavior/data/
+
+# Paper repo (tracked separately in its own git history)
+Run_Less-ISSTA/
+
+# SWE-bench CLI evaluation reports (regenerated per run)
+sb-cli-reports/
+
+# opencode binary (download from upstream, too large for git)
+bin/opencode
+docker/opencode

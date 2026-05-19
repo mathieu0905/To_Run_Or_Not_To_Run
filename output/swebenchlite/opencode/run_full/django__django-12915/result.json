@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12915",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/contrib/staticfiles/handlers.py b/django/contrib/staticfiles/handlers.py\nindex 711d8864ad..1ec4d4a2a8 100644\n--- a/django/contrib/staticfiles/handlers.py\n+++ b/django/contrib/staticfiles/handlers.py\n@@ -70,6 +70,9 @@ class StaticFilesHandler(StaticFilesHandlerMixin, WSGIHandler):\n \n \n class ASGIStaticFilesHandler(StaticFilesHandlerMixin, ASGIHandler):\n+\n+    async def get_response_async(self, scope):\n+        return await super().get_response_async(scope)\n     \"\"\"\n     ASGI application which wraps another and intercepts requests for static\n     files, passing them off to Django's static file serving.",
+  "tokens_used": 50696,
+  "exec_count": 0,
+  "duration_sec": 243.12265467643738,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

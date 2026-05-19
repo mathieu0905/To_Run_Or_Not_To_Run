@@ -16,6 +16,10 @@ RUN apt-get update && apt-get install -y curl gnupg ca-certificates \
 # Install Claude Code and Codex CLI
 RUN npm install -g @anthropic-ai/claude-code @openai/codex
 
+# Install OpenCode CLI (standalone binary)
+RUN curl -fsSL https://raw.githubusercontent.com/opencode-ai/opencode/refs/heads/main/install | bash \
+    && ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode
+
 # Create configuration directories
 RUN mkdir -p /root/.claude /root/.codex
 

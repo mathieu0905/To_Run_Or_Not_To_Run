@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11477",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/urls/base.py b/django/urls/base.py\nindex 0e1c3d909c..e807fc4d60 100644\n--- a/django/urls/base.py\n+++ b/django/urls/base.py\n@@ -158,20 +158,16 @@ def is_valid_path(path, urlconf=None):\n \n \n def translate_url(url, lang_code):\n-    \"\"\"\n-    Given a URL (absolute or relative), try to get its translated version in\n-    the `lang_code` language (either by i18n_patterns or by translated regex).\n-    Return the original URL if no translated version is found.\n-    \"\"\"\n     parsed = urlsplit(url)\n     try:\n         match = resolve(parsed.path)\n     except Resolver404:\n         pass\n     else:\n-        to_be_reversed = \"%s:%s\" % (match.namespace, match.url_name) if match.namespace else match.url_name\n+        to_be_reversed = f\"{match.namespace}:{match.url_name}\" if match.namespace else match.url_name\n         with override(lang_code):\n             try:\n+                # Include both args and kwargs when reversing the URL\n                 url = reverse(to_be_reversed, args=match.args, kwargs=match.kwargs)\n             except NoReverseMatch:\n                 pass",
+  "tokens_used": 304909,
+  "exec_count": 12,
+  "duration_sec": 750.6718220710754,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

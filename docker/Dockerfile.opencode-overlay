@@ -1,0 +1,11 @@
+# Add OpenCode on top of official SWE-bench image
+# Usage: docker build --build-arg BASE_IMAGE=swebench/sweb.eval.x86_64.xxx -t xxx-agent -f Dockerfile.opencode-overlay .
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+# Install OpenCode CLI (pre-downloaded binary, avoids network issues during build)
+COPY opencode /usr/local/bin/opencode
+RUN chmod +x /usr/local/bin/opencode
+
+WORKDIR /testbed

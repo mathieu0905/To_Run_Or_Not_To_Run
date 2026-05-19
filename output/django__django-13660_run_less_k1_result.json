@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13660",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py\nindex 2b306a579e..bac089142c 100644\n--- a/django/core/management/commands/shell.py\n+++ b/django/core/management/commands/shell.py\n@@ -84,7 +84,7 @@ class Command(BaseCommand):\n     def handle(self, **options):\n         # Execute the command and exit.\n         if options['command']:\n-            exec(options['command'])\n+            exec(options['command'], {})\n             return\n \n         # Execute stdin if it has anything to read and exit.",
+  "tokens_used": 448214,
+  "exec_count": 39,
+  "duration_sec": 1013.5094740390778,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

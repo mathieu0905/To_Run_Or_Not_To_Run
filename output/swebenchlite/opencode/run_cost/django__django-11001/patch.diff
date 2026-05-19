@@ -1,0 +1,21 @@
+diff --git a/django/conf/global_settings.py b/django/conf/global_settings.py
+index 61d08ddba5..2cd09bece6 100644
+--- a/django/conf/global_settings.py
++++ b/django/conf/global_settings.py
+@@ -208,7 +208,15 @@ EMAIL_SSL_KEYFILE = None
+ EMAIL_TIMEOUT = None
+ 
+ # List of strings representing installed apps.
+-INSTALLED_APPS = []
++INSTALLED_APPS = [
++    'django.contrib.auth',
++    'django.contrib.contenttypes',
++    'django.contrib.sessions',
++    'django.contrib.sites',
++    'django.contrib.messages',
++    'django.contrib.staticfiles',
++    # Add other necessary apps here
++]
+ 
+ TEMPLATES = []
+ 

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13448",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py\nindex e69de29bb2..6bcee417fc 100644\n--- a/tests/i18n/sampleproject/sampleproject/settings.py\n+++ b/tests/i18n/sampleproject/sampleproject/settings.py\n@@ -0,0 +1,4 @@\n+# Custom user model\n+AUTH_USER_MODEL = 'i18n.User'\n+AUTH_GROUP_MODEL = 'i18n.Group'\n+AUTH_PERMISSION_MODEL = 'i18n.Permission'",
+  "tokens_used": 395266,
+  "exec_count": 16,
+  "duration_sec": 2867.743547439575,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

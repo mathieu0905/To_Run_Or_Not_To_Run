@@ -1,0 +1,110 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 895f28f9cbed817c00ab68770433170d83132d90
+
+## Problem Description
+Django 3.0: "GROUP BY" clauses error with tricky field annotation
+Description
+	
+Let's pretend that we have next model structure with next model's relations:
+class A(models.Model):
+	bs = models.ManyToManyField('B',
+								related_name="a",
+								through="AB")
+class B(models.Model):
+	pass
+class AB(models.Model):
+	a = models.ForeignKey(A, on_delete=models.CASCADE, related_name="ab_a")
+	b = models.ForeignKey(B, on_delete=models.CASCADE, related_name="ab_b")
+	status = models.IntegerField()
+class C(models.Model):
+	a = models.ForeignKey(
+		A,
+		null=True,
+		blank=True,
+		on_delete=models.SET_NULL,
+		related_name="c",
+		verbose_name=_("a")
+	)
+	status = models.IntegerField()
+Let's try to evaluate next query
+ab_query = AB.objects.filter(a=OuterRef("pk"), b=1)
+filter_conditions = Q(pk=1) | Q(ab_a__b=1)
+query = A.objects.\
+	filter(filter_conditions).\
+	annotate(
+		status=Subquery(ab_query.values("status")),
+		c_count=Count("c"),
+)
+answer = query.values("status").annotate(total_count=Count("status"))
+print(answer.query)
+print(answer)
+On Django 3.0.4 we have an error
+django.db.utils.ProgrammingError: column reference "status" is ambiguous
+and query is next:
+SELECT (SELECT U0."status" FROM "test_app_ab" U0 WHERE (U0."a_id" = "test_app_a"."id" AND U0."b_id" = 1)) AS "status", COUNT((SELECT U0."status" FROM "test_app_ab" U0 WHERE (U0."a_id" = "test_app_a"."id" AND U0."b_id" = 1))) AS "total_count" FROM "test_app_a" LEFT OUTER JOIN "test_app_ab" ON ("test_app_a"."id" = "test_app_ab"."a_id") LEFT OUTER JOIN "test_app_c" ON ("test_app_a"."id" = "test_app_c"."a_id") WHERE ("test_app_a"."id" = 1 OR "test_app_ab"."b_id" = 1) GROUP BY "status"
+However, Django 2.2.11 processed this query properly with the next query:
+SELECT (SELECT U0."status" FROM "test_app_ab" U0 WHERE (U0."a_id" = ("test_app_a"."id") AND U0."b_id" = 1)) AS "status", COUNT((SELECT U0."status" FROM "test_app_ab" U0 WHERE (U0."a_id" = ("test_app_a"."id") AND U0."b_id" = 1))) AS "total_count" FROM "test_app_a" LEFT OUTER JOIN "test_app_ab" ON ("test_app_a"."id" = "test_app_ab"."a_id") LEFT OUTER JOIN "test_app_c" ON ("test_app_a"."id" = "test_app_c"."a_id") WHERE ("test_app_a"."id" = 1 OR "test_app_ab"."b_id" = 1) GROUP BY (SELECT U0."status" FROM "test_app_ab" U0 WHERE (U0."a_id" = ("test_app_a"."id") AND U0."b_id" = 1))
+so, the difference in "GROUP BY" clauses
+(as DB provider uses "django.db.backends.postgresql", postgresql 11)
+
+
+## EXECUTION MODE - COST-AWARE
+
+📊 **BALANCE CORRECTNESS AND COST** 📊
+
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost.
+
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## Investigation
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+Before each test execution, briefly state in plain English: how many points the run will cost and what you want to verify.
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed to verify your understanding and test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

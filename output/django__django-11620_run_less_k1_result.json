@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11620",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/urls/converters.py b/django/urls/converters.py\nindex bb8478e32f..587f2a878c 100644\n--- a/django/urls/converters.py\n+++ b/django/urls/converters.py\n@@ -1,12 +1,16 @@\n import uuid\n from functools import lru_cache\n-\n+from django.http import Http404\n \n class IntConverter:\n     regex = '[0-9]+'\n \n-    def to_python(self, value):\n-        return int(value)\n+    from django.http import Http404\n+def to_python(self, value):\n+        try:\n+            return int(value)\n+        except ValueError:\n+            raise Http404('Invalid integer value')\n \n     def to_url(self, value):\n         return str(value)\ndiff --git a/django/urls/resolvers.py b/django/urls/resolvers.py\nindex 2154a46320..ab44a542dc 100644\n--- a/django/urls/resolvers.py\n+++ b/django/urls/resolvers.py\n@@ -258,7 +258,11 @@ class RoutePattern(CheckURLMixin):\n                 converter = self.converters[key]\n                 try:\n                     kwargs[key] = converter.to_python(value)\n-                except ValueError:\n+                except (ValueError, Http404):\n+                    return None\n+                    print('ValueError caught:', sys.exc_info())\n+                except Http404:\n+                    print('Http404 caught:', sys.exc_info())\n                     return None\n             return path[match.end():], (), kwargs\n         return None",
+  "tokens_used": 556258,
+  "exec_count": 3,
+  "duration_sec": 1933.1225283145905,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

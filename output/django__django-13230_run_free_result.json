@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13230",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/contrib/syndication/views.py b/django/contrib/syndication/views.py\nindex 68ffb0bfe0..a09cc5fe74 100644\n--- a/django/contrib/syndication/views.py\n+++ b/django/contrib/syndication/views.py\n@@ -214,6 +214,7 @@ class Feed:\n                 author_link=author_link,\n                 categories=self._get_dynamic_attr('item_categories', item),\n                 item_copyright=self._get_dynamic_attr('item_copyright', item),\n+                comments=self._get_dynamic_attr('item_comments', item),\n                 **self.item_extra_kwargs(item)\n             )\n         return feed",
+  "tokens_used": 87042,
+  "exec_count": 0,
+  "duration_sec": 460.8105525970459,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

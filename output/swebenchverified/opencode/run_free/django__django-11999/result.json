@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11999",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py\nindex ee45bb941e..6e080abe1d 100644\n--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -763,8 +763,9 @@ class Field(RegisterLookupMixin):\n             if not getattr(cls, self.attname, None):\n                 setattr(cls, self.attname, self.descriptor_class(self))\n         if self.choices is not None:\n-            setattr(cls, 'get_%s_display' % self.name,\n-                    partialmethod(cls._get_FIELD_display, field=self))\n+if not hasattr(cls, 'get_%s_display' % self.name):\n+    setattr(cls, 'get_%s_display' % self.name,\n+            partialmethod(cls._get_FIELD_display, field=self))\n \n     def get_filter_kwargs_for_object(self, obj):\n         \"\"\"",
+  "tokens_used": 84366,
+  "exec_count": 0,
+  "duration_sec": 762.5619323253632,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

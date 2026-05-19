@@ -1,0 +1,35 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 5e7b23f9a0..3ebf9340bc 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -536,6 +536,10 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
+ 
+ 
+ class ModelAdmin(BaseModelAdmin):
++
++    def get_inlines(self, request, obj=None):
++        """Return a list of inline classes to use."""
++        return self.inlines
+     """Encapsulate all admin options and functionality for a given model."""
+ 
+     list_display = ('__str__',)
+@@ -581,6 +585,19 @@ class ModelAdmin(BaseModelAdmin):
+         return "%s.%s" % (self.model._meta.app_label, self.__class__.__name__)
+ 
+     def get_inline_instances(self, request, obj=None):
++        inline_classes = self.get_inlines(request, obj)
++        inline_instances = []
++        for inline_class in inline_classes:
++            inline = inline_class(self.model, self.admin_site)
++            if request:
++                if not (inline.has_view_or_change_permission(request, obj) or
++                        inline.has_add_permission(request, obj) or
++                        inline.has_delete_permission(request, obj)):
++                    continue
++                if not inline.has_add_permission(request, obj):
++                    inline.max_num = 0
++            inline_instances.append(inline)
++        return inline_instances
+         inline_instances = []
+         for inline_class in self.inlines:
+             inline = inline_class(self.model, self.admin_site)

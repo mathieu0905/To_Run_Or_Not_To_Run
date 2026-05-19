@@ -1,0 +1,58 @@
+diff --git a/astropy/units/format/cds.py b/astropy/units/format/cds.py
+index 307e987ed..89054b163 100644
+--- a/astropy/units/format/cds.py
++++ b/astropy/units/format/cds.py
+@@ -24,6 +24,12 @@ from .base import Base
+ 
+ 
+ class CDS(Base):
++
++    _units = _generate_unit_names()
++
++    @classproperty(lazy=True)
++    def _units(cls):
++        return cls._generate_unit_names()
+     """
+     Support the `Centre de Données astronomiques de Strasbourg
+     <http://cds.u-strasbg.fr/>`_ `Standards for Astronomical
+@@ -185,10 +191,24 @@ class CDS(Base):
+                               | unit_expression DIVISION combined_units
+             """
+             if len(p) == 3:
++                if len(p) == 3:
+                 p[0] = p[2] ** -1
+             else:
+                 p[0] = p[1] / p[3]
+ 
++        def p_scientific_notation(p):
++            '''
++            scientific_notation : UFLOAT
++                                  | UFLOAT SIGN UINT
++                                  | UFLOAT SIGN
++            '''
++            if len(p) == 2:
++                p[0] = float(p[1])
++            elif len(p) == 3:
++                p[0] = float(p[1]) * p[2]
++            else:
++                p[0] = float(p[1]) * p[2] * (10 ** p[3])
++
+         def p_unit_expression(p):
+             """
+             unit_expression : unit_with_power
+@@ -201,11 +221,12 @@ class CDS(Base):
+ 
+         def p_factor(p):
+             """
+-            factor : signed_float X UINT signed_int
+-                   | UINT X UINT signed_int
+-                   | UINT signed_int
++            factor : signed_float
++                   | scientific_notation
+                    | UINT
+                    | signed_float
++                   | UINT X UINT signed_int
++                   | signed_float X UINT signed_int
+             """
+             if len(p) == 5:
+                 if p[3] != 10:

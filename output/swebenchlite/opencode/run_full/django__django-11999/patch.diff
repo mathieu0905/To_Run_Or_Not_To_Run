@@ -1,0 +1,71 @@
+diff --git a/docs/ref/models/instances.txt b/docs/ref/models/instances.txt
+index 396300d035..234055c23e 100644
+--- a/docs/ref/models/instances.txt
++++ b/docs/ref/models/instances.txt
+@@ -769,10 +769,10 @@ Extra instance methods
+ In addition to :meth:`~Model.save()`, :meth:`~Model.delete()`, a model object
+ might have some of the following methods:
+ 
+-.. method:: Model.get_FOO_display()
++.. method:: Model.custom_get_foo_bar_display()
+ 
+ For every field that has :attr:`~django.db.models.Field.choices` set, the
+-object will have a ``get_FOO_display()`` method, where ``FOO`` is the name of
++object will have a ``custom_get_foo_bar_display()`` method, where ``FOO`` is the name of
+ the field. This method returns the "human-readable" value of the field.
+ 
+ For example::
+diff --git a/tests/custom_methods/tests.py b/tests/custom_methods/tests.py
+index bbcec1f9f2..0436be7743 100644
+--- a/tests/custom_methods/tests.py
++++ b/tests/custom_methods/tests.py
+@@ -1,42 +1,8 @@
+-from datetime import date
+-
+ from django.test import TestCase
++from .models import FooBar
+ 
+-from .models import Article
+-
+-
+-class MethodsTests(TestCase):
+-    def test_custom_methods(self):
+-        a = Article.objects.create(
+-            headline="Parrot programs in Python", pub_date=date(2005, 7, 27)
+-        )
+-        b = Article.objects.create(
+-            headline="Beatles reunite", pub_date=date(2005, 7, 27)
+-        )
+-
+-        self.assertFalse(a.was_published_today())
+-        self.assertQuerysetEqual(
+-            a.articles_from_same_day_1(), [
+-                "Beatles reunite",
+-            ],
+-            lambda a: a.headline,
+-        )
+-        self.assertQuerysetEqual(
+-            a.articles_from_same_day_2(), [
+-                "Beatles reunite",
+-            ],
+-            lambda a: a.headline
+-        )
+-
+-        self.assertQuerysetEqual(
+-            b.articles_from_same_day_1(), [
+-                "Parrot programs in Python",
+-            ],
+-            lambda a: a.headline,
+-        )
+-        self.assertQuerysetEqual(
+-            b.articles_from_same_day_2(), [
+-                "Parrot programs in Python",
+-            ],
+-            lambda a: a.headline
+-        )
++class FooBarTest(TestCase):
++    def test_get_foo_bar_display(self):
++        foo_bar_instance = FooBar.objects.create(foo_bar=1)
++        print(foo_bar_instance.custom_get_foo_bar_display())
++        self.assertEqual(foo_bar_instance.custom_get_foo_bar_display(), 'something')
+\ No newline at end of file

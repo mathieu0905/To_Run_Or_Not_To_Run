@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14672",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py\nindex ccc2223a5f..65950590e2 100644\n--- a/django/db/models/fields/reverse_related.py\n+++ b/django/db/models/fields/reverse_related.py\n@@ -310,7 +310,7 @@ class ManyToManyRel(ForeignObjectRel):\n     def identity(self):\n         return super().identity + (\n             self.through,\n-            self.through_fields,\n+            make_hashable(self.through_fields),\n             self.db_constraint,\n         )",
+  "tokens_used": 434243,
+  "exec_count": 38,
+  "duration_sec": 1463.6394219398499,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

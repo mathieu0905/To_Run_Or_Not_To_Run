@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12708",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py\nindex 447980e72ac..00d5c36191 100644\n--- a/django/db/backends/base/schema.py\n+++ b/django/db/backends/base/schema.py\n@@ -468,12 +468,17 @@ class BaseDatabaseSchemaEditor:\n             raise ValueError(\"Found wrong number (%s) of constraints for %s(%s)\" % (\n                 len(constraint_names),\n                 model._meta.db_table,\n-                \", \".join(columns),\n+                \", \".join(columns),\n             ))\n+        if len(constraint_names) > 1:\n+            # Filter out the unique constraint\n+            constraint_names = [name for name in constraint_names if not name.endswith('_uniq')]\n+            if len(constraint_names) != 1:\n+                raise ValueError(\"Found wrong number (%s) of constraints for %s(%s)\" % (\n+                    len(constraint_names),\n+                    model._meta.db_table,\n+                    \", \".join(columns),\n+                ))\n         self.execute(self._delete_constraint_sql(sql, model, constraint_names[0]))\n```\n\nThe migration should now apply without errors, and the issue should be resolved.\n\nIf you need to run further tests or make additional changes, let me know. Otherwise, you can proceed with your work.",
+  "tokens_used": 108309,
+  "exec_count": 22,
+  "duration_sec": 648.58189702034,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

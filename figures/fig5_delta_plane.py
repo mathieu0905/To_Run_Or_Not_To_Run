@@ -51,14 +51,14 @@ from analysis.common.data_loader import count_tokens_and_execs  # noqa: E402
 
 
 MODE_ORDER = ["run_free", "run_less_k1", "run_less_k3", "run_cost", "run_full"]
-COMPARE_MODES = ["run_free", "run_less_k1", "run_less_k3", "run_cost"]
+COMPARE_MODES = ["run_free", "run_less_k1", "run_less_k3", "run_cost", "run_full"]
 
 MODE_LABEL = {
-    "run_free": "Free",
-    "run_less_k1": "Less-K1",
-    "run_less_k3": "Less-K3",
-    "run_cost": "Cost",
-    "run_full": "Full",
+    "run_free": "Prohibited",
+    "run_less_k1": "Quota-1",
+    "run_less_k3": "Quota-3",
+    "run_cost": "Budget-Guided",
+    "run_full": "Unrestricted",
 }
 
 MODE_MARKER = {
@@ -69,8 +69,12 @@ MODE_MARKER = {
     "run_full": "*",
 }
 
-AGENT_ORDER = ["claude_code", "codex"]
-AGENT_LABEL = {"claude_code": "Claude Code", "codex": "Codex"}
+AGENT_ORDER = ["claude_code", "codex", "opencode"]
+AGENT_LABEL = {
+    "claude_code": "Claude Code",
+    "codex": "Codex",
+    "opencode": "OpenCode (Qwen2.5-Coder-32B)",
+}
 
 DATASET_ORDER = ["swebenchlite", "swebenchverified"]
 DATASET_LABEL = {"swebenchlite": "SWE-bench Lite", "swebenchverified": "SWE-bench Verified"}
@@ -97,16 +101,38 @@ class DeltaPoint:
 
 
 def _detect_dataset(filename_lower: str) -> str | None:
-    if "swe-bench_lite" in filename_lower:
+    # Accept both hyphen and underscore forms ("swe-bench_lite" vs "swe_bench_lite").
+    if "swe-bench_lite" in filename_lower or "swe_bench_lite" in filename_lower:
         return "swebenchlite"
-    if "swe-bench_verified" in filename_lower:
+    if "swe-bench_verified" in filename_lower or "swe_bench_verified" in filename_lower:
         return "swebenchverified"
     return None
 
 
 def load_reports_for_dataset(reports_dir: Path, dataset: str) -> dict[str, dict[str, Report]]:
-    """Return {agent: {mode: Report}} for a single dataset."""
+    """Return {agent: {mode: Report}} for a single dataset.
+
+    Handles both canonical `run_free`/`run_full` filenames and OpenCode's
+    suffix-less variants (`runfree`, `runfull`, `runcost`, `runlessk1`,
+    `runlessk3`). When multiple reports exist for the same (agent, mode),
+    prefer `_fixed` > `_final`/`_v2` > `_snap` > plain > `_v1`.
+    """
+    def _priority(stem: str) -> int:
+        s = stem.lower()
+        if "_fixed" in s:
+            return 100
+        if "_final" in s:
+            return 50
+        if "_v2" in s:
+            return 40
+        if "_snap" in s:
+            return 30
+        if "_v1" in s:
+            return 10
+        return 20
+
     data: dict[str, dict[str, Report]] = {a: {} for a in AGENT_ORDER}
+    priorities: dict[tuple[str, str], int] = {}
 
     for path in sorted(reports_dir.glob("*.json")):
         name = path.name.lower()
@@ -114,11 +140,25 @@ def load_reports_for_dataset(reports_dir: Path, dataset: str) -> dict[str, dict[
         if detected != dataset:
             continue
 
-        agent = next((a for a in AGENT_ORDER if a in name), None)
+        # Normalise OpenCode suffix-less naming so mode substring matches work.
+        norm = (
+            name.replace("runfree", "run_free")
+                .replace("runfull", "run_full")
+                .replace("runcost", "run_cost")
+                .replace("runlessk1", "run_less_k1")
+                .replace("runlessk2", "run_less_k2")
+                .replace("runlessk3", "run_less_k3")
+        )
+
+        agent = next((a for a in AGENT_ORDER if a in norm), None)
         if agent is None:
             continue
 
-        mode = next((m for m in MODE_ORDER if m in name), None)
+        # Iterate longest mode names first so `run_less_k1` beats `run_free`.
+        mode = next(
+            (m for m in sorted(MODE_ORDER, key=len, reverse=True) if m in norm),
+            None,
+        )
         if mode is None:
             continue
 
@@ -135,8 +175,10 @@ def load_reports_for_dataset(reports_dir: Path, dataset: str) -> dict[str, dict[
         resolved_instances = int(report.get("resolved_instances", len(resolved_ids)))
         completed_instances = int(report.get("completed_instances", len(completed_ids)))
 
-        if mode in data[agent]:
-            raise ValueError(f"Duplicate report for {dataset}/{agent}/{mode}: {path}")
+        prio = _priority(path.stem)
+        if mode in data[agent] and priorities.get((agent, mode), -1) >= prio:
+            # Already have a same-or-higher-priority report; keep it.
+            continue
 
         data[agent][mode] = Report(
             completed_ids=list(completed_ids),
@@ -145,6 +187,7 @@ def load_reports_for_dataset(reports_dir: Path, dataset: str) -> dict[str, dict[
             resolved_instances=resolved_instances,
             completed_instances=completed_instances,
         )
+        priorities[(agent, mode)] = prio
 
     missing = []
     for agent in AGENT_ORDER:
@@ -648,12 +691,12 @@ def plot_dataset(
         ax.xaxis.set_major_formatter(FuncFormatter(_int_tick))
 
         if i == 0:
-            ax.set_ylabel("ΔPass (pp) vs Full (90% CI)")
-        ax.set_xlabel("Token savings vs Full (k tokens)")
+            ax.set_ylabel("ΔPass (pp) vs Unrestricted (90% CI)")
+        ax.set_xlabel("Token savings vs Unrestricted (k tokens)")
 
         # Baseline annotation (Full).
         full_pass, full_tokens, n_ids = full_meta[agent]
-        txt = f"Full pass={full_pass:.0f}%\nFull tokens={full_tokens/1000.0:.0f}k\nn={n_ids}"
+        txt = f"Unrestr. pass={full_pass:.0f}%\nUnrestr. tokens={full_tokens/1000.0:.0f}k\nn={n_ids}"
         ax.text(
             0.02,
             0.98,
@@ -849,8 +892,8 @@ def plot_both_datasets_overlay(
         ax.xaxis.set_major_formatter(FuncFormatter(_int_tick))
 
         if i == 0:
-            ax.set_ylabel("ΔPass (pp) vs Full (90% CI)")
-        ax.set_xlabel("Token savings vs Full (k tokens)")
+            ax.set_ylabel("ΔPass (pp) vs Unrestricted (90% CI)")
+        ax.set_xlabel("Token savings vs Unrestricted (k tokens)")
 
         # Baseline annotation (Full) for both datasets.
         lines = []
@@ -974,7 +1017,9 @@ def plot_both_datasets_grid(
     xlim = compute_auto_xlim(points_union)
     ylim = compute_auto_ylim(points_union, equiv_pp=equiv_pp)
 
-    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(12, 7.2), sharex=True, sharey=True)
+    n_agents = len(AGENT_ORDER)
+    fig_width = 6 * n_agents  # 6 inches per agent column
+    fig, axes = plt.subplots(nrows=2, ncols=n_agents, figsize=(fig_width, 7.2), sharex=True, sharey=True)
 
     for r, dataset in enumerate(DATASET_ORDER):
         for c, agent in enumerate(AGENT_ORDER):
@@ -1034,16 +1079,16 @@ def plot_both_datasets_grid(
             ax.grid(alpha=0.22)
 
             if r == 1:
-                ax.set_xlabel("Token savings vs Full (k tokens)")
+                ax.set_xlabel("Token savings vs Unrestricted (k tokens)")
             if c == 0:
-                ax.set_ylabel("ΔPass (pp) vs Full (90% CI)")
+                ax.set_ylabel("ΔPass (pp) vs Unrestricted (90% CI)")
 
             # Titles: always show full dataset+agent for clarity.
             ax.set_title(f"{DATASET_LABEL[dataset]} — {AGENT_LABEL[agent]}")
 
             # Baseline annotation per subplot.
             full_pass, full_tokens, n_ids = full_meta[(dataset, agent)]
-            txt = f"Full pass={full_pass:.0f}%\nFull tokens={full_tokens/1000.0:.0f}k\nn={n_ids}"
+            txt = f"Unrestr. pass={full_pass:.0f}%\nUnrestr. tokens={full_tokens/1000.0:.0f}k\nn={n_ids}"
             ax.text(
                 0.02,
                 0.98,

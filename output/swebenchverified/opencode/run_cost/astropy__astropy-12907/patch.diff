@@ -1,0 +1,69 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e2729..fab1279e9 100644
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -229,7 +229,6 @@ def _cstack(left, right):
+     -------
+     result : ndarray
+         Result from this operation.
+-
+     """
+     noutp = _compute_n_outputs(left, right)
+ 
+@@ -238,52 +237,16 @@ def _cstack(left, right):
+     else:
+         cleft = np.zeros((noutp, left.shape[1]))
+         cleft[: left.shape[0], : left.shape[1]] = left
++    
+     if isinstance(right, Model):
+         cright = _coord_matrix(right, 'right', noutp)
+     else:
+         cright = np.zeros((noutp, right.shape[1]))
+         cright[-right.shape[0]:, -right.shape[1]:] = 1
+ 
+-    return np.hstack([cleft, cright])
+-
+-
+-def _cdot(left, right):
+-    """
+-    Function corresponding to "|" operation.
+-
+-    Parameters
+-    ----------
+-    left, right : `astropy.modeling.Model` or ndarray
+-        If input is of an array, it is the output of `coord_matrix`.
+-
+-    Returns
+-    -------
+-    result : ndarray
+-        Result from this operation.
+-    """
+-
+-    left, right = right, left
+-
+-    def _n_inputs_outputs(input, position):
+-        """
+-        Return ``n_inputs``, ``n_outputs`` for a model or coord_matrix.
+-        """
+-        if isinstance(input, Model):
+-            coords = _coord_matrix(input, position, input.n_outputs)
+-        else:
+-            coords = input
+-        return coords
+-
+-    cleft = _n_inputs_outputs(left, 'left')
+-    cright = _n_inputs_outputs(right, 'right')
+-
+-    try:
+-        result = np.dot(cleft, cright)
+-    except ValueError:
+-        raise ModelDefinitionError(
+-            'Models cannot be combined with the "|" operator; '
+-            'left coord_matrix is {}, right coord_matrix is {}'.format(
+-                cright, cleft))
++    result = np.zeros((noutp, cleft.shape[1] + cright.shape[1]))
++    result[:cleft.shape[0], :cleft.shape[1]] = cleft
++    result[cleft.shape[0]:, cleft.shape[1]:] = cright
+     return result
+ 
+ 

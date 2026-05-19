@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12965",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/backends/mysql/compiler.py b/django/db/backends/mysql/compiler.py\nindex 3682d6da05..429218ac29 100644\n--- a/django/db/backends/mysql/compiler.py\n+++ b/django/db/backends/mysql/compiler.py\n@@ -15,7 +15,7 @@ class SQLInsertCompiler(compiler.SQLInsertCompiler, SQLCompiler):\n \n class SQLDeleteCompiler(compiler.SQLDeleteCompiler, SQLCompiler):\n     def as_sql(self):\n-        if self.connection.features.update_can_self_select or self.single_alias:\n+        if self.connection.features.update_can_self_select or self.single_alias or not self.where:\n             return super().as_sql()\n         # MySQL and MariaDB < 10.3.2 doesn't support deletion with a subquery\n         # which is what the default implementation of SQLDeleteCompiler uses",
+  "tokens_used": 373946,
+  "exec_count": 9,
+  "duration_sec": 729.4604494571686,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

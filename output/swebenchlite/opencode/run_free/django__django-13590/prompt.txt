@@ -1,0 +1,60 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 755dbf39fcdc491fe9b588358303e259c7750be4
+
+## Problem Description
+Upgrading 2.2>3.0 causes named tuples used as arguments to __range to error.
+Description
+	
+I noticed this while upgrading a project from 2.2 to 3.0.
+This project passes named 2-tuples as arguments to range queryset filters. This works fine on 2.2. On 3.0 it causes the following error: TypeError: __new__() missing 1 required positional argument: 'far'.
+This happens because django.db.models.sql.query.Query.resolve_lookup_value goes into the tuple elements to resolve lookups and then attempts to reconstitute the tuple with the resolved elements.
+When it attempts to construct the new tuple it preserves the type (the named tuple) but it passes a iterator to it's constructor.
+NamedTuples don't have the code path for copying an iterator, and so it errors on insufficient arguments.
+The fix is to * expand the contents of the iterator into the constructor.
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+You cannot execute/run any Python code (cannot run tests).
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
+
+## Debugging Strategy
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
+
+## Your Task
+1. Investigate the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. **Apply the fix by calling the edit tool on real source files**
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

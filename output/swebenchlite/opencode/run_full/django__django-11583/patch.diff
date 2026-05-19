@@ -1,0 +1,66 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 25c3b44250..dbd20e2028 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -137,13 +137,18 @@ def iter_modules_and_files(modules, extra_files):
+         if not filename:
+             continue
+         path = Path(filename)
+-        try:
+-            resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
+-            # The module could have been removed, don't fail loudly if this
+-            # is the case.
++if '\0' not in file:
++                    try:
++                        resolved_path = Path(file).resolve(strict=True).absolute()
++                    except Exception as e:
++                        print(f'Failed to resolve path {file}: {e}')
++                        print(f'Detailed exception info: {traceback.format_exc()}')
++                        continue
++                else:
++                    print(f'Skipped path with null byte: {file}')
++                    continue
++            logger.error(f'Failed to resolve path {path}: {e}')
+             continue
+-        results.add(resolved_path)
+     return frozenset(results)
+ 
+ 
+@@ -185,10 +190,13 @@ def sys_path_directories():
+     """
+     for path in sys.path:
+         path = Path(path)
+-        try:
+-            resolved_path = path.resolve(strict=True).absolute()
+-        except FileNotFoundError:
+-            continue
++print(f'Resolving path: {path}')
++            try:
++                resolved_path = path.resolve(strict=True).absolute()
++            except Exception as e:
++                print(f'Failed to resolve path {path}: {e}')
++                print(f'Detailed exception info: {traceback.format_exc()}')
++                continue
+         # If the path is a file (like a zip file), watch the parent directory.
+         if resolved_path.is_file():
+             yield resolved_path.parent
+@@ -355,12 +363,15 @@ class StatReloader(BaseReloader):
+         # watched_files may produce duplicate paths if globs overlap.
+         seen_files = set()
+         for file in self.watched_files():
++            print(f'Resolving path: {file}')
+             if file in seen_files:
+                 continue
++            print(f'Preparing to resolve path: {file}')
+             try:
+-                mtime = file.stat().st_mtime
+-            except OSError:
+-                # This is thrown when the file does not exist.
++                resolved_path = path.resolve(strict=True).absolute()
++            except Exception as e:
++                print(f'Failed to resolve path {path}: {e}')
++                print(f'Detailed exception info: {traceback.format_exc()}')
+                 continue
+             seen_files.add(file)
+             yield file, mtime

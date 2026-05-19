@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10973",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/backends/postgresql/client.py b/django/db/backends/postgresql/client.py\nindex 7fca6eff30..d9b29ffbe8 100644\n--- a/django/db/backends/postgresql/client.py\n+++ b/django/db/backends/postgresql/client.py\n@@ -38,24 +38,9 @@ class DatabaseClient(BaseDatabaseClient):\n         sigint_handler = signal.getsignal(signal.SIGINT)\n         try:\n             if passwd:\n-                # Create temporary .pgpass file.\n-                temp_pgpass = NamedTemporaryFile(mode='w+')\n-                try:\n-                    print(\n-                        _escape_pgpass(host) or '*',\n-                        str(port) or '*',\n-                        _escape_pgpass(dbname) or '*',\n-                        _escape_pgpass(user) or '*',\n-                        _escape_pgpass(passwd),\n-                        file=temp_pgpass,\n-                        sep=':',\n-                        flush=True,\n-                    )\n-                    os.environ['PGPASSFILE'] = temp_pgpass.name\n-                except UnicodeEncodeError:\n-                    # If the current locale can't encode the data, let the\n-                    # user input the password manually.\n-                    pass\n+                subprocess_env = {'PGPASSWORD': passwd}\n+            else:\n+                subprocess_env = None\n             # Allow SIGINT to pass to psql to abort queries.\n             signal.signal(signal.SIGINT, signal.SIG_IGN)\n             subprocess.check_call(args)",
+  "tokens_used": 70846,
+  "exec_count": 1,
+  "duration_sec": 209.57451343536377,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

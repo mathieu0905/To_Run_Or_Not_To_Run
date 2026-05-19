@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11179",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py\nindex 92fe4affb9..bb0bbf4b85 100644\n--- a/django/db/models/deletion.py\n+++ b/django/db/models/deletion.py\n@@ -276,7 +276,10 @@ class Collector:\n             instance = list(instances)[0]\n             if self.can_fast_delete(instance):\n                 with transaction.mark_for_rollback_on_error():\n-                    count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)\n+                    print(f\"Before delete: {instance.pk}\")\n+count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)\n+instance.pk = None\n+instance.pk = None\n                 return count, {model._meta.label: count}\n \n         with transaction.atomic(using=self.using, savepoint=False):",
+  "tokens_used": 107413,
+  "exec_count": 11,
+  "duration_sec": 392.6516447067261,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,56 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+index a308e2729..c9f147bd2 100644
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -37,8 +37,8 @@ def is_separable(transform):
+     -------
+     is_separable : ndarray
+         A boolean array with size ``transform.n_outputs`` where
+-        each element indicates whether the output is independent
+-        and the result of a separable transform.
++each element indicates whether the output is independent
++and the result of a separable transform.
+ 
+     Examples
+     --------
+@@ -229,7 +229,6 @@ def _cstack(left, right):
+     -------
+     result : ndarray
+         Result from this operation.
+-
+     """
+     noutp = _compute_n_outputs(left, right)
+ 
+@@ -238,18 +237,28 @@ def _cstack(left, right):
+     else:
+         cleft = np.zeros((noutp, left.shape[1]))
+         cleft[: left.shape[0], : left.shape[1]] = left
++
+     if isinstance(right, Model):
+         cright = _coord_matrix(right, 'right', noutp)
+     else:
+-        cright = np.zeros((noutp, right.shape[1]))
+-        cright[-right.shape[0]:, -right.shape[1]:] = 1
++        cright = np.zeros((noutp, right.shape[1]), dtype=bool)
++        cright[-right.shape[0]:, -right.shape[1]:] = True
++
++    # Ensure cright is correctly aligned with cleft
++    cright_start = cleft.shape[1]
++    cright_end = cright_start + cright.shape[1]
++    cright_full = np.zeros((noutp, cright_end), dtype=bool)
++    cright_full[:, cright_start:cright_end] = cright
+ 
+-    return np.hstack([cleft, cright])
++    # Combine cleft and cright
++    result = np.hstack([cleft, cright_full[:, cright_start:]]
++
++    return result
+ 
+ 
+ def _cdot(left, right):
+     """
+-    Function corresponding to "|" operation.
++    Function corresponding to '|' operation.
+ 
+     Parameters
+     ----------

@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-8707",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/astropy/io/fits/card.py b/astropy/io/fits/card.py\nindex 8c1ac5d73..b51f84ddc 100644\n--- a/astropy/io/fits/card.py\n+++ b/astropy/io/fits/card.py\n@@ -546,6 +546,8 @@ class Card(_Verify):\n \n     @classmethod\n     def fromstring(cls, image):\n+        if isinstance(image, bytes):\n+            image = image.decode('ascii')\n         \"\"\"\n         Construct a `Card` object from a (raw) string. It will pad the string\n         if it is not the length of a card image (80 columns).  If the card\ndiff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py\nindex ad07e6d52..8ada53084 100644\n--- a/astropy/io/fits/header.py\n+++ b/astropy/io/fits/header.py\n@@ -328,6 +328,8 @@ class Header:\n \n     @classmethod\n     def fromstring(cls, data, sep=''):\n+        if isinstance(data, bytes):\n+            data = data.decode('ascii')\n         \"\"\"\n         Creates an HDU header from a byte string containing the entire header\n         data.",
+  "tokens_used": 169155,
+  "exec_count": 0,
+  "duration_sec": 98.69288778305054,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11149",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py\nindex 880a2cc17b..511a56ee3c 100644\n--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -246,7 +246,7 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):\n         \"\"\"\n         # If it uses an intermediary model that isn't auto created, don't show\n         # a field in admin.\n-        if not db_field.remote_field.through._meta.auto_created:\n+        if not db_field.remote_field.through._meta.auto_created or not self.has_change_permission(request, obj):\n             return None\n         db = kwargs.get('using')",
+  "tokens_used": 327776,
+  "exec_count": 5,
+  "duration_sec": 1460.244565486908,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

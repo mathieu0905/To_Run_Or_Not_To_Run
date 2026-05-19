@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14155",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py\nindex 9b00e24509..6d9680fae8 100644\n--- a/django/urls/resolvers.py\n+++ b/django/urls/resolvers.py\n@@ -50,7 +50,10 @@ class ResolverMatch:\n             self._func_path = func.__class__.__module__ + '.' + func.__class__.__name__\n         else:\n             # A function-based view\n-            self._func_path = func.__module__ + '.' + func.__name__\n+            if isinstance(func, functools.partial):\n+    self._func_path = func.func.__module__ + '.' + func.func.__name__\n+else:\n+    self._func_path = func.__module__ + '.' + func.__name__\n \n         view_path = url_name or self._func_path\n         self.view_name = ':'.join(self.namespaces + [view_path])",
+  "tokens_used": 125095,
+  "exec_count": 1,
+  "duration_sec": 426.4981355667114,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

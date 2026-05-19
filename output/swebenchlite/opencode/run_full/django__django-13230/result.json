@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13230",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/contrib/syndication/views.py b/django/contrib/syndication/views.py\nindex 68ffb0bfe0..732b07ec4c 100644\n--- a/django/contrib/syndication/views.py\n+++ b/django/contrib/syndication/views.py\n@@ -199,7 +199,7 @@ class Feed:\n             if updateddate and is_naive(updateddate):\n                 updateddate = make_aware(updateddate, tz)\n \n-            feed.add_item(\n+            feed.add_item(comments=self._get_dynamic_attr('item_comments', item), \n                 title=title,\n                 link=link,\n                 description=description,",
+  "tokens_used": 96275,
+  "exec_count": 4,
+  "duration_sec": 354.1373233795166,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

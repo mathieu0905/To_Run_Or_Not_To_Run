@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11477",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/urls/base.py b/django/urls/base.py\nindex 0e1c3d909c..b47b13b3f7 100644\n--- a/django/urls/base.py\n+++ b/django/urls/base.py\n@@ -172,7 +172,9 @@ def translate_url(url, lang_code):\n         to_be_reversed = \"%s:%s\" % (match.namespace, match.url_name) if match.namespace else match.url_name\n         with override(lang_code):\n             try:\n-                url = reverse(to_be_reversed, args=match.args, kwargs=match.kwargs)\n+                print(f'match.args: {match.args}')\n+                print(f'match.kwargs: {match.kwargs}')\n+                url = reverse(to_be_reversed, args=match.args, kwargs={k: v for k, v in match.kwargs.items() if v is not None})\n             except NoReverseMatch:\n                 pass\n             else:\ndiff --git a/tests/i18n/patterns/tests.py b/tests/i18n/patterns/tests.py\nindex 6ed2c4ffeb..604c6a6ed6 100644\n--- a/tests/i18n/patterns/tests.py\n+++ b/tests/i18n/patterns/tests.py\n@@ -157,6 +157,9 @@ class URLTranslationTests(URLTestCaseBase):\n             self.assertEqual(translate_url('/en/account/register/', 'nl'), '/nl/profiel/registreren/')\n             # path() URL pattern\n             self.assertEqual(translate_url('/en/account/register-as-path/', 'nl'), '/nl/profiel/registreren-als-pad/')\n+            # Optional named group test\n+            self.assertEqual(translate_url('/en/optional-group/', 'nl'), '/nl/optional-groep/')\n+            self.assertEqual(translate_url('/en/optional-group/test/', 'nl'), '/nl/optional-groep/test/')\n             self.assertEqual(translation.get_language(), 'en')\n \n         with translation.override('nl'):",
+  "tokens_used": 705288,
+  "exec_count": 33,
+  "duration_sec": 2634.718713283539,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11039",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/core/management/commands/sqlmigrate.py b/django/core/management/commands/sqlmigrate.py\nindex f0b663222a..b51d1739a4 100644\n--- a/django/core/management/commands/sqlmigrate.py\n+++ b/django/core/management/commands/sqlmigrate.py\n@@ -56,7 +56,7 @@ class Command(BaseCommand):\n         targets = [(app_label, migration.name)]\n \n         # Show begin/end around output only for atomic migrations\n-        self.output_transaction = migration.atomic\n+        self.output_transaction = migration.atomic and connection.features.can_rollback_ddl\n \n         # Make a plan that represents just the requested migrations and show SQL\n         # for it",
+  "tokens_used": 286458,
+  "exec_count": 18,
+  "duration_sec": 363.5941834449768,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

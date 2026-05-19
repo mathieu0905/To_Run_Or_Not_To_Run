@@ -1,0 +1,74 @@
+{
+  "claude_code": {
+    "pp": {
+      "actionable": {
+        "count": 46,
+        "hit_rate": 0.9347826086956522,
+        "avg_recall": 0.9239130434782609
+      },
+      "non_actionable": {
+        "count": 18,
+        "hit_rate": 0.9444444444444444,
+        "avg_recall": 0.9444444444444444
+      },
+      "none": {
+        "count": 52,
+        "hit_rate": 1.0,
+        "avg_recall": 0.9903846153846154
+      }
+    },
+    "ff": {
+      "actionable": {
+        "count": 37,
+        "hit_rate": 0.8378378378378378,
+        "avg_recall": 0.7477477477477478
+      },
+      "non_actionable": {
+        "count": 16,
+        "hit_rate": 0.75,
+        "avg_recall": 0.66875
+      },
+      "none": {
+        "count": 31,
+        "hit_rate": 0.9354838709677419,
+        "avg_recall": 0.9032258064516129
+      }
+    }
+  },
+  "codex": {
+    "pp": {
+      "actionable": {
+        "count": 7,
+        "hit_rate": 0.8571428571428571,
+        "avg_recall": 0.8571428571428571
+      },
+      "non_actionable": {
+        "count": 1,
+        "hit_rate": 1.0,
+        "avg_recall": 1.0
+      },
+      "none": {
+        "count": 134,
+        "hit_rate": 0.9776119402985075,
+        "avg_recall": 0.9544776119402986
+      }
+    },
+    "ff": {
+      "actionable": {
+        "count": 4,
+        "hit_rate": 1.0,
+        "avg_recall": 0.7083333333333334
+      },
+      "non_actionable": {
+        "count": 0,
+        "hit_rate": 0,
+        "avg_recall": 0
+      },
+      "none": {
+        "count": 51,
+        "hit_rate": 0.9019607843137255,
+        "avg_recall": 0.8496732026143792
+      }
+    }
+  }
+}

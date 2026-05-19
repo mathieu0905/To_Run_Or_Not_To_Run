@@ -1,0 +1,21 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 92213a4e67..7464abbec6 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -272,12 +272,16 @@ class SQLCompiler:
+         add totally new select clauses).
+         """
+         if self.query.extra_order_by:
++            print(f'Debug: extra_order_by: {self.query.extra_order_by}')
+             ordering = self.query.extra_order_by
+         elif not self.query.default_ordering:
++            print(f'Debug: default_ordering: {self.query.default_ordering}')
+             ordering = self.query.order_by
+         elif self.query.order_by:
++            print(f'Debug: order_by: {self.query.order_by}')
+             ordering = self.query.order_by
+         elif self.query.get_meta().ordering:
++            print(f'Debug: Meta.ordering: {self.query.get_meta().ordering}')
+             ordering = self.query.get_meta().ordering
+             self._meta_ordering = ordering
+         else:

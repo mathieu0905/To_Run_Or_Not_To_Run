@@ -1,0 +1,103 @@
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+index c2623f099f..b842332e18 100644
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -6,6 +6,7 @@ large and/or so that they can be used by other modules without getting into
+ circular import difficulties.
+ """
+ import copy
++import pickle
+ import functools
+ import inspect
+ from collections import namedtuple
+@@ -27,6 +28,32 @@ def subclasses(cls):
+ 
+ 
+ class Q(tree.Node):
++    def __deepcopy__(self, memo):
++        obj = type(self).__new__(self.__class__)
++        obj.connector = self.connector
++        obj.negated = self.negated
++        obj.children = [(conn, self.make_pickleable(child)) for conn, child in self.children]
++        return obj
++
++    def make_pickleable(self, value):
++        try:
++            pickle.dumps(value)
++            return value
++        except TypeError:
++            return list(value)
++    def __deepcopy__(self, memo):
++        obj = type(self).__new__(self.__class__)
++        obj.connector = self.connector
++        obj.negated = self.negated
++        obj.children = [(conn, self.make_pickleable(child)) for conn, child in self.children]
++        return obj
++
++    def make_pickleable(self, value):
++        try:
++            pickle.dumps(value)
++            return value
++        except TypeError:
++            return list(value)
+     """
+     Encapsulate filters as objects that can then be combined logically (using
+     `&` and `|`).
+@@ -41,6 +68,57 @@ class Q(tree.Node):
+         super().__init__(children=[*args, *sorted(kwargs.items())], connector=_connector, negated=_negated)
+ 
+     def _combine(self, other, conn):
++        def make_pickleable(value):
++            try:
++                pickle.dumps(value)
++                return value
++            except TypeError:
++                return list(value)
++
++        if not isinstance(other, Q):
++            raise TypeError(other)
++
++        # If the other Q() is empty, ignore it and just use `self`.
++        if not other:
++            return copy.deepcopy(self)
++        # Or if this Q is empty, ignore it and just use `other`.
++        elif not self:
++            return copy.deepcopy(other)
++
++        obj = type(self)()
++        obj.connector = conn
++        obj.add(self, conn)
++        obj.add(other, conn)
++        return obj
++
++    def add(self, child, connector):
++        import pickle
++        if isinstance(child, Q):
++            self.children.append((connector, make_pickleable(child)))
++        else:
++            self.children.append((connector, make_pickleable(child)))
++        def make_pickleable(value):
++            try:
++                pickle.dumps(value)
++                return value
++            except TypeError:
++                return list(value)
++
++        if not isinstance(other, Q):
++            raise TypeError(other)
++
++        # If the other Q() is empty, ignore it and just use `self`.
++        if not other:
++            return copy.deepcopy(self)
++        # Or if this Q is empty, ignore it and just use `other`.
++        elif not self:
++            return copy.deepcopy(other)
++
++        obj = type(self)()
++        obj.connector = conn
++        obj.add(self, conn)
++        obj.add(other, conn)
++        return obj
+         if not isinstance(other, Q):
+             raise TypeError(other)
+ 

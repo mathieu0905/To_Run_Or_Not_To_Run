@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15347",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/contrib/messages/storage/cookie.py b/django/contrib/messages/storage/cookie.py\nindex 1d390c71dd..de04e90f2f 100644\n--- a/django/contrib/messages/storage/cookie.py\n+++ b/django/contrib/messages/storage/cookie.py\n@@ -19,7 +19,7 @@ class MessageEncoder(json.JSONEncoder):\n             # Using 0/1 here instead of False/True to produce more compact json\n             is_safedata = 1 if isinstance(obj.message, SafeData) else 0\n             message = [self.message_key, is_safedata, obj.level, obj.message]\n-            if obj.extra_tags:\n+            if obj.extra_tags is not None:\n                 message.append(obj.extra_tags)\n             return message\n         return super().default(obj)\n@@ -35,7 +35,7 @@ class MessageDecoder(json.JSONDecoder):\n             if obj[0] == MessageEncoder.message_key:\n                 if obj[1]:\n                     obj[3] = mark_safe(obj[3])\n-                return Message(*obj[2:])\n+                return Message(*obj[2:]) if len(obj) == 5 else Message(*obj[2:], '')\n             return [self.process_messages(item) for item in obj]\n         if isinstance(obj, dict):\n             return {key: self.process_messages(value)",
+  "tokens_used": 39018,
+  "exec_count": 0,
+  "duration_sec": 485.20718216896057,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

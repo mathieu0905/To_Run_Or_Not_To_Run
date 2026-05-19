@@ -1,0 +1,788 @@
+diff --git a/django/apps/registry.py b/django/apps/registry.py
+index 408964a146..62650ca4bc 100644
+--- a/django/apps/registry.py
++++ b/django/apps/registry.py
+@@ -128,6 +128,7 @@ class Apps:
+         """Raise an exception if all apps haven't been imported yet."""
+         if not self.apps_ready:
+             from django.conf import settings
++
+             # If "not ready" is due to unconfigured settings, accessing
+             # INSTALLED_APPS raises a more helpful ImproperlyConfigured
+             # exception.
+diff --git a/django/contrib/admin/checks.py b/django/contrib/admin/checks.py
+index 0c32301284..5e3de1f3c5 100644
+--- a/django/contrib/admin/checks.py
++++ b/django/contrib/admin/checks.py
+@@ -797,7 +797,7 @@ class ModelAdminChecks(BaseModelAdminChecks):
+         3. SomeListFilter - a non-field list filter class
+         """
+ 
+-        from django.contrib.admin import ListFilter, FieldListFilter
++        from django.contrib.admin import FieldListFilter, ListFilter
+ 
+         if callable(item) and not isinstance(item, models.Field):
+             # If item is option 3, it should be a ListFilter...
+diff --git a/django/contrib/admin/decorators.py b/django/contrib/admin/decorators.py
+index 0c2e35c2b2..1c43c9505c 100644
+--- a/django/contrib/admin/decorators.py
++++ b/django/contrib/admin/decorators.py
+@@ -10,7 +10,7 @@ def register(*models, site=None):
+     The `site` kwarg is an admin site to use instead of the default admin site.
+     """
+     from django.contrib.admin import ModelAdmin
+-    from django.contrib.admin.sites import site as default_site, AdminSite
++    from django.contrib.admin.sites import AdminSite, site as default_site
+ 
+     def _model_admin_wrapper(admin_class):
+         if not models:
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 137e6faa0f..7f4495623d 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -799,7 +799,7 @@ class ModelAdmin(BaseModelAdmin):
+ 
+         The default implementation creates an admin LogEntry object.
+         """
+-        from django.contrib.admin.models import LogEntry, ADDITION
++        from django.contrib.admin.models import ADDITION, LogEntry
+         return LogEntry.objects.log_action(
+             user_id=request.user.pk,
+             content_type_id=get_content_type_for_model(object).pk,
+@@ -815,7 +815,7 @@ class ModelAdmin(BaseModelAdmin):
+ 
+         The default implementation creates an admin LogEntry object.
+         """
+-        from django.contrib.admin.models import LogEntry, CHANGE
++        from django.contrib.admin.models import CHANGE, LogEntry
+         return LogEntry.objects.log_action(
+             user_id=request.user.pk,
+             content_type_id=get_content_type_for_model(object).pk,
+@@ -832,7 +832,7 @@ class ModelAdmin(BaseModelAdmin):
+ 
+         The default implementation creates an admin LogEntry object.
+         """
+-        from django.contrib.admin.models import LogEntry, DELETION
++        from django.contrib.admin.models import DELETION, LogEntry
+         return LogEntry.objects.log_action(
+             user_id=request.user.pk,
+             content_type_id=get_content_type_for_model(object).pk,
+@@ -1878,6 +1878,7 @@ class ModelAdmin(BaseModelAdmin):
+     def history_view(self, request, object_id, extra_context=None):
+         "The 'history' admin view for this model."
+         from django.contrib.admin.models import LogEntry
++
+         # First check if the user can see this history.
+         model = self.model
+         obj = self.get_object(request, unquote(object_id))
+diff --git a/django/contrib/admin/sites.py b/django/contrib/admin/sites.py
+index 116303c94a..3a9b9494b3 100644
+--- a/django/contrib/admin/sites.py
++++ b/django/contrib/admin/sites.py
+@@ -238,11 +238,11 @@ class AdminSite:
+         return update_wrapper(inner, view)
+ 
+     def get_urls(self):
+-        from django.urls import include, path, re_path
+         # Since this module gets imported in the application's root package,
+         # it cannot import models from other applications at the module level,
+         # and django.contrib.contenttypes.views imports ContentType.
+         from django.contrib.contenttypes import views as contenttype_views
++        from django.urls import include, path, re_path
+ 
+         def wrap(view, cacheable=False):
+             def wrapper(*args, **kwargs):
+@@ -382,11 +382,11 @@ class AdminSite:
+             index_path = reverse('admin:index', current_app=self.name)
+             return HttpResponseRedirect(index_path)
+ 
+-        from django.contrib.auth.views import LoginView
+         # Since this module gets imported in the application's root package,
+         # it cannot import models from other applications at the module level,
+         # and django.contrib.admin.forms eventually imports User.
+         from django.contrib.admin.forms import AdminAuthenticationForm
++        from django.contrib.auth.views import LoginView
+         context = {
+             **self.each_context(request),
+             'title': _('Log in'),
+diff --git a/django/contrib/gis/db/backends/oracle/operations.py b/django/contrib/gis/db/backends/oracle/operations.py
+index f41ce0ed64..e644d56b8d 100644
+--- a/django/contrib/gis/db/backends/oracle/operations.py
++++ b/django/contrib/gis/db/backends/oracle/operations.py
+@@ -183,11 +183,15 @@ class OracleOperations(BaseSpatialOperations, DatabaseOperations):
+ 
+     # Routines for getting the OGC-compliant models.
+     def geometry_columns(self):
+-        from django.contrib.gis.db.backends.oracle.models import OracleGeometryColumns
++        from django.contrib.gis.db.backends.oracle.models import (
++            OracleGeometryColumns,
++        )
+         return OracleGeometryColumns
+ 
+     def spatial_ref_sys(self):
+-        from django.contrib.gis.db.backends.oracle.models import OracleSpatialRefSys
++        from django.contrib.gis.db.backends.oracle.models import (
++            OracleSpatialRefSys,
++        )
+         return OracleSpatialRefSys
+ 
+     def modify_insert_params(self, placeholder, params):
+diff --git a/django/contrib/gis/db/backends/spatialite/operations.py b/django/contrib/gis/db/backends/spatialite/operations.py
+index a1c049b562..87427625dc 100644
+--- a/django/contrib/gis/db/backends/spatialite/operations.py
++++ b/django/contrib/gis/db/backends/spatialite/operations.py
+@@ -188,11 +188,15 @@ class SpatiaLiteOperations(BaseSpatialOperations, DatabaseOperations):
+ 
+     # Routines for getting the OGC-compliant models.
+     def geometry_columns(self):
+-        from django.contrib.gis.db.backends.spatialite.models import SpatialiteGeometryColumns
++        from django.contrib.gis.db.backends.spatialite.models import (
++            SpatialiteGeometryColumns,
++        )
+         return SpatialiteGeometryColumns
+ 
+     def spatial_ref_sys(self):
+-        from django.contrib.gis.db.backends.spatialite.models import SpatialiteSpatialRefSys
++        from django.contrib.gis.db.backends.spatialite.models import (
++            SpatialiteSpatialRefSys,
++        )
+         return SpatialiteSpatialRefSys
+ 
+     def get_geometry_converter(self, expression):
+diff --git a/django/contrib/gis/db/backends/spatialite/schema.py b/django/contrib/gis/db/backends/spatialite/schema.py
+index 93ea754488..bc42bb9852 100644
+--- a/django/contrib/gis/db/backends/spatialite/schema.py
++++ b/django/contrib/gis/db/backends/spatialite/schema.py
+@@ -83,6 +83,7 @@ class SpatialiteSchemaEditor(DatabaseSchemaEditor):
+ 
+     def delete_model(self, model, **kwargs):
+         from django.contrib.gis.db.models.fields import GeometryField
++
+         # Drop spatial metadata (dropping the table does not automatically remove them)
+         for field in model._meta.local_fields:
+             if isinstance(field, GeometryField):
+@@ -113,6 +114,7 @@ class SpatialiteSchemaEditor(DatabaseSchemaEditor):
+ 
+     def remove_field(self, model, field):
+         from django.contrib.gis.db.models.fields import GeometryField
++
+         # NOTE: If the field is a geometry field, the table is just recreated,
+         # the parent's remove_field can't be used cause it will skip the
+         # recreation if the field does not have a database type. Geometry fields
+@@ -125,6 +127,7 @@ class SpatialiteSchemaEditor(DatabaseSchemaEditor):
+ 
+     def alter_db_table(self, model, old_db_table, new_db_table, disable_constraints=True):
+         from django.contrib.gis.db.models.fields import GeometryField
++
+         # Remove geometry-ness from temp table
+         for field in model._meta.local_fields:
+             if isinstance(field, GeometryField):
+diff --git a/django/contrib/gis/geos/geometry.py b/django/contrib/gis/geos/geometry.py
+index 0a338d414b..aa9df5b04d 100644
+--- a/django/contrib/gis/geos/geometry.py
++++ b/django/contrib/gis/geos/geometry.py
+@@ -37,12 +37,13 @@ class GEOSGeometryBase(GEOSBase):
+             if cls is None:
+                 if GEOSGeometryBase._GEOS_CLASSES is None:
+                     # Inner imports avoid import conflicts with GEOSGeometry.
+-                    from .linestring import LineString, LinearRing
+-                    from .point import Point
+-                    from .polygon import Polygon
+                     from .collections import (
+-                        GeometryCollection, MultiPoint, MultiLineString, MultiPolygon,
++                        GeometryCollection, MultiLineString, MultiPoint,
++                        MultiPolygon,
+                     )
++                    from .linestring import LinearRing, LineString
++                    from .point import Point
++                    from .polygon import Polygon
+                     GEOSGeometryBase._GEOS_CLASSES = {
+                         0: Point,
+                         1: LineString,
+diff --git a/django/contrib/gis/management/commands/ogrinspect.py b/django/contrib/gis/management/commands/ogrinspect.py
+index 03d31899bf..4b5ec6d4cd 100644
+--- a/django/contrib/gis/management/commands/ogrinspect.py
++++ b/django/contrib/gis/management/commands/ogrinspect.py
+@@ -107,6 +107,7 @@ class Command(BaseCommand):
+         # Returning the output of ogrinspect with the given arguments
+         # and options.
+         from django.contrib.gis.utils.ogrinspect import _ogrinspect, mapping
++
+         # Filter options to params accepted by `_ogrinspect`
+         ogr_options = {k: v for k, v in options.items()
+                        if k in get_func_args(_ogrinspect) and v is not None}
+diff --git a/django/contrib/gis/utils/__init__.py b/django/contrib/gis/utils/__init__.py
+index 800b2dbb89..c195ded932 100644
+--- a/django/contrib/gis/utils/__init__.py
++++ b/django/contrib/gis/utils/__init__.py
+@@ -9,6 +9,8 @@ from django.core.exceptions import ImproperlyConfigured
+ try:
+     # LayerMapping requires DJANGO_SETTINGS_MODULE to be set,
+     # and ImproperlyConfigured is raised if that's not the case.
+-    from django.contrib.gis.utils.layermapping import LayerMapping, LayerMapError  # NOQA
++    from django.contrib.gis.utils.layermapping import (  # NOQA
++        LayerMapError, LayerMapping,
++    )
+ except ImproperlyConfigured:
+     pass
+diff --git a/django/core/files/locks.py b/django/core/files/locks.py
+index 42631b3492..c46b00b905 100644
+--- a/django/core/files/locks.py
++++ b/django/core/files/locks.py
+@@ -28,8 +28,10 @@ def _fd(f):
+ 
+ if os.name == 'nt':
+     import msvcrt
+-    from ctypes import (sizeof, c_ulong, c_void_p, c_int64,
+-                        Structure, Union, POINTER, windll, byref)
++    from ctypes import (
++        POINTER, Structure, Union, byref, c_int64, c_ulong, c_void_p, sizeof,
++        windll,
++    )
+     from ctypes.wintypes import BOOL, DWORD, HANDLE
+ 
+     LOCK_SH = 0  # the default
+diff --git a/django/core/management/commands/diffsettings.py b/django/core/management/commands/diffsettings.py
+index 54ec93cb16..d784166548 100644
+--- a/django/core/management/commands/diffsettings.py
++++ b/django/core/management/commands/diffsettings.py
+@@ -39,7 +39,7 @@ class Command(BaseCommand):
+         )
+ 
+     def handle(self, **options):
+-        from django.conf import settings, Settings, global_settings
++        from django.conf import Settings, global_settings, settings
+ 
+         # Because settings are imported lazily, we need to explicitly load them.
+         if not settings.configured:
+diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py
+index e9d5aa9835..20cc405ed2 100644
+--- a/django/core/management/commands/shell.py
++++ b/django/core/management/commands/shell.py
+@@ -41,6 +41,7 @@ class Command(BaseCommand):
+ 
+     def python(self, options):
+         import code
++
+         # Set up a dictionary to serve as the environment for the shell, so
+         # that tab completion works on objects that are imported at runtime.
+         imported_objects = {}
+diff --git a/django/core/serializers/pyyaml.py b/django/core/serializers/pyyaml.py
+index 778c933584..726c522460 100644
+--- a/django/core/serializers/pyyaml.py
++++ b/django/core/serializers/pyyaml.py
+@@ -18,10 +18,9 @@ from django.db import models
+ 
+ # Use the C (faster) implementation if possible
+ try:
+-    from yaml import CSafeLoader as SafeLoader
+-    from yaml import CSafeDumper as SafeDumper
++    from yaml import CSafeDumper as SafeDumper, CSafeLoader as SafeLoader
+ except ImportError:
+-    from yaml import SafeLoader, SafeDumper
++    from yaml import SafeDumper, SafeLoader
+ 
+ 
+ class DjangoSafeDumper(SafeDumper):
+diff --git a/django/db/backends/base/base.py b/django/db/backends/base/base.py
+index 9a4c27f0f3..a5f531be52 100644
+--- a/django/db/backends/base/base.py
++++ b/django/db/backends/base/base.py
+@@ -1,3 +1,4 @@
++import _thread
+ import copy
+ import threading
+ import time
+@@ -5,7 +6,6 @@ import warnings
+ from collections import deque
+ from contextlib import contextmanager
+ 
+-import _thread
+ import pytz
+ 
+ from django.conf import settings
+diff --git a/django/db/models/fields/related_lookups.py b/django/db/models/fields/related_lookups.py
+index c20e220141..d745ecd5f9 100644
+--- a/django/db/models/fields/related_lookups.py
++++ b/django/db/models/fields/related_lookups.py
+@@ -64,7 +64,9 @@ class RelatedIn(In):
+             # For multicolumn lookups we need to build a multicolumn where clause.
+             # This clause is either a SubqueryConstraint (for values that need to be compiled to
+             # SQL) or an OR-combined list of (col1 = val1 AND col2 = val2 AND ...) clauses.
+-            from django.db.models.sql.where import WhereNode, SubqueryConstraint, AND, OR
++            from django.db.models.sql.where import (
++                AND, OR, SubqueryConstraint, WhereNode,
++            )
+ 
+             root_constraint = WhereNode(connector=OR)
+             if self.rhs_is_direct_value():
+@@ -120,7 +122,7 @@ class RelatedLookupMixin:
+         if isinstance(self.lhs, MultiColSource):
+             assert self.rhs_is_direct_value()
+             self.rhs = get_normalized_value(self.rhs, self.lhs)
+-            from django.db.models.sql.where import WhereNode, AND
++            from django.db.models.sql.where import AND, WhereNode
+             root_constraint = WhereNode()
+             for target, source, val in zip(self.lhs.targets, self.lhs.sources, self.rhs):
+                 lookup_class = target.get_lookup(self.lookup_name)
+diff --git a/django/db/models/functions/mixins.py b/django/db/models/functions/mixins.py
+index 636340f015..00cfd1bc01 100644
+--- a/django/db/models/functions/mixins.py
++++ b/django/db/models/functions/mixins.py
+@@ -32,7 +32,9 @@ class FixDurationInputMixin:
+         if self.output_field.get_internal_type() == 'DurationField':
+             expression = self.get_source_expressions()[0]
+             options = self._get_repr_options()
+-            from django.db.backends.oracle.functions import IntervalToSeconds, SecondsToInterval
++            from django.db.backends.oracle.functions import (
++                IntervalToSeconds, SecondsToInterval,
++            )
+             return compiler.compile(
+                 SecondsToInterval(self.__class__(IntervalToSeconds(expression), **options))
+             )
+diff --git a/django/db/models/lookups.py b/django/db/models/lookups.py
+index 9344979c56..bbced0ddbe 100644
+--- a/django/db/models/lookups.py
++++ b/django/db/models/lookups.py
+@@ -27,7 +27,8 @@ class Lookup:
+         if bilateral_transforms:
+             # Warn the user as soon as possible if they are trying to apply
+             # a bilateral transformation on a nested QuerySet: that won't work.
+-            from django.db.models.sql.query import Query  # avoid circular import
++            from django.db.models.sql.query import \
++                Query  # avoid circular import
+             if isinstance(rhs, Query):
+                 raise NotImplementedError("Bilateral transformations on nested querysets are not implemented.")
+         self.bilateral_transforms = bilateral_transforms
+diff --git a/django/forms/models.py b/django/forms/models.py
+index c7e7e50885..fccc0e704b 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -814,7 +814,7 @@ class BaseModelFormSet(BaseFormSet):
+ 
+     def add_fields(self, form, index):
+         """Add a hidden field for the object's primary key."""
+-        from django.db.models import AutoField, OneToOneField, ForeignKey
++        from django.db.models import AutoField, ForeignKey, OneToOneField
+         self._pk_field = pk = self.model._meta.pk
+         # If a pk isn't editable, then it won't be on the form, so we need to
+         # add it here so we can tell which object is which when we get the
+diff --git a/django/template/context_processors.py b/django/template/context_processors.py
+index 0e9efb2f69..25ac1f2661 100644
+--- a/django/template/context_processors.py
++++ b/django/template/context_processors.py
+@@ -40,6 +40,7 @@ def debug(request):
+     if settings.DEBUG and request.META.get('REMOTE_ADDR') in settings.INTERNAL_IPS:
+         context_extras['debug'] = True
+         from django.db import connections
++
+         # Return a lazy reference that computes connection.queries on access,
+         # to ensure it contains queries triggered after this function runs.
+         context_extras['sql_queries'] = lazy(
+diff --git a/django/template/defaulttags.py b/django/template/defaulttags.py
+index 602e8b2a15..0e462d6cd6 100644
+--- a/django/template/defaulttags.py
++++ b/django/template/defaulttags.py
+@@ -426,7 +426,7 @@ class URLNode(Node):
+         self.asvar = asvar
+ 
+     def render(self, context):
+-        from django.urls import reverse, NoReverseMatch
++        from django.urls import NoReverseMatch, reverse
+         args = [arg.resolve(context) for arg in self.args]
+         kwargs = {k: v.resolve(context) for k, v in self.kwargs.items()}
+         view_name = self.view_name.resolve(context)
+diff --git a/django/test/selenium.py b/django/test/selenium.py
+index 8910faec98..9ce161275b 100644
+--- a/django/test/selenium.py
++++ b/django/test/selenium.py
+@@ -70,7 +70,9 @@ class SeleniumTestCaseBase(type(LiveServerTestCase)):
+ 
+     @classmethod
+     def get_capability(cls, browser):
+-        from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
++        from selenium.webdriver.common.desired_capabilities import (
++            DesiredCapabilities,
++        )
+         return getattr(DesiredCapabilities, browser.upper())
+ 
+     def create_options(self):
+diff --git a/django/test/signals.py b/django/test/signals.py
+index 68e6ad3fb6..4ad545e724 100644
+--- a/django/test/signals.py
++++ b/django/test/signals.py
+@@ -174,7 +174,9 @@ def static_finders_changed(**kwargs):
+ @receiver(setting_changed)
+ def auth_password_validators_changed(**kwargs):
+     if kwargs['setting'] == 'AUTH_PASSWORD_VALIDATORS':
+-        from django.contrib.auth.password_validation import get_default_password_validators
++        from django.contrib.auth.password_validation import (
++            get_default_password_validators,
++        )
+         get_default_password_validators.cache_clear()
+ 
+ 
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index d5445e5f3f..44718844a9 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -286,6 +286,7 @@ class BaseReloader:
+         logger.debug('Waiting for apps ready_event.')
+         self.wait_for_apps_ready(apps, django_main_thread)
+         from django.urls import get_resolver
++
+         # Prevent a race condition where URL modules aren't loaded when the
+         # reloader starts by accessing the urlconf_module property.
+         try:
+diff --git a/django/utils/translation/__init__.py b/django/utils/translation/__init__.py
+index e48c7d245d..5fd129ecb4 100644
+--- a/django/utils/translation/__init__.py
++++ b/django/utils/translation/__init__.py
+@@ -56,7 +56,9 @@ class Trans:
+         from django.conf import settings
+         if settings.USE_I18N:
+             from django.utils.translation import trans_real as trans
+-            from django.utils.translation.reloader import watch_for_translation_changes, translation_file_changed
++            from django.utils.translation.reloader import (
++                translation_file_changed, watch_for_translation_changes,
++            )
+             autoreload_started.connect(watch_for_translation_changes, dispatch_uid='translation_file_changed')
+             file_changed.connect(translation_file_changed, dispatch_uid='translation_file_changed')
+         else:
+diff --git a/django/utils/translation/reloader.py b/django/utils/translation/reloader.py
+index 41d0623568..8171f33d48 100644
+--- a/django/utils/translation/reloader.py
++++ b/django/utils/translation/reloader.py
+@@ -21,6 +21,7 @@ def translation_file_changed(sender, file_path, **kwargs):
+     """Clear the internal translations cache if a .mo file is modified."""
+     if file_path.suffix == '.mo':
+         import gettext
++
+         from django.utils.translation import trans_real
+         gettext._translations = {}
+         trans_real._translations = {}
+diff --git a/django/views/csrf.py b/django/views/csrf.py
+index 27e7b5ca37..53c39b6893 100644
+--- a/django/views/csrf.py
++++ b/django/views/csrf.py
+@@ -105,7 +105,7 @@ def csrf_failure(request, reason="", template_name=CSRF_FAILURE_TEMPLATE_NAME):
+     """
+     Default view used when request fails CSRF protection
+     """
+-    from django.middleware.csrf import REASON_NO_REFERER, REASON_NO_CSRF_COOKIE
++    from django.middleware.csrf import REASON_NO_CSRF_COOKIE, REASON_NO_REFERER
+     c = {
+         'title': _("Forbidden"),
+         'main': _("CSRF verification failed. Request aborted."),
+diff --git a/tests/annotations/tests.py b/tests/annotations/tests.py
+index c39e8d3fbe..3c6e6efbf1 100644
+--- a/tests/annotations/tests.py
++++ b/tests/annotations/tests.py
+@@ -23,6 +23,7 @@ def cxOracle_py3_bug(func):
+     we mark them as expected failures until someone fixes them in #23843.
+     """
+     from unittest import expectedFailure
++
+     from django.db import connection
+     return expectedFailure(func) if connection.vendor == 'oracle' else func
+ 
+diff --git a/tests/backends/postgresql/test_creation.py b/tests/backends/postgresql/test_creation.py
+index 7d6f319a80..73fc1c50d4 100644
+--- a/tests/backends/postgresql/test_creation.py
++++ b/tests/backends/postgresql/test_creation.py
+@@ -14,6 +14,7 @@ except ImportError:
+     pass
+ else:
+     from psycopg2 import errorcodes
++
+     from django.db.backends.postgresql.creation import DatabaseCreation
+ 
+ 
+diff --git a/tests/backends/postgresql/tests.py b/tests/backends/postgresql/tests.py
+index 4e51c1c7b5..2670b34da6 100644
+--- a/tests/backends/postgresql/tests.py
++++ b/tests/backends/postgresql/tests.py
+@@ -117,10 +117,10 @@ class Tests(TestCase):
+             ISOLATION_LEVEL_READ_COMMITTED as read_committed,
+             ISOLATION_LEVEL_SERIALIZABLE as serializable,
+         )
++
+         # Since this is a django.test.TestCase, a transaction is in progress
+         # and the isolation level isn't reported as 0. This test assumes that
+         # PostgreSQL is configured with the default isolation level.
+-
+         # Check the level on the psycopg2 connection, not the Django wrapper.
+         default_level = read_committed if psycopg2.__version__ < '2.7' else None
+         self.assertEqual(connection.connection.isolation_level, default_level)
+diff --git a/tests/check_framework/test_security.py b/tests/check_framework/test_security.py
+index 4c1869d272..ae9f8cb20c 100644
+--- a/tests/check_framework/test_security.py
++++ b/tests/check_framework/test_security.py
+@@ -7,7 +7,9 @@ from django.test.utils import override_settings
+ class CheckSessionCookieSecureTest(SimpleTestCase):
+     @property
+     def func(self):
+-        from django.core.checks.security.sessions import check_session_cookie_secure
++        from django.core.checks.security.sessions import (
++            check_session_cookie_secure,
++        )
+         return check_session_cookie_secure
+ 
+     @override_settings(
+@@ -62,7 +64,9 @@ class CheckSessionCookieSecureTest(SimpleTestCase):
+ class CheckSessionCookieHttpOnlyTest(SimpleTestCase):
+     @property
+     def func(self):
+-        from django.core.checks.security.sessions import check_session_cookie_httponly
++        from django.core.checks.security.sessions import (
++            check_session_cookie_httponly,
++        )
+         return check_session_cookie_httponly
+ 
+     @override_settings(
+@@ -230,7 +234,9 @@ class CheckStrictTransportSecurityTest(SimpleTestCase):
+ class CheckStrictTransportSecuritySubdomainsTest(SimpleTestCase):
+     @property
+     def func(self):
+-        from django.core.checks.security.base import check_sts_include_subdomains
++        from django.core.checks.security.base import (
++            check_sts_include_subdomains,
++        )
+         return check_sts_include_subdomains
+ 
+     @override_settings(
+@@ -322,7 +328,9 @@ class CheckStrictTransportSecurityPreloadTest(SimpleTestCase):
+ class CheckXFrameOptionsMiddlewareTest(SimpleTestCase):
+     @property
+     def func(self):
+-        from django.core.checks.security.base import check_xframe_options_middleware
++        from django.core.checks.security.base import (
++            check_xframe_options_middleware,
++        )
+         return check_xframe_options_middleware
+ 
+     @override_settings(MIDDLEWARE=[])
+diff --git a/tests/check_framework/test_templates.py b/tests/check_framework/test_templates.py
+index 494dab0192..df0a9e98a3 100644
+--- a/tests/check_framework/test_templates.py
++++ b/tests/check_framework/test_templates.py
+@@ -69,7 +69,9 @@ class CheckTemplateStringIfInvalidTest(SimpleTestCase):
+ 
+     @property
+     def func(self):
+-        from django.core.checks.templates import check_string_if_invalid_is_string
++        from django.core.checks.templates import (
++            check_string_if_invalid_is_string,
++        )
+         return check_string_if_invalid_is_string
+ 
+     @override_settings(TEMPLATES=TEMPLATES_STRING_IF_INVALID)
+diff --git a/tests/gis_tests/geo3d/tests.py b/tests/gis_tests/geo3d/tests.py
+index d2e85f0607..a9517c4737 100644
+--- a/tests/gis_tests/geo3d/tests.py
++++ b/tests/gis_tests/geo3d/tests.py
+@@ -142,7 +142,7 @@ class Geo3DTest(Geo3DLoadingHelper, TestCase):
+         Testing LayerMapping on 3D models.
+         """
+         # Import here as GDAL is required for those imports
+-        from django.contrib.gis.utils import LayerMapping, LayerMapError
++        from django.contrib.gis.utils import LayerMapError, LayerMapping
+ 
+         point_mapping = {'point': 'POINT'}
+         mpoint_mapping = {'mpoint': 'MULTIPOINT'}
+diff --git a/tests/gis_tests/rasterapp/test_rasterfield.py b/tests/gis_tests/rasterapp/test_rasterfield.py
+index 63a6325135..1cc4f52f1b 100644
+--- a/tests/gis_tests/rasterapp/test_rasterfield.py
++++ b/tests/gis_tests/rasterapp/test_rasterfield.py
+@@ -120,7 +120,9 @@ class RasterFieldTest(TransactionTestCase):
+         unprojected coordinate systems. This test just checks that the lookup
+         can be called, but doesn't check if the result makes logical sense.
+         """
+-        from django.contrib.gis.db.backends.postgis.operations import PostGISOperations
++        from django.contrib.gis.db.backends.postgis.operations import (
++            PostGISOperations,
++        )
+ 
+         # Create test raster and geom.
+         rast = GDALRaster(json.loads(JSON_RASTER))
+diff --git a/tests/gis_tests/tests.py b/tests/gis_tests/tests.py
+index e8ecca9ceb..2bb95ec3d4 100644
+--- a/tests/gis_tests/tests.py
++++ b/tests/gis_tests/tests.py
+@@ -4,7 +4,9 @@ from django.core.exceptions import ImproperlyConfigured
+ from django.db import ProgrammingError
+ 
+ try:
+-    from django.contrib.gis.db.backends.postgis.operations import PostGISOperations
++    from django.contrib.gis.db.backends.postgis.operations import (
++        PostGISOperations,
++    )
+     HAS_POSTGRES = True
+ except ImportError:
+     HAS_POSTGRES = False
+diff --git a/tests/gis_tests/utils.py b/tests/gis_tests/utils.py
+index b30da7e40d..df33d0643c 100644
+--- a/tests/gis_tests/utils.py
++++ b/tests/gis_tests/utils.py
+@@ -52,11 +52,17 @@ spatialite = _default_db == 'spatialite'
+ gisfield_may_be_null = not mysql
+ 
+ if oracle and 'gis' in settings.DATABASES[DEFAULT_DB_ALIAS]['ENGINE']:
+-    from django.contrib.gis.db.backends.oracle.models import OracleSpatialRefSys as SpatialRefSys
++    from django.contrib.gis.db.backends.oracle.models import (
++        OracleSpatialRefSys as SpatialRefSys,
++    )
+ elif postgis:
+-    from django.contrib.gis.db.backends.postgis.models import PostGISSpatialRefSys as SpatialRefSys
++    from django.contrib.gis.db.backends.postgis.models import (
++        PostGISSpatialRefSys as SpatialRefSys,
++    )
+ elif spatialite:
+-    from django.contrib.gis.db.backends.spatialite.models import SpatialiteSpatialRefSys as SpatialRefSys
++    from django.contrib.gis.db.backends.spatialite.models import (
++        SpatialiteSpatialRefSys as SpatialRefSys,
++    )
+ else:
+     SpatialRefSys = None
+ 
+diff --git a/tests/model_fields/test_imagefield.py b/tests/model_fields/test_imagefield.py
+index 8fb64be464..8418deecb7 100644
+--- a/tests/model_fields/test_imagefield.py
++++ b/tests/model_fields/test_imagefield.py
+@@ -15,10 +15,9 @@ except ImproperlyConfigured:
+ 
+ if Image:
+     from .models import (
+-        Person, PersonWithHeight, PersonWithHeightAndWidth,
+-        PersonDimensionsFirst, PersonTwoImages, TestImageFieldFile,
++        Person, PersonDimensionsFirst, PersonTwoImages, PersonWithHeight,
++        PersonWithHeightAndWidth, TestImageFieldFile, temp_storage_dir,
+     )
+-    from .models import temp_storage_dir
+ else:
+     # Pillow not available, create dummy classes (tests will be skipped anyway)
+     class Person:
+diff --git a/tests/model_forms/tests.py b/tests/model_forms/tests.py
+index e264b6df77..f7399651a0 100644
+--- a/tests/model_forms/tests.py
++++ b/tests/model_forms/tests.py
+@@ -31,7 +31,7 @@ from .models import (
+ )
+ 
+ if test_images:
+-    from .models import ImageFile, OptionalImageFile, NoExtensionImageFile
++    from .models import ImageFile, NoExtensionImageFile, OptionalImageFile
+ 
+     class ImageFileForm(forms.ModelForm):
+         class Meta:
+diff --git a/tests/postgres_tests/test_apps.py b/tests/postgres_tests/test_apps.py
+index 7b56c8f716..bfb7568d50 100644
+--- a/tests/postgres_tests/test_apps.py
++++ b/tests/postgres_tests/test_apps.py
+@@ -8,6 +8,7 @@ try:
+     from psycopg2.extras import (
+         DateRange, DateTimeRange, DateTimeTZRange, NumericRange,
+     )
++
+     from django.contrib.postgres.fields import (
+         DateRangeField, DateTimeRangeField, IntegerRangeField,
+     )
+diff --git a/tests/postgres_tests/test_array.py b/tests/postgres_tests/test_array.py
+index 42885e61f6..666714888e 100644
+--- a/tests/postgres_tests/test_array.py
++++ b/tests/postgres_tests/test_array.py
+@@ -25,13 +25,16 @@ from .models import (
+ )
+ 
+ try:
++    from psycopg2.extras import NumericRange
++
+     from django.contrib.postgres.aggregates import ArrayAgg
+     from django.contrib.postgres.fields import ArrayField
+-    from django.contrib.postgres.fields.array import IndexTransform, SliceTransform
++    from django.contrib.postgres.fields.array import (
++        IndexTransform, SliceTransform,
++    )
+     from django.contrib.postgres.forms import (
+         SimpleArrayField, SplitArrayField, SplitArrayWidget,
+     )
+-    from psycopg2.extras import NumericRange
+ except ImportError:
+     pass
+ 
+diff --git a/tests/postgres_tests/test_bulk_update.py b/tests/postgres_tests/test_bulk_update.py
+index 6dd7036a9b..98fdeb2ebc 100644
+--- a/tests/postgres_tests/test_bulk_update.py
++++ b/tests/postgres_tests/test_bulk_update.py
+@@ -7,7 +7,7 @@ from .models import (
+ )
+ 
+ try:
+-    from psycopg2.extras import NumericRange, DateRange
++    from psycopg2.extras import DateRange, NumericRange
+ except ImportError:
+     pass  # psycopg2 isn't installed.
+ 
+diff --git a/tests/postgres_tests/test_constraints.py b/tests/postgres_tests/test_constraints.py
+index d8665f59f6..18cc51a948 100644
+--- a/tests/postgres_tests/test_constraints.py
++++ b/tests/postgres_tests/test_constraints.py
+@@ -10,10 +10,12 @@ from . import PostgreSQLTestCase
+ from .models import HotelReservation, RangesModel, Room
+ 
+ try:
+-    from django.contrib.postgres.constraints import ExclusionConstraint
+-    from django.contrib.postgres.fields import DateTimeRangeField, RangeBoundary, RangeOperators
+-
+     from psycopg2.extras import DateRange, NumericRange
++
++    from django.contrib.postgres.constraints import ExclusionConstraint
++    from django.contrib.postgres.fields import (
++        DateTimeRangeField, RangeBoundary, RangeOperators,
++    )
+ except ImportError:
+     pass
+ 
+diff --git a/tests/postgres_tests/test_json.py b/tests/postgres_tests/test_json.py
+index 39cba8f695..631f3f5fd2 100644
+--- a/tests/postgres_tests/test_json.py
++++ b/tests/postgres_tests/test_json.py
+@@ -19,7 +19,9 @@ from .models import JSONModel, PostgreSQLModel
+ try:
+     from django.contrib.postgres import forms
+     from django.contrib.postgres.fields import JSONField
+-    from django.contrib.postgres.fields.jsonb import KeyTextTransform, KeyTransform
++    from django.contrib.postgres.fields.jsonb import (
++        KeyTextTransform, KeyTransform,
++    )
+ except ImportError:
+     pass
+ 
+diff --git a/tests/postgres_tests/test_operations.py b/tests/postgres_tests/test_operations.py
+index 7be6de9eff..780bbba2d4 100644
+--- a/tests/postgres_tests/test_operations.py
++++ b/tests/postgres_tests/test_operations.py
+@@ -8,10 +8,10 @@ from django.db.utils import NotSupportedError
+ from django.test import modify_settings
+ 
+ try:
++    from django.contrib.postgres.indexes import BrinIndex, BTreeIndex
+     from django.contrib.postgres.operations import (
+         AddIndexConcurrently, RemoveIndexConcurrently,
+     )
+-    from django.contrib.postgres.indexes import BrinIndex, BTreeIndex
+ except ImportError:
+     pass
+ 
+diff --git a/tests/postgres_tests/test_ranges.py b/tests/postgres_tests/test_ranges.py
+index 3702221107..a437c3952c 100644
+--- a/tests/postgres_tests/test_ranges.py
++++ b/tests/postgres_tests/test_ranges.py
+@@ -14,6 +14,7 @@ from .models import RangeLookupsModel, RangesModel
+ 
+ try:
+     from psycopg2.extras import DateRange, DateTimeTZRange, NumericRange
++
+     from django.contrib.postgres import fields as pg_fields, forms as pg_forms
+     from django.contrib.postgres.validators import (
+         RangeMaxValueValidator, RangeMinValueValidator,

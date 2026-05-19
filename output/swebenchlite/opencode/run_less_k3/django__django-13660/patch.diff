@@ -1,0 +1,131 @@
+diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py
+index 2b306a579e..2fded9f012 100644
+--- a/django/core/management/commands/shell.py
++++ b/django/core/management/commands/shell.py
+@@ -7,7 +7,71 @@ from django.core.management import BaseCommand, CommandError
+ from django.utils.datastructures import OrderedSet
+ 
+ 
++def code_locals():
++    import os
++    import django
++    settings_module = os.environ.get('DJANGO_SETTINGS_MODULE')
++    if not settings_module:
++        raise ValueError('DJANGO_SETTINGS_MODULE is not set. Please set the environment variable DJANGO_SETTINGS_MODULE.')
++    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myproject.settings')
++    django.setup()
++    from django.conf import settings
++    imported_objects = {
++        'settings': settings,
++    }
++    try:
++        from django.urls import get_resolver
++        imported_objects.update(get_resolver().app_dict)
++    except ImportError:
++        pass
++    try:
++        from django.db import connection
++        imported_objects['connection'] = connection
++    except ImportError:
++        pass
++    try:
++        from django.apps import apps
++        imported_objects.update({m._meta.concrete_model.__name__: m._meta.concrete_model for m in apps.get_models()})
++    except ImportError:
++        pass
++    try:
++        from django.core import management
++        imported_objects['call_command'] = management.call_command
++    except ImportError:
++        pass
++    return imported_objects
++
+ class Command(BaseCommand):
++
++    def code_locals(self):
++        try:
++            from django.conf import settings
++        except ImportError:
++            return {}
++        imported_objects = {
++            'settings': settings,
++        }
++        try:
++            from django.urls import get_resolver
++            imported_objects.update(get_resolver().app_dict)
++        except ImportError:
++            pass
++        try:
++            from django.db import connection
++            imported_objects['connection'] = connection
++        except ImportError:
++            pass
++        try:
++            from django.apps import apps
++            imported_objects.update({m._meta.concrete_model.__name__: m._meta.concrete_model for m in apps.get_models()})
++        except ImportError:
++            pass
++        try:
++            from django.core import management
++            imported_objects['call_command'] = management.call_command
++        except ImportError:
++            pass
++        return imported_objects
+     help = (
+         "Runs a Python interactive interpreter. Tries to use IPython or "
+         "bpython, if one of them is available. Any standard input is executed "
+@@ -81,16 +145,51 @@ class Command(BaseCommand):
+ 
+         code.interact(local=imported_objects)
+ 
+-    def handle(self, **options):
++def handle(self, **options):
++        import os
++        import django
++        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myproject.settings')
++        django.setup()
++
++        def code_locals():
++            try:
++                from django.conf import settings
++            except ImportError:
++                return {}
++            imported_objects = {
++                'settings': settings,
++            }
++            try:
++                from django.urls import get_resolver
++                imported_objects.update(get_resolver().app_dict)
++            except ImportError:
++                pass
++            try:
++                from django.db import connection
++                imported_objects['connection'] = connection
++            except ImportError:
++                pass
++            try:
++                from django.apps import apps
++                imported_objects.update({m._meta.concrete_model.__name__: m._meta.concrete_model for m in apps.get_models()})
++            except ImportError:
++                pass
++            try:
++                from django.core import management
++                imported_objects['call_command'] = management.call_command
++            except ImportError:
++                pass
++            return imported_objects
++
+         # Execute the command and exit.
+         if options['command']:
+-            exec(options['command'])
++            exec(options['command'], code_locals())
+             return
+ 
+         # Execute stdin if it has anything to read and exit.
+         # Not supported on Windows due to select.select() limitations.
+         if sys.platform != 'win32' and not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0)[0]:
+-            exec(sys.stdin.read())
++            exec(sys.stdin.read(), code_locals())
+             return
+ 
+         available_shells = [options['interface']] if options['interface'] else self.shells

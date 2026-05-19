@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14915",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/forms/models.py b/django/forms/models.py\nindex 5dcf923c12..6408ece1d5 100644\n--- a/django/forms/models.py\n+++ b/django/forms/models.py\n@@ -1159,6 +1159,9 @@ class InlineForeignKeyField(Field):\n \n \n class ModelChoiceIteratorValue:\n+    def __hash__(self):\n+        return hash(self.value)\n+\n     def __init__(self, value, instance):\n         self.value = value\n         self.instance = instance",
+  "tokens_used": 104772,
+  "exec_count": 3,
+  "duration_sec": 968.1260688304901,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

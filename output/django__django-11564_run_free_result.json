@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11564",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/templatetags/static.py b/django/templatetags/static.py\nindex 39712aaba0..477664672e 100644\n--- a/django/templatetags/static.py\n+++ b/django/templatetags/static.py\n@@ -48,6 +48,13 @@ class PrefixNode(template.Node):\n \n     def render(self, context):\n         prefix = self.handle_simple(self.name)\n+        request = context.get('request')\n+        if request and 'SCRIPT_NAME' in request.META:\n+            script_name = request.META['SCRIPT_NAME']\n+            if not prefix.startswith(script_name):\n+                prefix = script_name + prefix\n+        if context.autoescape:\n+            prefix = conditional_escape(prefix)\n         if self.varname is None:\n             return prefix\n         context[self.varname] = prefix\n@@ -103,13 +110,16 @@ class StaticNode(template.Node):\n         return self.handle_simple(path)\n \n     def render(self, context):\n-        url = self.url(context)\n-        if context.autoescape:\n-            url = conditional_escape(url)\n-        if self.varname is None:\n-            return url\n-        context[self.varname] = url\n-        return ''\n+    url = self.url(context)\n+    request = context.get('request')\n+    if request and 'SCRIPT_NAME' in request.META:\n+        script_name = request.META['SCRIPT_NAME']\n+        if not url.startswith(script_name):\n+            url = script_name + url\n+    if self.varname is None:\n+        return url\n+    context[self.varname] = url\n+    return ''\n \n     @classmethod\n     def handle_simple(cls, path):",
+  "tokens_used": 56488,
+  "exec_count": 1,
+  "duration_sec": 311.2875692844391,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

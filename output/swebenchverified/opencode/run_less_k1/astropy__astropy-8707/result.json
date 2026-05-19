@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-8707",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/astropy/io/fits/header.py b/astropy/io/fits/header.py\nindex ad07e6d52..1e81352c1 100644\n--- a/astropy/io/fits/header.py\n+++ b/astropy/io/fits/header.py\n@@ -327,7 +327,7 @@ class Header:\n         self.__dict__['_modified'] = val\n \n     @classmethod\n-    def fromstring(cls, data, sep=''):\n+    def fromstring(cls, data, sep=''): data = data.decode('ascii') if isinstance(data, bytes) else data\n         \"\"\"\n         Creates an HDU header from a byte string containing the entire header\n         data.",
+  "tokens_used": 134131,
+  "exec_count": 2,
+  "duration_sec": 198.40869331359863,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11133",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/http/response.py b/django/http/response.py\nindex 6a84e193ba..30812db011 100644\n--- a/django/http/response.py\n+++ b/django/http/response.py\n@@ -229,9 +229,11 @@ class HttpResponseBase:\n         # Handle string types -- we can't rely on force_bytes here because:\n         # - Python attempts str conversion first\n         # - when self._charset != 'utf-8' it re-encodes the content\n-        if isinstance(value, bytes):\n-            return bytes(value)\n-        if isinstance(value, str):\n+if isinstance(value, bytes):\n+    return value\n+elif isinstance(value, memoryview):\n+    return value.tobytes()\n+if isinstance(value, str):\n             return bytes(value.encode(self.charset))\n         # Handle non-string types.\n         return str(value).encode(self.charset)",
+  "tokens_used": 566156,
+  "exec_count": 71,
+  "duration_sec": 1622.896494626999,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

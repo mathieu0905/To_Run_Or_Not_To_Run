@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14787",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/utils/decorators.py b/django/utils/decorators.py\nindex 5c9a5d01c7..5507b1424b 100644\n--- a/django/utils/decorators.py\n+++ b/django/utils/decorators.py\n@@ -47,7 +47,7 @@ def _multi_decorate(decorators, method):\n         _update_method_wrapper(_wrapper, dec)\n     # Preserve any existing attributes of 'method', including the name.\n     update_wrapper(_wrapper, method)\n-    return _wrapper\n+    return update_wrapper(_wrapper, func, assigned=functools.WRAPPER_ASSIGNMENTS, updated=functools.WRAPPER_UPDATES)\n \n \n def method_decorator(decorator, name=''):",
+  "tokens_used": 38099,
+  "exec_count": 0,
+  "duration_sec": 138.6414430141449,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

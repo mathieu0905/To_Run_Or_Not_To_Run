@@ -1,0 +1,27 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index e287a6f55a..9965d05407 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -90,7 +90,7 @@ class SQLCompiler:
+         # The query.group_by is either None (no GROUP BY at all), True
+         # (group by select fields), or a list of expressions to be added
+         # to the group by.
+-        if self.query.group_by is None:
++        if self.query.group_by is None and not getattr(self, 'subquery_group_by', None):
+             return []
+         expressions = []
+         if self.query.group_by is not True:
+@@ -561,7 +561,12 @@ class SQLCompiler:
+                     if distinct_fields:
+                         raise NotImplementedError('annotate() + distinct(fields) is not implemented.')
+                     order_by = order_by or self.connection.ops.force_no_ordering()
+-                    result.append('GROUP BY %s' % ', '.join(grouping))
++                    print('Before GROUP BY:', result)
++result.append('GROUP BY %s' % ', '.join(grouping))
++self.subquery_group_by = grouping
++self.subquery_group_by = grouping
++print('After GROUP BY:', result)
++
+                     if self._meta_ordering:
+                         order_by = None
+                 if having:

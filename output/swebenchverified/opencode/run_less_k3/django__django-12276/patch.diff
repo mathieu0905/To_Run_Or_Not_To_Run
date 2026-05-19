@@ -1,0 +1,30 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 338d54d72f..1464e98029 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -381,12 +381,24 @@ class FileInput(Input):
+         return
+ 
+     def value_from_datadict(self, data, files, name):
+-        "File widgets take data from FILES, not POST"
++        """File widgets take data from FILES, not POST"""
+         return files.get(name)
+ 
+     def value_omitted_from_data(self, data, files, name):
+         return name not in files
+ 
++    def use_required_attribute(self, initial):
++        return super().use_required_attribute(initial) and not initial
++
++    def use_required_attribute(self, initial):
++        return super().use_required_attribute(initial) and not initial
++
++    def use_required_attribute(self, initial):
++        return super().use_required_attribute(initial) and not initial
++
++    def use_required_attribute(self, initial):
++        return super().use_required_attribute(initial) and not initial
++
+ 
+ FILE_INPUT_CONTRADICTION = object()
+ 

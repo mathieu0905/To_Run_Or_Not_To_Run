@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12908",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/models/query.py b/django/db/models/query.py\nindex e0eeccefa6..c5a12b43d1 100644\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -1142,6 +1142,8 @@ class QuerySet:\n             \"Cannot create distinct fields once a slice has been taken.\"\n         obj = self._chain()\n         obj.query.add_distinct_fields(*field_names)\n+        obj.query.post_union_distinct = True\n+        obj.query.post_union_distinct = True\n         return obj\n \n     def extra(self, select=None, where=None, params=None, tables=None,",
+  "tokens_used": 210241,
+  "exec_count": 0,
+  "duration_sec": 911.4897499084473,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

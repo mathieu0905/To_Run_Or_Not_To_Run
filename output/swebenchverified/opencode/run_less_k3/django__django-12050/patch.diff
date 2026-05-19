@@ -1,0 +1,13 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index ea51912e8b..db6ff8906a 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1073,7 +1073,7 @@ class Query(BaseExpression):
+                         ))
+                 else:
+                     resolved_values.append(sub_value)
+-            value = tuple(resolved_values)
++            print(f'Type before conversion: {type(resolved_values)}, Value: {resolved_values}'); print(f'Type before conversion: {type(resolved_values)}, Value: {resolved_values}'); print(f'Type before conversion: {type(resolved_values)}, Value: {resolved_values}'); value = tuple(resolved_values); print(f'Type after conversion: {type(value)}, Value: {value}'); print(f'Type after conversion: {type(value)}, Value: {value}'); print(f'Type after conversion: {type(value)}, Value: {value}')
+         return value
+ 
+     def solve_lookup_type(self, lookup):

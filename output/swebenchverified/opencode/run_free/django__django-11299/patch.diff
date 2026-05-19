@@ -1,0 +1,22 @@
+diff --git a/django/db/models/constraints.py b/django/db/models/constraints.py
+index e7f81d3ee9..6edb0cc0e5 100644
+--- a/django/db/models/constraints.py
++++ b/django/db/models/constraints.py
+@@ -36,7 +36,7 @@ class CheckConstraint(BaseConstraint):
+         query = Query(model=model)
+         where = query.build_where(self.check)
+         compiler = query.get_compiler(connection=schema_editor.connection)
+-        sql, params = where.as_sql(compiler, schema_editor.connection)
++        sql, params = where.as_sql(compiler, schema_editor.connection, with_col_aliases=False)
+         return sql % tuple(schema_editor.quote_value(p) for p in params)
+ 
+     def constraint_sql(self, model, schema_editor):
+@@ -82,7 +82,7 @@ class UniqueConstraint(BaseConstraint):
+         query = Query(model=model)
+         where = query.build_where(self.condition)
+         compiler = query.get_compiler(connection=schema_editor.connection)
+-        sql, params = where.as_sql(compiler, schema_editor.connection)
++        sql, params = where.as_sql(compiler, schema_editor.connection, with_col_aliases=False)
+         return sql % tuple(schema_editor.quote_value(p) for p in params)
+ 
+     def constraint_sql(self, model, schema_editor):

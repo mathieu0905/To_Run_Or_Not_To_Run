@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12470",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py\nindex 92213a4e67..7464abbec6 100644\n--- a/django/db/models/sql/compiler.py\n+++ b/django/db/models/sql/compiler.py\n@@ -272,12 +272,16 @@ class SQLCompiler:\n         add totally new select clauses).\n         \"\"\"\n         if self.query.extra_order_by:\n+            print(f'Debug: extra_order_by: {self.query.extra_order_by}')\n             ordering = self.query.extra_order_by\n         elif not self.query.default_ordering:\n+            print(f'Debug: default_ordering: {self.query.default_ordering}')\n             ordering = self.query.order_by\n         elif self.query.order_by:\n+            print(f'Debug: order_by: {self.query.order_by}')\n             ordering = self.query.order_by\n         elif self.query.get_meta().ordering:\n+            print(f'Debug: Meta.ordering: {self.query.get_meta().ordering}')\n             ordering = self.query.get_meta().ordering\n             self._meta_ordering = ordering\n         else:",
+  "tokens_used": 158464,
+  "exec_count": 9,
+  "duration_sec": 1153.7558398246765,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

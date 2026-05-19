@@ -1,0 +1,156 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 00c19e2c55..41aad11ba8 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -619,6 +619,139 @@ class ChoiceWidget(Widget):
+         return groups
+ 
+     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
++        if hasattr(value, 'pk'):
++            value = value.pk
++        index = str(index) if subindex is None else "%s_%s" % (index, subindex)
++        option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
++        if selected:
++            option_attrs.update(self.checked_attribute)
++        if 'id' in option_attrs:
++            option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
++        return {
++            'name': name,
++            'value': value,
++            'label': label,
++            'selected': selected,
++            'index': index,
++            'attrs': option_attrs,
++            'type': self.input_type,
++            'template_name': self.option_template_name,
++            'wrap_label': True,
++        }
++        if hasattr(value, 'pk'):
++            value = value.pk
++        index = str(index) if subindex is None else "%s_%s" % (index, subindex)
++        option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
++        if selected:
++            option_attrs.update(self.checked_attribute)
++        if 'id' in option_attrs:
++            option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
++        return {
++            'name': name,
++            'value': value,
++            'label': label,
++            'selected': selected,
++            'index': index,
++            'attrs': option_attrs,
++            'type': self.input_type,
++            'template_name': self.option_template_name,
++            'wrap_label': True,
++        }
++        if hasattr(value, 'pk'):
++            value = value.pk
++        index = str(index) if subindex is None else "%s_%s" % (index, subindex)
++        option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
++        if selected:
++            option_attrs.update(self.checked_attribute)
++        if 'id' in option_attrs:
++            option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
++        return {
++            'name': name,
++            'value': value,
++            'label': label,
++            'selected': selected,
++            'index': index,
++            'attrs': option_attrs,
++            'type': self.input_type,
++            'template_name': self.option_template_name,
++            'wrap_label': True,
++        }
++        if hasattr(value, 'pk'):
++            value = value.pk
++        index = str(index) if subindex is None else "%s_%s" % (index, subindex)
++        option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
++        if selected:
++            option_attrs.update(self.checked_attribute)
++        if 'id' in option_attrs:
++            option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
++        return {
++            'name': name,
++            'value': value,
++            'label': label,
++            'selected': selected,
++            'index': index,
++            'attrs': option_attrs,
++            'type': self.input_type,
++            'template_name': self.option_template_name,
++            'wrap_label': True,
++        }
++        if hasattr(value, 'pk'):
++            value = value.pk
++        index = str(index) if subindex is None else "%s_%s" % (index, subindex)
++        option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
++        if selected:
++            option_attrs.update(self.checked_attribute)
++        if 'id' in option_attrs:
++            option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
++        return {
++            'name': name,
++            'value': value,
++            'label': label,
++            'selected': selected,
++            'index': index,
++            'attrs': option_attrs,
++            'type': self.input_type,
++            'template_name': self.option_template_name,
++            'wrap_label': True,
++        }
++        if hasattr(value, 'pk'):
++            value = value.pk
++        index = str(index) if subindex is None else "%s_%s" % (index, subindex)
++        option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
++        if selected:
++            option_attrs.update(self.checked_attribute)
++        if 'id' in option_attrs:
++            option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
++        return {
++            'name': name,
++            'value': value,
++            'label': label,
++            'selected': selected,
++            'index': index,
++            'attrs': option_attrs,
++            'type': self.input_type,
++            'template_name': self.option_template_name,
++            'wrap_label': True,
++        }
++        if hasattr(value, 'pk'):
++            value = value.pk
++        index = str(index) if subindex is None else "%s_%s" % (index, subindex)
++        option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
++        if selected:
++            option_attrs.update(self.checked_attribute)
++        if 'id' in option_attrs:
++            option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
++        return {
++            'name': name,
++            'value': value,
++            'label': label,
++            'selected': selected,
++            'index': index,
++            'attrs': option_attrs,
++            'type': self.input_type,
++            'template_name': self.option_template_name,
++            'wrap_label': True,
++        }
+         index = str(index) if subindex is None else "%s_%s" % (index, subindex)
+         option_attrs = self.build_attrs(self.attrs, attrs) if self.option_inherits_attrs else {}
+         if selected:
+diff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py
+index e69de29bb2..36ee96473e 100644
+--- a/tests/i18n/sampleproject/sampleproject/settings.py
++++ b/tests/i18n/sampleproject/sampleproject/settings.py
+@@ -0,0 +1,6 @@
++from sampleproject.settings import *
++
++DATABASES['other'] = {
++    'ENGINE': 'django.db.backends.sqlite3',
++    'NAME': BASE_DIR / 'other.sqlite3',
++}
+\ No newline at end of file

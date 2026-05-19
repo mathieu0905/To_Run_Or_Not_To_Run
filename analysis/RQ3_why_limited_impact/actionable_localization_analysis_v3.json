@@ -1,0 +1,113 @@
+{
+  "claude_code": {
+    "pp": {
+      "actionable": {
+        "count": 46,
+        "prohibited_hit_rate": 0.9565217391304348,
+        "prohibited_avg_recall": 0.9456521739130435,
+        "unrestricted_hit_rate": 0.9347826086956522,
+        "unrestricted_avg_recall": 0.9239130434782609,
+        "delta_hit": -0.021739130434782594,
+        "delta_recall": -0.021739130434782594
+      },
+      "non_actionable": {
+        "count": 18,
+        "prohibited_hit_rate": 0.9444444444444444,
+        "prohibited_avg_recall": 0.9444444444444444,
+        "unrestricted_hit_rate": 0.9444444444444444,
+        "unrestricted_avg_recall": 0.9444444444444444,
+        "delta_hit": 0.0,
+        "delta_recall": 0.0
+      },
+      "none": {
+        "count": 52,
+        "prohibited_hit_rate": 1.0,
+        "prohibited_avg_recall": 0.9903846153846154,
+        "unrestricted_hit_rate": 1.0,
+        "unrestricted_avg_recall": 0.9903846153846154,
+        "delta_hit": 0.0,
+        "delta_recall": 0.0
+      }
+    },
+    "ff": {
+      "actionable": {
+        "count": 37,
+        "prohibited_hit_rate": 0.8108108108108109,
+        "prohibited_avg_recall": 0.7274774774774775,
+        "unrestricted_hit_rate": 0.8378378378378378,
+        "unrestricted_avg_recall": 0.7477477477477478,
+        "delta_hit": 0.027027027027026973,
+        "delta_recall": 0.020270270270270285
+      },
+      "non_actionable": {
+        "count": 16,
+        "prohibited_hit_rate": 0.75,
+        "prohibited_avg_recall": 0.7,
+        "unrestricted_hit_rate": 0.75,
+        "unrestricted_avg_recall": 0.66875,
+        "delta_hit": 0.0,
+        "delta_recall": -0.03125
+      },
+      "none": {
+        "count": 31,
+        "prohibited_hit_rate": 0.9354838709677419,
+        "prohibited_avg_recall": 0.9032258064516129,
+        "unrestricted_hit_rate": 0.9354838709677419,
+        "unrestricted_avg_recall": 0.9032258064516129,
+        "delta_hit": 0.0,
+        "delta_recall": 0.0
+      }
+    }
+  },
+  "codex": {
+    "pp": {
+      "actionable": {
+        "count": 7,
+        "prohibited_hit_rate": 0.8571428571428571,
+        "prohibited_avg_recall": 0.8571428571428571,
+        "unrestricted_hit_rate": 0.8571428571428571,
+        "unrestricted_avg_recall": 0.8571428571428571,
+        "delta_hit": 0.0,
+        "delta_recall": 0.0
+      },
+      "non_actionable": {
+        "count": 1,
+        "prohibited_hit_rate": 1.0,
+        "prohibited_avg_recall": 1.0,
+        "unrestricted_hit_rate": 1.0,
+        "unrestricted_avg_recall": 1.0,
+        "delta_hit": 0.0,
+        "delta_recall": 0.0
+      },
+      "none": {
+        "count": 134,
+        "prohibited_hit_rate": 0.9477611940298507,
+        "prohibited_avg_recall": 0.925,
+        "unrestricted_hit_rate": 0.9776119402985075,
+        "unrestricted_avg_recall": 0.9544776119402986,
+        "delta_hit": 0.029850746268656803,
+        "delta_recall": 0.02947761194029852
+      }
+    },
+    "ff": {
+      "actionable": {
+        "count": 4,
+        "prohibited_hit_rate": 1.0,
+        "prohibited_avg_recall": 0.7083333333333334,
+        "unrestricted_hit_rate": 1.0,
+        "unrestricted_avg_recall": 0.7083333333333334,
+        "delta_hit": 0.0,
+        "delta_recall": 0.0
+      },
+      "none": {
+        "count": 51,
+        "prohibited_hit_rate": 0.8823529411764706,
+        "prohibited_avg_recall": 0.8300653594771242,
+        "unrestricted_hit_rate": 0.9019607843137255,
+        "unrestricted_avg_recall": 0.8496732026143792,
+        "delta_hit": 0.019607843137254943,
+        "delta_recall": 0.019607843137254943
+      }
+    }
+  }
+}

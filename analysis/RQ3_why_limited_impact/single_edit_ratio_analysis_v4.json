@@ -1,0 +1,66 @@
+{
+  "prohibited": {
+    "mode": "prohibited",
+    "total_traces": 400,
+    "total_with_edits": 396,
+    "global_single_edit": 285,
+    "global_multiple_edit": 111,
+    "global_single_ratio": 0.7196969696969697,
+    "instances_with_exec": 34,
+    "edit_after_exec": 6,
+    "edit_after_exec_ratio": 0.17647058823529413,
+    "instances_with_multiple_edits": 111,
+    "multiple_triggered_by_exec": 3,
+    "multiple_without_exec": 108,
+    "by_agent": {
+      "claude_code": {
+        "total": 199,
+        "single_edit": 133,
+        "with_exec": 33,
+        "edit_after_exec": 6,
+        "multiple_edits": 66,
+        "multi_by_exec": 3
+      },
+      "codex": {
+        "total": 197,
+        "single_edit": 152,
+        "with_exec": 1,
+        "edit_after_exec": 0,
+        "multiple_edits": 45,
+        "multi_by_exec": 0
+      }
+    }
+  },
+  "unrestricted": {
+    "mode": "unrestricted",
+    "total_traces": 400,
+    "total_with_edits": 396,
+    "global_single_edit": 281,
+    "global_multiple_edit": 115,
+    "global_single_ratio": 0.7095959595959596,
+    "instances_with_exec": 380,
+    "edit_after_exec": 159,
+    "edit_after_exec_ratio": 0.41842105263157897,
+    "instances_with_multiple_edits": 115,
+    "multiple_triggered_by_exec": 52,
+    "multiple_without_exec": 63,
+    "by_agent": {
+      "claude_code": {
+        "total": 198,
+        "single_edit": 124,
+        "with_exec": 182,
+        "edit_after_exec": 117,
+        "multiple_edits": 74,
+        "multi_by_exec": 26
+      },
+      "codex": {
+        "total": 198,
+        "single_edit": 157,
+        "with_exec": 198,
+        "edit_after_exec": 42,
+        "multiple_edits": 41,
+        "multi_by_exec": 26
+      }
+    }
+  }
+}

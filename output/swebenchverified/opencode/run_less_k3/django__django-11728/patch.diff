@@ -1,0 +1,40 @@
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+index 2ff8b2c775..886b22aea9 100644
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -618,6 +618,7 @@ class URLResolver:
+         possibilities = self.reverse_dict.getlist(lookup_view)
+ 
+         for possibility, pattern, defaults, converters in possibilities:
++            print(f'Matching possibility: {possibility}, pattern: {pattern}, defaults: {defaults}, converters: {converters}')
+             for result, params in possibility:
+                 if args:
+                     if len(args) != len(params):
+@@ -629,6 +630,7 @@ class URLResolver:
+                     if any(kwargs.get(k, v) != v for k, v in defaults.items()):
+                         continue
+                     candidate_subs = kwargs
++print(f'Candidate substitutions: {candidate_subs}')
+                 # Convert the candidate subs to text using Converter.to_url().
+                 text_candidate_subs = {}
+                 for k, v in candidate_subs.items():
+@@ -645,6 +647,7 @@ class URLResolver:
+                 if re.search('^%s%s' % (re.escape(_prefix), pattern), candidate_pat % text_candidate_subs):
+                     # safe characters from `pchar` definition of RFC 3986
+                     url = quote(candidate_pat % text_candidate_subs, safe=RFC3986_SUBDELIMS + '/~:@')
++print(f'Substituted URL: {url}')
+                     # Don't allow construction of scheme relative urls.
+                     return escape_leading_slashes(url)
+         # lookup_view can be URL name or callable, but callables are not
+diff --git a/django/utils/regex_helper.py b/django/utils/regex_helper.py
+index 8d55a79272..f944279e32 100644
+--- a/django/utils/regex_helper.py
++++ b/django/utils/regex_helper.py
+@@ -109,6 +109,7 @@ def normalize(pattern):
+                     # A positional group
+                     name = "_%d" % num_args
+                     num_args += 1
++print(f'Pattern: {pattern}, Group Name: {name}')
+                     result.append(Group((("%%(%s)s" % name), name)))
+                     walk_to_end(ch, pattern_iter)
+                 else:

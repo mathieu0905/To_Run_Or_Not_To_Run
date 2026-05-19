@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11630",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py\nindex 5c2266ca1d..ebbd306ec3 100644\n--- a/django/core/checks/model_checks.py\n+++ b/django/core/checks/model_checks.py\n@@ -36,7 +36,7 @@ def check_all_models(app_configs=None, **kwargs):\n         for model_constraint in model._meta.constraints:\n             constraints[model_constraint.name].append(model._meta.label)\n     for db_table, model_labels in db_table_models.items():\n-        if len(model_labels) != 1:\n+        if len(model_labels) != 1 and len({model.split('.')[0] for model in model_labels}) == 1:\n             errors.append(\n                 Error(\n                     \"db_table '%s' is used by multiple models: %s.\"",
+  "tokens_used": 70953,
+  "exec_count": 0,
+  "duration_sec": 425.6392152309418,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

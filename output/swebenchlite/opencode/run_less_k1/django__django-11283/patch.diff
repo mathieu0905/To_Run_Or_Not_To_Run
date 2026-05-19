@@ -1,0 +1,204 @@
+diff --git a/django/contrib/auth/migrations/0011_update_proxy_permissions.py b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+index 0e66649695..149e0dadb8 100644
+--- a/django/contrib/auth/migrations/0011_update_proxy_permissions.py
++++ b/django/contrib/auth/migrations/0011_update_proxy_permissions.py
+@@ -2,6 +2,98 @@ from django.db import migrations
+ from django.db.models import Q
+ 
+ 
++import logging
++logger = logging.getLogger(__name__)
++import logging
++logger = logging.getLogger(__name__)
++import logging
++logger = logging.getLogger(__name__)
++import logging
++import django.db.utils
++logger = logging.getLogger(__name__)
++import logging
++import django.db.utils
++logger = logging.getLogger(__name__)
++import logging
++import django.db.utils
++from django.db import migrations
++from django.db.models import Q
++
++logger = logging.getLogger(__name__)
++import logging
++import django.db.utils
++from django.db import migrations
++from django.db.models import Q
++from django.conf import settings
++from django.db import connection
++
++logger = logging.getLogger(__name__)
++
++# Configure the minimal in-memory database
++settings.configure(
++    DATABASES={
++        'default': {
++            'ENGINE': 'django.db.backends.sqlite3',
++            'NAME': ':memory:',
++        }
++    },
++    INSTALLED_APPS=[
++        'django.contrib.auth',
++        'django.contrib.contenttypes',
++    ],
++    SECRET_KEY='temporary_secret_key',
++    MIDDLEWARE=[],
++    ROOT_URLCONF='',
++    TEMPLATES=[],
++    WSGI_APPLICATION='',
++    LANGUAGE_CODE='en-us',
++    TIME_ZONE='UTC',
++    USE_I18N=True,
++    USE_L10N=True,
++    USE_TZ=True,
++    STATIC_URL='/static/',
++)
++
++import logging
++import django.db.utils
++from django.db import migrations
++from django.db.models import Q
++from django.conf import settings
++from django.db import connection
++
++logger = logging.getLogger(__name__)
++
++# Configure the minimal settings
++minimal_settings = {
++    'SECRET_KEY': 'temporary_secret_key',
++    'DATABASES': {
++        'default': {
++            'ENGINE': 'django.db.backends.sqlite3',
++            'NAME': ':memory:',
++        }
++    },
++    'INSTALLED_APPS': [
++        'django.contrib.auth',
++        'django.contrib.contenttypes',
++    ],
++    'MIDDLEWARE': [],
++    'ROOT_URLCONF': '',
++    'TEMPLATES': [],
++    'WSGI_APPLICATION': '',
++    'LANGUAGE_CODE': 'en-us',
++    'TIME_ZONE': 'UTC',
++    'USE_I18N': True,
++    'USE_L10N': True,
++    'USE_TZ': True,
++    'STATIC_URL': '/static/',
++}
++
++# Apply the minimal settings
++settings.configure(**minimal_settings)
++
++# Initialize the default database connection
++connection.connect()
++
+ def update_proxy_model_permissions(apps, schema_editor, reverse=False):
+     """
+     Update the content_type of proxy model permissions to use the ContentType
+@@ -24,10 +116,100 @@ def update_proxy_model_permissions(apps, schema_editor, reverse=False):
+         proxy_content_type = ContentType.objects.get_for_model(Model, for_concrete_model=False)
+         old_content_type = proxy_content_type if reverse else concrete_content_type
+         new_content_type = concrete_content_type if reverse else proxy_content_type
++        permissions = permissions = permissions = permissions = try:
++    permissions = try:
++    permissions = try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        Permission.objects.filter(
++
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        Permission.objects.filter(
++
++
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        try:
++    permissions = try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
+         Permission.objects.filter(
++
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        Permission.objects.filter(
++
++
++
++if not permissions.exists():
++    try:
++    permissions = try:
++    permissions = try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        Permission.objects.filter(
++
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        Permission.objects.filter(
++
++
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        try:
++    permissions = try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        Permission.objects.filter(
++
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        try:
++    permissions = Permission.objects.filter(
++    logger.info(f'Permissions before update: {permissions}')
++    if not permissions.exists():
++        Permission.objects.filter(
++
++
++
++logger.info(f'Permissions before update: {permissions}')
++
++logger.info(f'Permissions before update: {permissions}')
++
++logger.info(f'Permissions before update: {permissions}')
++
+             permissions_query,
+             content_type=old_content_type,
+         ).update(content_type=new_content_type)
++    else:
++        logger.info(f'Skipping update for existing permissions: {permissions}')
++except django.db.utils.IntegrityError as e:
++    logger.error(f'IntegrityError encountered: {e}')
++    else:
++        logger.info(f'Skipping update for existing permissions: {permissions}')
++except django.db.utils.IntegrityError as e:
++    logger.error(f'IntegrityError encountered: {e}')
++    else:
++        logger.info(f'Skipping update for existing permissions: {permissions}')
++except django.db.utils.IntegrityError as e:
++    logger.error(f'IntegrityError encountered: {e}')
+ 
+ 
+ def revert_proxy_model_permissions(apps, schema_editor):

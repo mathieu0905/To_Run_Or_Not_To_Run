@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14997",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/tests/i18n/sampleproject/manage.py b/tests/i18n/sampleproject/manage.py\nindex 87a0ec369a..8dc95c0805 100755\n--- a/tests/i18n/sampleproject/manage.py\n+++ b/tests/i18n/sampleproject/manage.py\n@@ -5,7 +5,7 @@ import sys\n sys.path.append(os.path.abspath(os.path.join('..', '..', '..')))\n \n if __name__ == \"__main__\":\n-    os.environ.setdefault(\"DJANGO_SETTINGS_MODULE\", \"sampleproject.settings\")\n+    os.environ[\"DJANGO_SETTINGS_MODULE\"] = \"sampleproject.settings\"\n \n     from django.core.management import execute_from_command_line",
+  "tokens_used": 1596902,
+  "exec_count": 226,
+  "duration_sec": 3016.9464762210846,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,3480 @@
+diff --git a/astropy/io/fits/diff.py b/astropy/io/fits/diff.py
+index 100cdf1b8..2193583ba 100644
+--- a/astropy/io/fits/diff.py
++++ b/astropy/io/fits/diff.py
+@@ -113,6 +113,35 @@ class _BaseDiff:
+         sig = signature(cls.__init__)
+         # The first 3 arguments of any Diff initializer are self, a, and b.
+         kwargs = {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         for arg in list(sig.parameters.keys())[3:]:
+             if hasattr(other, arg):
+                 kwargs[arg] = getattr(other, arg)
+@@ -265,7 +294,65 @@ class FITSDiff(_BaseDiff):
+ 
+             .. math::
+ 
+-                \\left| a - b \\right| > \\text{atol} + \\text{rtol} \\cdot \\left| b \\right|
++                \\left| a - b \\right| > \\text{atol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ + \\text{rtol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ \\cdot \\left| b \\right|
+ 
+             are considered to be different.
+             The underlying function used for comparison is `numpy.allclose`.
+@@ -290,7 +377,36 @@ class FITSDiff(_BaseDiff):
+             try:
+                 a = fitsopen(a)
+             except Exception as exc:
+-                raise OSError(f"error opening file a ({a})") from exc
++                raise OSError(f"error opening file a ({a}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++)") from exc
+             close_a = True
+         else:
+             close_a = False
+@@ -299,16 +415,161 @@ class FITSDiff(_BaseDiff):
+             try:
+                 b = fitsopen(b)
+             except Exception as exc:
+-                raise OSError(f"error opening file b ({b})") from exc
++                raise OSError(f"error opening file b ({b}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++)") from exc
+             close_b = True
+         else:
+             close_b = False
+ 
+         # Normalize keywords/fields to ignore to upper case
+         self.ignore_hdus = {k.upper() for k in ignore_hdus}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         self.ignore_keywords = {k.upper() for k in ignore_keywords}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         self.ignore_comments = {k.upper() for k in ignore_comments}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         self.ignore_fields = {k.upper() for k in ignore_fields}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         self.numdiffs = numdiffs
+         self.rtol = rtol
+@@ -342,11 +603,127 @@ class FITSDiff(_BaseDiff):
+         # Record filenames for use later in _report
+         self.filenamea = self.a.filename()
+         if not self.filenamea:
+-            self.filenamea = f"<{self.a.__class__.__name__} object at {id(self.a):#x}>"
++            self.filenamea = f"<{self.a.__class__.__name__}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ object at {id(self.a):#x}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++>"
+ 
+         self.filenameb = self.b.filename()
+         if not self.filenameb:
+-            self.filenameb = f"<{self.b.__class__.__name__} object at {id(self.b):#x}>"
++            self.filenameb = f"<{self.b.__class__.__name__}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ object at {id(self.b):#x}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++>"
+ 
+         if self.ignore_hdus:
+             self.a = HDUList([h for h in self.a if h.name not in self.ignore_hdus])
+@@ -383,8 +760,95 @@ class FITSDiff(_BaseDiff):
+         wrapper = textwrap.TextWrapper(initial_indent="  ", subsequent_indent="  ")
+ 
+         self._fileobj.write("\n")
+-        self._writeln(f" fitsdiff: {__version__}")
+-        self._writeln(f" a: {self.filenamea}\n b: {self.filenameb}")
++        self._writeln(f" fitsdiff: {__version__}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++        self._writeln(f" a: {self.filenamea}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++\n b: {self.filenameb}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+ 
+         if self.ignore_hdus:
+             ignore_hdus = " ".join(sorted(self.ignore_hdus))
+@@ -416,17 +880,162 @@ class FITSDiff(_BaseDiff):
+             )
+ 
+         self._writeln(
+-            f" Maximum number of different data values to be reported: {self.numdiffs}"
++            f" Maximum number of different data values to be reported: {self.numdiffs}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++"
+         )
+         self._writeln(
+-            f" Relative tolerance: {self.rtol}, Absolute tolerance: {self.atol}"
++            f" Relative tolerance: {self.rtol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++, Absolute tolerance: {self.atol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++"
+         )
+ 
+         if self.diff_hdu_count:
+             self._fileobj.write("\n")
+             self._writeln("Files contain different numbers of HDUs:")
+-            self._writeln(f" a: {self.diff_hdu_count[0]}")
+-            self._writeln(f" b: {self.diff_hdu_count[1]}")
++            self._writeln(f" a: {self.diff_hdu_count[0]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++            self._writeln(f" b: {self.diff_hdu_count[1]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+ 
+             if not self.diff_hdus:
+                 self._writeln("No differences found between common HDUs.")
+@@ -444,9 +1053,125 @@ class FITSDiff(_BaseDiff):
+             else:
+                 self._fileobj.write("\n")
+                 if extname:
+-                    self._writeln(f"Extension HDU {idx} ({extname}, {extver}):")
++                    self._writeln(f"Extension HDU {idx}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ ({extname}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++, {extver}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++):")
+                 else:
+-                    self._writeln(f"Extension HDU {idx}:")
++                    self._writeln(f"Extension HDU {idx}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:")
+             hdu_diff.report(self._fileobj, indent=self._indent + 1)
+ 
+ 
+@@ -528,7 +1253,65 @@ class HDUDiff(_BaseDiff):
+ 
+             .. math::
+ 
+-                \\left| a - b \\right| > \\text{atol} + \\text{rtol} \\cdot \\left| b \\right|
++                \\left| a - b \\right| > \\text{atol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ + \\text{rtol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ \\cdot \\left| b \\right|
+ 
+             are considered to be different.
+             The underlying function used for comparison is `numpy.allclose`.
+@@ -550,8 +1333,95 @@ class HDUDiff(_BaseDiff):
+             whitespace (default: True).
+         """
+         self.ignore_keywords = {k.upper() for k in ignore_keywords}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         self.ignore_comments = {k.upper() for k in ignore_comments}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         self.ignore_fields = {k.upper() for k in ignore_fields}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         self.rtol = rtol
+         self.atol = atol
+@@ -619,24 +1489,256 @@ class HDUDiff(_BaseDiff):
+             self._writeln(" No differences found.")
+         if self.diff_extension_types:
+             self._writeln(
+-                " Extension types differ:\n  a: {}\n  b: {}".format(
++                " Extension types differ:\n  a: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++\n  b: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++".format(
+                     *self.diff_extension_types
+                 )
+             )
+         if self.diff_extnames:
+             self._writeln(
+-                " Extension names differ:\n  a: {}\n  b: {}".format(*self.diff_extnames)
++                " Extension names differ:\n  a: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++\n  b: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++".format(*self.diff_extnames)
+             )
+         if self.diff_extvers:
+             self._writeln(
+-                " Extension versions differ:\n  a: {}\n  b: {}".format(
++                " Extension versions differ:\n  a: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++\n  b: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++".format(
+                     *self.diff_extvers
+                 )
+             )
+ 
+         if self.diff_extlevels:
+             self._writeln(
+-                " Extension levels differ:\n  a: {}\n  b: {}".format(
++                " Extension levels differ:\n  a: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++\n  b: {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++".format(
+                     *self.diff_extlevels
+                 )
+             )
+@@ -673,6 +1775,35 @@ class HeaderDiff(_BaseDiff):
+       counts of that keyword as the value.  For example::
+ 
+           {'HISTORY': (20, 19)}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+       means that header a contains 20 HISTORY cards, while header b contains
+       only 19 HISTORY cards.
+@@ -683,6 +1814,35 @@ class HeaderDiff(_BaseDiff):
+       key, and a 2-tuple of the different values as the value.  For example::
+ 
+           {'NAXIS': (2, 3)}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+       means that the NAXIS keyword has a value of 2 in header a, and a value of
+       3 in header b.  This excludes any keywords matched by the
+@@ -738,7 +1898,65 @@ class HeaderDiff(_BaseDiff):
+ 
+             .. math::
+ 
+-                \\left| a - b \\right| > \\text{atol} + \\text{rtol} \\cdot \\left| b \\right|
++                \\left| a - b \\right| > \\text{atol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ + \\text{rtol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ \\cdot \\left| b \\right|
+ 
+             are considered to be different.
+             The underlying function used for comparison is `numpy.allclose`.
+@@ -760,7 +1978,65 @@ class HeaderDiff(_BaseDiff):
+             whitespace (default: True).
+         """
+         self.ignore_keywords = {k.upper() for k in ignore_keywords}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         self.ignore_comments = {k.upper() for k in ignore_comments}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         self.rtol = rtol
+         self.atol = atol
+@@ -799,6 +2075,35 @@ class HeaderDiff(_BaseDiff):
+         # Keywords that have different numbers of duplicates in each header
+         # (excluding keywords in ignore_keywords)
+         self.diff_duplicate_keywords = {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         # Keywords common to each header but having different values (excluding
+         # keywords in ignore_keywords)
+@@ -835,7 +2140,65 @@ class HeaderDiff(_BaseDiff):
+         # build dictionaries of keyword values and comments
+         def get_header_values_comments(cards):
+             values = {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+             comments = {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+             for card in cards:
+                 value = card.value
+                 if self.ignore_blanks and isinstance(value, str):
+@@ -850,7 +2213,65 @@ class HeaderDiff(_BaseDiff):
+         # Normalize all keyword to upper-case for comparison's sake;
+         # TODO: HIERARCH keywords should be handled case-sensitively I think
+         keywordsa = {k.upper() for k in valuesa}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         keywordsb = {k.upper() for k in valuesb}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         self.common_keywords = sorted(keywordsa.intersection(keywordsb))
+         if len(cardsa) != len(cardsb):
+@@ -929,27 +2350,288 @@ class HeaderDiff(_BaseDiff):
+     def _report(self):
+         if self.diff_keyword_count:
+             self._writeln(" Headers have different number of cards:")
+-            self._writeln(f"  a: {self.diff_keyword_count[0]}")
+-            self._writeln(f"  b: {self.diff_keyword_count[1]}")
++            self._writeln(f"  a: {self.diff_keyword_count[0]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++            self._writeln(f"  b: {self.diff_keyword_count[1]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+         if self.diff_keywords:
+             for keyword in self.diff_keywords[0]:
+                 if keyword in Card._commentary_keywords:
+                     val = self.a[keyword][0]
+                 else:
+                     val = self.a[keyword]
+-                self._writeln(f" Extra keyword {keyword!r:8} in a: {val!r}")
++                self._writeln(f" Extra keyword {keyword!r:8}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ in a: {val!r}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+             for keyword in self.diff_keywords[1]:
+                 if keyword in Card._commentary_keywords:
+                     val = self.b[keyword][0]
+                 else:
+                     val = self.b[keyword]
+-                self._writeln(f" Extra keyword {keyword!r:8} in b: {val!r}")
++                self._writeln(f" Extra keyword {keyword!r:8}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ in b: {val!r}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+ 
+         if self.diff_duplicate_keywords:
+             for keyword, count in sorted(self.diff_duplicate_keywords.items()):
+-                self._writeln(f" Inconsistent duplicates of keyword {keyword!r:8}:")
++                self._writeln(f" Inconsistent duplicates of keyword {keyword!r:8}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:")
+                 self._writeln(
+-                    "  Occurs {} time(s) in a, {} times in (b)".format(*count)
++                    "  Occurs {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ time(s) in a, {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ times in (b)".format(*count)
+                 )
+ 
+         if self.diff_keyword_values or self.diff_keyword_comments:
+@@ -1032,7 +2714,65 @@ class ImageDataDiff(_BaseDiff):
+ 
+             .. math::
+ 
+-                \\left| a - b \\right| > \\text{atol} + \\text{rtol} \\cdot \\left| b \\right|
++                \\left| a - b \\right| > \\text{atol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ + \\text{rtol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ \\cdot \\left| b \\right|
+ 
+             are considered to be different.
+             The underlying function used for comparison is `numpy.allclose`.
+@@ -1104,8 +2844,66 @@ class ImageDataDiff(_BaseDiff):
+             dimsa = " x ".join(str(d) for d in reversed(self.diff_dimensions[0]))
+             dimsb = " x ".join(str(d) for d in reversed(self.diff_dimensions[1]))
+             self._writeln(" Data dimensions differ:")
+-            self._writeln(f"  a: {dimsa}")
+-            self._writeln(f"  b: {dimsb}")
++            self._writeln(f"  a: {dimsa}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++            self._writeln(f"  b: {dimsb}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+             # For now we don't do any further comparison if the dimensions
+             # differ; though in the future it might be nice to be able to
+             # compare at least where the images intersect
+@@ -1117,7 +2915,36 @@ class ImageDataDiff(_BaseDiff):
+ 
+         for index, values in self.diff_pixels:
+             index = [x + 1 for x in reversed(index)]
+-            self._writeln(f" Data differs at {index}:")
++            self._writeln(f" Data differs at {index}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:")
+             report_diff_values(
+                 values[0],
+                 values[1],
+@@ -1130,7 +2957,65 @@ class ImageDataDiff(_BaseDiff):
+         if self.diff_total > self.numdiffs:
+             self._writeln(" ...")
+         self._writeln(
+-            " {} different pixels found ({:.2%} different).".format(
++            " {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ different pixels found ({:.2%}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ different).".format(
+                 self.diff_total, self.diff_ratio
+             )
+         )
+@@ -1194,8 +3079,66 @@ class RawDataDiff(ImageDataDiff):
+     def _report(self):
+         if self.diff_dimensions:
+             self._writeln(" Data sizes differ:")
+-            self._writeln(f"  a: {self.diff_dimensions[0]} bytes")
+-            self._writeln(f"  b: {self.diff_dimensions[1]} bytes")
++            self._writeln(f"  a: {self.diff_dimensions[0]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ bytes")
++            self._writeln(f"  b: {self.diff_dimensions[1]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ bytes")
+             # For now we don't do any further comparison if the dimensions
+             # differ; though in the future it might be nice to be able to
+             # compare at least where the images intersect
+@@ -1206,7 +3149,36 @@ class RawDataDiff(ImageDataDiff):
+             return
+ 
+         for index, values in self.diff_bytes:
+-            self._writeln(f" Data differs at byte {index}:")
++            self._writeln(f" Data differs at byte {index}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:")
+             report_diff_values(
+                 values[0],
+                 values[1],
+@@ -1218,7 +3190,65 @@ class RawDataDiff(ImageDataDiff):
+ 
+         self._writeln(" ...")
+         self._writeln(
+-            " {} different bytes found ({:.2%} different).".format(
++            " {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ different bytes found ({:.2%}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ different).".format(
+                 self.diff_total, self.diff_ratio
+             )
+         )
+@@ -1300,7 +3330,65 @@ class TableDataDiff(_BaseDiff):
+ 
+             .. math::
+ 
+-                \\left| a - b \\right| > \\text{atol} + \\text{rtol} \\cdot \\left| b \\right|
++                \\left| a - b \\right| > \\text{atol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ + \\text{rtol}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ \\cdot \\left| b \\right|
+ 
+             are considered to be different.
+             The underlying function used for comparison is `numpy.allclose`.
+@@ -1353,7 +3441,65 @@ class TableDataDiff(_BaseDiff):
+         # Even if the number of columns are unequal, we still do comparison of
+         # any common columns
+         colsa = {c.name.lower(): c for c in colsa}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         colsb = {c.name.lower(): c for c in colsb}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         if "*" in self.ignore_fields:
+             # If all columns are to be ignored, ignore any further differences
+@@ -1363,6 +3509,35 @@ class TableDataDiff(_BaseDiff):
+         # Keep the user's original ignore_fields list for reporting purposes,
+         # but internally use a case-insensitive version
+         ignore_fields = {f.lower() for f in self.ignore_fields}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         # It might be nice if there were a cleaner way to do this, but for now
+         # it'll do
+@@ -1380,13 +3555,100 @@ class TableDataDiff(_BaseDiff):
+         )
+ 
+         self.common_column_names = {col.name.lower() for col in self.common_columns}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         left_only_columns = {
+             col.name.lower(): col for col in colsa_set.difference(colsb_set)
+         }
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+         right_only_columns = {
+             col.name.lower(): col for col in colsb_set.difference(colsa_set)
+         }
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+ 
+         if left_only_columns or right_only_columns:
+             self.diff_columns = (left_only_columns, right_only_columns)
+@@ -1453,6 +3715,240 @@ class TableDataDiff(_BaseDiff):
+                 diffs = (
+                     [
+                         idx
++                    ]
++                )
++                self._diff_vla(col, arra, arrb, self.numdiffs)
++
++    def _diff_vla(self, col, arraya, arrayb, numdiffs):
++        # Handle variable-length arrays (VLAs)
++        # Iterate over rows and compare VLAs
++        for row in range(len(arraya)):
++            vla_a = arraya[row]
++            vla_b = arrayb[row]
++
++            print(f"Row {row}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:")
++            print(f"  vla_a shape: {vla_a.shape}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++            print(f"  vla_b shape: {vla_b.shape}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++
++            if vla_a.shape != vla_b.shape:
++                print(f"  Shapes differ: {vla_a.shape}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ vs {vla_b.shape}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++                self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++                self.diff_total += 1
++                continue
++
++            if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++                print(f"  Data differs: {vla_a}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ vs {vla_b}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++                self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++                self.diff_total += 1
++
++        if self.diff_total > numdiffs:
++            self.diff_values = self.diff_values[:numdiffs]
++
++        self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++
+                         for idx in range(len(arra))
+                         if not np.allclose(
+                             arra[idx], arrb[idx], rtol=self.rtol, atol=self.atol
+@@ -1490,24 +3986,256 @@ class TableDataDiff(_BaseDiff):
+     def _report(self):
+         if self.diff_column_count:
+             self._writeln(" Tables have different number of columns:")
+-            self._writeln(f"  a: {self.diff_column_count[0]}")
+-            self._writeln(f"  b: {self.diff_column_count[1]}")
++            self._writeln(f"  a: {self.diff_column_count[0]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++            self._writeln(f"  b: {self.diff_column_count[1]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+ 
+         if self.diff_column_names:
+             # Show columns with names unique to either table
+             for name in self.diff_column_names[0]:
+                 format = self.diff_columns[0][name.lower()].format
+-                self._writeln(f" Extra column {name} of format {format} in a")
++                self._writeln(f" Extra column {name}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ of format {format}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ in a")
+             for name in self.diff_column_names[1]:
+                 format = self.diff_columns[1][name.lower()].format
+-                self._writeln(f" Extra column {name} of format {format} in b")
++                self._writeln(f" Extra column {name}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ of format {format}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ in b")
+ 
+         col_attrs = dict(_COL_ATTRS)
+         # Now go through each table again and show columns with common
+         # names but other property differences...
+         for col_attr, vals in self.diff_column_attributes:
+             name, attr = col_attr
+-            self._writeln(f" Column {name} has different {col_attrs[attr]}:")
++            self._writeln(f" Column {name}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ has different {col_attrs[attr]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:")
+             report_diff_values(
+                 vals[0],
+                 vals[1],
+@@ -1519,8 +4247,66 @@ class TableDataDiff(_BaseDiff):
+ 
+         if self.diff_rows:
+             self._writeln(" Table rows differ:")
+-            self._writeln(f"  a: {self.diff_rows[0]}")
+-            self._writeln(f"  b: {self.diff_rows[1]}")
++            self._writeln(f"  a: {self.diff_rows[0]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
++            self._writeln(f"  b: {self.diff_rows[1]}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++")
+             self._writeln(" No further data comparison performed.")
+             return
+ 
+@@ -1529,7 +4315,65 @@ class TableDataDiff(_BaseDiff):
+ 
+         # Finally, let's go through and report column data differences:
+         for indx, values in self.diff_values:
+-            self._writeln(" Column {} data differs in row {}:".format(*indx))
++            self._writeln(" Column {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ data differs in row {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:".format(*indx))
+             report_diff_values(
+                 values[0],
+                 values[1],
+@@ -1541,14 +4385,101 @@ class TableDataDiff(_BaseDiff):
+ 
+         if self.diff_values and self.numdiffs < self.diff_total:
+             self._writeln(
+-                f" ...{self.diff_total - self.numdiffs} additional difference(s) found."
++                f" ...{self.diff_total - self.numdiffs}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ additional difference(s) found."
+             )
+ 
+         if self.diff_total > self.numdiffs:
+             self._writeln(" ...")
+ 
+         self._writeln(
+-            " {} different table data element(s) found ({:.2%} different).".format(
++            " {}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ different table data element(s) found ({:.2%}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ different).".format(
+                 self.diff_total, self.diff_ratio
+             )
+         )
+@@ -1567,10 +4498,126 @@ def report_diff_keyword_attr(fileobj, attr, diffs, keyword, ind=0):
+             if idx == 0:
+                 dup = ""
+             else:
+-                dup = f"[{idx + 1}]"
++                dup = f"[{idx + 1}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++]"
+             fileobj.write(
+                 fixed_width_indent(
+-                    f" Keyword {keyword:8}{dup} has different {attr}:\n",
++                    f" Keyword {keyword:8}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++{dup}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++ has different {attr}
++def _diff_vla(self, col, arraya, arrayb, numdiffs):
++    # Handle variable-length arrays (VLAs)
++    # Iterate over rows and compare VLAs
++    for row in range(len(arraya)):
++        vla_a = arraya[row]
++        vla_b = arrayb[row]
++
++        print(f"Row {row}:")
++        print(f"  vla_a shape: {vla_a.shape}")
++        print(f"  vla_b shape: {vla_b.shape}")
++
++        if vla_a.shape != vla_b.shape:
++            print(f"  Shapes differ: {vla_a.shape} vs {vla_b.shape}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++            continue
++
++        if not np.allclose(vla_a, vla_b, atol=self.atol, rtol=self.rtol):
++            print(f"  Data differs: {vla_a} vs {vla_b}")
++            print(f"  vla_a dtype: {vla_a.dtype}")
++            print(f"  vla_b dtype: {vla_b.dtype}")
++            self.diff_values.append(((col.name, row), (vla_a, vla_b)))
++            self.diff_total += 1
++
++    if self.diff_total > numdiffs:
++        self.diff_values = self.diff_values[:numdiffs]
++
++    self.diff_ratio = float(self.diff_total) / float(len(arraya)) if len(arraya) > 0 else 0
++:\n",
+                     ind,
+                 )
+             )

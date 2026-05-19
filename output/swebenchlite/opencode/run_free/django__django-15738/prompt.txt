@@ -1,0 +1,100 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 6f73eb9d90cfec684529aab48d517e3d6449ba8c
+
+## Problem Description
+Models migration with change field foreign to many and deleting unique together.
+Description
+	 
+		(last modified by Simon Charette)
+	 
+I have models like
+class Authors(models.Model):
+	project_data_set = models.ForeignKey(
+		ProjectDataSet,
+		on_delete=models.PROTECT
+	)
+	state = models.IntegerField()
+	start_date = models.DateField()
+	class Meta:
+		 unique_together = (('project_data_set', 'state', 'start_date'),)
+and
+class DataSet(models.Model):
+	name = models.TextField(max_length=50)
+class Project(models.Model):
+	data_sets = models.ManyToManyField(
+		DataSet,
+		through='ProjectDataSet',
+	)
+	name = models.TextField(max_length=50)
+class ProjectDataSet(models.Model):
+	"""
+	Cross table of data set and project
+	"""
+	data_set = models.ForeignKey(DataSet, on_delete=models.PROTECT)
+	project = models.ForeignKey(Project, on_delete=models.PROTECT)
+	class Meta:
+		unique_together = (('data_set', 'project'),)
+when i want to change field project_data_set in Authors model from foreign key field to many to many field I must delete a unique_together, cause it can't be on many to many field.
+Then my model should be like:
+class Authors(models.Model):
+	project_data_set = models.ManyToManyField(
+		ProjectDataSet,
+	)
+	state = models.IntegerField()
+	start_date = models.DateField()
+But when I want to do a migrations.
+python3 manage.py makemigrations
+python3 manage.py migrate
+I have error:
+ValueError: Found wrong number (0) of constraints for app_authors(project_data_set, state, start_date)
+The database is on production, so I can't delete previous initial migrations, and this error isn't depending on database, cause I delete it and error is still the same.
+My solve is to first delete unique_together, then do a makemigrations and then migrate. After that change the field from foreign key to many to many field, then do a makemigrations and then migrate.
+But in this way I have 2 migrations instead of one.
+I added attachment with this project, download it and then do makemigrations and then migrate to see this error.
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+You cannot execute/run any Python code (cannot run tests).
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
+
+## Debugging Strategy
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
+
+## Your Task
+1. Investigate the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. **Apply the fix by calling the edit tool on real source files**
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

@@ -1,0 +1,15 @@
+diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py
+index 69a5fbf389..06bb97ce2f 100644
+--- a/django/contrib/admin/options.py
++++ b/django/contrib/admin/options.py
+@@ -179,7 +179,9 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
+         for klass in db_field.__class__.mro():
+             if klass in self.formfield_overrides:
+                 kwargs = {**copy.deepcopy(self.formfield_overrides[klass]), **kwargs}
+-                return db_field.formfield(**kwargs)
++if 'widget' in kwargs:
++            kwargs['widget'] = kwargs['widget']
++        return db_field.formfield(**kwargs)
+ 
+         # For any other type of field, just call its formfield() method.
+         return db_field.formfield(**kwargs)

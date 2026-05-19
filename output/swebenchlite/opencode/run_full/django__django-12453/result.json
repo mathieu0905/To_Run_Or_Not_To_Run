@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12453",
+  "mode": "run_full",
+  "k": null,
+  "patch": "diff --git a/django/db/backends/base/creation.py b/django/db/backends/base/creation.py\nindex c50fc90171..9990f38cc4 100644\n--- a/django/db/backends/base/creation.py\n+++ b/django/db/backends/base/creation.py\n@@ -126,7 +126,10 @@ class BaseDatabaseCreation:\n         the serialize_db_to_string() method.\n         \"\"\"\n         data = StringIO(data)\n-        for obj in serializers.deserialize(\"json\", data, using=self.connection.alias):\n+        with transaction.atomic(using=self.connection.alias):\n+            with transaction.atomic(using=self.connection.alias):\n+            with transaction.atomic(using=self.connection.alias):\n+            for obj in serializers.deserialize(\"json\", data, using=self.connection.alias):\n             obj.save()\n \n     def _get_database_display_str(self, verbosity, database_name):",
+  "tokens_used": 175148,
+  "exec_count": 7,
+  "duration_sec": 1432.6538741588593,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12125",
+  "mode": "run_cost",
+  "k": null,
+  "patch": "diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py\nindex b2db84ffcb..bb367a7625 100644\n--- a/django/db/migrations/autodetector.py\n+++ b/django/db/migrations/autodetector.py\n@@ -67,7 +67,7 @@ class MigrationAutodetector:\n             return RegexObject(obj)\n         elif isinstance(obj, type):\n             # If this is a type that implements 'deconstruct' as an instance method,\n-            # avoid treating this as being deconstructible itself - see #22951\n+        # avoid treating this as being deconstructible itself - see #22951\n             return obj\n         elif hasattr(obj, 'deconstruct'):\n             deconstructed = obj.deconstruct()",
+  "tokens_used": 225756,
+  "exec_count": 3,
+  "duration_sec": 472.58896493911743,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

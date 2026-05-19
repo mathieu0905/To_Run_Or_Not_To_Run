@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14995",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/astropy/nddata/mixins/ndarithmetic.py b/astropy/nddata/mixins/ndarithmetic.py\nindex 4153dfccb..15031bfe2 100644\n--- a/astropy/nddata/mixins/ndarithmetic.py\n+++ b/astropy/nddata/mixins/ndarithmetic.py\n@@ -524,7 +524,7 @@ class NDArithmeticMixin:\n             return deepcopy(self.mask)\n         else:\n             # Now lets calculate the resulting mask (operation enforces copy)\n-            return handle_mask(self.mask, operand.mask, **kwds)\n+            return handle_mask(self.mask if self.mask is not None else np.zeros_like(self.data, dtype=bool), operand.mask if operand.mask is not None else np.zeros_like(operand.data, dtype=bool), **kwds)\n \n     def _arithmetic_wcs(self, operation, operand, compare_wcs, **kwds):\n         \"\"\"",
+  "tokens_used": 307920,
+  "exec_count": 0,
+  "duration_sec": 913.7884435653687,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10554",
+  "mode": "run_free",
+  "k": null,
+  "patch": "diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py\nindex a791908caf..7fc8fd140e 100644\n--- a/django/db/models/sql/compiler.py\n+++ b/django/db/models/sql/compiler.py\n@@ -450,6 +450,23 @@ class SQLCompiler:\n                     continue\n                 raise\n         if not parts:\n+        raise EmptyResultSet\n+    combinator_sql = self.connection.ops.set_operators[combinator]\n+    if all and combinator == 'union':\n+        combinator_sql += ' ALL'\n+    braces = '({})' if features.supports_slicing_ordering_in_compound else '{}'\n+    sql_parts, args_parts = zip(*((braces.format(sql), args) for sql, args in parts))\n+    result = [' {} '.format(combinator_sql).join(sql_parts)]\n+    params = []\n+    for part in args_parts:\n+        params.extend(part)\n+\n+    # Add ORDER BY clause if there is one\n+    if self.query.order_by:\n+        order_by, order_by_params = self.get_order_by()\n+        order_by_sql = ', '.join(sql for sql, _, _ in order_by)\n+        result.append('ORDER BY {}'.format(order_by_sql))\n+        params.extend(chain.from_iterable(params for _, params, _ in order_by))\n             raise EmptyResultSet\n         combinator_sql = self.connection.ops.set_operators[combinator]\n         if all and combinator == 'union':",
+  "tokens_used": 96742,
+  "exec_count": 0,
+  "duration_sec": 186.8039791584015,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

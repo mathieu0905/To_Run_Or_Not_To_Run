@@ -1,0 +1,78 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 466920f6d726eee90d5566e0a9948e92b33a122e
+
+## Problem Description
+Q(...) & Exists(...) raises a TypeError
+Description
+	
+Exists(...) & Q(...) works, but Q(...) & Exists(...) raise a TypeError
+Here's a minimal example:
+In [3]: Exists(Product.objects.all()) & Q()
+Out[3]: <Q: (AND: <django.db.models.expressions.Exists object at 0x7fc18dd0ed90>, (AND: ))>
+In [4]: Q() & Exists(Product.objects.all())
+---------------------------------------------------------------------------
+TypeError								 Traceback (most recent call last)
+<ipython-input-4-21d3dea0fcb9> in <module>
+----> 1 Q() & Exists(Product.objects.all())
+~/Code/venv/ecom/lib/python3.8/site-packages/django/db/models/query_utils.py in __and__(self, other)
+	 90 
+	 91	 def __and__(self, other):
+---> 92		 return self._combine(other, self.AND)
+	 93 
+	 94	 def __invert__(self):
+~/Code/venv/ecom/lib/python3.8/site-packages/django/db/models/query_utils.py in _combine(self, other, conn)
+	 71	 def _combine(self, other, conn):
+	 72		 if not isinstance(other, Q):
+---> 73			 raise TypeError(other)
+	 74 
+	 75		 # If the other Q() is empty, ignore it and just use `self`.
+TypeError: <django.db.models.expressions.Exists object at 0x7fc18dd21400>
+The & (and |) operators should be commutative on Q-Exists pairs, but it's not
+I think there's a missing definition of __rand__ somewhere.
+
+
+## EXECUTION MODE - ZERO EXECUTION
+
+⚠️ **PYTHON EXECUTION IS DISABLED** ⚠️
+
+You cannot execute/run any Python code (cannot run tests).
+
+This is a research experiment testing pure reasoning capabilities WITHOUT code execution.
+
+## What You CAN Do
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## What You CANNOT Do
+❌ Run `python` / `python3` (any Python execution)
+❌ Run `pytest` / `unittest` / `tox` / `nose` (test frameworks)
+❌ Run `pip` / `pip3` (package management)
+❌ Run `git` commands (interferes with experiment)
+
+## Debugging Strategy
+**Read with purpose.** Before opening a file, know what you're looking for.
+Reason deeply about the code based on what you read.
+
+## Your Task
+1. Investigate the source code to understand the bug
+2. Reason about the root cause through static analysis
+3. **Apply the fix by calling the edit tool on real source files**
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

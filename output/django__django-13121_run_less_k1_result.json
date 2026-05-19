@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13121",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/backends/base/operations.py b/django/db/backends/base/operations.py\nindex 2e283a3193..851611b7a3 100644\n--- a/django/db/backends/base/operations.py\n+++ b/django/db/backends/base/operations.py\n@@ -579,6 +579,23 @@ class BaseDatabaseOperations:\n         return []\n \n     def convert_durationfield_value(self, value, expression, connection):\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        if value is not None:\n+            return datetime.timedelta(microseconds=int(value))\n+        print(f\"Value received: {value}\")\n         if value is not None:\n             return datetime.timedelta(0, 0, value)",
+  "tokens_used": 800719,
+  "exec_count": 31,
+  "duration_sec": 1570.0357036590576,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

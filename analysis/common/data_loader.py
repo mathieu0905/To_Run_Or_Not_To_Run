@@ -49,6 +49,11 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
     # Collect all executed commands
     commands = []
 
+    # OpenCode-specific timestamp tracking for duration fallback
+    oc_first_ts = None
+    oc_last_ts = None
+    oc_step_finish_count = 0
+
     prompt_path = trace_path.parent / "prompt.txt"
 
     with open(trace_path) as f:
@@ -102,6 +107,40 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
                                 low_cost_exec += 1
                                 exec_count += 1
 
+                # OpenCode format (OpenCode + vLLM/Qwen2.5-Coder-32B)
+                # Events: step_start, text, tool_use, step_finish
+                # Tokens accounted per step in step_finish.part.tokens
+                # Tool calls appear under tool_use with part.tool == "bash"
+                oc_type = item.get("type")
+                if oc_type in ("step_start", "step_finish", "tool_use", "text"):
+                    ts = item.get("timestamp")
+                    if ts is not None:
+                        if oc_first_ts is None:
+                            oc_first_ts = ts
+                        oc_last_ts = ts
+
+                if oc_type == "step_finish":
+                    part = item.get("part", {}) or {}
+                    tok = part.get("tokens", {}) or {}
+                    tokens["input"] += tok.get("input", 0) or 0
+                    tokens["output"] += tok.get("output", 0) or 0
+                    oc_step_finish_count += 1
+
+                if oc_type == "tool_use":
+                    part = item.get("part", {}) or {}
+                    if part.get("tool") == "bash":
+                        state = part.get("state", {}) or {}
+                        if isinstance(state, dict):
+                            cmd = (state.get("input", {}) or {}).get("command", "") or ""
+                            if cmd:
+                                commands.append(cmd)
+                                if any(p in cmd for p in HIGH_COST_PATTERNS):
+                                    high_cost_exec += 1
+                                    exec_count += 1
+                                elif PYTHON_SCRIPT_PATTERN.search(cmd):
+                                    low_cost_exec += 1
+                                    exec_count += 1
+
                 if item.get("type") == "result":
                     duration_ms = item.get("duration_ms", 0)
             except:
@@ -109,6 +148,15 @@ def count_tokens_and_execs(trace_path: Path) -> Dict:
 
     if max_item_id >= 0:
         turns = max_item_id + 1
+    elif oc_step_finish_count > 0:
+        # OpenCode: each step_finish corresponds to one assistant turn
+        turns = oc_step_finish_count
+
+    # OpenCode: derive duration from first/last event timestamps if missing
+    if duration_ms == 0 and oc_first_ts is not None and oc_last_ts is not None:
+        delta = oc_last_ts - oc_first_ts
+        if delta > 0:
+            duration_ms = int(delta)
 
     # Fallback time calculation
     if duration_ms == 0 and prompt_path.exists() and trace_path.exists():
@@ -256,36 +304,87 @@ def load_pass_rates(sb_cli_reports_dir: Path = None) -> Dict:
     if not sb_cli_reports_dir.exists():
         return pass_rates
 
+    # Version priority (higher = preferred; the one with the highest priority
+    # among files matching the same (dataset, agent, mode) wins).
+    # _fixed runs are the authoritative post-bracket-bug-fix opencode submissions.
+    def _version_priority(fname: str) -> int:
+        low = fname.lower()
+        if "_fixed" in low:
+            return 100
+        if "_final" in low:
+            return 50
+        if "_v2" in low:
+            return 40
+        if "_snap" in low:
+            return 30
+        if "_v1" in low:
+            return 10
+        return 20  # plain (no suffix) — e.g. claude_code / codex canonical
+
+    # Collect candidate reports per (dataset, agent, mode)
+    candidates = defaultdict(list)  # (ds, agent, mode) -> [(priority, path)]
+
     for report_file in sb_cli_reports_dir.glob("*.json"):
-        try:
-            report = json.loads(report_file.read_text(encoding="utf-8"))
+        filename = report_file.stem
 
-            # Parse filename to get dataset, agent, mode
-            filename = report_file.stem
-
-            # Determine dataset
-            if "lite" in filename.lower():
-                dataset = "swebenchlite"
-            elif "verified" in filename.lower():
-                dataset = "swebenchverified"
-            else:
-                continue
-
-            # Determine agent and mode
-            for agent in ["claude_code", "codex"]:
-                if agent in filename:
-                    for mode in MODE_ORDER:
-                        if mode in filename:
-                            resolved = report.get("resolved_instances", 0)
-                            completed = report.get("completed_instances", 0)
-                            pass_rates[dataset][agent][mode] = {
-                                "resolved": resolved,
-                                "total": completed
-                            }
-                            break
-                    break
-        except:
+        if "lite" in filename.lower():
+            dataset = "swebenchlite"
+        elif "verified" in filename.lower():
+            dataset = "swebenchverified"
+        else:
             continue
+
+        # Normalise the filename so OpenCode's suffix-less variants
+        # (runfree / runfull / runcost / runlessk1 / runlessk3) match the
+        # canonical MODE_ORDER names.
+        norm = filename.replace("runfree", "run_free") \
+                       .replace("runfull", "run_full") \
+                       .replace("runcost", "run_cost") \
+                       .replace("runlessk1", "run_less_k1") \
+                       .replace("runlessk2", "run_less_k2") \
+                       .replace("runlessk3", "run_less_k3")
+
+        matched_agent = None
+        for agent in ["claude_code", "codex", "opencode"]:
+            if agent in norm:
+                matched_agent = agent
+                break
+        if matched_agent is None:
+            continue
+
+        matched_mode = None
+        # Iterate mode names longest-first so that "run_less_k1" wins over
+        # "run_free" when both appear as substrings.
+        for mode in sorted(MODE_ORDER, key=len, reverse=True):
+            if mode in norm:
+                matched_mode = mode
+                break
+        if matched_mode is None:
+            continue
+
+        candidates[(dataset, matched_agent, matched_mode)].append(
+            (_version_priority(filename), report_file)
+        )
+
+    # For each (ds, agent, mode) pick the highest-priority file.
+    for (ds, agent, mode), cands in candidates.items():
+        cands.sort(key=lambda x: x[0], reverse=True)
+        _, best = cands[0]
+        try:
+            report = json.loads(best.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        resolved = report.get("resolved_instances", 0)
+        completed = report.get("completed_instances", 0)
+        # Keep the 100-sample denominator normalisation; resolved count is
+        # independent of how many instances were submitted to sb-cli because
+        # empty patches never resolve.
+        pass_rates[ds][agent][mode] = {
+            "resolved": resolved,
+            "total": 100,
+            "submitted": completed,
+            "_source_file": best.name,
+        }
 
     return pass_rates
 

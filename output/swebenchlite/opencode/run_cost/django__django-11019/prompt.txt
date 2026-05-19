@@ -1,0 +1,92 @@
+You are a code repair expert.
+
+## Repository Information
+- Repository: django/django
+- Base Commit: 93e892bb645b16ebaf287beb5fe7f3ffe8d10408
+
+## Problem Description
+Merging 3 or more media objects can throw unnecessary MediaOrderConflictWarnings
+Description
+	
+Consider the following form definition, where text-editor-extras.js depends on text-editor.js but all other JS files are independent:
+from django import forms
+class ColorPicker(forms.Widget):
+	class Media:
+		js = ['color-picker.js']
+class SimpleTextWidget(forms.Widget):
+	class Media:
+		js = ['text-editor.js']
+class FancyTextWidget(forms.Widget):
+	class Media:
+		js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+class MyForm(forms.Form):
+	background_color = forms.CharField(widget=ColorPicker())
+	intro = forms.CharField(widget=SimpleTextWidget())
+	body = forms.CharField(widget=FancyTextWidget())
+Django should be able to resolve the JS files for the final form into the order text-editor.js, text-editor-extras.js, color-picker.js. However, accessing MyForm().media results in:
+/projects/django/django/forms/widgets.py:145: MediaOrderConflictWarning: Detected duplicate Media files in an opposite order:
+text-editor-extras.js
+text-editor.js
+ MediaOrderConflictWarning,
+Media(css={}, js=['text-editor-extras.js', 'color-picker.js', 'text-editor.js'])
+The MediaOrderConflictWarning is a result of the order that the additions happen in: ColorPicker().media + SimpleTextWidget().media produces Media(css={}, js=['color-picker.js', 'text-editor.js']), which (wrongly) imposes the constraint that color-picker.js must appear before text-editor.js.
+The final result is particularly unintuitive here, as it's worse than the "naïve" result produced by Django 1.11 before order-checking was added (color-picker.js, text-editor.js, text-editor-extras.js), and the pair of files reported in the warning message seems wrong too (aren't color-picker.js and text-editor.js the wrong-ordered ones?)
+
+
+## EXECUTION MODE - COST-AWARE
+
+📊 **BALANCE CORRECTNESS AND COST** 📊
+
+This is a research experiment measuring cost-efficiency in debugging.
+You CAN run tests and scripts, but each execution has a cost.
+
+**Goal: Fix the bug correctly while being mindful of execution costs.**
+
+## Cost Table
+| Operation | Cost | Notes |
+|-----------|------|-------|
+| `pytest` / `unittest` / `python -m pytest` | 1.0 point | HIGH - Runs test framework |
+| `python manage.py test` (Django) | 1.0 point | HIGH - Full Django test runner |
+| `tox` / `nose` / `nosetests` | 1.0 point | HIGH - Full test framework |
+| `python script.py` (running .py files) | 0.3 point | LOW - Direct script execution |
+| `python -c "..."` (inline code) | 0.3 point | LOW - Quick inline check |
+
+## Investigation
+Use the file-reading and search tools available in your environment to
+investigate the codebase. Reading files and searching is unrestricted.
+
+## FORBIDDEN Operations
+❌ `git` commands (interferes with experiment)
+
+## Debugging Strategy
+
+**Read with purpose. Run with purpose.**
+
+- Before reading a file: Know what you're looking for
+- Before running a test: Know what hypothesis you're verifying
+
+**Think before you run.** Instead of run-fix-run-fix cycles, reason about the code first. When uncertain about specific behavior, add print/log statements to gather information, then analyze the results.
+
+## Execution Protocol
+Before each test execution, briefly state in plain English: how many points the run will cost and what you want to verify.
+
+## Your Task
+1. Read and analyze the source code to understand the bug
+2. Run tests/experiments as needed to verify your understanding and test your fix
+3. Generate a fix using the Edit tool to modify source files
+
+## CRITICAL: How to Submit Your Fix
+
+⚠️ **You MUST apply your fix by calling the edit tool on the source files.** ⚠️
+
+A textual description of the fix (e.g. "change line 42 to ...") is **NOT a
+submission** — it will be discarded. Only edits made via the edit tool are
+captured by `git diff` and counted as your answer.
+
+Your response is considered SUCCESSFUL only if it satisfies BOTH:
+1. You called the edit tool at least once with a real `filePath`,
+   `oldString`, and `newString` matching the file's current contents
+2. After your changes, `git diff` shows a non-empty patch
+
+If you finish without calling edit, the run is a FAILURE regardless of how
+well you described the bug.

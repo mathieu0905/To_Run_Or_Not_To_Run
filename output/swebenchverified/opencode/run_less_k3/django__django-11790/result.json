@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11790",
+  "mode": "run_less",
+  "k": 3,
+  "patch": "diff --git a/django/contrib/auth/forms.py b/django/contrib/auth/forms.py\nindex a0cfed0995..23f1d9b319 100644\n--- a/django/contrib/auth/forms.py\n+++ b/django/contrib/auth/forms.py\n@@ -194,6 +194,9 @@ class AuthenticationForm(forms.Form):\n         self.fields['username'].max_length = self.username_field.max_length or 254\n         if self.fields['username'].label is None:\n             self.fields['username'].label = capfirst(self.username_field.verbose_name)\n+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length\n+        self.fields['username'].widget.attrs['maxlength'] = self.username_field.max_length\n+        print(self.fields['username'].widget.attrs)\n \n     def clean(self):\n         username = self.cleaned_data.get('username')",
+  "tokens_used": 133331,
+  "exec_count": 4,
+  "duration_sec": 683.7606041431427,
+  "success": true,
+  "error": "",
+  "agent_type": "opencode"
+}

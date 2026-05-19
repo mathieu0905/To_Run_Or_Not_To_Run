@@ -1,0 +1,64 @@
+diff --git a/tests/admin_views/test_multidb.py b/tests/admin_views/test_multidb.py
+index a02b637d34..de15373a85 100644
+--- a/tests/admin_views/test_multidb.py
++++ b/tests/admin_views/test_multidb.py
+@@ -27,6 +27,8 @@ urlpatterns = [
+ 
+ 
+ @override_settings(ROOT_URLCONF=__name__, DATABASE_ROUTERS=['%s.Router' % __name__])
++import logging
++logging.basicConfig(level=logging.DEBUG)
+ class MultiDatabaseTests(TestCase):
+     databases = {'default', 'other'}
+ 
+@@ -34,20 +36,20 @@ class MultiDatabaseTests(TestCase):
+     def setUpTestData(cls):
+         cls.superusers = {}
+         cls.test_book_ids = {}
+-        for db in connections:
+-            Router.target_db = db
+-            cls.superusers[db] = User.objects.create_superuser(
++        import logging\nlogging.basicConfig(level=logging.DEBUG)\nfor db in connections:
++            logging.debug(f'Setting target_db to {db}')\nRouter.target_db = db
++            logging.debug(f'Creating superuser for {db}')\nlogging.debug(f'Creating superuser for {db}')\ncls.superusers[db] = User.objects.create_superuser(
+                 username='admin', password='something', email='test@test.org',
+             )
+             b = Book(name='Test Book')
+-            b.save(using=db)
++            logging.debug(f'Saving book for {db}')\nlogging.debug(f'Saving book for {db}')\nb.save(using=db)
+             cls.test_book_ids[db] = b.id
+ 
+     @mock.patch('django.contrib.admin.options.transaction')
+     def test_add_view(self, mock):
+-        for db in connections:
++        import logging\nlogging.basicConfig(level=logging.DEBUG)\nfor db in connections:
+             with self.subTest(db=db):
+-                Router.target_db = db
++                logging.debug(f'Setting target_db to {db}')\nRouter.target_db = db
+                 self.client.force_login(self.superusers[db])
+                 self.client.post(
+                     reverse('test_adminsite:admin_views_book_add'),
+@@ -57,9 +59,9 @@ class MultiDatabaseTests(TestCase):
+ 
+     @mock.patch('django.contrib.admin.options.transaction')
+     def test_change_view(self, mock):
+-        for db in connections:
++        import logging\nlogging.basicConfig(level=logging.DEBUG)\nfor db in connections:
+             with self.subTest(db=db):
+-                Router.target_db = db
++                logging.debug(f'Setting target_db to {db}')\nRouter.target_db = db
+                 self.client.force_login(self.superusers[db])
+                 self.client.post(
+                     reverse('test_adminsite:admin_views_book_change', args=[self.test_book_ids[db]]),
+@@ -69,9 +71,9 @@ class MultiDatabaseTests(TestCase):
+ 
+     @mock.patch('django.contrib.admin.options.transaction')
+     def test_delete_view(self, mock):
+-        for db in connections:
++        import logging\nlogging.basicConfig(level=logging.DEBUG)\nfor db in connections:
+             with self.subTest(db=db):
+-                Router.target_db = db
++                logging.debug(f'Setting target_db to {db}')\nRouter.target_db = db
+                 self.client.force_login(self.superusers[db])
+                 self.client.post(
+                     reverse('test_adminsite:admin_views_book_delete', args=[self.test_book_ids[db]]),

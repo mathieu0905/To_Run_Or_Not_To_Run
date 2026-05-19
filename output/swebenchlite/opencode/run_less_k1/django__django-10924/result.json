@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10924",
+  "mode": "run_less",
+  "k": 1,
+  "patch": "diff --git a/django/db/models/fields/files.py b/django/db/models/fields/files.py\nindex 8f12e80725..8c4e892430 100644\n--- a/django/db/models/fields/files.py\n+++ b/django/db/models/fields/files.py\n@@ -220,11 +220,12 @@ class FileField(Field):\n \n     description = _(\"File\")\n \n-    def __init__(self, verbose_name=None, name=None, upload_to='', storage=None, **kwargs):\n+    def __init__(self, verbose_name=None, name=None, upload_to='', storage=None, path=None, **kwargs):\n         self._primary_key_set_explicitly = 'primary_key' in kwargs\n \n         self.storage = storage or default_storage\n         self.upload_to = upload_to\n+        self.path = path\n \n         kwargs.setdefault('max_length', 100)\n         super().__init__(verbose_name, name, **kwargs)\n@@ -274,6 +275,14 @@ class FileField(Field):\n     def get_internal_type(self):\n         return \"FileField\"\n \n+    def get_prep_value(self, value):\n+\n+    def exists(self, name):\n+        path = self.path\n+        if callable(path):\n+            path = path()\n+        return self.storage.exists(path)\n+\n     def get_prep_value(self, value):\n         value = super().get_prep_value(value)\n         # Need to convert File objects provided via a form to string for database insertion",
+  "tokens_used": 544129,
+  "exec_count": 15,
+  "duration_sec": 2567.2255046367645,
+  "success": false,
+  "error": "You passed 61441 input tokens and requested 4096 output tokens. However, the model's context length is only 65536 tokens, resulting in a maximum input length of 61440 tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=61441)",
+  "agent_type": "opencode"
+}

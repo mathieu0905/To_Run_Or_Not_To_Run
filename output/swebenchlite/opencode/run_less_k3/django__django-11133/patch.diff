@@ -1,0 +1,26 @@
+diff --git a/django/http/response.py b/django/http/response.py
+index 6a84e193ba..259c6a9d85 100644
+--- a/django/http/response.py
++++ b/django/http/response.py
+@@ -308,6 +308,21 @@ class HttpResponse(HttpResponseBase):
+ 
+     @content.setter
+     def content(self, value):
++        if isinstance(value, memoryview):
++            self._container = [bytes(value)]
++            self._is_streaming = False
++        elif isinstance(value, bytes):
++            self._container = [value]
++            self._is_streaming = False
++        elif isinstance(value, str):
++            self._container = [value.encode(self.charset)]
++            self._is_streaming = False
++        elif hasattr(value, '__iter__'):
++            self._container = value
++            self._is_streaming = True
++        else:
++            self._container = [str(value).encode(self.charset)]
++            self._is_streaming = False
+         # Consume iterators upon assignment to allow repeated iteration.
+         if hasattr(value, '__iter__') and not isinstance(value, (bytes, str)):
+             content = b''.join(self.make_bytes(chunk) for chunk in value)

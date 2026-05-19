@@ -1,0 +1,70 @@
+{
+  "prohibited": {
+    "mode": "prohibited",
+    "total_traces": 400,
+    "total_with_edits": 199,
+    "global_single_edit": 133,
+    "global_multiple_edit": 66,
+    "global_single_ratio": 0.6683417085427136,
+    "instances_with_exec": 33,
+    "edit_after_exec": 6,
+    "edit_after_exec_ratio": 0.18181818181818182,
+    "instances_with_multiple_edits": 66,
+    "multiple_triggered_by_exec": 3,
+    "multiple_without_exec": 63,
+    "edit_distribution": {
+      "1": 133,
+      "2": 41,
+      "3": 13,
+      "4": 6,
+      "5": 4,
+      "6": 1,
+      "10": 1
+    },
+    "by_agent": {
+      "claude_code": {
+        "total": 199,
+        "single_edit": 133,
+        "with_exec": 33,
+        "edit_after_exec": 6,
+        "multiple_edits": 66,
+        "multi_by_exec": 3
+      }
+    }
+  },
+  "unrestricted": {
+    "mode": "unrestricted",
+    "total_traces": 400,
+    "total_with_edits": 198,
+    "global_single_edit": 124,
+    "global_multiple_edit": 74,
+    "global_single_ratio": 0.6262626262626263,
+    "instances_with_exec": 182,
+    "edit_after_exec": 117,
+    "edit_after_exec_ratio": 0.6428571428571429,
+    "instances_with_multiple_edits": 74,
+    "multiple_triggered_by_exec": 26,
+    "multiple_without_exec": 48,
+    "edit_distribution": {
+      "1": 124,
+      "2": 44,
+      "3": 11,
+      "4": 8,
+      "5": 3,
+      "6": 1,
+      "7": 2,
+      "8": 2,
+      "10": 3
+    },
+    "by_agent": {
+      "claude_code": {
+        "total": 198,
+        "single_edit": 124,
+        "with_exec": 182,
+        "edit_after_exec": 117,
+        "multiple_edits": 74,
+        "multi_by_exec": 26
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 7ca0d68fae..e912e6ac00 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -352,6 +352,7 @@ class StatReloader(BaseReloader):
+                 continue
+             seen_files.add(file)
+             yield file, mtime
++print(f"Added {file} with mtime {mtime} to _mtimes")
+ 
+     @classmethod
+     def check_availability(cls):

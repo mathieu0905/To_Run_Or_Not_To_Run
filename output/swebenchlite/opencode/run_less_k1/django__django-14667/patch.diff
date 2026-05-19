@@ -1,0 +1,22 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 8837881579..99660e0849 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -224,7 +224,7 @@ class Query(BaseExpression):
+         # A tuple that is a set of model field names and either True, if these
+         # are the fields to defer, or False if these are the only fields to
+         # load.
+-        self.deferred_loading = (frozenset(), True)
++        self.deferred_loading = (frozenset(), self.deferred_loading[1])
+ 
+         self._filtered_relations = {}
+ 
+@@ -2066,7 +2066,7 @@ class Query(BaseExpression):
+ 
+     def clear_deferred_loading(self):
+         """Remove any fields from the deferred loading set."""
+-        self.deferred_loading = (frozenset(), True)
++        self.deferred_loading = (frozenset(), self.deferred_loading[1])
+ 
+     def add_deferred_loading(self, field_names):
+         """

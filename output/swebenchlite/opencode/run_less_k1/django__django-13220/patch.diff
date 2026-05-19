@@ -1,0 +1,16 @@
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..7fb289c7c5 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -179,6 +179,11 @@ class ValidationError(Exception):
+             return repr(dict(self))
+         return repr(list(self))
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return False
++        return sorted(self.error_list, key=lambda x: str(x)) == sorted(other.error_list, key=lambda x: str(x)) and self.error_dict == other.error_dict
++
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 

@@ -1,0 +1,526 @@
+diff --git a/tests/template_tests/templatetags/bad_tag.py b/tests/template_tests/templatetags/bad_tag.py
+deleted file mode 100644
+index a5be15633b..0000000000
+--- a/tests/template_tests/templatetags/bad_tag.py
++++ /dev/null
+@@ -1,13 +0,0 @@
+-from django import template
+-
+-register = template.Library()
+-
+-
+-@register.tag
+-def badtag(parser, token):
+-    raise RuntimeError("I am a bad tag")
+-
+-
+-@register.simple_tag
+-def badsimpletag():
+-    raise RuntimeError("I am a bad simpletag")
+diff --git a/tests/template_tests/templatetags/custom.py b/tests/template_tests/templatetags/custom.py
+deleted file mode 100644
+index a5e1b33c67..0000000000
+--- a/tests/template_tests/templatetags/custom.py
++++ /dev/null
+@@ -1,201 +0,0 @@
+-import operator
+-
+-from django import template
+-from django.template.defaultfilters import stringfilter
+-from django.utils.html import escape, format_html
+-from django.utils.safestring import mark_safe
+-
+-register = template.Library()
+-
+-
+-@register.filter
+-@stringfilter
+-def trim(value, num):
+-    return value[:num]
+-
+-
+-@register.filter
+-@mark_safe
+-def make_data_div(value):
+-    """A filter that uses a decorator (@mark_safe)."""
+-    return '<div data-name="%s"></div>' % value
+-
+-
+-@register.filter
+-def noop(value, param=None):
+-    """A noop filter that always return its first argument and does nothing with
+-    its second (optional) one.
+-    Useful for testing out whitespace in filter arguments (see #19882)."""
+-    return value
+-
+-
+-@register.simple_tag(takes_context=True)
+-def context_stack_length(context):
+-    return len(context.dicts)
+-
+-
+-@register.simple_tag
+-def no_params():
+-    """Expected no_params __doc__"""
+-    return "no_params - Expected result"
+-
+-
+-no_params.anything = "Expected no_params __dict__"
+-
+-
+-@register.simple_tag
+-def one_param(arg):
+-    """Expected one_param __doc__"""
+-    return "one_param - Expected result: %s" % arg
+-
+-
+-one_param.anything = "Expected one_param __dict__"
+-
+-
+-@register.simple_tag(takes_context=False)
+-def explicit_no_context(arg):
+-    """Expected explicit_no_context __doc__"""
+-    return "explicit_no_context - Expected result: %s" % arg
+-
+-
+-explicit_no_context.anything = "Expected explicit_no_context __dict__"
+-
+-
+-@register.simple_tag(takes_context=True)
+-def no_params_with_context(context):
+-    """Expected no_params_with_context __doc__"""
+-    return "no_params_with_context - Expected result (context value: %s)" % context['value']
+-
+-
+-no_params_with_context.anything = "Expected no_params_with_context __dict__"
+-
+-
+-@register.simple_tag(takes_context=True)
+-def params_and_context(context, arg):
+-    """Expected params_and_context __doc__"""
+-    return "params_and_context - Expected result (context value: %s): %s" % (context['value'], arg)
+-
+-
+-params_and_context.anything = "Expected params_and_context __dict__"
+-
+-
+-@register.simple_tag
+-def simple_two_params(one, two):
+-    """Expected simple_two_params __doc__"""
+-    return "simple_two_params - Expected result: %s, %s" % (one, two)
+-
+-
+-simple_two_params.anything = "Expected simple_two_params __dict__"
+-
+-
+-@register.simple_tag
+-def simple_keyword_only_param(*, kwarg):
+-    return "simple_keyword_only_param - Expected result: %s" % kwarg
+-
+-
+-@register.simple_tag
+-def simple_keyword_only_default(*, kwarg=42):
+-    return "simple_keyword_only_default - Expected result: %s" % kwarg
+-
+-
+-@register.simple_tag
+-def simple_one_default(one, two='hi'):
+-    """Expected simple_one_default __doc__"""
+-    return "simple_one_default - Expected result: %s, %s" % (one, two)
+-
+-
+-simple_one_default.anything = "Expected simple_one_default __dict__"
+-
+-
+-@register.simple_tag
+-def simple_unlimited_args(one, two='hi', *args):
+-    """Expected simple_unlimited_args __doc__"""
+-    return "simple_unlimited_args - Expected result: %s" % (
+-        ', '.join(str(arg) for arg in [one, two, *args])
+-    )
+-
+-
+-simple_unlimited_args.anything = "Expected simple_unlimited_args __dict__"
+-
+-
+-@register.simple_tag
+-def simple_only_unlimited_args(*args):
+-    """Expected simple_only_unlimited_args __doc__"""
+-    return "simple_only_unlimited_args - Expected result: %s" % ', '.join(str(arg) for arg in args)
+-
+-
+-simple_only_unlimited_args.anything = "Expected simple_only_unlimited_args __dict__"
+-
+-
+-@register.simple_tag
+-def simple_unlimited_args_kwargs(one, two='hi', *args, **kwargs):
+-    """Expected simple_unlimited_args_kwargs __doc__"""
+-    # Sort the dictionary by key to guarantee the order for testing.
+-    sorted_kwarg = sorted(kwargs.items(), key=operator.itemgetter(0))
+-    return "simple_unlimited_args_kwargs - Expected result: %s / %s" % (
+-        ', '.join(str(arg) for arg in [one, two, *args]),
+-        ', '.join('%s=%s' % (k, v) for (k, v) in sorted_kwarg)
+-    )
+-
+-
+-simple_unlimited_args_kwargs.anything = "Expected simple_unlimited_args_kwargs __dict__"
+-
+-
+-@register.simple_tag(takes_context=True)
+-def simple_tag_without_context_parameter(arg):
+-    """Expected simple_tag_without_context_parameter __doc__"""
+-    return "Expected result"
+-
+-
+-simple_tag_without_context_parameter.anything = "Expected simple_tag_without_context_parameter __dict__"
+-
+-
+-@register.simple_tag(takes_context=True)
+-def escape_naive(context):
+-    """A tag that doesn't even think about escaping issues"""
+-    return "Hello {}!".format(context['name'])
+-
+-
+-@register.simple_tag(takes_context=True)
+-def escape_explicit(context):
+-    """A tag that uses escape explicitly"""
+-    return escape("Hello {}!".format(context['name']))
+-
+-
+-@register.simple_tag(takes_context=True)
+-def escape_format_html(context):
+-    """A tag that uses format_html"""
+-    return format_html("Hello {0}!", context['name'])
+-
+-
+-@register.simple_tag(takes_context=True)
+-def current_app(context):
+-    return "%s" % context.current_app
+-
+-
+-@register.simple_tag(takes_context=True)
+-def use_l10n(context):
+-    return "%s" % context.use_l10n
+-
+-
+-@register.simple_tag(name='minustwo')
+-def minustwo_overridden_name(value):
+-    return value - 2
+-
+-
+-register.simple_tag(lambda x: x - 1, name='minusone')
+-
+-
+-@register.tag('counter')
+-def counter(parser, token):
+-    return CounterNode()
+-
+-
+-class CounterNode(template.Node):
+-    def __init__(self):
+-        self.count = 0
+-
+-    def render(self, context):
+-        count = self.count
+-        self.count = count + 1
+-        return count
+diff --git a/tests/template_tests/templatetags/inclusion.py b/tests/template_tests/templatetags/inclusion.py
+deleted file mode 100644
+index 242fbe80cb..0000000000
+--- a/tests/template_tests/templatetags/inclusion.py
++++ /dev/null
+@@ -1,243 +0,0 @@
+-import operator
+-
+-from django.template import Engine, Library
+-
+-engine = Engine(app_dirs=True)
+-register = Library()
+-
+-
+-@register.inclusion_tag('inclusion.html')
+-def inclusion_no_params():
+-    """Expected inclusion_no_params __doc__"""
+-    return {"result": "inclusion_no_params - Expected result"}
+-
+-
+-inclusion_no_params.anything = "Expected inclusion_no_params __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'))
+-def inclusion_no_params_from_template():
+-    """Expected inclusion_no_params_from_template __doc__"""
+-    return {"result": "inclusion_no_params_from_template - Expected result"}
+-
+-
+-inclusion_no_params_from_template.anything = "Expected inclusion_no_params_from_template __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html')
+-def inclusion_one_param(arg):
+-    """Expected inclusion_one_param __doc__"""
+-    return {"result": "inclusion_one_param - Expected result: %s" % arg}
+-
+-
+-inclusion_one_param.anything = "Expected inclusion_one_param __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'))
+-def inclusion_one_param_from_template(arg):
+-    """Expected inclusion_one_param_from_template __doc__"""
+-    return {"result": "inclusion_one_param_from_template - Expected result: %s" % arg}
+-
+-
+-inclusion_one_param_from_template.anything = "Expected inclusion_one_param_from_template __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html', takes_context=False)
+-def inclusion_explicit_no_context(arg):
+-    """Expected inclusion_explicit_no_context __doc__"""
+-    return {"result": "inclusion_explicit_no_context - Expected result: %s" % arg}
+-
+-
+-inclusion_explicit_no_context.anything = "Expected inclusion_explicit_no_context __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'), takes_context=False)
+-def inclusion_explicit_no_context_from_template(arg):
+-    """Expected inclusion_explicit_no_context_from_template __doc__"""
+-    return {"result": "inclusion_explicit_no_context_from_template - Expected result: %s" % arg}
+-
+-
+-inclusion_explicit_no_context_from_template.anything = "Expected inclusion_explicit_no_context_from_template __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html', takes_context=True)
+-def inclusion_no_params_with_context(context):
+-    """Expected inclusion_no_params_with_context __doc__"""
+-    return {"result": "inclusion_no_params_with_context - Expected result (context value: %s)" % context['value']}
+-
+-
+-inclusion_no_params_with_context.anything = "Expected inclusion_no_params_with_context __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'), takes_context=True)
+-def inclusion_no_params_with_context_from_template(context):
+-    """Expected inclusion_no_params_with_context_from_template __doc__"""
+-    return {
+-        "result": (
+-            "inclusion_no_params_with_context_from_template - Expected result (context value: %s)" % context['value']
+-        )
+-    }
+-
+-
+-inclusion_no_params_with_context_from_template.anything = (
+-    "Expected inclusion_no_params_with_context_from_template __dict__"
+-)
+-
+-
+-@register.inclusion_tag('inclusion.html', takes_context=True)
+-def inclusion_params_and_context(context, arg):
+-    """Expected inclusion_params_and_context __doc__"""
+-    return {
+-        "result": "inclusion_params_and_context - Expected result (context value: %s): %s" % (context['value'], arg)
+-    }
+-
+-
+-inclusion_params_and_context.anything = "Expected inclusion_params_and_context __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'), takes_context=True)
+-def inclusion_params_and_context_from_template(context, arg):
+-    """Expected inclusion_params_and_context_from_template __doc__"""
+-    return {
+-        "result": (
+-            "inclusion_params_and_context_from_template - Expected result "
+-            "(context value: %s): %s" % (context['value'], arg)
+-        )
+-    }
+-
+-
+-inclusion_params_and_context_from_template.anything = "Expected inclusion_params_and_context_from_template __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html')
+-def inclusion_two_params(one, two):
+-    """Expected inclusion_two_params __doc__"""
+-    return {"result": "inclusion_two_params - Expected result: %s, %s" % (one, two)}
+-
+-
+-inclusion_two_params.anything = "Expected inclusion_two_params __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'))
+-def inclusion_two_params_from_template(one, two):
+-    """Expected inclusion_two_params_from_template __doc__"""
+-    return {"result": "inclusion_two_params_from_template - Expected result: %s, %s" % (one, two)}
+-
+-
+-inclusion_two_params_from_template.anything = "Expected inclusion_two_params_from_template __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html')
+-def inclusion_one_default(one, two='hi'):
+-    """Expected inclusion_one_default __doc__"""
+-    return {"result": "inclusion_one_default - Expected result: %s, %s" % (one, two)}
+-
+-
+-inclusion_one_default.anything = "Expected inclusion_one_default __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'))
+-def inclusion_one_default_from_template(one, two='hi'):
+-    """Expected inclusion_one_default_from_template __doc__"""
+-    return {"result": "inclusion_one_default_from_template - Expected result: %s, %s" % (one, two)}
+-
+-
+-inclusion_one_default_from_template.anything = "Expected inclusion_one_default_from_template __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html')
+-def inclusion_unlimited_args(one, two='hi', *args):
+-    """Expected inclusion_unlimited_args __doc__"""
+-    return {
+-        "result": (
+-            "inclusion_unlimited_args - Expected result: %s" % (
+-                ', '.join(str(arg) for arg in [one, two, *args])
+-            )
+-        )
+-    }
+-
+-
+-inclusion_unlimited_args.anything = "Expected inclusion_unlimited_args __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'))
+-def inclusion_unlimited_args_from_template(one, two='hi', *args):
+-    """Expected inclusion_unlimited_args_from_template __doc__"""
+-    return {
+-        "result": (
+-            "inclusion_unlimited_args_from_template - Expected result: %s" % (
+-                ', '.join(str(arg) for arg in [one, two, *args])
+-            )
+-        )
+-    }
+-
+-
+-inclusion_unlimited_args_from_template.anything = "Expected inclusion_unlimited_args_from_template __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html')
+-def inclusion_only_unlimited_args(*args):
+-    """Expected inclusion_only_unlimited_args __doc__"""
+-    return {
+-        "result": "inclusion_only_unlimited_args - Expected result: %s" % (
+-            ', '.join(str(arg) for arg in args)
+-        )
+-    }
+-
+-
+-inclusion_only_unlimited_args.anything = "Expected inclusion_only_unlimited_args __dict__"
+-
+-
+-@register.inclusion_tag(engine.get_template('inclusion.html'))
+-def inclusion_only_unlimited_args_from_template(*args):
+-    """Expected inclusion_only_unlimited_args_from_template __doc__"""
+-    return {
+-        "result": "inclusion_only_unlimited_args_from_template - Expected result: %s" % (
+-            ', '.join(str(arg) for arg in args)
+-        )
+-    }
+-
+-
+-inclusion_only_unlimited_args_from_template.anything = "Expected inclusion_only_unlimited_args_from_template __dict__"
+-
+-
+-@register.inclusion_tag('test_incl_tag_use_l10n.html', takes_context=True)
+-def inclusion_tag_use_l10n(context):
+-    """Expected inclusion_tag_use_l10n __doc__"""
+-    return {}
+-
+-
+-inclusion_tag_use_l10n.anything = "Expected inclusion_tag_use_l10n __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html')
+-def inclusion_unlimited_args_kwargs(one, two='hi', *args, **kwargs):
+-    """Expected inclusion_unlimited_args_kwargs __doc__"""
+-    # Sort the dictionary by key to guarantee the order for testing.
+-    sorted_kwarg = sorted(kwargs.items(), key=operator.itemgetter(0))
+-    return {"result": "inclusion_unlimited_args_kwargs - Expected result: %s / %s" % (
+-        ', '.join(str(arg) for arg in [one, two, *args]),
+-        ', '.join('%s=%s' % (k, v) for (k, v) in sorted_kwarg)
+-    )}
+-
+-
+-inclusion_unlimited_args_kwargs.anything = "Expected inclusion_unlimited_args_kwargs __dict__"
+-
+-
+-@register.inclusion_tag('inclusion.html', takes_context=True)
+-def inclusion_tag_without_context_parameter(arg):
+-    """Expected inclusion_tag_without_context_parameter __doc__"""
+-    return {}
+-
+-
+-inclusion_tag_without_context_parameter.anything = "Expected inclusion_tag_without_context_parameter __dict__"
+-
+-
+-@register.inclusion_tag('inclusion_extends1.html')
+-def inclusion_extends1():
+-    return {}
+-
+-
+-@register.inclusion_tag('inclusion_extends2.html')
+-def inclusion_extends2():
+-    return {}
+diff --git a/tests/template_tests/templatetags/tag_27584.py b/tests/template_tests/templatetags/tag_27584.py
+deleted file mode 100644
+index 8c675be16b..0000000000
+--- a/tests/template_tests/templatetags/tag_27584.py
++++ /dev/null
+@@ -1,15 +0,0 @@
+-from django import template
+-
+-register = template.Library()
+-
+-
+-@register.tag
+-def badtag(parser, token):
+-    parser.parse(('endbadtag',))
+-    parser.delete_first_token()
+-    return BadNode()
+-
+-
+-class BadNode(template.Node):
+-    def render(self, context):
+-        raise template.TemplateSyntaxError('error')
+diff --git a/tests/template_tests/templatetags/testtags.py b/tests/template_tests/templatetags/testtags.py
+deleted file mode 100644
+index 4b839a9a54..0000000000
+--- a/tests/template_tests/templatetags/testtags.py
++++ /dev/null
+@@ -1,24 +0,0 @@
+-from django.template import Library, Node
+-
+-register = Library()
+-
+-
+-class EchoNode(Node):
+-    def __init__(self, contents):
+-        self.contents = contents
+-
+-    def render(self, context):
+-        return ' '.join(self.contents)
+-
+-
+-@register.tag
+-def echo(parser, token):
+-    return EchoNode(token.contents.split()[1:])
+-
+-
+-register.tag('other_echo', echo)
+-
+-
+-@register.filter
+-def upper(value):
+-    return value.upper()
