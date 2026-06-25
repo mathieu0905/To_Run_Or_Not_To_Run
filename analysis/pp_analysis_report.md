@@ -195,9 +195,9 @@ The current RQ3 only presents outcome transition data (P→P, F→F, P→F, F→
 
 ## 7. Data Files
 
-- `/home/zhihao/hdd/run_free_run_less_run_full/analysis/pp_why_no_execution_needed.json` - Detailed results
-- `/home/zhihao/hdd/run_free_run_less_run_full/analysis/pp_execution_metrics.json` - Execution metrics
-- `/home/zhihao/hdd/run_free_run_less_run_full/analysis/pp_all_categorization_results.json` - Categorization results
+- `analysis/pp_why_no_execution_needed.json` - Detailed results
+- `analysis/pp_execution_metrics.json` - Execution metrics
+- `analysis/pp_all_categorization_results.json` - Categorization results
 
 ---
 

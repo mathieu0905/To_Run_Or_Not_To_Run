@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-
-const PROJECT_DIR = "/home/zhihao/hdd/run_free_run_less_run_full";
+import { PROJECT_DIR } from "@/lib/project";
 
 // 从 shell 脚本中提取配置
 function extractConfigFromScript(scriptPath: string): Record<string, string> {
@@ -57,8 +55,8 @@ function extractConfigFromScript(scriptPath: string): Record<string, string> {
 export async function GET() {
   try {
     // 读取 claude 和 codex 脚本的配置
-    const claudeConfig = extractConfigFromScript(path.join(PROJECT_DIR, "run_claude.sh"));
-    const codexConfig = extractConfigFromScript(path.join(PROJECT_DIR, "run_codex.sh"));
+    const claudeConfig = extractConfigFromScript(path.join(PROJECT_DIR, "scripts", "run_claude.sh"));
+    const codexConfig = extractConfigFromScript(path.join(PROJECT_DIR, "scripts", "run_codex.sh"));
 
     // 合并配置，优先使用 claude 的通用配置
     const config = {
@@ -70,7 +68,7 @@ export async function GET() {
       claudeModel: claudeConfig.CLAUDE_MODEL || "sonnet",
       codexModel: codexConfig.CODEX_MODEL || "gpt-5.2",
       codexReasoningEffort: codexConfig.CODEX_REASONING_EFFORT || "xhigh",
-      anthropicBaseUrl: claudeConfig.ANTHROPIC_BASE_URL || "http://vip.xg.frp.one:60660",
+      anthropicBaseUrl: claudeConfig.ANTHROPIC_BASE_URL || "https://api.anthropic.com",
       modes: claudeConfig.CONFIGS ? JSON.parse(claudeConfig.CONFIGS) : [],
     };
 

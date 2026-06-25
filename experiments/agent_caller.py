@@ -642,7 +642,10 @@ class AgentCaller:
         # Some agent images shipped with opencode v1.3.0 (which lacks
         # --dangerously-skip-permissions). Mount a host-side v1.4.0 binary to
         # override, ensuring all containers have the same version.
-        host_opencode = "/home/zhihao/hdd/run_free_run_less_run_full/bin/opencode"
+        host_opencode = os.environ.get(
+            "OPENCODE_HOST_BIN",
+            str(Path(__file__).resolve().parents[1] / "bin" / "opencode"),
+        )
         if os.path.exists(host_opencode):
             docker_cmd.extend(["-v", f"{host_opencode}:/usr/local/bin/opencode:ro"])
 

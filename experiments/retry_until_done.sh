@@ -10,9 +10,11 @@ WORKERS="${2:-16}"
 MAX_ROUNDS="${3:-6}"
 TIMEOUT="${4:-3600}"
 
-PROJ=/home/zhihao/hdd/run_free_run_less_run_full
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJ="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT=$PROJ/output
 LOGS=$PROJ/logs
+mkdir -p "$LOGS"
 
 declare -A DSDIR=( [lite]=swebenchlite [verified]=swebenchverified )
 

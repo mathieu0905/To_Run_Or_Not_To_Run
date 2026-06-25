@@ -33,20 +33,20 @@ execution tools at the runner level for stricter policy enforcement.
 ├── dashboard/                # Next.js dashboard for inspecting runs
 ├── data/                     # SWE-bench Lite/Verified metadata used by scripts
 ├── docker/                   # Docker image build and test scripts
+├── docs/                     # Usage notes for Docker, models, figures, and submission
 ├── experiments/              # Core runner, prompts, agent wrappers, tests
 ├── figures/                  # Figure-generation scripts and rendered figures
-├── queue_*.tsv               # Batch queues used for release experiments
-├── run_*.sh                  # Batch launchers for agents/datasets
-└── submit_to_swebench.sh     # Submission helper for SWE-bench evaluation
+├── configs/queues/           # Batch queues used for release experiments
+└── scripts/                  # Launchers, prediction generation, and submission helpers
 ```
 
-`SWE-bench` and `sb-cli` are tracked as submodules. Initialize them when you
-need the full evaluation workflow.
+SWE-bench and `sb-cli` are external dependencies. Install them from their
+upstream projects when you need official evaluation or report submission.
 
 ## Setup
 
 ```bash
-git clone --recurse-submodules https://github.com/mathieu0905/To_Run_Or_Not_To_Run.git
+git clone https://github.com/mathieu0905/To_Run_Or_Not_To_Run.git
 cd To_Run_Or_Not_To_Run
 python -m venv .venv
 source .venv/bin/activate
@@ -84,10 +84,10 @@ arguments accepted by `experiments/runner.py`.
 Batch scripts are provided for larger runs:
 
 ```bash
-bash run_codex.sh -f
-bash run_claude.sh -f
-bash run_codex_verified.sh -f
-bash run_claude_verified.sh -f
+bash scripts/run_codex.sh -f
+bash scripts/run_claude.sh -f
+bash scripts/run_codex_verified.sh -f
+bash scripts/run_claude_verified.sh -f
 ```
 
 Generated traces, prompts, patches, and result JSON files are written under
@@ -110,8 +110,8 @@ Prediction generation and SWE-bench submission helpers:
 
 ```bash
 python experiments/prepare_sbcli_predictions.py
-python generate_predictions.py
-bash submit_to_swebench.sh
+python scripts/generate_predictions.py
+bash scripts/submit_to_swebench.sh
 ```
 
 These commands expect regenerated experiment outputs or externally supplied raw
@@ -133,4 +133,3 @@ This repository was cleaned for public artifact release:
 
 If you use this artifact, please cite the corresponding ISSTA 2026 paper. The
 final BibTeX entry will be added after the proceedings metadata is available.
-

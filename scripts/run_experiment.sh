@@ -3,6 +3,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Color output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -48,8 +51,7 @@ MODE=$1
 shift
 
 # Switch to experiments directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/experiments"
+cd "$PROJECT_ROOT/experiments"
 
 case "$MODE" in
     single)
@@ -123,13 +125,19 @@ case "$MODE" in
         DATASET=${7:-princeton-nlp/SWE-bench_Lite}
 
         # Check if instances file exists
-        if [ ! -f "../$INSTANCES_FILE" ]; then
+        if [[ "$INSTANCES_FILE" = /* ]]; then
+            INSTANCE_PATH="$INSTANCES_FILE"
+        else
+            INSTANCE_PATH="$PROJECT_ROOT/$INSTANCES_FILE"
+        fi
+
+        if [ ! -f "$INSTANCE_PATH" ]; then
             echo -e "${RED}Error: Instances file does not exist: $INSTANCES_FILE${NC}"
             exit 1
         fi
 
         # Count number of instances
-        INSTANCE_COUNT=$(grep -v '^#' "../$INSTANCES_FILE" | grep -v '^$' | wc -l)
+        INSTANCE_COUNT=$(grep -v '^#' "$INSTANCE_PATH" | grep -v '^$' | wc -l)
 
         echo -e "${YELLOW}========================================${NC}"
         echo -e "${YELLOW}Running Batch Experiments${NC}"
@@ -147,7 +155,7 @@ case "$MODE" in
         echo ""
 
         # Run batch experiments
-        python batch_runner.py "../$INSTANCES_FILE" "$EXEC_MODE" "$K" "$WORKERS" "$AGENT_TYPE" "$TIMEOUT" "$DATASET"
+        python batch_runner.py "$INSTANCE_PATH" "$EXEC_MODE" "$K" "$WORKERS" "$AGENT_TYPE" "$TIMEOUT" "$DATASET"
         EXIT_CODE=$?
 
         if [ $EXIT_CODE -eq 0 ]; then

@@ -1,32 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
-import path from "path";
-import fs from "fs";
+import { PROJECT_DIR, loadEnvFile } from "@/lib/project";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const PROJECT_DIR = "/home/zhihao/hdd/run_free_run_less_run_full";
-
-function loadEnvFile(): Record<string, string> {
-  const envPath = path.join(PROJECT_DIR, ".env");
-  const env: Record<string, string> = {};
-
-  if (fs.existsSync(envPath)) {
-    const content = fs.readFileSync(envPath, "utf-8");
-    content.split("\n").forEach(line => {
-      line = line.trim();
-      if (line && !line.startsWith("#")) {
-        const [key, ...valueParts] = line.split("=");
-        if (key && valueParts.length > 0) {
-          env[key.trim()] = valueParts.join("=").trim();
-        }
-      }
-    });
-  }
-
-  return env;
-}
 
 function mapDataset(dataset: string): string {
   const mapping: Record<string, string> = {
@@ -51,7 +28,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     const envVars = loadEnvFile();
 
     return new Promise<Response>((resolve) => {
-      const command = `source /data/zhihao/miniconda3/etc/profile.d/conda.sh && conda activate swebench && sb-cli list-runs "${sbDataset}" test`;
+      const command = `sb-cli list-runs "${sbDataset}" test`;
       const proc = spawn("bash", ["-c", command], {
         cwd: PROJECT_DIR,
         env: { ...process.env, ...envVars }

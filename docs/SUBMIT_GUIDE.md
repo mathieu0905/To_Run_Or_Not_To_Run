@@ -5,7 +5,7 @@
 1. Install sb-cli:
 ```bash
 conda activate swebench
-pip install -e sb-cli/
+pip install sb-cli
 ```
 
 2. Configure API Key (already saved in `.env` file):
@@ -22,12 +22,12 @@ export SWEBENCH_API_KEY=swb_xxx...
 sb-cli get-quotas
 ```
 
-## Using submit_to_swebench.sh
+## Using scripts/submit_to_swebench.sh
 
 ### List All Available Combinations
 
 ```bash
-./submit_to_swebench.sh --list
+bash scripts/submit_to_swebench.sh --list
 ```
 
 Example output:
@@ -43,7 +43,7 @@ swebenchverified     codex           run_free        99         99
 ### Generate predictions file (without submission)
 
 ```bash
-./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free --gen-only
+bash scripts/submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free --gen-only
 ```
 
 Generated files are saved in the `predictions/` directory.
@@ -52,16 +52,16 @@ Generated files are saved in the `predictions/` directory.
 
 ```bash
 # Use default run_id (agent_mode)
-./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free
+bash scripts/submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free
 
 # Custom run_id
-./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free --run-id my_experiment_v1
+bash scripts/submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free --run-id my_experiment_v1
 ```
 
 ### Generate All predictions Files
 
 ```bash
-./submit_to_swebench.sh --all --gen-only
+bash scripts/submit_to_swebench.sh --all --gen-only
 ```
 
 ## Using sb-cli Directly
@@ -127,5 +127,3 @@ sb-cli list-runs swe-bench_verified test
 - Test set submissions have quota limits, please use carefully
 - Recommend using `--gen-only` to check generated predictions file before submission
 - Each submission's run_id should be unique for easy result tracking
-
-./submit_to_swebench.sh --dataset swebenchverified --agent codex --mode run_free

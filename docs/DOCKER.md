@@ -87,7 +87,7 @@ Container run configuration:
 ```bash
 docker run \
   --network host \
-  -v /home/zhihao/.claude:/root/.claude \
+  -v "$HOME/.claude:/root/.claude" \
   -e http_proxy=http://127.0.0.1:15732 \
   -e https_proxy=http://127.0.0.1:15732 \
   swebench/sweb.eval.x86_64.django_1776_django-16408-agent
@@ -117,7 +117,7 @@ docker run --rm <image_name> claude --version
 ```bash
 docker run --rm \
   --network host \
-  -v /home/zhihao/.claude:/root/.claude \
+  -v "$HOME/.claude:/root/.claude" \
   -e http_proxy=http://127.0.0.1:15732 \
   <image_name> \
   timeout 60 claude chat "Hello"

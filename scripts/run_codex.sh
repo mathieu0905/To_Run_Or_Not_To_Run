@@ -4,10 +4,13 @@
 
 set -e
 
-# Run in background by default, -f for foreground execution
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Default background execution, -f for foreground execution
 if [ "$1" != "-f" ] && [ "$1" != "--foreground" ]; then
-    SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-    LOG_FILE="$(cd "$(dirname "$0")" && pwd)/logs/run_claude_verified_$(date +%Y%m%d_%H%M%S).log"
+    SCRIPT_PATH="${SCRIPT_DIR}/$(basename "$0")"
+    LOG_FILE="${PROJECT_ROOT}/logs/run_codex_$(date +%Y%m%d_%H%M%S).log"
     mkdir -p "$(dirname "$LOG_FILE")"
     echo "Running in background, log: $LOG_FILE"
     nohup bash "$SCRIPT_PATH" -f > "$LOG_FILE" 2>&1 &
@@ -15,12 +18,8 @@ if [ "$1" != "-f" ] && [ "$1" != "--foreground" ]; then
     exit 0
 fi
 
-# Switch to script directory
-cd "$(dirname "$0")"
-SCRIPT_DIR="$(pwd)"
-
 # Switch to experiments directory to run
-cd experiments
+cd "$PROJECT_ROOT/experiments"
 
 # Cleanup function: terminate all child processes and Docker containers
 cleanup() {
@@ -54,19 +53,19 @@ cleanup() {
     exit 1
 }
 
-# Register signal handlers
+# Register signal handler
 trap cleanup SIGINT SIGTERM
 
 # ========== Configuration Section ==========
 # Experiment configuration
 NUM_INSTANCES=100  # Take first n instances
-WORKERS=10  # Concurrency within each configuration
+WORKERS=30  # Concurrency within each configuration
 TIMEOUT=1200
-DATASET="princeton-nlp/SWE-bench_Verified"
+DATASET="princeton-nlp/SWE-bench_Lite"
 
 # Claude Code configuration
 export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"  # Options: opus, sonnet, haiku
-export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://vip.xg.frp.one:60660}"
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
 
 # Codex configuration
 export CODEX_MODEL="${CODEX_MODEL:-gpt-5.2}"
@@ -75,9 +74,9 @@ export CODEX_REASONING_EFFORT="${CODEX_REASONING_EFFORT:-xhigh}"
 
 # Select corresponding JSON data file based on DATASET
 if [ "$DATASET" = "princeton-nlp/SWE-bench_Lite" ]; then
-    DATA_FILE="${SCRIPT_DIR}/data/swe_bench_lite.json"
+    DATA_FILE="${PROJECT_ROOT}/data/swe_bench_lite.json"
 elif [ "$DATASET" = "princeton-nlp/SWE-bench_Verified" ]; then
-    DATA_FILE="${SCRIPT_DIR}/data/swe_bench_verified.json"
+    DATA_FILE="${PROJECT_ROOT}/data/swe_bench_verified.json"
 else
     echo "Unknown dataset: $DATASET"
     exit 1
@@ -111,12 +110,12 @@ echo "=========================================="
 echo ""
 
 # Create log directory (in project root, organized by agent)
-LOG_DIR="${SCRIPT_DIR}/logs"
+LOG_DIR="${PROJECT_ROOT}/logs"
 mkdir -p "$LOG_DIR"
 
 # Agent list
 # AGENTS=("claude_code" "codex")
-AGENTS=("claude_code")
+AGENTS=("codex")
 
 # Mode configuration list
 # Format: "mode k_value"
@@ -189,50 +188,27 @@ echo ""
 echo "Waiting for all tasks to complete..."
 echo ""
 
-# Wait for all background tasks to complete (parallel wait)
+# Wait for all background tasks to complete
 COMPLETED=0
 FAILED=0
-declare -A PID_TO_NAME
 
-# Build mapping from PID to task name
 for i in "${!PIDS[@]}"; do
-    PID_TO_NAME[${PIDS[$i]}]=${TASK_NAMES[$i]}
-done
+    PID=${PIDS[$i]}
+    TASK_NAME=${TASK_NAMES[$i]}
 
-# Wait for all processes in parallel
-while [ ${#PIDS[@]} -gt 0 ]; do
-    for i in "${!PIDS[@]}"; do
-        PID=${PIDS[$i]}
-        TASK_NAME=${PID_TO_NAME[$PID]}
-
-        # Non-blocking check if process has completed
-        if ! kill -0 $PID 2>/dev/null; then
-            # Process has completed, get exit status
-            wait $PID
-            EXIT_CODE=$?
-
-            if [ $EXIT_CODE -eq 0 ]; then
-                echo -e "${GREEN}✓${NC} Task completed: ${TASK_NAME}"
-                COMPLETED=$((COMPLETED + 1))
-            else
-                echo -e "\033[0;31m✗${NC} Task failed: ${TASK_NAME} (view log: ${LOG_DIR}/${TASK_NAME}.log)"
-                FAILED=$((FAILED + 1))
-            fi
-
-            # Remove completed PID from array
-            unset PIDS[$i]
-        fi
-    done
-
-    # If there are still processes running, sleep briefly before checking again
-    if [ ${#PIDS[@]} -gt 0 ]; then
-        sleep 1
+    # Wait for process to complete
+    if wait $PID; then
+        echo -e "${GREEN}✓${NC} Task completed: ${TASK_NAME}"
+        COMPLETED=$((COMPLETED + 1))
+    else
+        echo -e "\033[0;31m✗${NC} Task failed: ${TASK_NAME} (view log: ${LOG_DIR}/${TASK_NAME}.log)"
+        FAILED=$((FAILED + 1))
     fi
 done
 
 echo ""
 echo "=========================================="
-echo "All tasks have finished execution!"
+echo "All tasks completed!"
 echo "=========================================="
 echo -e "Completed: ${GREEN}${COMPLETED}${NC} / Failed: ${FAILED} / Total: ${TOTAL_CONFIGS}"
 echo ""

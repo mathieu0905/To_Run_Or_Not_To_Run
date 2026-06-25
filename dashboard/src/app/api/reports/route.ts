@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { PROJECT_DIR } from "@/lib/project";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PROJECT_DIR = "/home/zhihao/hdd/run_free_run_less_run_full";
 const REPORTS_DIR = path.join(PROJECT_DIR, "sb-cli-reports");
 
 export async function GET(req: NextRequest): Promise<Response> {

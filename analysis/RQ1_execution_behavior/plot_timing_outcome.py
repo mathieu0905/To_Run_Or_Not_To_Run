@@ -6,6 +6,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
 # 数据来自 rq1_execution_analysis_report.md 第104-117行
 data = [
@@ -48,13 +49,14 @@ plt.grid(True, alpha=0.3)
 plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=8)
 plt.tight_layout()
 
-# 保存图片
-output_path = '/home/zhihao/hdd/run_free_run_less_run_full/Run_Less-ISSTA/pic/timing_outcome.pdf'
+# Save figures.
+project_root = Path(__file__).resolve().parents[2]
+output_path = project_root / 'figures' / 'timing_outcome.pdf'
 plt.savefig(output_path, bbox_inches='tight', dpi=300)
 print(f"Figure saved to: {output_path}")
 
-# 也保存 PNG 版本方便预览
-png_path = '/home/zhihao/hdd/run_free_run_less_run_full/analysis/RQ1_execution_behavior/timing_outcome.png'
+# Also save a PNG preview.
+png_path = Path(__file__).resolve().parent / 'timing_outcome.png'
 plt.savefig(png_path, bbox_inches='tight', dpi=150)
 print(f"PNG preview saved to: {png_path}")
 

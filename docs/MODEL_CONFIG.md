@@ -20,7 +20,7 @@ Supported values:
 
 ```bash
 export CODEX_MODEL="gpt-5.2"  # default value
-export CODEX_REASONING_EFFORT="medium"  # default value
+export CODEX_REASONING_EFFORT="xhigh"  # default value used by the release scripts
 ```
 
 Supported values:
@@ -97,7 +97,7 @@ cat ~/.config/codex/config.toml | grep model
 
 ```bash
 export CLAUDE_MODEL="opus"
-./run_all_experiments.sh
+bash scripts/run_claude.sh -f
 ```
 
 ### Example 2: Use different models for different agents
@@ -107,14 +107,14 @@ Since Claude Code and Codex use different configuration files, you can:
 1. First run Claude Code experiments (using Opus):
 ```bash
 export CLAUDE_MODEL="opus"
-# Modify run_all_experiments.sh to only run claude_code
+bash scripts/run_claude.sh -f
 ```
 
 2. Then run Codex experiments (using a different model):
 ```bash
 export CODEX_MODEL="gpt-5.2"
 export CODEX_REASONING_EFFORT="high"
-# Modify run_all_experiments.sh to only run codex
+bash scripts/run_codex.sh -f
 ```
 
 ## Configuration Script

@@ -2,9 +2,10 @@
 
 # Backup script: Backup output directory to backup directory
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SOURCE_DIR="$SCRIPT_DIR/output"
-BACKUP_DIR="$SCRIPT_DIR/backup"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SOURCE_DIR="$PROJECT_ROOT/output"
+BACKUP_DIR="$PROJECT_ROOT/backup"
 
 # Check if output directory exists
 if [ ! -d "$SOURCE_DIR" ]; then

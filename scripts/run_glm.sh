@@ -1,13 +1,16 @@
 #!/bin/bash
-# Batch run all experiment configurations - fully parallel version
+# Batch run all experiment configurations - fully parallel version (GLM)
 # 3 instances × 2 agents × 6 modes = 36 experiments, all configurations run in parallel
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Default background execution, -f for foreground execution
 if [ "$1" != "-f" ] && [ "$1" != "--foreground" ]; then
-    SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-    LOG_FILE="$(cd "$(dirname "$0")" && pwd)/logs/run_claude_$(date +%Y%m%d_%H%M%S).log"
+    SCRIPT_PATH="${SCRIPT_DIR}/$(basename "$0")"
+    LOG_FILE="${PROJECT_ROOT}/logs/run_glm_$(date +%Y%m%d_%H%M%S).log"
     mkdir -p "$(dirname "$LOG_FILE")"
     echo "Running in background, log: $LOG_FILE"
     nohup bash "$SCRIPT_PATH" -f > "$LOG_FILE" 2>&1 &
@@ -15,12 +18,8 @@ if [ "$1" != "-f" ] && [ "$1" != "--foreground" ]; then
     exit 0
 fi
 
-# Switch to script directory
-cd "$(dirname "$0")"
-SCRIPT_DIR="$(pwd)"
-
 # Switch to experiments directory to run
-cd experiments
+cd "$PROJECT_ROOT/experiments"
 
 # Cleanup function: terminate all child processes and Docker containers
 cleanup() {
@@ -64,20 +63,20 @@ WORKERS=10  # Concurrency within each configuration
 TIMEOUT=1200
 DATASET="princeton-nlp/SWE-bench_Lite"
 
-# Claude Code configuration
-export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"  # Options: opus, sonnet, haiku
-export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://vip.xg.frp.one:60660}"
-
-# Codex configuration
-export CODEX_MODEL="${CODEX_MODEL:-gpt-5.2}"
-export CODEX_REASONING_EFFORT="${CODEX_REASONING_EFFORT:-xhigh}"
+# GLM configuration (use GLM by default)
+export CLAUDE_MODEL="${CLAUDE_MODEL:-GLM-4.7}"
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-https://open.bigmodel.cn/api/anthropic}"
+if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    echo "ANTHROPIC_API_KEY must be set before running GLM experiments."
+    exit 1
+fi
 # ==============================
 
 # Select corresponding JSON data file based on DATASET
 if [ "$DATASET" = "princeton-nlp/SWE-bench_Lite" ]; then
-    DATA_FILE="${SCRIPT_DIR}/data/swe_bench_lite.json"
+    DATA_FILE="${PROJECT_ROOT}/data/swe_bench_lite.json"
 elif [ "$DATASET" = "princeton-nlp/SWE-bench_Verified" ]; then
-    DATA_FILE="${SCRIPT_DIR}/data/swe_bench_verified.json"
+    DATA_FILE="${PROJECT_ROOT}/data/swe_bench_verified.json"
 else
     echo "Unknown dataset: $DATASET"
     exit 1
@@ -111,12 +110,12 @@ echo "=========================================="
 echo ""
 
 # Create log directory (in project root, organized by agent)
-LOG_DIR="${SCRIPT_DIR}/logs"
+LOG_DIR="${PROJECT_ROOT}/logs"
 mkdir -p "$LOG_DIR"
 
 # Agent list
 # AGENTS=("claude_code" "codex")
-AGENTS=("claude_code")
+AGENTS=("claude_code_glm")
 
 # Mode configuration list
 # Format: "mode k_value"
@@ -134,7 +133,7 @@ TOTAL_CONFIGS=$((${#AGENTS[@]} * ${#CONFIGS[@]}))
 echo -e "${YELLOW}Total ${TOTAL_CONFIGS} parallel tasks will be launched${NC}"
 echo ""
 
-# Store background task PIDs
+# Store PIDs of background tasks
 declare -a PIDS=()
 declare -a TASK_NAMES=()
 
@@ -194,7 +193,7 @@ COMPLETED=0
 FAILED=0
 declare -A PID_TO_NAME
 
-# Build mapping from PID to task name
+# Establish mapping from PID to task name
 for i in "${!PIDS[@]}"; do
     PID_TO_NAME[${PIDS[$i]}]=${TASK_NAMES[$i]}
 done
@@ -232,7 +231,7 @@ done
 
 echo ""
 echo "=========================================="
-echo "All tasks execution completed!"
+echo "All tasks completed!"
 echo "=========================================="
 echo -e "Completed: ${GREEN}${COMPLETED}${NC} / Failed: ${FAILED} / Total: ${TOTAL_CONFIGS}"
 echo ""

@@ -1,14 +1,15 @@
 #!/bin/bash
 
-# Switch to script directory
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
 
 # Load environment variables
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
-else
-    echo "Error: .env file does not exist"
-    exit 1
+    set -a
+    # shellcheck disable=SC1091
+    source .env
+    set +a
 fi
 
 # Check if API key is set
@@ -17,9 +18,14 @@ if [ -z "$SWEBENCH_API_KEY" ]; then
     exit 1
 fi
 
-# Activate conda environment
-source /data/zhihao/miniconda3/etc/profile.d/conda.sh
-conda activate swebench
+if [ -n "${CONDA_EXE:-}" ]; then
+    CONDA_BASE="$("$CONDA_EXE" info --base)"
+    # shellcheck disable=SC1091
+    source "$CONDA_BASE/etc/profile.d/conda.sh"
+fi
+if command -v conda >/dev/null 2>&1; then
+    conda activate "${SWEBENCH_CONDA_ENV:-swebench}" || true
+fi
 
 # Show help
 show_help() {
@@ -94,7 +100,7 @@ done
 
 # List all combinations
 if [ "$LIST" = true ]; then
-    python3 generate_predictions.py --list
+    python3 scripts/generate_predictions.py --list
     exit 0
 fi
 
@@ -122,7 +128,7 @@ submit_one() {
 
     # Generate predictions file
     echo "Generating predictions file: ${dataset}/${agent}/${mode}"
-    python3 generate_predictions.py --dataset "$dataset" --agent "$agent" --mode "$mode"
+    python3 scripts/generate_predictions.py --dataset "$dataset" --agent "$agent" --mode "$mode"
 
     if [ "$GEN_ONLY" = true ]; then
         echo "Only generating file, skipping submission"
@@ -173,7 +179,7 @@ submit_one() {
 # Main logic
 if [ "$ALL" = true ]; then
     echo "Generating all predictions files..."
-    python3 generate_predictions.py --all
+    python3 scripts/generate_predictions.py --all
 
     if [ "$GEN_ONLY" = true ]; then
         echo "Only generating files, skipping submission"

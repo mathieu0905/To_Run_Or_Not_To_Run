@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
+import { PROJECT_DIR } from "@/lib/project";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const PROJECT_DIR = "/home/zhihao/hdd/run_free_run_less_run_full";
 
 interface EvaluationRequest {
   dataset: "swebenchlite" | "swebenchverified";

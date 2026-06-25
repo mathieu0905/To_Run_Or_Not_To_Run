@@ -1,6 +1,7 @@
 import { spawn, ChildProcess, execSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { PROJECT_DIR } from "./project";
 
 export interface ScriptConfig {
   numInstances: number;
@@ -31,15 +32,13 @@ export interface TraceInfo {
   mtime: number;
 }
 
-const PROJECT_DIR = "/home/zhihao/hdd/run_free_run_less_run_full";
-
 export const SCRIPTS: ScriptInfo[] = [
-  { id: "claude_lite", name: "Claude + Lite", scriptPath: `${PROJECT_DIR}/run_claude.sh`, status: "idle" },
-  { id: "claude_verified", name: "Claude + Verified", scriptPath: `${PROJECT_DIR}/run_claude_verified.sh`, status: "idle" },
-  { id: "glm_lite", name: "GLM + Lite", scriptPath: `${PROJECT_DIR}/run_glm.sh`, status: "idle" },
-  { id: "glm_verified", name: "GLM + Verified", scriptPath: `${PROJECT_DIR}/run_glm_verified.sh`, status: "idle" },
-  { id: "codex_lite", name: "Codex + Lite", scriptPath: `${PROJECT_DIR}/run_codex.sh`, status: "idle" },
-  { id: "codex_verified", name: "Codex + Verified", scriptPath: `${PROJECT_DIR}/run_codex_verified.sh`, status: "idle" },
+  { id: "claude_lite", name: "Claude + Lite", scriptPath: `${PROJECT_DIR}/scripts/run_claude.sh`, status: "idle" },
+  { id: "claude_verified", name: "Claude + Verified", scriptPath: `${PROJECT_DIR}/scripts/run_claude_verified.sh`, status: "idle" },
+  { id: "glm_lite", name: "GLM + Lite", scriptPath: `${PROJECT_DIR}/scripts/run_glm.sh`, status: "idle" },
+  { id: "glm_verified", name: "GLM + Verified", scriptPath: `${PROJECT_DIR}/scripts/run_glm_verified.sh`, status: "idle" },
+  { id: "codex_lite", name: "Codex + Lite", scriptPath: `${PROJECT_DIR}/scripts/run_codex.sh`, status: "idle" },
+  { id: "codex_verified", name: "Codex + Verified", scriptPath: `${PROJECT_DIR}/scripts/run_codex_verified.sh`, status: "idle" },
 ];
 
 const runningProcesses = new Map<string, ChildProcess>();

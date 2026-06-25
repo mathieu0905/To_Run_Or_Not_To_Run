@@ -8,6 +8,8 @@ import json
 import argparse
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output"
 
 def generate_predictions(output_dir: str, dataset: str, agent: str, mode: str, output_file: str = None):
     """
@@ -98,7 +100,7 @@ def list_available_combinations(output_dir: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate SWE-bench predictions file")
-    parser.add_argument("--output-dir", default="/home/zhihao/hdd/run_free_run_less_run_full/output",
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR),
                         help="output directory path")
     parser.add_argument("--dataset", help="dataset name")
     parser.add_argument("--agent", help="agent name")

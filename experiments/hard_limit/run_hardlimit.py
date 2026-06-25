@@ -41,7 +41,7 @@ OUTPUT_ROOT = PROJECT_ROOT / "output"
 WORKSPACE_ROOT = Path("/tmp/hardlimit")
 
 # CLI binary — resolved at import time so failures are loud.
-CLAUDE_BIN = shutil.which("claude") or "/home/zhihao/.local/bin/claude"
+CLAUDE_BIN = os.environ.get("CLAUDE_BIN") or shutil.which("claude") or "claude"
 
 
 @dataclass

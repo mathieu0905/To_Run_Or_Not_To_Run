@@ -387,7 +387,8 @@ def analyze_livesweagent_trace(data: dict, instance_id: str) -> ExecutionStats:
 
 
 def main():
-    data_dir = Path('/home/zhihao/hdd/run_free_run_less_run_full/analysis/RQ_trace/data/traces')
+    project_root = Path(__file__).resolve().parents[2]
+    data_dir = project_root / 'analysis' / 'RQ_trace' / 'data' / 'traces'
 
     all_stats = []
 
