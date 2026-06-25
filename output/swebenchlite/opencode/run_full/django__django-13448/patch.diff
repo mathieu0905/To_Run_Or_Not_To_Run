@@ -1,9 +1,0 @@
-diff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py
-index e69de29bb2..6bcee417fc 100644
---- a/tests/i18n/sampleproject/sampleproject/settings.py
-+++ b/tests/i18n/sampleproject/sampleproject/settings.py
-@@ -0,0 +1,4 @@
-+# Custom user model
-+AUTH_USER_MODEL = 'i18n.User'
-+AUTH_GROUP_MODEL = 'i18n.Group'
-+AUTH_PERMISSION_MODEL = 'i18n.Permission'

@@ -1,1 +1,0 @@
-{"provider": {"local": {"options": {"apiKey": "dummy", "baseURL": "http://localhost:8000/v1"}, "models": {"Qwen/Qwen2.5-Coder-32B-Instruct": {"name": "Qwen/Qwen2.5-Coder-32B-Instruct", "tool_call": true, "limit": {"context": 65536, "output": 4096}}}}}, "agent": {"build": {"model": "local/Qwen/Qwen2.5-Coder-32B-Instruct"}}}

@@ -21,7 +21,11 @@ venv/
 
 
 # Docker build artifacts
+docker/auth.json
+docker/config.toml
+docker/settings.json
 docker/build_logs/*.log
+docker/build_logs/
 docker/build.log
 docker/build_output.log
 docker/build.pid
@@ -42,8 +46,11 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
 
 dashboard/node_modules/
+dashboard/.next/
+dashboard/tsconfig.tsbuildinfo
 node_modules/
 
 # Deprecated analysis scripts
@@ -57,6 +64,15 @@ Run_Less-ISSTA/
 
 # SWE-bench CLI evaluation reports (regenerated per run)
 sb-cli-reports/
+sb-cli-reports-new/
+sbcli_preds/
+sbcli_preds_rerun/
+
+# Generated experiment outputs
+output/
+backup/
+predictions/
+experiments/results/
 
 # opencode binary (download from upstream, too large for git)
 bin/opencode

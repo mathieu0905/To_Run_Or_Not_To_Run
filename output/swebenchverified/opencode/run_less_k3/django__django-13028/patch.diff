@@ -1,6 +1,0 @@
-diff --git a/tests/i18n/sampleproject/sampleproject/settings.py b/tests/i18n/sampleproject/sampleproject/settings.py
-index e69de29bb2..535a0d1d04 100644
---- a/tests/i18n/sampleproject/sampleproject/settings.py
-+++ b/tests/i18n/sampleproject/sampleproject/settings.py
-@@ -0,0 +1 @@
-+SECRET_KEY = 'your_secret_key_here'

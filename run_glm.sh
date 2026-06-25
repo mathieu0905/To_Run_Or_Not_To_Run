@@ -67,7 +67,10 @@ DATASET="princeton-nlp/SWE-bench_Lite"
 # GLM configuration (use GLM by default)
 export CLAUDE_MODEL="${CLAUDE_MODEL:-GLM-4.7}"
 export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-https://open.bigmodel.cn/api/anthropic}"
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-22d3e2814dd24bf1943ced46dc817067.KyGdWHcuJo0EXs0o}"
+if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    echo "ANTHROPIC_API_KEY must be set before running GLM experiments."
+    exit 1
+fi
 # ==============================
 
 # Select corresponding JSON data file based on DATASET

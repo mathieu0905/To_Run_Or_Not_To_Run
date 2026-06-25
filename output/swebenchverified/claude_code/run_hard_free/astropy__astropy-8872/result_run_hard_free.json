@@ -1,9 +1,0 @@
-{
-  "instance_id": "astropy__astropy-8872",
-  "mode": "run_hard_free",
-  "agent_type": "claude_code",
-  "success": true,
-  "duration_sec": 162.87855505943298,
-  "patch_len": 1157,
-  "error": ""
-}

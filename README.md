@@ -1,179 +1,136 @@
-# Run-Free, Run-Less, Run-Full: Impact of Execution Environments on LLM Agent Code Repair Capabilities
+# To Run or Not to Run
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+This repository contains the public artifact for the ISSTA 2026 paper
+"To Run or Not to Run: Analyzing the Cost-Effectiveness of Code Execution in
+LLM-Based Program Repair".
 
-## 📖 Project Overview
+The artifact studies how different execution policies affect LLM-based program
+repair on SWE-bench Lite and SWE-bench Verified. The public release keeps the
+experiment runner, prompts, Docker/SWE-bench integration scripts, analysis code,
+dashboard source, figures, and compact data files. Raw execution traces,
+generated patches, prediction dumps, SB-CLI reports, backups, local build logs,
+and credentials are intentionally excluded.
 
-This project explores **the impact of execution environments on LLM Agent capabilities** in automated code repair tasks. Core research question:
+## Execution Policies
 
-> **Is execution environment a "necessary capability" or an "engineering shortcut"?**
+The code uses the following mode names:
 
-We propose three execution paradigms and conduct comparative experiments on the SWE-bench Lite dataset:
+| Mode | Description |
+| --- | --- |
+| `run_free` | Prohibited execution: the agent repairs using static reasoning only. |
+| `run_less` | Quota-limited execution: the agent receives a small execution budget `k`. |
+| `run_cost` | Budget-guided execution: the agent is prompted to trade off execution cost and expected information gain. |
+| `run_full` | Unrestricted execution baseline. |
 
-| Mode | Execution Strategy | Core Hypothesis |
-|------|---------|---------|
-| **Run-Free** | Zero execution, pure reasoning | Models should have "get it right the first time" capability |
-| **Run-Less** | Limited K executions + intelligent logging instrumentation | "One smart run is worth ten blind runs" |
-| **Run-Cost** | Cost-aware decision making, model autonomously decides whether to execute | Rational agents should weigh execution costs vs. benefits |
-| **Run-Full** | Unrestricted execution, trial-and-error loop | Current mainstream approach (baseline) |
+Some hard-limit experiments live under `experiments/hard_limit/` and remove
+execution tools at the runner level for stricter policy enforcement.
 
-## 🎯 Core Hypothesis
+## Repository Layout
 
-**Limited execution count + intelligent logging instrumentation may outperform unrestricted execution**
-
-- Run-Less mode forces agents to view debugging as an "experimental design problem" rather than a "search problem"
-- Maximize information gain from each execution through logging instrumentation
-- Reduce execution costs and improve reasoning quality (Green AI perspective)
-
-## 🚀 Quick Start
-
-### Requirements
-
-- Python 3.8+
-- Docker (for SWE-bench evaluation)
-- At least 120GB disk space, 16GB RAM, 8 CPU cores
-
-### Installation
-
-```bash
-# Clone repository (including SWE-bench submodule)
-git clone --recurse-submodules https://github.com/your-repo/run_free_run_less_run_full.git
-cd run_free_run_less_run_full
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Download SWE-bench Lite dataset
-python experiments/download_datasets.py
+```text
+.
+├── analysis/                 # Paper analysis scripts and compact summaries
+├── dashboard/                # Next.js dashboard for inspecting runs
+├── data/                     # SWE-bench Lite/Verified metadata used by scripts
+├── docker/                   # Docker image build and test scripts
+├── experiments/              # Core runner, prompts, agent wrappers, tests
+├── figures/                  # Figure-generation scripts and rendered figures
+├── queue_*.tsv               # Batch queues used for release experiments
+├── run_*.sh                  # Batch launchers for agents/datasets
+└── submit_to_swebench.sh     # Submission helper for SWE-bench evaluation
 ```
 
-### Running Experiments
+`SWE-bench` and `sb-cli` are tracked as submodules. Initialize them when you
+need the full evaluation workflow.
+
+## Setup
 
 ```bash
-# Full test suite
-bash ./run_all_experiments.sh
+git clone --recurse-submodules https://github.com/mathieu0905/To_Run_Or_Not_To_Run.git
+cd To_Run_Or_Not_To_Run
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install datasets pytest pyyaml numpy pandas scipy matplotlib seaborn
+```
 
-# Run-Free mode (zero execution)
+For Docker-based SWE-bench execution, install Docker and build the required
+images with the scripts in `docker/`. Agent credentials are read from
+environment variables such as `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, and
+`OPENAI_API_KEY`; no credentials are stored in this repository.
+
+The dashboard is optional:
+
+```bash
+cd dashboard
+npm install
+npm run dev
+```
+
+## Running Experiments
+
+Single instance:
+
+```bash
 python experiments/runner.py django__django-11099 run_free
-
-# Run-Less mode (limited to 2 executions)
 python experiments/runner.py django__django-11099 run_less 2
-
-# Run-Cost mode (cost-aware decision making)
 python experiments/runner.py django__django-11099 run_cost
-
-# Run-Full mode (unrestricted execution)
 python experiments/runner.py django__django-11099 run_full
 ```
 
-Experiment results are saved in the `experiments/results/` directory.
+You can choose the agent type and timeout through the optional positional
+arguments accepted by `experiments/runner.py`.
 
-## 📊 Experimental Design
-
-### Execution Count Rules
-
-**Counted as execution**:
-- `pytest` or `python -m pytest`
-- `python script.py` (running .py files)
-- `python -m module` (running modules)
-
-**Not counted as execution**:
-- `ls`, `cat`, `grep`, `find` and other viewing commands
-- `git` commands (disabled in experiments)
-- `python -c "..."` simple calculations
-
-### Key Mechanisms of Run-Less Mode
-
-1. **Test Script Priority**: Agent needs to write test scripts based on problem description first
-2. **Logging Instrumentation**: Insert print/log statements at key locations before running tests
-3. **Hypothesis-Driven**: Clearly state hypothesis before each execution, analyze results after execution
-4. **Budget Tracking**: Agent must output "Remaining test runs: X"
-
-## 📁 Project Structure
-
-```
-.
-├── experiments/
-│   ├── runner.py              # Experiment runner
-│   ├── prompt_builder.py      # Prompt builder
-│   ├── agent_caller.py        # Agent caller
-│   ├── download_datasets.py   # Dataset download tool
-│   ├── tests/                 # Unit tests and integration tests
-│   └── results/               # Experiment results output directory
-├── SWE-bench/                 # SWE-bench official codebase (submodule)
-├── data/                      # Dataset storage directory
-├── docker/                    # Docker image build scripts
-├── CLAUDE.md                  # Claude Code project guide
-└── README.md                  # This file
-```
-
-## 🧪 Testing
+Batch scripts are provided for larger runs:
 
 ```bash
-# Run all tests
-pytest experiments/tests/
-
-# Run specific tests
-pytest experiments/tests/test_runner.py
-pytest experiments/tests/test_agent_caller.py
-
-# Run integration tests (requires real Agent)
-pytest experiments/tests/test_agent_integration.py
-pytest experiments/tests/test_runner_integration.py
+bash run_codex.sh -f
+bash run_claude.sh -f
+bash run_codex_verified.sh -f
+bash run_claude_verified.sh -f
 ```
 
-## 📈 Evaluation
+Generated traces, prompts, patches, and result JSON files are written under
+ignored output directories such as `output/` and `logs/`.
 
-You can first simply analyze interaction rounds, tokens, etc.
-```bash
-python experiments/analyze_results.py
-```
+## Analysis
 
-
-Use the SWE-bench official evaluation framework, but it is most recommended to submit to sb-cli for faster evaluation:
+The public release includes compact analysis inputs and reports under
+`analysis/`, plus the scripts used to regenerate paper tables and figures.
+Examples:
 
 ```bash
-python -m swebench.harness.run_evaluation \
-    --dataset_name princeton-nlp/SWE-bench_Lite \
-    --predictions_path experiments/results/ \
-    --max_workers 4 \
-    --run_id my_experiment
+python analysis/RQ2_effectiveness_cost/analyze_rq1.py
+python analysis/RQ2_effectiveness_cost/analyze_rq2.py
+python analysis/RQ3_why_limited_impact/rq3_comprehensive_analysis.py
+python figures/fig1_passrate_ci.py
 ```
 
-## 🎓 Research Objectives
+Prediction generation and SWE-bench submission helpers:
 
-**Target Conference**: ISSTA 2026 (International Symposium on Software Testing and Analysis)
-
-**Core Contributions**:
-1. Propose a three-paradigm taxonomy of execution environments (Run-Free/Run-Less/Run-Full)
-2. Demonstrate that limited execution + intelligent instrumentation may outperform unrestricted execution
-3. Reframe the debugging process as an "experimental design problem" rather than a "search problem"
-4. Provide a Green AI perspective: reduce execution costs and improve reasoning quality
-
-**Expected Findings**: Run-Less + Logging ≈ or > Run-Full, but with significantly lower costs
-
-## 📝 Citation
-
-If this project is helpful to your research, please cite:
-
-```bibtex
-@inproceedings{run-free-run-less-2026,
-  title={Run-Free, Run-Less, Run-Full: Rethinking Execution Environments for LLM-based Code Repair},
-  author={Your Name},
-  booktitle={Proceedings of the 35th ACM SIGSOFT International Symposium on Software Testing and Analysis},
-  year={2026}
-}
+```bash
+python experiments/prepare_sbcli_predictions.py
+python generate_predictions.py
+bash submit_to_swebench.sh
 ```
 
-## 📄 License
+These commands expect regenerated experiment outputs or externally supplied raw
+outputs. The large raw traces and report dumps used during paper development are
+not committed to keep the artifact lightweight.
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+## Public Release Notes
 
-## 🤝 Contributing
+This repository was cleaned for public artifact release:
 
-Issues and Pull Requests are welcome!
+- kept source code, scripts, prompt templates, Docker helpers, dashboard source,
+  figure scripts, compact datasets, and summarized analysis outputs;
+- removed generated traces, patch dumps, SB-CLI reports, backups, `.next`
+  builds, local logs, local Docker auth/config files, editor settings, and
+  Python bytecode;
+- updated `.gitignore` so regenerated artifacts stay out of version control.
 
-## 📧 Contact
+## Citation
 
-For questions, please contact: [your-email@example.com](mailto:your-email@example.com)
+If you use this artifact, please cite the corresponding ISSTA 2026 paper. The
+final BibTeX entry will be added after the proceedings metadata is available.
+

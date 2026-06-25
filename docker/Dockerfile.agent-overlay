@@ -20,19 +20,12 @@ RUN npm install -g @anthropic-ai/claude-code @openai/codex
 RUN curl -fsSL https://raw.githubusercontent.com/opencode-ai/opencode/refs/heads/main/install | bash \
     && ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode
 
-# Create configuration directories
+# Create configuration directories. Runtime credentials are passed with
+# docker -e by experiments/agent_caller.py; do not bake secrets into images.
 RUN mkdir -p /root/.claude /root/.codex
 
-# Copy configuration files
-COPY settings.json /root/.claude/settings.json
-COPY auth.json /root/.codex/auth.json
-COPY config.toml /root/.codex/config.toml
-
-# Set environment variables
-ENV ANTHROPIC_AUTH_TOKEN=sk-3OfHQnYVYMSlhIT7ijMyouR5lxs4cMkfkU9rGtQ5YXs95jh9
-ENV ANTHROPIC_BASE_URL=http://vip.xg.frp.one:60660
-ENV ANTHROPIC_API_KEY=sk-3OfHQnYVYMSlhIT7ijMyouR5lxs4cMkfkU9rGtQ5YXs95jh9
-ENV OPENAI_API_KEY=sk-MRmnU40pSDqAkRqDiyl4ioIl6C8CdsRq3NNBlv7VSbVwW56L
+# Set non-secret defaults
+ENV ANTHROPIC_BASE_URL=https://api.anthropic.com
 ENV CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 ENV API_TIMEOUT_MS=600000
 

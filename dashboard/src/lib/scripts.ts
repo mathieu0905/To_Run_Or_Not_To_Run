@@ -86,7 +86,7 @@ export function startScript(id: string, config: ScriptConfig): { success: boolea
     // GLM 脚本使用 GLM 配置
     finalConfig.claudeModel = "glm-4.7";
     finalConfig.anthropicBaseUrl = "https://open.bigmodel.cn/api/anthropic";
-    finalConfig.anthropicAuthToken = "22d3e2814dd24bf1943ced46dc817067.KyGdWHcuJo0EXs0o";
+    finalConfig.anthropicAuthToken = config.anthropicAuthToken || "";
   } else if (id.includes("claude")) {
     // Claude 脚本使用 Claude 配置
     finalConfig.claudeModel = config.claudeModel || "sonnet";

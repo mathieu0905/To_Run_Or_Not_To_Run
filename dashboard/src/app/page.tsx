@@ -24,7 +24,7 @@ const CONFIG_PRESETS = {
   glm: {
     name: "GLM 配置",
     anthropicBaseUrl: "https://open.bigmodel.cn/api/anthropic",
-    anthropicAuthToken: "22d3e2814dd24bf1943ced46dc817067.KyGdWHcuJo0EXs0o",
+    anthropicAuthToken: "",
     claudeModel: "GLM-4.7",
   },
   claude: {

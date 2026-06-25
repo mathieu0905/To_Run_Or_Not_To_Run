@@ -1,8 +1,0 @@
-{
-  "/api/scripts/route": "app/api/scripts/route.js",
-  "/api/traces/route": "app/api/traces/route.js",
-  "/api/generate-predictions/route": "app/api/generate-predictions/route.js",
-  "/api/submit-evaluation/route": "app/api/submit-evaluation/route.js",
-  "/api/get-report/route": "app/api/get-report/route.js",
-  "/page": "app/page.js"
-}
